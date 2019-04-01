@@ -1,5 +1,5 @@
 from setuptools import setup
-import import_all
+import recs
 
 _classifiers = [
     'Development Status :: 4 - Beta',
@@ -12,13 +12,13 @@ _classifiers = [
     'Topic :: Utilities',
 ]
 
-setup(name='import_all',
-      version=import_all.__version__,
+setup(name='recs',
+      version=recs.__version__,
       author='Tom Ritchford',
       author_email='tom@swirly.com',
-      url='https://github.com/rec/import_all',
+      url='https://github.com/rec/recs',
       tests_require=['pytest'],
-      py_modules=['import_all'],
+      py_modules=['recs'],
       description='Try to import all modules below a given root',
       long_description=open('README.rst').read(),
       license='MIT',
