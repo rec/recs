@@ -8,6 +8,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pyaudio = "^0.2.13"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
