@@ -11,6 +11,7 @@ python = "^3.11"
 pyaudio = "^0.2.13"
 sounddevice = "^0.4.6"
 soundfile = "^0.12.1"
+numpy = "^1.25.1"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.0.0"
