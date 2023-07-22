@@ -60,7 +60,7 @@ def callback(indata, frames, time, status):
         print(status, file=sys.stderr)
 
     if i[0] < 1:
-        print('!!!', indata.dtype, frames, time, status)
+        print('!!!', indata.dtype, indata.shape, frames, time, status)
         i[0] += 1
 
     q.put(indata.copy())
