@@ -105,3 +105,4 @@ venv.bak/
 
 .direnv/
 .envrc
+*.wav
