@@ -1,4 +1,5 @@
 from functools import cached_property
+import datetime.datetime as dt
 import dataclasses as dc
 import dtyper as typer
 import numpy as np
@@ -9,18 +10,6 @@ import typing as t
 
 DType = np.int32
 Array = np.ndarray
-
-
-@dc.dataclass
-class Block:
-    block: Array
-
-    def __post_init__(self):
-        self.sample_count, self.channel_count = self.block.shape
-
-    @cached_property
-    def amplitude(self) -> DType:
-        return self.block.max() - self.block.min()
 
 
 @dc.dataclasses
@@ -58,6 +47,50 @@ class Device:
         )
 
 
+@dc.dataclass(frozen=True)
+class Block:
+    block: Array
+
+    def __len__(self) -> int:
+        return self.block.shape[0]
+
+    @cached_property
+    def amplitude(self) -> DType:
+        return self.block.max() - self.block.min()
+
+
+class Blocks:
+    blocks: list[Block] = dc.field(default_factory=list)
+    length: int = 0
+
+    def append(self, block):
+        self.blocks.append(block)
+        self.length += len(block)
+
+    def clear(self):
+        self.length = 0
+        self.blocks.clear()
+
+    def clip_to_length(self, sample_length: int):
+        removed = []
+        while self.length > sample_length:
+            block = self.blocks.pop(0)
+            removed.append(block)
+            self.length -= len(block)
+        return removed
+
+    def write(self, sf):
+        for b in self.blocks:
+            sf.write(b)
+        self.clear()
+
+    def __getitem__(self, i):
+        return self.blocks[i]
+
+    def __len__(self):
+        return len(self.blocks)
+
+
 @dc.dataclass
 class SilenceStrategy:
     at_start: int
@@ -71,21 +104,6 @@ class SilenceStrategy:
         ratio = 10 ** (self.noise_floor_db / 10)
         return self.sample_range // ratio
 
-    def __call__(self, listener):
-        blocks = listener._blocks
-
-        if block and blocks[-1].amplitude >= self.noise_floor:
-            if listener._fp:
-                blocks = blocks[:]
-            else:
-                blocks = blocks[-(self.at_start + 1):]
-            listener.blocks.clear()
-            listener.record(blocks)
-
-        elif len(blocks) > self.before_splitting:
-            listener.close()
-            blocks[:] = blocks[-max(self.at_start, 1):]
-
 
 @dc.dataclass
 class ChannelListener:
@@ -93,19 +111,27 @@ class ChannelListener:
     name: str
     path: Path
     samplerate: int
-    silence_strategy: SilenceStrategy
+    silence: SilenceStrategy
 
     file_suffix: str = '.flac'
     subtype: str = 'PCM_24'
 
-    _blocks: list[Block] = dc.field(default_factory=list)
+    _blocks: Blocks = dc.field(default_factory=Blocks)
     _sf: sf.SoundFile | None = None
 
     def __callback__(self, frames: Array):
-        self._blocks.append(Block(frames[, self.channel_slice]))
-        self.silence_strategy(self)
+        block = Block(frames[, self.channel_slice])
+        self._blocks.append(block)
 
-    def record(self, blocks):
+        if block.amplitude >= self.silence.noise_floor:
+            if not self._fp:
+                self.blocks.clip_to_length(self.at_start + len(block))
+            self._record()
+
+        elif blocks.length > self.before_splitting:
+            self.close()
+
+    def _record(self):
         self._sf = self._sf or sf.SoundFile(
             self._new_filename(),
             channels=len(self.channel_slice),
@@ -113,8 +139,9 @@ class ChannelListener:
             samplerate=self.samplerate,
             subtype=self.subtype,
         )
-        for b in self.blocks:
-            self._sf.write(b)
+        for b in self._blocks:
+            self._sf.write(b.block)
+        self._blocks.clear()
 
     def close(self):
         if self._sf:
@@ -125,9 +152,13 @@ class ChannelListener:
             self._sf = None
 
     def _new_filename(self):
-        Path(self.name).mkdir(exist_ok=True)
-        ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        return self.path / f'{self.name}-{ts}{self.file_suffix}'
+        filename = str(self.path / f'{self.name}-{ts()}{self.file_suffix}')
+        print('Creating', filename)
+        return filepath
+
+
+def ts()
+    return dt.now().strftime('%Y%m%d-%H%M%S')
 
 
 @dc.dataclasses
