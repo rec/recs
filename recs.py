@@ -7,65 +7,24 @@ import soundfile as sf
 import sys
 import typing as t
 
-Int = np.int32
-array = np.ndarray
+DType = np.int32
+Array = np.ndarray
 
 
 @dc.dataclass
 class Block:
-    block: array
+    block: Array
 
     def __post_init__(self):
         self.sample_count, self.channel_count = self.block.shape
 
     @cached_property
-    def amplitude(self) -> Int:
-        return 0 if self.block is None else self.block.max() - self.block.min()
-
-    def blacken(self):
-        if self.amplitude:
-            return self
-        return Black(self.sample_count, self.channel_count)
-
-
-@dc.dataclass
-class Black:
-    sample_count: int = 0
-    channel_count: int = 2
-    amplitude: int = 0
-
-
-@dc.dataclass
-class ChannelListener:
-    channels: slice
-    noise_floor_db: float = 70
-    blocks: t.List[Block] = dc.field(default_factory=list)
-
-    @cached_property
-    def noise_floor(self):
-        ratio = 10 ** (self.noise_floor_db / 10)
-        return 0x1_0000_0000 // ratio
-
-    def __callback__(self, frames: array):
-        block = Block(frames[, self.channels])
-        if not block.amplitude:
-            block = Black
-        elif block.amplitude < self.noise_floor:
-
-    def slice(self, frames: array) -> array:
-        if b.shape[0] == self.channel_count:
-            assert self.channel_start == 0
-            return frames
-
-
-@dc.dataclass
-class SliceRouter:
-    slices: t.List[slice] = dc.field(default_factory=list)
-
+    def amplitude(self) -> DType:
+        return self.block.max() - self.block.min()
 
 
 @dc.dataclasses
-class QueuedDevice:
+class Device:
     device: int | str
     queue: Queue = dc.field(default_factory=Quene)
     block_count: int = 0
@@ -94,16 +53,86 @@ class QueuedDevice:
             callback=self.callback,
             channels=self.channels,
             device=self.device,
+            dtype=DType,
             samplerate=self.samplerate,
         )
 
 
+@dc.dataclass
+class SilenceStrategy:
+    at_start: int
+    at_end: int
+    before_splitting: int
+    noise_floor_db: float = 70
+    sample_range: int = 0x1_0000_0000
 
+    @cached_property
+    def noise_floor(self):
+        ratio = 10 ** (self.noise_floor_db / 10)
+        return self.sample_range // ratio
+
+    def __call__(self, listener):
+        blocks = listener._blocks
+
+        if block and blocks[-1].amplitude >= self.noise_floor:
+            if listener._fp:
+                blocks = blocks[:]
+            else:
+                blocks = blocks[-(self.at_start + 1):]
+            listener.blocks.clear()
+            listener.record(blocks)
+
+        elif len(blocks) > self.before_splitting:
+            listener.close()
+            blocks[:] = blocks[-max(self.at_start, 1):]
+
+
+@dc.dataclass
+class ChannelListener:
+    channel_slice: slice
+    name: str
+    path: Path
+    samplerate: int
+    silence_strategy: SilenceStrategy
+
+    file_suffix: str = '.flac'
+    subtype: str = 'PCM_24'
+
+    _blocks: list[Block] = dc.field(default_factory=list)
+    _sf: sf.SoundFile | None = None
+
+    def __callback__(self, frames: Array):
+        self._blocks.append(Block(frames[, self.channel_slice]))
+        self.silence_strategy(self)
+
+    def record(self, blocks):
+        self._sf = self._sf or sf.SoundFile(
+            self._new_filename(),
+            channels=len(self.channel_slice),
+            mode='x',
+            samplerate=self.samplerate,
+            subtype=self.subtype,
+        )
+        for b in self.blocks:
+            self._sf.write(b)
+
+    def close(self):
+        if self._sf:
+            blocks = self._blocks[:self.silence.at_end]
+            self._blocks = self._blocks[self.silence.at_end:]
+            self.record(blocks)
+            self._sf.close()
+            self._sf = None
+
+    def _new_filename(self):
+        Path(self.name).mkdir(exist_ok=True)
+        ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        return self.path / f'{self.name}-{ts}{self.file_suffix}'
 
 
 @dc.dataclasses
 class Universe:
-    device: QueuedDevice
+    device: Device
 
 
 """
