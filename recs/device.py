@@ -1,26 +1,28 @@
+from . import DType
 from functools import cached_property
+from queue import Queue
 import dataclasses as dc
 import sounddevice as sd
 import sys
 
 
-@dc.dataclasses
+@dc.dataclass
 class Device:
     device: int | str
-    queue: Queue = dc.field(default_factory=Quene)
+    queue: Queue = dc.field(default_factory=Queue)
     block_count: int = 0
 
     @cached_property
     def channels(self) -> int:
-        return self.info['max_input_channels')
+        return self.info["max_input_channels"]
 
     @cached_property
     def info(self):
-        return sd.query_devices(self.device, 'input')
+        return sd.query_devices(self.device, "input")
 
     @cached_property
     def samplerate(self) -> int:
-        return int(self.info['default_samplerate'])
+        return int(self.info["default_samplerate"])
 
     def callback(self, indata, frames, time, status):
         if status:

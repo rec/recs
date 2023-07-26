@@ -1,12 +1,9 @@
+from . import Array, block
 from functools import cached_property
-import datetime.datetime as dt
+from pathlib import Path
 import dataclasses as dc
-import dtyper as typer
-import numpy as np
-import sounddevice as sd
+import datetime.datetime as dt
 import soundfile as sf
-import sys
-import typing as t
 
 
 @dc.dataclass
@@ -31,29 +28,29 @@ class ChannelListener:
     samplerate: int
     silence: SilenceStrategy
 
-    file_suffix: str = '.flac'
-    subtype: str = 'PCM_24'
+    file_suffix: str = ".flac"
+    subtype: str = "PCM_24"
 
-    _blocks: Blocks = dc.field(default_factory=Blocks)
+    _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
     _sf: sf.SoundFile | None = None
 
     def __callback__(self, frames: Array):
-        block = Block(frames[, self.channel_slice])
-        self._blocks.append(block)
+        new_block = block.Block(frames[:, self.channel_slice])
+        self._blocks.append(new_block)
 
-        if block.amplitude >= self.silence.noise_floor:
-            if not self._fp:
-                self.blocks.clip_to_length(self.at_start + len(block))
+        if new_block.amplitude >= self.silence.noise_floor:
+            if not self._sf:
+                self._blocks.clip_to_length(self.silence.at_start + len(new_block))
             self._record()
 
-        elif blocks.length > self.before_splitting:
+        elif self._blocks.length > self.silence.before_splitting:
             self.close()
 
     def _record(self):
         self._sf = self._sf or sf.SoundFile(
             self._new_filename(),
             channels=len(self.channel_slice),
-            mode='x',
+            mode="x",
             samplerate=self.samplerate,
             subtype=self.subtype,
         )
@@ -63,25 +60,26 @@ class ChannelListener:
 
     def close(self):
         if self._sf:
-            blocks = self._blocks[:self.silence.at_end]
-            self._blocks = self._blocks[self.silence.at_end:]
+            blocks = self._blocks[: self.silence.at_end]
+            self._blocks = self._blocks[self.silence.at_end :]
             self.record(blocks)
             self._sf.close()
             self._sf = None
 
     def _new_filename(self):
-        filename = str(self.path / f'{self.name}-{ts()}{self.file_suffix}')
-        print('Creating', filename)
-        return filepath
+        filename = str(self.path / f"{self.name}-{ts()}{self.file_suffix}")
+        print("Creating", filename)
+        return filename
 
 
-def ts()
-    return dt.now().strftime('%Y%m%d-%H%M%S')
+def ts():
+    return dt.now().strftime("%Y%m%d-%H%M%S")
 
 
-@dc.dataclasses
+@dc.dataclass
 class Universe:
-    device: Device
+    pass
+    # device: Device
 
 
 """

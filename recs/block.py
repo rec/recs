@@ -1,3 +1,4 @@
+from functools import cached_property
 from . import Array, DType
 import dataclasses as dc
 

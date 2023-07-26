@@ -26,3 +26,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.black]
+skip-string-normalization = true
+target-version = ["py311"]
