@@ -1,4 +1,5 @@
 from typer import Typer
+import click
 import sys
 
 ICON = '🎙'
@@ -24,6 +25,15 @@ def rec():
 @command(help='Check levels')
 def check():
     pass
+
+
+@command(help='Info')
+def info():
+    import sounddevice as sd
+    import json
+
+    info = sd.query_devices()
+    print(json.dumps(info, indent=2))
 
 
 def run():
