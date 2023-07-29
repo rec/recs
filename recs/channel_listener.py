@@ -28,8 +28,8 @@ class ChannelListener:
     samplerate: int
     silence: SilenceStrategy
 
-    file_suffix: str = ".flac"
-    subtype: str = "PCM_24"
+    file_suffix: str = '.flac'
+    subtype: str = 'PCM_24'
 
     _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
     _sf: sf.SoundFile | None = None
@@ -50,7 +50,7 @@ class ChannelListener:
         self._sf = self._sf or sf.SoundFile(
             self._new_filename(),
             channels=len(self.channel_slice),
-            mode="x",
+            mode='x',
             samplerate=self.samplerate,
             subtype=self.subtype,
         )
@@ -67,13 +67,13 @@ class ChannelListener:
             self._sf = None
 
     def _new_filename(self):
-        filename = str(self.path / f"{self.name}-{ts()}{self.file_suffix}")
-        print("Creating", filename)
+        filename = str(self.path / f'{self.name}-{ts()}{self.file_suffix}')
+        print('Creating', filename)
         return filename
 
 
 def ts():
-    return dt.now().strftime("%Y%m%d-%H%M%S")
+    return dt.now().strftime('%Y%m%d-%H%M%S')
 
 
 @dc.dataclass

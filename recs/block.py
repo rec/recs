@@ -1,5 +1,5 @@
 from functools import cached_property
-from . import Array, DType
+from . import Array
 import dataclasses as dc
 
 
@@ -11,8 +11,16 @@ class Block:
         return self.block.shape[0]
 
     @cached_property
-    def amplitude(self) -> DType:
-        return self.block.max() - self.block.min()
+    def amplitude(self) -> int:
+        return self.max - self.min
+
+    @cached_property
+    def max(self) -> int:
+        return self.block.max()
+
+    @cached_property
+    def min(self) -> int:
+        return self.block.min()
 
 
 class Blocks:
