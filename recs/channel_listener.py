@@ -21,20 +21,29 @@ class SilenceStrategy:
 
 
 @dc.dataclass
+class FileFormat:
+    channels: int
+    samplerate: int
+    subtype: str = 'PCM_24'
+
+    def open(self, filename: Path) -> sf.SoundFile:
+        return sf.SoundFile(filename, **dc.asdict(self))
+
+
+@dc.dataclass
 class ChannelListener:
     channel_slice: slice
+    file_format: FileFormat
     name: str
     path: Path
-    samplerate: int
     silence: SilenceStrategy
 
     file_suffix: str = '.flac'
-    subtype: str = 'PCM_24'
 
     _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
     _sf: sf.SoundFile | None = None
 
-    def __callback__(self, frames: Array):
+    def __call__(self, frames: Array):
         new_block = block.Block(frames[:, self.channel_slice])
         self._blocks.append(new_block)
 
@@ -47,13 +56,7 @@ class ChannelListener:
             self.close()
 
     def _record(self):
-        self._sf = self._sf or sf.SoundFile(
-            self._new_filename(),
-            channels=len(self.channel_slice),
-            mode='x',
-            samplerate=self.samplerate,
-            subtype=self.subtype,
-        )
+        self._sf = self._sf or self.file_format.open(self._new_filename())
         for b in self._blocks:
             self._sf.write(b.block)
         self._blocks.clear()
