@@ -1,7 +1,7 @@
 from functools import cached_property
 from queue import Queue
-from threading import Lock
-from threading import Thread
+from threading import Lock, Thread
+import dataclasses as dc
 import sys
 import traceback
 import typing as t
@@ -26,49 +26,51 @@ class IsRunning:
         pass
 
     def stop(self):
-        # Might not do anything.
+        # Might not do anything, should never raise an exception
         self.running = False
 
 
+@dc.dataclass
 class HasThread(IsRunning):
-    _target = None
-    daemon = True
-    looping = False
+    callback: t.Callable[[], t.Any]
+    daemon: bool = True
+    stderr: t.TextIO = sys.stderr
+    looping: bool = False
 
     @property
     def name(self):
         return self.__class__.__name__
 
-    def _thread_target(self):
+    def new_thread(self) -> Thread:
+        return Thread(target=self._target, daemon=self.daemon)
+
+    @cached_property
+    def thread(self) -> Thread:
+        return self.new_thread()
+
+    def _target(self):
         while self.running:
             try:
-                self._target()
-            except Exception as e:
-                print('Exception', self, self.name, e, file=sys.stderr)
-                traceback.print_stack()
+                self.callback()
+            except Exception:
+                traceback.print_exc(file=self.stderr)
                 self.stop()
                 raise
             else:
                 if not self.looping:
                     break
 
-    def new_thread(self, run_loop=False):
-        return Thread(target=self._thread_target, daemon=self.daemon)
-
-    @cached_property
-    def thread(self):
-        return self.new_thread()
-
     def _start(self):
         self.thread.start()
 
 
-class ThreadQueue(HasThread):
-    maxsize = 0
-    thread_count = 1
-    callback = print
-    thread = None
-    name = 'thread_queue'
+@dc.dataclass
+class ThreadQueue(IsRunning):
+    callback: t.Callable[[t.Any], t.Any]
+    finish_message: t.Any = None
+    maxsize: int = 0
+    name: str = 'thread_queue'
+    thread_count: int = 1
 
     def _start(self):
         [t.start() for t in self.threads]
@@ -84,6 +86,44 @@ class ThreadQueue(HasThread):
     def threads(self):
         return tuple(self.new_thread() for i in range(self.thread_count))
 
-    def _target(self):
-        while self.running and (item := self.queue.get()) is not None:
-            self.callback(item)
+    def target(self):
+        while self.running and (x := self.queue.get()) != self.finish_message:
+            self.callback(x)
+
+    def join(self):
+        for th in self.threads:
+            th.join()
+
+    def start(self):
+        super().start()
+        for th in self.threads:
+            th.start()
+
+    def stop(self):
+        super().stop()
+        for th in self.threads:
+            th.stop()
+
+    def finish(self):
+        for th in self.threads:
+            self.put(self.finish_message)
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if exc_type is None:
+                self.finish()
+                self.join()
+        finally:
+            self.stop()
+
+    def run_to_finish(self):
+        self.start()
+        self.finish()
+        try:
+            self.join()
+        except Exception:
+            self.stop()
