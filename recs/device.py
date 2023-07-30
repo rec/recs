@@ -1,41 +1,42 @@
 from . import DType
-from functools import cached_property
-from queue import Queue
+
+# from queue import Queue
 import dataclasses as dc
 import sounddevice as sd
 import sys
+import typing as t
 
 
-@dc.dataclass
-class Device:
-    device_id: int | str
-    queue: Queue = dc.field(default_factory=Queue)
-    block_count: int = 0
+@dc.dataclass(frozen=True)
+class InputDevice:
+    info: t.List[t.Dict]
+    dtype: t.Any = DType
+    block_count = 0
 
-    @cached_property
-    def channels(self) -> int:
+    def __bool__(self):
+        return bool(self.channels)
+
+    def channels(self):
         return self.info['max_input_channels']
 
-    @cached_property
-    def info(self):
-        return sd.query_devices(self.device, 'input')
+    def name(self):
+        return self.info['name']
 
-    @cached_property
-    def samplerate(self) -> int:
-        return int(self.info['default_samplerate'])
+    def input_stream(self, callback, *a, **ka):
+        def _callback(indata, frames, time, status):
+            self.block_count += 1
+            if status:
+                print(status, file=sys.stderr)
+            callback(indata.copy(), *a, **ka)
 
-    def callback(self, indata, frames, time, status):
-        if status:
-            print(status, file=sys.stderr)
-        self.queue.put(indata.copy())
-        self.block_count += 1
-
-    @cached_property
-    def input_stream(self):
         return sd.InputStream(
-            callback=self.callback,
+            callback=_callback,
             channels=self.channels,
-            device=self.device_id,
-            dtype=DType,
-            samplerate=self.samplerate,
+            device=self.name,
+            dtype=self.dtype,
+            samplerate=int(self.info['default_samplerate']),
         )
+
+
+def input_devices():
+    return {d.name: d for i in sd.query_devices() if (d := InputDevice(i))}
