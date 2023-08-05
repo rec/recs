@@ -1,6 +1,7 @@
 from functools import cached_property
 from . import Array
 import dataclasses as dc
+import typing as t
 
 
 @dc.dataclass(frozen=True)
@@ -53,3 +54,18 @@ class Blocks:
 
     def __len__(self):
         return len(self.blocks)
+
+
+@dc.dataclass(frozen=True)
+class Demuxer:
+    slices: t.Dict[str, slice]
+
+    def __call__(self, frame: Array):
+        yield from ((k, Block(frame[:, v])) for k, v in self.slices.items())
+
+
+def slices(channels: int) -> t.Iterator[tuple[str, slice]]:
+    for i in range(0, channels - 1, 2):
+        yield f'{i}-{i + 1}', slice(i, i + 2)
+    if channels % 1:
+        yield f'{channels - 1}', slice(channels, channels + 1)

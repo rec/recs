@@ -1,4 +1,4 @@
-from . import Array, block
+from .block import Block, Blocks
 from functools import cached_property
 from pathlib import Path
 import dataclasses as dc
@@ -31,8 +31,7 @@ class FileFormat:
 
 
 @dc.dataclass
-class ChannelListener:
-    channel_slice: slice
+class FileWriter:
     file_format: FileFormat
     name: str
     path: Path
@@ -40,16 +39,15 @@ class ChannelListener:
 
     file_suffix: str = '.flac'
 
-    _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
+    _blocks: Blocks = dc.field(default_factory=Blocks)
     _sf: sf.SoundFile | None = None
 
-    def __call__(self, frames: Array):
-        new_block = block.Block(frames[:, self.channel_slice])
-        self._blocks.append(new_block)
+    def __call__(self, block: Block):
+        self._blocks.append(block)
 
-        if new_block.amplitude >= self.silence.noise_floor:
+        if block.amplitude >= self.silence.noise_floor:
             if not self._sf:
-                self._blocks.clip_to_length(self.silence.at_start + len(new_block))
+                self._blocks.clip_to_length(self.silence.at_start + len(block))
             self._record()
 
         elif self._blocks.length > self.silence.before_splitting:

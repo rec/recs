@@ -26,13 +26,48 @@ class IsRunning:
         pass
 
     def stop(self):
-        # Might not do anything, should never raise an exception
+        """Stop as soon as possible.
+        Might not do anything, should never raise an exception
+        """
         self.running = False
+
+    def join(self):
+        """Join this thread or process.  Might block indefinitely"""
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if exc_type is None:
+                self.finish()
+                self.join()
+        finally:
+            self.stop()
+
+
+class Runnables(IsRunning):
+    runnables: t.Sequence[IsRunning]
+
+    def join(self):
+        super().join()
+        for r in self.runnables:
+            r.join()
+
+    def _start(self):
+        for r in self.runnables:
+            r.start()
+
+    def stop(self):
+        super().stop()
+        for r in self.runnables:
+            r.stop()
 
 
 @dc.dataclass
 class HasThread(IsRunning):
-    callback: t.Callable[[], t.Any]
+    callback: t.Callable[[], None]
     daemon: bool = True
     stderr: t.TextIO = sys.stderr
     looping: bool = False
@@ -65,15 +100,16 @@ class HasThread(IsRunning):
 
 
 @dc.dataclass
-class ThreadQueue(IsRunning):
+class ThreadQueue(Runnables):
     callback: t.Callable[[t.Any], t.Any]
     finish_message: t.Any = None
     maxsize: int = 0
     name: str = 'thread_queue'
     thread_count: int = 1
 
-    def _start(self):
-        [t.start() for t in self.threads]
+    def __post_init__(self):
+        it = range(self.thread_count)
+        self.runnables = tuple(HasThread(self.target) for _ in it)
 
     @cached_property
     def queue(self):
@@ -82,48 +118,11 @@ class ThreadQueue(IsRunning):
     def put(self, item):
         self.queue.put_nowait(item)
 
-    @cached_property
-    def threads(self):
-        return tuple(self.new_thread() for i in range(self.thread_count))
-
     def target(self):
         while self.running and (x := self.queue.get()) != self.finish_message:
             self.callback(x)
 
-    def join(self):
-        for th in self.threads:
-            th.join()
-
-    def start(self):
-        super().start()
-        for th in self.threads:
-            th.start()
-
-    def stop(self):
-        super().stop()
-        for th in self.threads:
-            th.stop()
-
     def finish(self):
-        for th in self.threads:
+        """Request stop after all the work is done"""
+        for _ in self.runnables:
             self.put(self.finish_message)
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            if exc_type is None:
-                self.finish()
-                self.join()
-        finally:
-            self.stop()
-
-    def run_to_finish(self):
-        self.start()
-        self.finish()
-        try:
-            self.join()
-        except Exception:
-            self.stop()

@@ -1,6 +1,5 @@
 from . import DType
 
-# from queue import Queue
 import dataclasses as dc
 import sounddevice as sd
 import sys
