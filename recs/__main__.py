@@ -26,7 +26,9 @@ def rec():
 
 @command(help='Check levels')
 def check():
-    pass
+    from . check import check
+
+    check()
 
 
 @command(help='Info')

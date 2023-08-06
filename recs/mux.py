@@ -14,7 +14,7 @@ class Demuxer:
 
     def __call__(self, frame: Array, *args):
         for k, v in self.slices.items():
-            self.callback(k, frame[:, v], *args)
+            self.callback(frame[:, v], k, *args)
 
 
 def auto_slice(channels: int) -> SliceDict:
@@ -42,10 +42,19 @@ def to_slices(d):
 
 
 def demux_one(device, callback, device_slices: t.Dict[str, SliceDict]):
-    m = [v for k, v in device_slices.items() if device.name.startswith(k)]
-    slices = to_slices(m[0]) if m else auto_slice(device.channels)
+    slices = slice_one(device, device_slices)
     demux = Demuxer(callback, slices)
     return device.input_stream(demux)
+
+
+def slice_one(device, device_slices):
+    name = device.name.lower()
+    m = [v for k, v in device_slices.items() if name.startswith(k.lower())]
+    return to_slices(m[0]) if m else auto_slice(device.channels)
+
+
+def slice_all(devices, device_slices):
+    return {d.name: slice_one(d, device_slices) for d in devices}
 
 
 @contextlib.contextmanager

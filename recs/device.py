@@ -14,12 +14,15 @@ class InputDevice:
     def __bool__(self):
         return bool(self.channels)
 
+    @property
     def channels(self):
         return self.info['max_input_channels']
 
+    @property
     def samplerate(self) -> int:
         return int(self.info['default_samplerate'])
 
+    @property
     def name(self):
         return self.info['name']
 
