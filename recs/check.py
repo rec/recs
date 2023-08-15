@@ -1,10 +1,9 @@
-from . import device, mux
+from . import device, field, mux
 from .block import Block
 from collections import defaultdict
 import dataclasses as dc
 import random
 import time
-import typing as t
 
 from .counter import Accumulator, Counter
 
@@ -12,10 +11,6 @@ from rich.live import Live
 from rich.table import Table
 
 DEVICE_SLICES = {'FLOW': mux.auto_slice(8) | {'Main': slice(8, 10)}}
-
-
-def field(default_factory: t.Callable[[], t.Any], **ka):
-    return dc.field(default_factory=default_factory, **ka)
 
 
 @dc.dataclass
@@ -100,7 +95,7 @@ COLUMNS = (
 )
 
 
-def generate_table() -> Table:
+def old_generate_table() -> Table:
     """Make a new table."""
     table = Table()
     table.add_column("ID")
@@ -117,29 +112,6 @@ def generate_table() -> Table:
     return table
 
 
-"""
-
-global:
-  time elapsed: in seconds
-  block count
-
-per device:
-  block count
-  last block size
-  sample rate
-
-per slice:
-  block count
-
-max, min, mean for
-
-amplitude
-DC offset
-RMS
-
-"""
-
-
 def check_old():
     devices = device.input_devices()
     slices = mux.slice_all(devices.values(), DEVICE_SLICES)
@@ -149,7 +121,7 @@ def check_old():
 
 
 def check():
-    with Live(generate_table(), refresh_per_second=4) as live:
+    with Live(old_generate_table(), refresh_per_second=4) as live:
         for _ in range(40):
             time.sleep(0.4)
-            live.update(generate_table())
+            live.update(old_generate_table())

@@ -1,6 +1,8 @@
 import dataclasses as dc
-import math
+import numpy as np
 from threading import Lock
+
+Num = float | np.ndarray
 
 
 @dc.dataclass
@@ -16,21 +18,26 @@ class Counter:
 
 class Accumulator:
     count: int = 0
-    sum: float = 0
-    square_sum: float = 0
-    last: float = 0
+    last: Num
+    sum: Num
+    square_sum: Num
 
-    def accum(self, x: float):
+    def accum(self, x: float | np.ndarray):
         self.last = x
         self.count += 1
-        self.sum += x
-        self.square_sum += x * x
+        try:
+            self.sum += x
+        except AttributeError:
+            self.sum = x.copy() if isinstance(x, np.ndarray) else x
+            self.square_sum = x * x
+        else:
+            self.square_sum += x * x
 
-    def mean(self) -> float:
+    def mean(self) -> Num:
         return self.count and self.sum / self.count
 
-    def stdev(self) -> float:
-        return math.sqrt(self.variance())
+    def stdev(self) -> Num:
+        return self.variance() ** 0.5
 
-    def variance(self) -> float:
+    def variance(self) -> Num:
         return self.count and self.square_sum / self.count

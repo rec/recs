@@ -1,5 +1,4 @@
 from functools import cached_property
-from numbers import Real
 from . import Array
 import dataclasses as dc
 import numpy as np
@@ -10,25 +9,25 @@ class Block:
     block: Array
 
     def __len__(self) -> int:
-        return self.block.shape[0]
+        return self.block.shape[1]
 
     @cached_property
-    def amplitude(self) -> Real:
+    def amplitude(self) -> np.ndarray:
         return self.max - self.min
 
     @cached_property
-    def max(self) -> Real:
-        return self.block.max()
+    def max(self) -> np.ndarray:
+        return self.block.max(1)
 
     @cached_property
-    def min(self) -> Real:
-        return self.block.min()
+    def min(self) -> np.ndarray:
+        return self.block.min(1)
 
     @cached_property
-    def rms(self) -> Real:
+    def rms(self) -> np.ndarray:
         b = self.block.astype(float)
         b *= b
-        return np.sqrt(np.mean(b))
+        return np.sqrt(b.mean(1))
 
 
 @dc.dataclass
