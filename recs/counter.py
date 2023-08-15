@@ -10,7 +10,7 @@ class Counter:
     value: int = 0
     lock: Lock = dc.field(default_factory=Lock)
 
-    def increment(self, i: int = 1) -> int:
+    def __call__(self, i: int = 1) -> int:
         with self.lock:
             self.value += i
             return self.value

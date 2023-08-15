@@ -3,10 +3,10 @@ from recs import counter
 
 def test_counter():
     c = counter.Counter()
-    assert c.increment() == 1
-    assert c.increment() == 2
-    assert c.increment(0) == 2
-    assert c.increment(3) == 5
+    assert c() == 1
+    assert c() == 2
+    assert c(0) == 2
+    assert c(3) == 5
 
 
 def test_accumulator():
