@@ -84,7 +84,7 @@ class Global:
     def table(self):
         t = Table(*COLUMNS)
         for row in self.rows():
-            [str(row.get(c, '')) for c in COLUMNS]
+            t.add_row([_to_str(row.get(c)) for c in COLUMNS])
 
         return t
 
@@ -92,6 +92,18 @@ class Global:
         yield {'time': round(self.elapsed_time, 2)}
         for k, v in self.devices.items():
             yield from v.rows(k)
+
+
+def _to_str(x):
+    if x is None:
+        return ''
+    if isinstance(x, str):
+        return x
+    if isinstance(x, int):
+        return str(x)
+    if isinstance(x, float):
+        return str(round(x, 3))
+    return '|'.join(_to_str(i) for i in x)
 
 
 def old_generate_table() -> Table:
