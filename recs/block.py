@@ -1,6 +1,8 @@
 from functools import cached_property
+from numbers import Real
 from . import Array
 import dataclasses as dc
+import numpy as np
 
 
 @dc.dataclass(frozen=True)
@@ -11,16 +13,22 @@ class Block:
         return self.block.shape[0]
 
     @cached_property
-    def amplitude(self) -> int:
+    def amplitude(self) -> Real:
         return self.max - self.min
 
     @cached_property
-    def max(self) -> int:
+    def max(self) -> Real:
         return self.block.max()
 
     @cached_property
-    def min(self) -> int:
+    def min(self) -> Real:
         return self.block.min()
+
+    @cached_property
+    def rms(self) -> Real:
+        b = self.block.astype(float)
+        b *= b
+        return np.sqrt(np.mean(b))
 
 
 @dc.dataclass
