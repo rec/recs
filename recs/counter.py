@@ -22,7 +22,7 @@ class Accumulator:
     sum: Num
     square_sum: Num
 
-    def accum(self, x: float | np.ndarray):
+    def __call__(self, x: float | np.ndarray):
         self.last = x
         self.count += 1
         try:

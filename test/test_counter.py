@@ -11,8 +11,7 @@ def test_counter():
 
 def test_accumulator():
     a = counter.Accumulator()
-    for i in range(16):
-        a.accum(i)
+    [a(i) for i in range(16)]
 
     assert a.count == 16
     assert a.mean() == 7.5

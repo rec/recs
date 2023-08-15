@@ -12,6 +12,18 @@ from rich.table import Table
 
 DEVICE_SLICES = {'FLOW': mux.auto_slice(8) | {'Main': slice(8, 10)}}
 
+COLUMNS = (
+    'time',
+    'device',
+    'channel',
+    'count',
+    'block_size',
+    'rms',
+    'rms_mean',
+    'amplitude',
+    'amplitude_mean',
+)
+
 
 @dc.dataclass
 class Channel:
@@ -80,19 +92,6 @@ class Global:
         yield {'time': round(self.elapsed_time, 2)}
         for k, v in self.devices.items():
             yield from v.rows(k)
-
-
-COLUMNS = (
-    'time',
-    'device',
-    'channel',
-    'count',
-    'block_size',
-    'rms',
-    'rms_mean',
-    'amplitude',
-    'amplitude_mean',
-)
 
 
 def old_generate_table() -> Table:
