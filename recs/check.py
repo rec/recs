@@ -1,11 +1,12 @@
 from . import device, mux
 from .block import Block
 from collections import defaultdict
-from functools import cached_property
 import dataclasses as dc
-import math
+import random
 import time
 import typing as t
+
+from .counter import Accumulator, Counter
 
 from rich.live import Live
 from rich.table import Table
@@ -15,38 +16,6 @@ DEVICE_SLICES = {'FLOW': mux.auto_slice(8) | {'Main': slice(8, 10)}}
 
 def field(default_factory: t.Callable[[], t.Any], **ka):
     return dc.field(default_factory=default_factory, **ka)
-
-
-class Counter:
-    value = 0
-
-    @cached_property
-    def counter(self):
-        return self.itertools.count()
-
-    def increment(self) -> int:
-        self.value = v = next(self.counter)
-        return v
-
-
-@dc.dataclass
-class Accumulator:
-    count: int = 0
-    sum: float = 0
-    square_sum: float = 0
-    last: float = 0
-
-    def accum(self, x: float):
-        self.last = x
-        self.count += 1
-        self.sum += x
-        self.square_sum += x * x
-
-    def mean(self) -> float:
-        return self.count and self.sum / self.count
-
-    def stdev(self) -> float:
-        return self.count and math.sqrt(self.square_sum / self.count)
 
 
 @dc.dataclass
@@ -130,6 +99,24 @@ COLUMNS = (
     'amplitude_mean',
 )
 
+
+def generate_table() -> Table:
+    """Make a new table."""
+    table = Table()
+    table.add_column("ID")
+    table.add_column("Value")
+    table.add_column("Status")
+
+    for row in range(random.randint(2, 6)):
+        value = random.random() * 100
+        table.add_row(
+            f"{row}",
+            f"{value:3.2f}",
+            "[red]ERROR" if value < 50 else "[green]SUCCESS",
+        )
+    return table
+
+
 """
 
 global:
@@ -162,24 +149,6 @@ def check_old():
 
 
 def check():
-    import random
-
-    def generate_table() -> Table:
-        """Make a new table."""
-        table = Table()
-        table.add_column("ID")
-        table.add_column("Value")
-        table.add_column("Status")
-
-        for row in range(random.randint(2, 6)):
-            value = random.random() * 100
-            table.add_row(
-                f"{row}",
-                f"{value:3.2f}",
-                "[red]ERROR" if value < 50 else "[green]SUCCESS",
-            )
-        return table
-
     with Live(generate_table(), refresh_per_second=4) as live:
         for _ in range(40):
             time.sleep(0.4)
