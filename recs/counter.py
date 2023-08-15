@@ -18,12 +18,12 @@ class Counter:
 
 class Accumulator:
     count: int = 0
-    last: Num
+    value: Num
     sum: Num
     square_sum: Num
 
     def __call__(self, x: float | np.ndarray):
-        self.last = x
+        self.value = x
         self.count += 1
         try:
             self.sum += x

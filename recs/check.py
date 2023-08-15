@@ -2,6 +2,7 @@ from . import device, field, mux
 from .block import Block
 from collections import defaultdict
 import dataclasses as dc
+import numbers
 import random
 import time
 
@@ -25,6 +26,17 @@ COLUMNS = (
 )
 
 
+def check():
+    from test import mock_data
+
+    g = Global()
+    with Live(g.table(), refresh_per_second=4) as live:
+        for i, block in enumerate(mock_data.emit_blocks()):
+            g(*block)
+            if not (i % 20):
+                live.update(g.table())
+
+
 @dc.dataclass
 class Channel:
     block_count: Counter = field(Counter)
@@ -37,10 +49,10 @@ class Channel:
 
     def rows(self, channel):
         yield {
-            'channel': channel,
-            'count': self.block_count.value,
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
+            'channel': channel,
+            'count': self.block_count.value,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
         }
@@ -54,14 +66,14 @@ class Device:
 
     def __call__(self, frame, channel_name):
         block = Block(frame)
-        self.block_size.accum(len(block))
+        self.block_size(len(block))
         self.channels[channel_name](block)
 
     def rows(self, name):
         yield {
-            'device': name,
+            'block_size': self.block_size.value,
             'count': self.block_count.value,
-            'block_size': self.block_size.last,
+            'device': name,
         }
         for k, v in self.channels.items():
             yield from v.rows(k)
@@ -77,14 +89,14 @@ class Global:
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def __call__(self, frame, channel_name, device):
+    def __call__(self, frame, channel_name, device_name):
         self.block_count.increment()
-        self.devices[device.name](frame, channel_name)
+        self.devices[device_name](frame, channel_name)
 
     def table(self):
         t = Table(*COLUMNS)
         for row in self.rows():
-            t.add_row([_to_str(row.get(c)) for c in COLUMNS])
+            t.add_row(*(_to_str(row.get(c)) for c in COLUMNS))
 
         return t
 
@@ -94,14 +106,14 @@ class Global:
             yield from v.rows(k)
 
 
-def _to_str(x):
+def _to_str(x) -> str:
     if x is None:
         return ''
     if isinstance(x, str):
         return x
     if isinstance(x, int):
         return str(x)
-    if isinstance(x, float):
+    if isinstance(x, numbers.Real):
         return str(round(x, 3))
     return '|'.join(_to_str(i) for i in x)
 
@@ -123,7 +135,7 @@ def old_generate_table() -> Table:
     return table
 
 
-def check_old():
+def check_devices():
     devices = device.input_devices()
     slices = mux.slice_all(devices.values(), DEVICE_SLICES)
     import pprint
@@ -131,7 +143,7 @@ def check_old():
     pprint.pprint(slices)
 
 
-def check():
+def check_demo():
     with Live(old_generate_table(), refresh_per_second=4) as live:
         for _ in range(40):
             time.sleep(0.4)
