@@ -3,7 +3,7 @@ import numbers
 import numpy as np
 from threading import Lock
 
-Num = numbers.Real | np.ndarray
+Num = int | float | numbers.Integral | numbers.Real | np.ndarray
 
 
 @dc.dataclass
@@ -23,7 +23,7 @@ class Accumulator:
     sum: Num
     square_sum: Num
 
-    def __call__(self, x: float | np.ndarray):
+    def __call__(self, x: Num):
         self.value = x
         self.count += 1
         try:

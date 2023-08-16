@@ -8,6 +8,7 @@ from test import mock_data
 
 from .counter import Accumulator, Counter
 
+from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
@@ -30,7 +31,8 @@ COLUMNS = (
 
 def check():
     g = Global()
-    with Live(g.table(), refresh_per_second=4) as live:
+    console = Console(color_system='truecolor')
+    with Live(g.table(), refresh_per_second=4, console=console) as live:
         for i, block in enumerate(mock_data.emit_blocks()):
             g(*block)
             if not (i % 20):
@@ -110,6 +112,9 @@ class Global:
         for k, v in self.devices.items():
             yield from v.rows(k)
 
+
+RED = 256 // 3
+GREEN = 512 // 3
 BLUE = 0
 
 
@@ -118,9 +123,11 @@ def _to_str(x, c) -> str:
         return x
     if isinstance(x, numbers.Integral):
         if c in ('count', 'block'):
-            global BLUE
+            global RED, GREEN, BLUE
+            RED = (RED + 1) % 256
+            GREEN = (GREEN + 1) % 256
             BLUE = (BLUE + 1) % 256
-            return f'[rgb(175,0,{BLUE})]{x:>7,}'
+            return f'[rgb({RED},{GREEN},{BLUE})]{x:>7,}'
     if c.startswith('amplitude'):
         div = II.max - II.min
     else:
@@ -137,3 +144,11 @@ def check_devices():
     import pprint
 
     pprint.pprint(slices)
+
+
+def checko():
+    from rich.console import Console
+
+    console = Console(color_system="truecolor")
+    for i in range(128):
+        console.print("Hello", style=f"rgb({i},{i+64},{i+128})")
