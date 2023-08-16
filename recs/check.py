@@ -1,4 +1,4 @@
-from . import device, field, mux
+from . import field, mux
 from .block import Block
 from collections import defaultdict
 import dataclasses as dc
@@ -136,19 +136,3 @@ def _to_str(x, c) -> str:
     if isinstance(x, numbers.Real):
         return f'{x / div :6.1%}'
     return ' |'.join(_to_str(i, c) for i in x)
-
-
-def check_devices():
-    devices = device.input_devices()
-    slices = mux.slice_all(devices.values(), DEVICE_SLICES)
-    import pprint
-
-    pprint.pprint(slices)
-
-
-def checko():
-    from rich.console import Console
-
-    console = Console(color_system="truecolor")
-    for i in range(128):
-        console.print("Hello", style=f"rgb({i},{i+64},{i+128})")
