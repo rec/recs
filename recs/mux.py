@@ -1,8 +1,7 @@
 from . import Array
+import contextlib
 import dataclasses as dc
 import typing as t
-import contextlib
-
 
 SliceDict = t.Dict[str, slice]
 
@@ -41,12 +40,6 @@ def to_slices(d):
     return {k: to_slice(v) for k, v in d.items()}
 
 
-def demux_one(device, callback, device_slices: t.Dict[str, SliceDict]):
-    slices = slice_one(device, device_slices)
-    demux = Demuxer(callback, slices)
-    return device.input_stream(demux)
-
-
 def slice_one(device, device_slices):
     name = device.name.lower()
     m = [v for k, v in device_slices.items() if name.startswith(k.lower())]
@@ -57,9 +50,15 @@ def slice_all(devices, device_slices):
     return {d.name: slice_one(d, device_slices) for d in devices}
 
 
+def input_stream(device, callback, device_slices: t.Dict[str, SliceDict]):
+    slices = slice_one(device, device_slices)
+    demux = Demuxer(callback, slices)
+    return device.input_stream(demux)
+
+
 @contextlib.contextmanager
 def demux_context(devices, callback, device_slices: t.Dict[str, SliceDict]):
-    streams = [demux_one(d, callback, device_slices) for d in devices]
+    streams = [input_stream(d, callback, device_slices) for d in devices]
     with contextlib.ExitStack() as stack:
         [stack.enter_context(s) for s in streams]
         yield streams

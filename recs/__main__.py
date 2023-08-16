@@ -2,7 +2,6 @@ import dtyper as ty
 import click
 import typing as t
 import sys
-from test import mock_data
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -26,10 +25,11 @@ def rec():
 
 
 @command(help='Check levels')
-def check():
+def test():
     from .audio_display import Global
     from rich.console import Console
     from rich.live import Live
+    from test import mock_data
 
     g = Global()
     console = Console(color_system='truecolor')
@@ -38,6 +38,13 @@ def check():
             g(*block)
             if not (i % 20):
                 live.update(g.table())
+
+
+@command(help='Check levels')
+def check():
+    from . import checker
+
+    checker.check()
 
 
 @command(help='Info')

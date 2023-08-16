@@ -1,4 +1,4 @@
-from . import field, mux
+from . import field
 from .block import Block
 from collections import defaultdict
 import dataclasses as dc
@@ -9,8 +9,6 @@ from test.mock_data import II
 from .counter import Accumulator, Counter
 
 from rich.table import Table
-
-DEVICE_SLICES = {'FLOW': mux.auto_slice(8) | {'Main': slice(8, 10)}}
 
 COLUMNS = (
     'time',
