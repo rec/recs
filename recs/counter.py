@@ -1,8 +1,9 @@
 import dataclasses as dc
+import numbers
 import numpy as np
 from threading import Lock
 
-Num = float | np.ndarray
+Num = numbers.Real | np.ndarray
 
 
 @dc.dataclass

@@ -104,11 +104,13 @@ class Global:
 
     def rows(self):
         yield {
-            'time': f'{self.elapsed_time:10.03}',
+            'time': f'{self.elapsed_time:9.3f}',
             'count': self.block_count.value,
         }
         for k, v in self.devices.items():
             yield from v.rows(k)
+
+BLUE = 0
 
 
 def _to_str(x, c) -> str:
@@ -116,15 +118,17 @@ def _to_str(x, c) -> str:
         return x
     if isinstance(x, numbers.Integral):
         if c in ('count', 'block'):
-            return str(x)
+            global BLUE
+            BLUE = (BLUE + 1) % 256
+            return f'[rgb(175,0,{BLUE})]{x:>7,}'
     if c.startswith('amplitude'):
         div = II.max - II.min
     else:
         div = II.max
 
     if isinstance(x, numbers.Real):
-        return f'{x / div :.1%}'
-    return '|'.join(_to_str(i, c) for i in x)
+        return f'{x / div :6.1%}'
+    return ' |'.join(_to_str(i, c) for i in x)
 
 
 def check_devices():
