@@ -4,15 +4,11 @@ from collections import defaultdict
 import dataclasses as dc
 import numbers
 import time
-from test import mock_data
+from test.mock_data import II
 
 from .counter import Accumulator, Counter
 
-from rich.console import Console
-from rich.live import Live
 from rich.table import Table
-
-II = mock_data.II
 
 DEVICE_SLICES = {'FLOW': mux.auto_slice(8) | {'Main': slice(8, 10)}}
 
@@ -27,16 +23,6 @@ COLUMNS = (
     'amplitude',
     'amplitude_mean',
 )
-
-
-def check():
-    g = Global()
-    console = Console(color_system='truecolor')
-    with Live(g.table(), refresh_per_second=4, console=console) as live:
-        for i, block in enumerate(mock_data.emit_blocks()):
-            g(*block)
-            if not (i % 20):
-                live.update(g.table())
 
 
 @dc.dataclass
