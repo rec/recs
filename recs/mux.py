@@ -50,15 +50,15 @@ def slice_all(devices, device_slices):
     return {d.name: slice_one(d, device_slices) for d in devices}
 
 
-def input_stream(device, callback, device_slices: t.Dict[str, SliceDict]):
+def input_stream(device, callback, stop, device_slices: t.Dict[str, SliceDict]):
     slices = slice_one(device, device_slices)
     demux = Demuxer(callback, slices)
-    return device.input_stream(demux)
+    return device.input_stream(demux, stop)
 
 
 @contextlib.contextmanager
-def demux_context(devices, callback, device_slices: t.Dict[str, SliceDict]):
-    streams = [input_stream(d, callback, device_slices) for d in devices]
+def demux_context(devices, callback, stop, device_slices: t.Dict[str, SliceDict]):
+    streams = [input_stream(d, callback, stop, device_slices) for d in devices]
     with contextlib.ExitStack() as stack:
         [stack.enter_context(s) for s in streams]
         yield streams

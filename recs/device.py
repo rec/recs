@@ -2,6 +2,7 @@ from . import DType
 import dataclasses as dc
 import sounddevice as sd
 import sys
+import traceback
 import typing as t
 
 
@@ -26,12 +27,17 @@ class InputDevice:
     def name(self):
         return self.info['name']
 
-    def input_stream(self, callback):
+    def input_stream(self, callback, stop):
         def _callback(indata, frames, time, status):
-            self.block_count += 1
-            if status:
-                print(status, file=sys.stderr)
-            callback(indata.copy(), self)
+            try:
+                self.__dict__['block_count'] = self.block_count + 1
+                if status:
+                    print(status, file=sys.stderr)
+                callback(indata.copy(), self)
+            except BaseException:
+                traceback.print_exc()
+
+                stop()
 
         return sd.InputStream(
             callback=_callback,
