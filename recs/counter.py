@@ -19,7 +19,7 @@ class Counter:
 
 class Accumulator:
     count: int = 0
-    value: Num
+    value: Num = 0
     sum: Num
     square_sum: Num
 

@@ -54,6 +54,7 @@ class Device:
     def __call__(self, frame, channel_name):
         self.block_count()
         block = Block(frame)
+        assert block.channels <= 2, f'{len(block)=}, {block.channels=}'
         self.block_size(len(block))
         self.channels[channel_name](block)
 
@@ -77,9 +78,9 @@ class Global:
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def __call__(self, frame, channel_name, device_name):
+    def __call__(self, frame, channel_name, device):
         self.block_count()
-        self.devices[device_name](frame, channel_name)
+        self.devices[device.name](frame, channel_name)
 
     def table(self):
         t = Table(*COLUMNS)
@@ -119,4 +120,5 @@ def _to_str(x, c) -> str:
 
     if isinstance(x, numbers.Real):
         return f'{x / div :6.1%}'
+    assert len(x) <= 2, f'{len(x)}'
     return ' |'.join(_to_str(i, c) for i in x)

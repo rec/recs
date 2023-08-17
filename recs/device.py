@@ -1,16 +1,18 @@
-from . import DType
+from . import Array, DType
 import dataclasses as dc
 import sounddevice as sd
 import sys
 import traceback
 import typing as t
 
+Callback = t.Callable[[Array, 'InputDevice'], t.Any]
+
 
 @dc.dataclass(frozen=True)
 class InputDevice:
     info: t.Dict[str, t.Any]
     dtype: t.Any = DType
-    block_count = 0
+    block_count: int = 0
 
     def __bool__(self):
         return bool(self.channels)
@@ -27,10 +29,10 @@ class InputDevice:
     def name(self):
         return self.info['name']
 
-    def input_stream(self, callback, stop):
-        def _callback(indata, frames, time, status):
+    def input_stream(self, callback: Callback, stop: t.Callable) -> sd.InputStream:
+        def _callback(indata: Array, frames, time, status):
             try:
-                self.__dict__['block_count'] = self.block_count + 1
+                self.__dict__['block_count'] += 1
                 if status:
                     print(status, file=sys.stderr)
                 callback(indata.copy(), self)

@@ -9,6 +9,10 @@ class Block:
     block: Array
 
     def __len__(self) -> int:
+        return self.block.shape[0]
+
+    @cached_property
+    def channels(self) -> int:
         return self.block.shape[1]
 
     @cached_property
@@ -17,17 +21,17 @@ class Block:
 
     @cached_property
     def max(self) -> np.ndarray:
-        return self.block.max(1)
+        return self.block.max(0)
 
     @cached_property
     def min(self) -> np.ndarray:
-        return self.block.min(1)
+        return self.block.min(0)
 
     @cached_property
     def rms(self) -> np.ndarray:
         b = self.block.astype(float)
         b *= b
-        return np.sqrt(b.mean(1))
+        return np.sqrt(b.mean(0))
 
 
 @dc.dataclass
