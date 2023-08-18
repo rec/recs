@@ -15,6 +15,7 @@ def check():
     running.start()
 
     with mux.demux_context(devices.values(), g, running.stop, DEVICE_SLICES):
-        with Live(g.table(), refresh_per_second=4, console=console):
+        with Live(g.table(), refresh_per_second=4, console=console) as live:
             while running.running:
                 time.sleep(0.01)
+                live.update(g.table())
