@@ -12,7 +12,7 @@ Callback = t.Callable[[Array, 'InputDevice'], t.Any]
 
 @dc.dataclass(frozen=True)
 class InputDevice:
-    info: t.Dict[str, t.Any]
+    info: dict[str, t.Any]
     dtype: t.Any = DType
     block_count: int = 0
 

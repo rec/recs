@@ -77,7 +77,7 @@ class Global:
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def __call__(self, frame, channel_name, device):
+    def callback(self, frame, channel_name, device):
         # print('global')
         self.block_count()
         self.devices[device.name](frame, channel_name)

@@ -42,7 +42,7 @@ class Monitor(threads.IsRunning):
 
     device_slices: dict[str, dict[str, slice]] = field(lambda: deepcopy(DEVICE_SLICES))
     devices: device.InputDevices = field(device.input_devices)
-    refresh_per_second: float = 4
+    refresh_per_second: float = 20
     sleep_time: float = 0.01
 
     @cached_property
@@ -58,8 +58,7 @@ class Monitor(threads.IsRunning):
 
     def run(self):
         self.start()
-        mux.demux_context(self.devices.values(), self, self.device_slices)
         with self.live, self.context:
             while self.running:
                 time.sleep(self.sleep_time)
-                self.live.update(self.listener.table())
+                self.live.update(self.table())
