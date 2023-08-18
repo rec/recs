@@ -1,9 +1,11 @@
-from . import Array, DType
 import dataclasses as dc
-import sounddevice as sd
 import sys
 import traceback
 import typing as t
+
+import sounddevice as sd
+
+from . import Array, DType
 
 Callback = t.Callable[[Array, 'InputDevice'], t.Any]
 
@@ -51,5 +53,8 @@ class InputDevice:
         )
 
 
-def input_devices():
+InputDevices = dict[str, InputDevice]
+
+
+def input_devices() -> InputDevices:
     return {d.name: d for i in sd.query_devices() if (d := InputDevice(i))}

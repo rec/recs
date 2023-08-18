@@ -1,10 +1,10 @@
-from functools import cached_property
-from queue import Queue
-from threading import Lock, Thread
 import dataclasses as dc
 import sys
 import traceback
 import typing as t
+from functools import cached_property
+from queue import Queue
+from threading import Lock, Thread
 
 
 class IsRunning:

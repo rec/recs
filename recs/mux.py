@@ -1,7 +1,8 @@
-from . import Array
 import contextlib
 import dataclasses as dc
 import typing as t
+
+from . import Array
 
 SliceDict = t.Dict[str, slice]
 

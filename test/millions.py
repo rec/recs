@@ -1,7 +1,8 @@
+import time
+
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
-import time
 
 CONSOLE = Console(color_system='truecolor')
 

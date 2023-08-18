@@ -1,9 +1,11 @@
-from .block import Block, Blocks
-from functools import cached_property
-from pathlib import Path
 import dataclasses as dc
 import datetime.datetime as dt
+from functools import cached_property
+from pathlib import Path
+
 import soundfile as sf
+
+from .block import Block, Blocks
 
 
 @dc.dataclass

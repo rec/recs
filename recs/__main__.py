@@ -1,7 +1,8 @@
-import dtyper as ty
-import click
-import typing as t
 import sys
+import typing as t
+
+import click
+import dtyper as ty
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -26,10 +27,12 @@ def rec():
 
 @command(help='Check levels')
 def test():
-    from .audio_display import Global
+    from test import mock_data
+
     from rich.console import Console
     from rich.live import Live
-    from test import mock_data
+
+    from .audio_display import Global
 
     g = Global()
     console = Console(color_system='truecolor')
@@ -51,8 +54,9 @@ def check():
 def info(
     kind: t.Optional[str] = ty.Argument(None),
 ):
-    import sounddevice as sd
     import json
+
+    import sounddevice as sd
 
     info = sd.query_devices(kind=kind)
 

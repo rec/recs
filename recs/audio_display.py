@@ -1,13 +1,13 @@
-from . import field
-from .block import Block
-from collections import defaultdict
 import dataclasses as dc
 import numbers
 import time
-
-from .counter import Accumulator, Counter
+from collections import defaultdict
 
 from rich.table import Table
+
+from . import field
+from .block import Block
+from .counter import Accumulator, Counter
 
 COLUMNS = (
     'time',

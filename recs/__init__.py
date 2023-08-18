@@ -1,6 +1,7 @@
-import numpy as np
 import dataclasses as dc
 import typing as t
+
+import numpy as np
 
 DType = np.float32
 Array = np.ndarray

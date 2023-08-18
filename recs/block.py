@@ -1,7 +1,9 @@
-from functools import cached_property
-from . import Array
 import dataclasses as dc
+from functools import cached_property
+
 import numpy as np
+
+from . import Array
 
 
 @dc.dataclass(frozen=True)

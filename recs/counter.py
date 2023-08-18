@@ -1,7 +1,8 @@
 import dataclasses as dc
 import numbers
-import numpy as np
 from threading import Lock
+
+import numpy as np
 
 # TODO: isn't there some type comprising these first four?
 Num = int | float | numbers.Integral | numbers.Real | np.ndarray
