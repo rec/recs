@@ -1,7 +1,6 @@
 import dataclasses as dc
 import numbers
 import time
-from collections import defaultdict
 
 from rich.table import Table
 
@@ -24,6 +23,8 @@ COLUMNS = (
 
 @dc.dataclass
 class Channel:
+    channel: str
+
     block_count: Counter = field(Counter)
     amplitude: Accumulator = field(Accumulator)
     rms: Accumulator = field(Accumulator)
@@ -33,11 +34,11 @@ class Channel:
         self.rms(block.rms)
         self.amplitude(block.amplitude)
 
-    def rows(self, channel):
+    def rows(self):
         yield {
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
-            'channel': channel,
+            'channel': self.channel,
             'count': self.block_count.value,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
@@ -46,41 +47,50 @@ class Channel:
 
 @dc.dataclass
 class Device:
+    name: str
+
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
-    channels: dict[str, Channel] = field(lambda: defaultdict(Channel))
+    channels: dict[str, Channel] = field(dict)
 
     def __call__(self, frame, channel_name):
         self.block_count()
         block = Block(frame)
         assert block.channels <= 2, f'{len(block)=}, {block.channels=}'
         self.block_size(len(block))
-        self.channels[channel_name](block)
+        try:
+            channel = self.channels[channel_name]
+        except KeyError:
+            channel = self.channels[channel_name] = Channel(channel_name)
+        channel(block)
 
-    def rows(self, name):
+    def rows(self):
         yield {
             'block': self.block_size.value,
             'count': self.block_count.value,
-            'device': name,
+            'device': self.name,
         }
-        for k, v in self.channels.items():
-            yield from v.rows(k)
+        for v in self.channels.values():
+            yield from v.rows()
 
 
 @dc.dataclass
 class Global:
     block_count: Counter = field(Counter)
     start_time: float = field(time.time)
-    devices: dict[str, Device] = field(lambda: defaultdict(Device))
+    devices: dict[str, Device] = field(dict)
 
     @property
     def elapsed_time(self):
         return time.time() - self.start_time
 
     def callback(self, frame, channel_name, device):
-        # print('global')
         self.block_count()
-        self.devices[device.name](frame, channel_name)
+        try:
+            device = self.devices[device.name]
+        except KeyError:
+            self.devices[device.name] = device = Device(device.name)
+        device(frame, channel_name)
 
     def table(self):
         t = Table(*COLUMNS)
@@ -94,8 +104,8 @@ class Global:
             'time': f'{self.elapsed_time:9.3f}',
             'count': self.block_count.value,
         }
-        for k, v in self.devices.items():
-            yield from v.rows(k)
+        for v in self.devices.values():
+            yield from v.rows()
 
 
 RED = 256 // 3
