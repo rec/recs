@@ -4,7 +4,6 @@ from collections import defaultdict
 import dataclasses as dc
 import numbers
 import time
-from test.mock_data import II
 
 from .counter import Accumulator, Counter
 
@@ -79,6 +78,7 @@ class Global:
         return time.time() - self.start_time
 
     def __call__(self, frame, channel_name, device):
+        # print('global')
         self.block_count()
         self.devices[device.name](frame, channel_name)
 
@@ -113,12 +113,8 @@ def _to_str(x, c) -> str:
             GREEN = (GREEN + 1) % 256
             BLUE = (BLUE + 1) % 256
             return f'[rgb({RED},{GREEN},{BLUE})]{x:>7,}'
-    if c.startswith('amplitude'):
-        div = II.max - II.min
-    else:
-        div = II.max
 
     if isinstance(x, numbers.Real):
-        return f'{x / div :6.1%}'
+        return f'{x:6.1%}'
     assert len(x) <= 2, f'{len(x)}'
     return ' |'.join(_to_str(i, c) for i in x)

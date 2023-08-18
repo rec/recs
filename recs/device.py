@@ -31,6 +31,7 @@ class InputDevice:
 
     def input_stream(self, callback: Callback, stop: t.Callable) -> sd.InputStream:
         def _callback(indata: Array, frames, time, status):
+            # print('_callback')
             try:
                 self.__dict__['block_count'] += 1
                 if status:

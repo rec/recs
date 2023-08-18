@@ -2,7 +2,7 @@ import numpy as np
 import dataclasses as dc
 import typing as t
 
-DType = np.int32
+DType = np.float32
 Array = np.ndarray
 
 
