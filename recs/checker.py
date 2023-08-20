@@ -6,7 +6,6 @@ from functools import cached_property
 
 from rich.console import Console
 from rich.live import Live
-from rich.table import Table
 
 from . import audio_display, device, field, mux, threads
 
@@ -31,14 +30,12 @@ def check_old():
 
 
 def check():
-    g = audio_display.Global()
-    Monitor(g.callback, g.table).run()
+    Monitor(audio_display.Global()).run()
 
 
 @dc.dataclass
 class Monitor(threads.IsRunning):
-    callback: device.Callback
-    table: t.Callable[[], Table]
+    client: t.Any
 
     device_slices: dict[str, dict[str, slice]] = field(lambda: deepcopy(DEVICE_SLICES))
     devices: device.InputDevices = field(device.input_devices)
@@ -47,13 +44,13 @@ class Monitor(threads.IsRunning):
 
     @cached_property
     def live(self):
-        table = self.table()
+        table = self.client.table()
         return Live(table, refresh_per_second=self.refresh_per_second, console=CONSOLE)
 
     @cached_property
     def context(self):
         return mux.demux_context(
-            self.devices.values(), self.callback, self.stop, self.device_slices
+            self.devices.values(), self.client.callback, self.stop, self.device_slices
         )
 
     def run(self):
@@ -61,4 +58,4 @@ class Monitor(threads.IsRunning):
         with self.live, self.context:
             while self.running:
                 time.sleep(self.sleep_time)
-                self.live.update(self.table())
+                self.live.update(self.client.table())
