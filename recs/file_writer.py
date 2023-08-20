@@ -23,7 +23,7 @@ class FileWriter:
     file_format: FileFormat
     name: str
     path: Path
-    silence: SilenceStrategy
+    silence: SilenceStrategy[int]
 
     file_suffix: str = '.flac'
 
@@ -32,44 +32,34 @@ class FileWriter:
 
     def __call__(self, block: Block):
         self._blocks.append(block)
-
         if block.amplitude >= self.silence.noise_floor:
-            if not self._sf:
-                self._blocks.clip_to_length(self.silence.at_start + len(block))
-            self._record()
+            self._not_silent()
+        elif self._blocks.length > self.silence.before_stopping:
+            self._silent()
 
-        elif self._blocks.length > self.silence.before_splitting:
-            self.close()
-
-    def _record(self):
-        self._sf = self._sf or self.file_format.open(self._new_filename())
-        for b in self._blocks:
-            self._sf.write(b.block)
+    def _not_silent(self):
+        if not self._sf:
+            self._blocks.clip_start(self.silence.at_start + len(self._blocks[-1]))
+        self._record(self._blocks)
         self._blocks.clear()
 
-    def close(self):
+    def _silent(self):
+        removed = self._blocks.clip_end(self.silence.at_end)
         if self._sf:
-            blocks = self._blocks[: self.silence.at_end]
-            self._blocks = self._blocks[self.silence.at_end :]
-            self.record(blocks)
+            self._record(reversed(removed))
             self._sf.close()
             self._sf = None
 
-    def _new_filename(self):
-        filename = str(self.path / f'{self.name}-{ts()}{self.file_suffix}')
+    def _record(self, blocks):
+        self._sf = self._sf or self.file_format.open(self._new_filename())
+        for b in blocks:
+            self._sf.write(b.block)
+
+    def _new_filename(self) -> Path:
+        filename = self.path / f'{self.name}-{ts()}{self.file_suffix}'
         print('Creating', filename)
         return filename
 
 
 def ts():
     return dt.now().strftime('%Y%m%d-%H%M%S')
-
-
-@dc.dataclass
-class Universe:
-    pass
-    # device: Device
-
-
-"""
-"""

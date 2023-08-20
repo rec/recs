@@ -19,7 +19,7 @@ class Block:
 
     @cached_property
     def amplitude(self) -> np.ndarray:
-        return self.max - self.min
+        return (self.max - self.min) / 2
 
     @cached_property
     def max(self) -> np.ndarray:
@@ -35,6 +35,9 @@ class Block:
         b *= b
         return np.sqrt(b.mean(0))
 
+    def __getitem__(self, k):
+        return Block(self.block[k])
+
 
 @dc.dataclass
 class Blocks:
@@ -49,18 +52,26 @@ class Blocks:
         self.length = 0
         self.blocks.clear()
 
-    def clip_to_length(self, sample_length: int):
-        removed = []
+    def clip_start(self, sample_length: int):
+        """Clip to length sample_length by cutting from the start"""
+        return list(self._clip(sample_length, True))
+
+    def clip_end(self, sample_length: int):
+        """Clip to length sample_length by cutting from the end"""
+        return list(self._clip(sample_length, False))
+
+    def _clip(self, sample_length: int, is_start: bool):
         while self.length > sample_length:
-            block = self.blocks.pop(0)
-            removed.append(block)
+            yield (block := self.blocks.pop(0 if is_start else -1))
             self.length -= len(block)
-        return removed
 
     def write(self, sf):
-        for b in self.blocks:
+        for b in self:
             sf.write(b)
         self.clear()
+
+    def __iter__(self):
+        return iter(self.blocks)
 
     def __getitem__(self, i) -> Block:
         return self.blocks[i]
