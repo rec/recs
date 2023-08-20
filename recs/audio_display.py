@@ -1,24 +1,10 @@
 import dataclasses as dc
-import numbers
 import time
-
-from rich.table import Table
 
 from . import field
 from .block import Block
 from .counter import Accumulator, Counter
-
-COLUMNS = (
-    'time',
-    'device',
-    'channel',
-    'count',
-    'block',
-    'rms',
-    'rms_mean',
-    'amplitude',
-    'amplitude_mean',
-)
+from .table import Table
 
 
 @dc.dataclass
@@ -93,11 +79,7 @@ class Global:
         device(frame, channel_name)
 
     def table(self):
-        t = Table(*COLUMNS)
-        for row in self.rows():
-            t.add_row(*(_to_str(row.get(c, ''), c) for c in COLUMNS))
-
-        return t
+        return TABLE(self.rows())
 
     def rows(self):
         yield {
@@ -108,23 +90,30 @@ class Global:
             yield from v.rows()
 
 
+def _to_str(x) -> str:
+    if isinstance(x, str):
+        return x
+
+    global RED, GREEN, BLUE
+    RED = (RED + 1) % 256
+    GREEN = (GREEN + 1) % 256
+    BLUE = (BLUE + 1) % 256
+    return f'[rgb({RED},{GREEN},{BLUE})]{x:>7,}'
+
+
 RED = 256 // 3
 GREEN = 512 // 3
 BLUE = 0
 
 
-def _to_str(x, c) -> str:
-    if isinstance(x, str):
-        return x
-    if isinstance(x, numbers.Integral):
-        if c in ('count', 'block'):
-            global RED, GREEN, BLUE
-            RED = (RED + 1) % 256
-            GREEN = (GREEN + 1) % 256
-            BLUE = (BLUE + 1) % 256
-            return f'[rgb({RED},{GREEN},{BLUE})]{x:>7,}'
-
-    if isinstance(x, numbers.Real):
-        return f'{x:6.1%}'
-    assert len(x) <= 2, f'{len(x)}'
-    return ' |'.join(_to_str(i, c) for i in x)
+TABLE = Table(
+    time=None,
+    device=None,
+    channel=None,
+    count=_to_str,
+    block=_to_str,
+    rms=None,
+    rms_mean=None,
+    amplitude=None,
+    amplitude_mean=None,
+)
