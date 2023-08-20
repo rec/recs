@@ -15,22 +15,8 @@ CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 
 
-def check_old():
-    devices = device.input_devices()
-    g = audio_display.Global()
-
-    running = threads.IsRunning()
-    running.start()
-
-    with mux.demux_context(devices.values(), g.callback, running.stop, DEVICE_SLICES):
-        with Live(g.table(), refresh_per_second=4, console=CONSOLE) as live:
-            while running.running:
-                time.sleep(0.01)
-                live.update(g.table())
-
-
 def check():
-    Monitor(audio_display.Global()).run()
+    Monitor(audio_display.Top()).run()
 
 
 @dc.dataclass

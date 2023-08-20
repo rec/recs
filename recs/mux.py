@@ -2,7 +2,7 @@ import contextlib
 import dataclasses as dc
 import typing as t
 
-from . import Array
+from . import Array, block
 
 SliceDict = dict[str, slice]
 
@@ -14,7 +14,7 @@ class Demuxer:
 
     def __call__(self, frame: Array, *args):
         for k, v in self.slices.items():
-            self.callback(frame[:, v], k, *args)
+            self.callback(block.Block(frame[:, v]), k, *args)
 
 
 def auto_slice(channels: int) -> SliceDict:

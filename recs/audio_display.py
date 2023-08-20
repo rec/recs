@@ -1,21 +1,19 @@
 import dataclasses as dc
 import time
 
+from . import audio_callback as ac
 from . import field
-from .block import Block
 from .counter import Accumulator, Counter
 from .table import Table
 
 
 @dc.dataclass
-class Channel:
-    channel: str
-
+class _Channel(ac.Channel):
     block_count: Counter = field(Counter)
     amplitude: Accumulator = field(Accumulator)
     rms: Accumulator = field(Accumulator)
 
-    def __call__(self, block):
+    def callback(self, block):
         self.block_count()
         self.rms(block.rms)
         self.amplitude(block.amplitude)
@@ -24,7 +22,7 @@ class Channel:
         yield {
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
-            'channel': self.channel,
+            'channel': self.channel_name,
             'count': self.block_count.value,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
@@ -32,51 +30,42 @@ class Channel:
 
 
 @dc.dataclass
-class Device:
-    name: str
+class _Device(ac.Device):
+    Channel = _Channel
 
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
-    channels: dict[str, Channel] = field(dict)
 
-    def __call__(self, frame, channel_name):
+    def callback(self, block, channel_name):
         self.block_count()
-        block = Block(frame)
         assert block.channels <= 2, f'{len(block)=}, {block.channels=}'
         self.block_size(len(block))
-        try:
-            channel = self.channels[channel_name]
-        except KeyError:
-            channel = self.channels[channel_name] = Channel(channel_name)
-        channel(block)
+        super().callback(block, channel_name)
 
     def rows(self):
         yield {
             'block': self.block_size.value,
             'count': self.block_count.value,
-            'device': self.name,
+            'device': self.device.name,
         }
         for v in self.channels.values():
             yield from v.rows()
 
 
 @dc.dataclass
-class Global:
+class Top(ac.Top):
     block_count: Counter = field(Counter)
     start_time: float = field(time.time)
-    devices: dict[str, Device] = field(dict)
+
+    Device = _Device
 
     @property
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def callback(self, frame, channel_name, device):
+    def callback(self, block, channel_name, device):
         self.block_count()
-        try:
-            device = self.devices[device.name]
-        except KeyError:
-            self.devices[device.name] = device = Device(device.name)
-        device(frame, channel_name)
+        super().callback(block, channel_name, device)
 
     def table(self):
         return TABLE(self.rows())
