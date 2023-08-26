@@ -4,28 +4,18 @@ from pathlib import Path
 
 import soundfile as sf
 
+from .audio_types import FileFormat
 from .block import Block, Blocks
 from .silence import SilenceStrategy
 
 
 @dc.dataclass
-class FileFormat:
-    channels: int
-    samplerate: int
-    subtype: str = 'PCM_24'
-
-    def open(self, filename: Path) -> sf.SoundFile:
-        return sf.SoundFile(filename, **dc.asdict(self))
-
-
-@dc.dataclass
 class FileWriter:
     file_format: FileFormat
+    file_suffix: str
     name: str
     path: Path
     silence: SilenceStrategy[int]
-
-    file_suffix: str = '.flac'
 
     _blocks: Blocks = dc.field(default_factory=Blocks)
     _sf: sf.SoundFile | None = None
@@ -35,7 +25,7 @@ class FileWriter:
         if block.amplitude >= self.silence.noise_floor:
             self._not_silent()
         elif self._blocks.length > self.silence.before_stopping:
-            self._silent()
+            self.close()
 
     def _not_silent(self):
         if not self._sf:
@@ -43,7 +33,7 @@ class FileWriter:
         self._record(self._blocks)
         self._blocks.clear()
 
-    def _silent(self):
+    def close(self):
         removed = self._blocks.clip_end(self.silence.at_end)
         if self._sf:
             self._record(reversed(removed))
@@ -51,7 +41,8 @@ class FileWriter:
             self._sf = None
 
     def _record(self, blocks):
-        self._sf = self._sf or self.file_format.open(self._new_filename())
+        if not self._sf:
+            self._sf or self.file_format.open(self._new_filename())
         for b in blocks:
             self._sf.write(b.block)
 
