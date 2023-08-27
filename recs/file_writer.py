@@ -4,14 +4,14 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .audio_types import FileFormat
+from .audio_types import AudioFileFormat
 from .block import Block, Blocks
 from .silence import SilenceStrategy
 
 
 @dc.dataclass
 class FileWriter:
-    file_format: FileFormat
+    file_format: AudioFileFormat
     file_suffix: str
     name: str
     path: Path
