@@ -1,6 +1,12 @@
-* Redo SilenceStrategy to handle floats DONE
-* Create a TableEntry with formatting, conditional formatting
+DONE
+
+* Redo SilenceStrategy to handle floats
+
 * Port existing table to the TableEntry form
+
+TODO:
+
+* Unit tests for SilenceStrategy
 * Create a TableEntry that also does recording
 * Change the entries to show files written and etc
 
