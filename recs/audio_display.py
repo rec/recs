@@ -2,13 +2,11 @@ import dataclasses as dc
 import time
 import typing as t
 
-from rich.table import Table as RichTable
-
 from . import audio_callback as ac
 from . import field
 from .counter import Accumulator, Counter
-from .table import Table
-from .types import Block, InputDevice
+from .table import TableFormatter
+from .types import Block, InputDevice, Table
 
 
 @dc.dataclass
@@ -71,8 +69,8 @@ class Top(ac.Top):
         self.block_count()
         super().callback(block, channel_name, device)
 
-    def table(self) -> RichTable:
-        return TABLE(self.rows())
+    def table(self) -> Table:
+        return TABLE_FORMATTER(self.rows())
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
@@ -99,7 +97,7 @@ GREEN = 512 // 3
 BLUE = 0
 
 
-TABLE = Table(
+TABLE_FORMATTER = TableFormatter(
     time=None,
     device=None,
     channel=None,

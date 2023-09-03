@@ -1,7 +1,7 @@
 import numbers
 import typing as t
 
-from rich import table
+from rich.table import Table
 
 
 def _to_str(x):
@@ -18,7 +18,7 @@ def _to_str(x):
     return ' |'.join(_to_str(i) for i in x)
 
 
-class Table:
+class TableFormatter:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
@@ -26,8 +26,8 @@ class Table:
         to_str = self.kwargs.get(column) or _to_str
         return to_str(row.get(column, ''))
 
-    def __call__(self, rows: t.Iterator[dict[str, t.Any]]) -> table.Table:
-        t = table.Table(*self.kwargs)
+    def __call__(self, rows: t.Iterator[dict[str, t.Any]]) -> Table:
+        t = Table(*self.kwargs)
         cols = set(self.kwargs)
         for r in rows:
             if unknown := set(r) - cols:
