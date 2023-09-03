@@ -1,4 +1,4 @@
-* Redo SilenceStrategy to handle floats
+* Redo SilenceStrategy to handle floats DONE
 * Create a TableEntry with formatting, conditional formatting
 * Port existing table to the TableEntry form
 * Create a TableEntry that also does recording

@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.live import Live
 
 from . import audio_display, device, field, mux, threads
+from .types import InputDevices, SlicesDict
 
 FLOW_SLICE = mux.auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
@@ -23,8 +24,8 @@ def check():
 class Monitor(threads.IsRunning):
     client: t.Any
 
-    device_slices: dict[str, dict[str, slice]] = field(lambda: deepcopy(DEVICE_SLICES))
-    devices: device.InputDevices = field(device.input_devices)
+    device_slices: SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
+    devices: InputDevices = field(lambda: device.input_devices().values())
     refresh_per_second: float = 20
     sleep_time: float = 0.01
 
@@ -36,7 +37,7 @@ class Monitor(threads.IsRunning):
     @cached_property
     def context(self):
         return mux.demux_context(
-            self.devices.values(), self.client.callback, self.stop, self.device_slices
+            self.devices, self.client.callback, self.stop, self.device_slices
         )
 
     def run(self):

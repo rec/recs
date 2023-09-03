@@ -53,8 +53,5 @@ class InputDevice:
         )
 
 
-InputDevices = dict[str, InputDevice]
-
-
-def input_devices() -> InputDevices:
+def input_devices() -> dict[str, InputDevice]:
     return {d.name: d for i in sd.query_devices() if (d := InputDevice(i))}
