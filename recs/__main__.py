@@ -27,9 +27,10 @@ def rec():
 
 @command(help='Check levels')
 def check():
-    from . import checker
+    from . import audio_display, monitor
 
-    checker.check()
+    top = audio_display.Top()
+    monitor.Monitor(top.callback, top.table).run()
 
 
 @command(help='Info')

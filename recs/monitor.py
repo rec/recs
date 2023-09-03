@@ -6,7 +6,7 @@ from functools import cached_property
 from rich.console import Console
 from rich.live import Live
 
-from . import audio_display, device, field, threads
+from . import device, field, threads
 from .mux import auto_slice, demux_context
 from .types import Callback, InputDevices, SlicesDict, TableMaker
 
@@ -14,11 +14,6 @@ FLOW_SLICE = auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
-
-
-def check():
-    top = audio_display.Top()
-    Monitor(top.callback, top.table).run()
 
 
 @dc.dataclass
