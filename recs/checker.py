@@ -1,28 +1,30 @@
 import dataclasses as dc
 import time
-import typing as t
 from copy import deepcopy
 from functools import cached_property
 
 from rich.console import Console
 from rich.live import Live
 
-from . import audio_display, device, field, mux, threads
-from .types import InputDevices, SlicesDict
+from . import audio_display, device, field, threads
+from .mux import auto_slice, demux_context
+from .types import Callback, InputDevices, SlicesDict, TableMaker
 
-FLOW_SLICE = mux.auto_slice(8) | {'Main': slice(8, 10)}
+FLOW_SLICE = auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 
 
 def check():
-    Monitor(audio_display.Top()).run()
+    top = audio_display.Top()
+    Monitor(top.callback, top.table).run()
 
 
 @dc.dataclass
 class Monitor(threads.IsRunning):
-    client: t.Any
+    callback: Callback
+    table_maker: TableMaker
 
     device_slices: SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
     devices: InputDevices = field(lambda: device.input_devices().values())
@@ -31,18 +33,16 @@ class Monitor(threads.IsRunning):
 
     @cached_property
     def live(self):
-        table = self.client.table()
+        table = self.table_maker()
         return Live(table, refresh_per_second=self.refresh_per_second, console=CONSOLE)
 
     @cached_property
     def context(self):
-        return mux.demux_context(
-            self.devices, self.client.callback, self.stop, self.device_slices
-        )
+        return demux_context(self.devices, self.callback, self.stop, self.device_slices)
 
     def run(self):
         self.start()
         with self.live, self.context:
             while self.running:
                 time.sleep(self.sleep_time)
-                self.live.update(self.client.table())
+                self.live.update(self.table_maker())

@@ -1,10 +1,14 @@
 import dataclasses as dc
 import time
+import typing as t
+
+from rich.table import Table as RichTable
 
 from . import audio_callback as ac
 from . import field
 from .counter import Accumulator, Counter
 from .table import Table
+from .types import Block, InputDevice
 
 
 @dc.dataclass
@@ -63,14 +67,14 @@ class Top(ac.Top):
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def callback(self, block, channel_name, device):
+    def callback(self, block: Block, channel_name: str, device: InputDevice) -> None:
         self.block_count()
         super().callback(block, channel_name, device)
 
-    def table(self):
+    def table(self) -> RichTable:
         return TABLE(self.rows())
 
-    def rows(self):
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'time': f'{self.elapsed_time:9.3f}',
             'count': self.block_count.value,

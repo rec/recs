@@ -11,18 +11,18 @@ class Channel:
     channel_name: str
     device: InputDevice
 
-    def callback(self, block):
+    def callback(self, block: Block):
         raise NotImplementedError
 
 
 @dc.dataclass
 class Device:
     device: InputDevice
-    channels: dict = field(dict)
+    channels: dict[str, Channel] = field(dict)
 
     Channel: t.ClassVar[t.Type]
 
-    def callback(self, block, channel_name):
+    def callback(self, block: Block, channel_name: str):
         try:
             ch = self.channels[channel_name]
         except KeyError:
