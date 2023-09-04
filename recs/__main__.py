@@ -27,9 +27,8 @@ def rec():
 
 @command(help='Check levels')
 def check():
+    from recs.audio import monitor
     from recs.ui import audio_display
-
-    from . import monitor
 
     top = audio_display.Top()
     monitor.Monitor(top.callback, top.table).run()

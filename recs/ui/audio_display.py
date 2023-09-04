@@ -4,9 +4,9 @@ import typing as t
 
 from recs import field
 from recs.audio import callback as ac
-from recs.counter import Accumulator, Counter
 from recs.ui.table import TableFormatter
-from recs.types import Block, InputDevice, Table
+from recs.util.counter import Accumulator, Counter
+from recs.util.types import Block, InputDevice, Table
 
 
 @dc.dataclass
