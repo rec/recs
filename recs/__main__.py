@@ -27,7 +27,7 @@ def rec():
 
 @command(help='Check levels')
 def check():
-    from recs import audio_display
+    from recs.ui import audio_display
 
     from . import monitor
 
