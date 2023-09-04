@@ -15,9 +15,15 @@ class AudioFileFormat:
     format: Format
     subtype: Subtype
 
+    @property
+    def suffix(self) -> str:
+        return f'.{self.format.lower()}'
+
     def open(self, path: Path | str, mode: str = 'r') -> sf.SoundFile:
+        file = str(Path(path).with_suffix(self.suffix))
+        print('Opening', file, 'for', mode)
         return sf.SoundFile(
-            file=str(path),
+            file=file,
             mode=mode,
             channels=self.channels,
             samplerate=self.samplerate,

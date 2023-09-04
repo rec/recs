@@ -4,7 +4,7 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .audio_types import AudioFileFormat
+from .audio_format import AudioFileFormat
 from .block import Block, Blocks
 from .silence import SilenceStrategy
 
@@ -12,7 +12,6 @@ from .silence import SilenceStrategy
 @dc.dataclass
 class FileWriter:
     file_format: AudioFileFormat
-    file_suffix: str
     name: str
     path: Path
     silence: SilenceStrategy[int]
@@ -47,9 +46,7 @@ class FileWriter:
             self._sf.write(b.block)
 
     def _new_filename(self) -> Path:
-        filename = self.path / f'{self.name}-{ts()}{self.file_suffix}'
-        print('Creating', filename)
-        return filename
+        return self.path / f'{self.name}-{ts()}'
 
 
 def ts():
