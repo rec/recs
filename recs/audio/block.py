@@ -3,7 +3,7 @@ from functools import cached_property
 
 import numpy as np
 
-from . import Array
+from recs import Array
 
 
 @dc.dataclass(frozen=True)
@@ -61,8 +61,10 @@ class Blocks:
         return list(self._clip(sample_length, False))
 
     def _clip(self, sample_length: int, is_start: bool):
+        assert sample_length >= 0
         while self.length > sample_length:
-            yield (block := self.blocks.pop(0 if is_start else -1))
+            block = self.blocks.pop(0 if is_start else -1)
+            yield block
             self.length -= len(block)
 
     def write(self, sf):

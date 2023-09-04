@@ -6,8 +6,9 @@ from functools import cached_property
 from rich.console import Console
 from rich.live import Live
 
-from . import device, field, threads
-from .mux import auto_slice, demux_context
+from . import field, threads
+from .audio import device
+from recs.audio.mux import auto_slice, demux_context
 from .types import Callback, InputDevices, SlicesDict, TableMaker
 
 FLOW_SLICE = auto_slice(8) | {'Main': slice(8, 10)}

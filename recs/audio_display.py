@@ -2,11 +2,11 @@ import dataclasses as dc
 import time
 import typing as t
 
-from . import audio_callback as ac
-from . import field
-from .counter import Accumulator, Counter
-from .table import TableFormatter
-from .types import Block, InputDevice, Table
+from recs import field
+from recs.audio import callback as ac
+from recs.counter import Accumulator, Counter
+from recs.table import TableFormatter
+from recs.types import Block, InputDevice, Table
 
 
 @dc.dataclass

@@ -1,7 +1,7 @@
 import dataclasses as dc
 from pathlib import Path
 
-from recs.silence import SilenceStrategy
+from recs.audio.silence import SilenceStrategy
 
 DEFAULT_SILENCE = SilenceStrategy[float](
     at_start=3,

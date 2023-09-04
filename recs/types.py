@@ -2,8 +2,8 @@ import typing as t
 
 from rich.table import Table
 
-from .block import Array, Block
-from .device import InputDevice
+from recs.audio.block import Array, Block
+from recs.audio.device import InputDevice
 
 __all__ = (
     'Array',

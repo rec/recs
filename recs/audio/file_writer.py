@@ -4,9 +4,9 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .audio_format import AudioFileFormat
-from .block import Block, Blocks
-from .silence import SilenceStrategy
+from recs.audio.block import Block, Blocks
+from recs.audio.file_format import AudioFileFormat
+from recs.audio.silence import SilenceStrategy
 
 
 @dc.dataclass

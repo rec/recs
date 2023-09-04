@@ -1,9 +1,10 @@
 import dataclasses as dc
 import typing as t
 
-from . import field
+from recs import field
+from recs.audio.device import InputDevice
+
 from .block import Block
-from .device import InputDevice
 
 
 @dc.dataclass

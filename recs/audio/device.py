@@ -5,7 +5,7 @@ import typing as t
 
 import sounddevice as sd
 
-from . import Array, DType
+from recs import Array, DType
 
 Callback = t.Callable[[Array, 'InputDevice'], t.Any]
 

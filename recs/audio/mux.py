@@ -4,7 +4,7 @@ import typing as t
 
 import sounddevice as sd
 
-from .types import (
+from recs.types import (
     Array,
     Block,
     Callback,

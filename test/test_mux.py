@@ -1,4 +1,4 @@
-from recs import mux
+from recs.audio import mux
 
 
 def test_auto_slice():
