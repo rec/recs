@@ -27,6 +27,9 @@ class Monitor(threads.IsRunning):
     refresh_per_second: float = 20
     sleep_time: float = 0.01
 
+    def __post_init__(self):
+        super().__init__()
+
     @cached_property
     def live(self) -> Live:
         table = self.table_maker()

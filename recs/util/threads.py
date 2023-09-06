@@ -4,32 +4,23 @@ import traceback
 import typing as t
 from functools import cached_property
 from queue import Queue
-from threading import Lock, Thread
+from threading import Event, Thread
 
 
 class IsRunning:
-    running = False
-
-    @cached_property
-    def _lock(self):
-        return Lock()
+    def __init__(self):
+        self.running = Event()
+        self.stopping = Event()
 
     def start(self):
-        with self._lock:
-            if self.running:
-                return True
-            self.running = True
-
-        self._start()
-
-    def _start(self):
-        pass
+        self.running.set()
 
     def stop(self):
         """Stop as soon as possible.
         Might not do anything, should never raise an exception
         """
-        self.running = False
+        self.running.clear()
+        self.stopping.set()
 
     def join(self):
         """Join this thread or process.  Might block indefinitely"""
@@ -55,7 +46,8 @@ class Runnables(IsRunning):
         for r in self.runnables:
             r.join()
 
-    def _start(self):
+    def start(self):
+        super().start()
         for r in self.runnables:
             r.start()
 
@@ -84,7 +76,8 @@ class HasThread(IsRunning):
         return self.new_thread()
 
     def _target(self):
-        while self.running:
+        self.running.set()
+        while self.running.is_set():
             try:
                 self.callback()
             except Exception:
@@ -94,14 +87,16 @@ class HasThread(IsRunning):
             else:
                 if not self.looping:
                     break
+        self.stopping.set()
 
-    def _start(self):
+    def start(self):
         self.thread.start()
+        self.running.wait()
 
 
 @dc.dataclass
 class ThreadQueue(Runnables):
-    callback: t.Callable[[t.Any], t.Any]
+    callback: t.Callable[[t.Any], None]
     finish_message: t.Any = None
     maxsize: int = 0
     name: str = 'thread_queue'
@@ -119,7 +114,7 @@ class ThreadQueue(Runnables):
         self.queue.put_nowait(item)
 
     def target(self):
-        while self.running and (x := self.queue.get()) != self.finish_message:
+        while self.running.is_set() and (x := self.queue.get()) != self.finish_message:
             self.callback(x)
 
     def finish(self):
