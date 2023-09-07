@@ -10,7 +10,11 @@ from threading import Event, Thread
 class IsRunning:
     def __init__(self):
         self.running = Event()
-        self.stopping = Event()
+        self.stopped = Event()
+
+    @property
+    def is_running(self) -> bool:
+        return self.running.is_set()
 
     def start(self):
         self.running.set()
@@ -20,10 +24,13 @@ class IsRunning:
         Might not do anything, should never raise an exception
         """
         self.running.clear()
-        self.stopping.set()
+        self.stopped.set()
 
     def join(self):
         """Join this thread or process.  Might block indefinitely"""
+
+    def finish(self):
+        self.stop()
 
     def __enter__(self):
         self.start()
@@ -52,21 +59,26 @@ class Runnables(IsRunning):
             r.start()
 
     def stop(self):
-        super().stop()
+        self.running.clear()
         for r in self.runnables:
             r.stop()
+        self.stopped.set()
+
+    def finish(self):
+        for r in self.runnables:
+            r.finish()
 
 
-@dc.dataclass
-class HasThread(IsRunning):
+class IsThread(IsRunning):
     callback: t.Callable[[], None]
-    daemon: bool = True
-    stderr: t.TextIO = sys.stderr
-    looping: bool = False
+    name: str = ''
 
-    @property
-    def name(self):
-        return self.__class__.__name__
+    daemon: bool = False
+    looping: bool = False
+    stderr: t.TextIO = sys.stderr
+
+    def __str__(self):
+        return self.name or self.__class__.__name__
 
     def new_thread(self) -> Thread:
         return Thread(target=self._target, daemon=self.daemon)
@@ -77,21 +89,40 @@ class HasThread(IsRunning):
 
     def _target(self):
         self.running.set()
-        while self.running.is_set():
+        while self.is_running:
             try:
                 self.callback()
             except Exception:
+                print('', file=self.stderr)
                 traceback.print_exc(file=self.stderr)
                 self.stop()
-                raise
-            else:
-                if not self.looping:
-                    break
-        self.stopping.set()
+                break
+            if not self.looping:
+                break
+        self.stopped.set()
 
     def start(self):
         self.thread.start()
         self.running.wait()
+
+    def stop(self):
+        self.running.clear()
+
+    def finish(self):
+        pass
+
+
+@dc.dataclass
+class HasThread(IsThread):
+    callback: t.Callable[[], None]
+    daemon: bool = False
+    stderr: t.TextIO = sys.stderr
+    looping: bool = False
+    name: str = ''
+
+    @property
+    def __str__(self):
+        return self.name or f'HasThread[{self.callback}]'
 
 
 @dc.dataclass
@@ -102,9 +133,10 @@ class ThreadQueue(Runnables):
     name: str = 'thread_queue'
     thread_count: int = 1
 
-    def __post_init__(self):
-        it = range(self.thread_count)
-        self.runnables = tuple(HasThread(self.target) for _ in it)
+    @cached_property
+    def runnables(self):
+        names = [f'ThreadQueue[{self.callback}-i]' for i in range(self.thread_count)]
+        return tuple(HasThread(callback=self.target, name=n) for n in names)
 
     @cached_property
     def queue(self):
@@ -118,6 +150,6 @@ class ThreadQueue(Runnables):
             self.callback(x)
 
     def finish(self):
-        """Request stop after all the work is done"""
+        """Put an empty message into the queue for each listener"""
         for _ in self.runnables:
             self.put(self.finish_message)
