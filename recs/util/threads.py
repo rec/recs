@@ -1,20 +1,38 @@
 import dataclasses as dc
 import sys
+import threading
 import traceback
 import typing as t
 from functools import cached_property
 from queue import Queue
-from threading import Event, Thread
+from threading import Thread
+
+Callback = t.Callable[[], None]
+
+
+class Event(threading.Event):
+    changed: t.List[Callback]
+
+    def __init__(self, *changed: Callback):
+        self.changed = list(changed)
+        super().__init__()
+
+    def set(self):
+        super().set()
+        [c() for c in self.changed]
+
+    def clear(self):
+        super().clear()
+        [c() for c in self.changed]
+
+    def __bool__(self):
+        return self.is_set()
 
 
 class IsRunning:
     def __init__(self):
         self.running = Event()
         self.stopped = Event()
-
-    @property
-    def is_running(self) -> bool:
-        return self.running.is_set()
 
     def start(self):
         self.running.set()
@@ -26,11 +44,12 @@ class IsRunning:
         self.running.clear()
         self.stopped.set()
 
+    def finish(self):
+        """Request an orderly shutdown where all work is finished"""
+        self.stop()
+
     def join(self):
         """Join this thread or process.  Might block indefinitely"""
-
-    def finish(self):
-        self.stop()
 
     def __enter__(self):
         self.start()
@@ -48,29 +67,32 @@ class IsRunning:
 class Runnables(IsRunning):
     runnables: t.Sequence[IsRunning]
 
-    def join(self):
-        super().join()
-        for r in self.runnables:
-            r.join()
-
     def start(self):
         super().start()
         for r in self.runnables:
+            r.stopped.changed.append(self._changed)
             r.start()
 
     def stop(self):
         self.running.clear()
         for r in self.runnables:
             r.stop()
-        self.stopped.set()
 
     def finish(self):
         for r in self.runnables:
             r.finish()
 
+    def join(self):
+        for r in self.runnables:
+            r.join()
+
+    def _changed(self):
+        if sum(bool(r.stopped) for r in self.runnables) == len(self.runnables):
+            self.stopped.set()
+
 
 class IsThread(IsRunning):
-    callback: t.Callable[[], None]
+    callback: Callback
     name: str = ''
 
     daemon: bool = False
@@ -114,7 +136,7 @@ class IsThread(IsRunning):
 
 @dc.dataclass
 class HasThread(IsThread):
-    callback: t.Callable[[], None]
+    callback: Callback
     daemon: bool = False
     stderr: t.TextIO = sys.stderr
     looping: bool = False
@@ -146,7 +168,7 @@ class ThreadQueue(Runnables):
         self.queue.put_nowait(item)
 
     def target(self):
-        while self.running.is_set() and (x := self.queue.get()) != self.finish_message:
+        while self.running and (x := self.queue.get()) != self.finish_message:
             self.callback(x)
 
     def finish(self):
