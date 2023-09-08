@@ -9,6 +9,7 @@ from queue import Queue
 from threading import Thread
 
 Callback = t.Callable[[], None]
+print_err = partial(print, file=sys.stderr)
 
 
 class Event(threading.Event):
@@ -134,7 +135,7 @@ class Runnables(IsRunning):
             self.stopped.set()
 
 
-class _ThreadBase(IsRunning):
+class ThreadBase(IsRunning):
     """A base class for classes with a thread.
 
     It adds the following features to threading.Thread:
@@ -145,12 +146,11 @@ class _ThreadBase(IsRunning):
 
     """
 
-    callback: Callback
+    callback: Callback = staticmethod(print)
     daemon: bool = False
-    error: t.Callable = partial(print, file=sys.stderr)
-    name: str = ''
+    error: t.Callable = staticmethod(print_err)
     looping: bool = False
-    status: t.Optional[bool] = None
+    name: str = ''
 
     def __str__(self):
         return self.name or self.__class__.__name__
@@ -164,7 +164,6 @@ class _ThreadBase(IsRunning):
                 self.error('Exception in', self)
                 self.error(traceback.format_exc())
                 self.stop()
-                self.status = False
             else:
                 if not self.looping:
                     break
@@ -177,8 +176,8 @@ class _ThreadBase(IsRunning):
         pass
 
 
-class IsThread(_ThreadBase, Thread):
-    """This _ThreadBase inherits from threading.Thread.
+class IsThread(ThreadBase, Thread):
+    """This ThreadBase inherits from threading.Thread.
 
     To use IsThread, derive from it and override self.callback()
     """
@@ -188,16 +187,16 @@ class IsThread(_ThreadBase, Thread):
         pass
 
     def start(self):
-        _ThreadBase.start(self)
+        ThreadBase.start(self)
 
 
 @dc.dataclass
-class HasThread(_ThreadBase):
-    """This class_ThreadBase contains a thread, and is constructed with a callback"""
+class HasThread(ThreadBase):
+    """This ThreadBase contains a thread, and is constructed with a callback"""
 
-    callback: Callback
+    callback: Callback = print
     daemon: bool = False
-    stderr: t.TextIO = sys.stderr
+    error: t.Callable = print_err
     looping: bool = False
     name: str = ''
 
@@ -218,16 +217,24 @@ class HasThread(_ThreadBase):
 
 @dc.dataclass
 class ThreadQueue(Runnables):
+    """A simple multi-producer, multi-consumer queue with one thread per consumer.
+
+    There is a special `finish_message` value, which when received shuts down
+    that consumer.  ThreadQueue.finish() puts one `self.finish_message` onto the
+    queue for each consumer.
+    """
+
     callback: t.Callable[[t.Any], None]
     finish_message: t.Any = None
     maxsize: int = 0
     name: str = 'thread_queue'
     thread_count: int = 1
 
+    pass_self = True
+
     @cached_property
     def runnables(self):
-        names = [f'ThreadQueue[{self.callback}-{i}]' for i in range(self.thread_count)]
-        return tuple(HasThread(callback=self.target, name=n) for n in names)
+        return tuple(self._thread(i) for i in range(self.thread_count))
 
     @cached_property
     def queue(self):
@@ -236,9 +243,17 @@ class ThreadQueue(Runnables):
     def put(self, item):
         self.queue.put_nowait(item)
 
-    def target(self):
-        while self.running and (x := self.queue.get()) != self.finish_message:
-            self.callback(x)
+    def _thread(self, i: int) -> HasThread:
+        t = HasThread(name=f'ThreadQueue[{self.callback}-{i}]')
+        t.callback = lambda: self._run(t)
+        return t
+
+    def _run(self, thread: HasThread):
+        try:
+            while self.running and (x := self.queue.get()) != self.finish_message:
+                self.callback(x)
+        finally:
+            thread.stop()
 
     def finish(self):
         """Put an empty message into the queue for each listener"""
