@@ -146,6 +146,20 @@ files = [
 ]
 
 [[package]]
+name = "dek"
+version = "1.2.0"
+description = "🎴 The decorator-decorator 🎴"
+optional = false
+python-versions = ">3.7"
+files = [
+    {file = "dek-1.2.0-py3-none-any.whl", hash = "sha256:bdc95d9dde0f2b83245768f8e471e1f0ef36b0cc947062264d6e13ecaad5765a"},
+    {file = "dek-1.2.0.tar.gz", hash = "sha256:5e8350b3448e8246bae6a05e8dba967c3cf62d99a6cae3c5fe28f8fe73095cf8"},
+]
+
+[package.dependencies]
+xmod = "*"
+
+[[package]]
 name = "dtyper"
 version = "2.1.0"
 description = "🗝 Make `typer` commands callable, or dataclasses 🗝"
@@ -569,6 +583,21 @@ cffi = ">=1.0"
 numpy = ["numpy"]
 
 [[package]]
+name = "tdir"
+version = "1.6.0"
+description = "🗃 Create and fill a temporary directory 🗃"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "tdir-1.6.0-py3-none-any.whl", hash = "sha256:18cf0f5e83b5a9009b4db0faec25586e1a0ea2c3fe292cf9023b4809eddb7419"},
+    {file = "tdir-1.6.0.tar.gz", hash = "sha256:3e4dd8593cece70cad40c2e4c67da893b6b97710a3158695a1396cc6474e3a30"},
+]
+
+[package.dependencies]
+dek = "*"
+xmod = "*"
+
+[[package]]
 name = "typer"
 version = "0.9.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -600,7 +629,21 @@ files = [
     {file = "typing_extensions-4.7.1.tar.gz", hash = "sha256:b75ddc264f0ba5615db7ba217daeb99701ad295353c45f9e95963337ceeeffb2"},
 ]
 
+[[package]]
+name = "xmod"
+version = "1.5.0"
+description = "🌱 Turn any object into a module 🌱"
+optional = false
+python-versions = ">3.7"
+files = [
+    {file = "xmod-1.5.0-py3-none-any.whl", hash = "sha256:1ef43b78282e1593938e948f428c343d071ce3dba87450c2849fa710010f9f14"},
+    {file = "xmod-1.5.0.tar.gz", hash = "sha256:e5b3de74e220a0a3aca96c903f40598257a97b1f316a35e1e0668b1310c31784"},
+]
+
+[package.dependencies]
+dek = "*"
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "8a4d949e93a6169f080b71edea2e29eb53800ff3ba02ced06b700375a5c80677"
+content-hash = "3b6431484d7552c10e490d60458358fa893467c72e2ece48cde79055998906b5"
