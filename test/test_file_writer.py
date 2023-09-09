@@ -2,6 +2,7 @@ import dataclasses as dc
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 import tdir
 
@@ -12,14 +13,20 @@ from recs.audio.silence import SilenceStrategy
 
 I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]
 
+BLOCKS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
+RESULT1 = [[28, 16, 12], [28, 4, 12], [28, 76]]
+BLOCKS2 = (4 * I) + (3 * O) + I + (2000 * O) + (3 * I)
+RESULT2 = [[0, 16, 12, 4, 12], [28, 12]]
+SAMPLERATE = 48_000
 
 
+@pytest.mark.parametrize('blocks,segments', [(BLOCKS1, RESULT1), (BLOCKS2, RESULT2)])
 @tdir
-def test_file_writer():
+def test_file_writer(blocks, segments):
     writer = fw.FileWriter(
         file_format=ff.AudioFileFormat(
             channels=1,
-            samplerate=48_000,
+            samplerate=SAMPLERATE,
             format=ff.Format.FLAC,
             subtype=ff.Subtype.PCM_24
         ),
@@ -32,19 +39,13 @@ def test_file_writer():
         ),
     )
 
-    blocks = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
-
     with writer:
         [writer.write(b) for b in blocks]
 
     contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
 
-    assert samplerates == (48000, 48000, 48000,)
-    lengths = [len(c) for c in contents]
-    assert lengths == [56, 44, 104]
-
-    segments = [list(_segments(c)) for c in contents]
-    assert segments == [[28, 16, 12], [28, 4, 12], [28, 76]]
+    assert all(s == SAMPLERATE for s in samplerates)
+    assert segments == [list(_segments(c)) for c in contents]
 
 
 def _segments(it):
