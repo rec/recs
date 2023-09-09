@@ -11,6 +11,10 @@ from recs import Array
 class Block:
     block: Array
 
+    def __post_init__(self):
+        if len(self.block.shape) == 1:
+            self.__dict__['block'] = self.block.reshape(*self.block.shape, 1)
+
     def __len__(self) -> int:
         return self.block.shape[0]
 
@@ -19,25 +23,22 @@ class Block:
         return self.block.shape[1]
 
     @cached_property
-    def amplitude(self) -> np.ndarray:
+    def amplitude(self) -> Array:
         return (self.max - self.min) / 2
 
     @cached_property
-    def max(self) -> np.ndarray:
+    def max(self) -> Array:
         return self.block.max(0)
 
     @cached_property
-    def min(self) -> np.ndarray:
+    def min(self) -> Array:
         return self.block.min(0)
 
     @cached_property
-    def rms(self) -> np.ndarray:
+    def rms(self) -> Array:
         b = self.block.astype(float)
         b *= b
         return np.sqrt(b.mean(0))
-
-    def __getitem__(self, k):
-        return Block(self.block[k])
 
 
 @dc.dataclass
