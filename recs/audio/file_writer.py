@@ -79,7 +79,7 @@ class FileWriter:
             if not p.exists():
                 return p
             index += 1
-            istr = f'-{index}'
+            istr = f'_{index}'
 
 
 def ts():

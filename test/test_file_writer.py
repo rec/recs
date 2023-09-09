@@ -2,6 +2,7 @@ import dataclasses as dc
 from pathlib import Path
 
 import numpy as np
+import soundfile as sf
 import tdir
 
 from recs import array
@@ -31,12 +32,28 @@ def test_file_writer():
         ),
     )
 
-    blocks = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (20 * I)
+    blocks = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
 
     with writer:
-        for i, b in enumerate(blocks):
-            writer.write(b)
-            print(i, sorted(Path('.').iterdir()))
+        [writer.write(b) for b in blocks]
 
-    files = sorted(Path('.').iterdir())
-    assert len(files) == 3
+    contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
+
+    assert samplerates == (48000, 48000, 48000,)
+    lengths = [len(c) for c in contents]
+    assert lengths == [56, 44, 104]
+
+    segments = [list(_segments(c)) for c in contents]
+    assert segments == [[28, 16, 12], [28, 4, 12], [28, 76]]
+
+
+def _segments(it):
+    pb = False
+    pi = 0
+
+    for i, x in enumerate(it):
+        if (b := bool(x)) != pb:
+            yield i - pi
+            pb = b
+            pi = i
+    yield i + 1 - pi
