@@ -10,6 +10,7 @@ DEFAULT_SILENCE = SilenceStrategy[float](
 )
 
 
+# Unused
 @dc.dataclass(frozen=True)
 class Config:
     path: Path = Path()

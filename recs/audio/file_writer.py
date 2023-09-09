@@ -22,26 +22,28 @@ class FileWriter:
     def __call__(self, block: Block):
         self._blocks.append(block)
         if block.amplitude >= self.silence.noise_floor:
-            self._not_silent()
-        elif self._blocks.length > self.silence.before_stopping:
-            self.close()
+            self._block_not_silent()
+        elif self._blocks.duration > self.silence.before_stopping:
+            self._close()
 
-    def _not_silent(self):
+    def _block_not_silent(self):
         if not self._sf:
-            self._blocks.clip_start(self.silence.at_start + len(self._blocks[-1]))
+            blocks = self._blocks
+            length = self.silence.at_start + len(self._blocks[-1])
+            blocks.clip(length, from_start=True)
         self._record(self._blocks)
         self._blocks.clear()
 
-    def close(self):
-        removed = self._blocks.clip_end(self.silence.at_end)
+    def _close(self):
+        blocks = self._blocks
+        removed = blocks.clip(self.silence.at_end, from_start=False)
         if self._sf:
             self._record(reversed(removed))
             self._sf.close()
             self._sf = None
 
-    def _record(self, blocks):
-        if not self._sf:
-            self._sf or self.file_format.open(self._new_filename())
+    def _record(self, blocks: Blocks):
+        self._sf = self._sf or self.file_format.open(self._new_filename())
         for b in blocks:
             self._sf.write(b.block)
 

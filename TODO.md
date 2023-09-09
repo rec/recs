@@ -6,7 +6,7 @@ DONE
 
 TODO:
 
-* Unit tests for SilenceStrategy
+* Unit tests for FileWriter
 * Create a TableEntry that also does recording
 * Change the entries to show files written and etc
 

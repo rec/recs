@@ -1,4 +1,5 @@
 import dataclasses as dc
+import typing as t
 from functools import cached_property
 
 import numpy as np
@@ -42,30 +43,23 @@ class Block:
 @dc.dataclass
 class Blocks:
     blocks: list[Block] = dc.field(default_factory=list)
-    length: int = 0
+    duration: int = 0
 
     def append(self, block):
         self.blocks.append(block)
-        self.length += len(block)
+        self.duration += len(block)
 
     def clear(self):
-        self.length = 0
+        self.duration = 0
         self.blocks.clear()
 
-    def clip_start(self, sample_length: int):
-        """Clip to length sample_length by cutting from the start"""
-        return list(self._clip(sample_length, True))
-
-    def clip_end(self, sample_length: int):
-        """Clip to length sample_length by cutting from the end"""
-        return list(self._clip(sample_length, False))
-
-    def _clip(self, sample_length: int, is_start: bool):
+    def clip(self, sample_length: int, from_start: bool) -> t.Sequence[Block]:
+        clipped = []
         assert sample_length >= 0
-        while self.length > sample_length:
-            block = self.blocks.pop(0 if is_start else -1)
-            yield block
-            self.length -= len(block)
+        while self.duration > sample_length:
+            clipped.append(self.blocks.pop(0 if from_start else -1))
+            self.duration -= len(clipped[-1])
+        return clipped
 
     def write(self, sf):
         for b in self:
