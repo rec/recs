@@ -3,6 +3,7 @@ import time
 from copy import deepcopy
 from functools import cached_property
 
+from rec.util import slicer
 from rich.console import Console
 from rich.live import Live
 
@@ -11,7 +12,7 @@ from recs.util import threads, types
 
 from . import device, mux
 
-FLOW_SLICE = mux.auto_slice(8) | {'Main': slice(8, 10)}
+FLOW_SLICE = slicer.auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
@@ -22,7 +23,7 @@ class Monitor(threads.IsRunning):
     callback: types.Callback
     table_maker: types.TableMaker
 
-    slices: types.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
+    slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
     devices: types.InputDevices = field(lambda: device.input_devices().values())
     refresh_per_second: float = 20
     sleep_time: float = 0.01
