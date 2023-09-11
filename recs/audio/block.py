@@ -18,6 +18,9 @@ class Block:
     def __len__(self) -> int:
         return self.block.shape[0]
 
+    def __getitem__(self, index) -> 'Block':
+        return Block(self.block[index])
+
     @cached_property
     def channels(self) -> int:
         return self.block.shape[1]

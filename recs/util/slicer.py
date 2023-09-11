@@ -1,7 +1,6 @@
 import typing as t
 
 from recs.audio.device import InputDevice
-from recs.util.types import InputDevices
 
 Slices = dict[str, slice]
 SlicesDict = dict[str, Slices]
@@ -46,5 +45,7 @@ def slice_one(device: InputDevice, device_slices: SlicesDict) -> Slices:
     return to_slices(m[0]) if m else auto_slice(device.channels)
 
 
-def slice_all(devices: InputDevices, device_slices: SlicesDict) -> SlicesDict:
+def slice_all(
+    devices: t.Sequence[InputDevice], device_slices: SlicesDict
+) -> SlicesDict:
     return {d.name: slice_one(d, device_slices) for d in devices}

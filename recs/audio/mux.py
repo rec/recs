@@ -4,36 +4,40 @@ import typing as t
 
 import sounddevice as sd
 
+from recs import Array
+from recs.audio.block import Block
+from recs.audio.device import InputDevice
 from recs.util.slicer import Slices, SlicesDict, slice_one
-from recs.util.types import Array, Block, Callback, InputDevice, InputDevices, Stop
+
+Stop = t.Callable[[], None]
+ChannelCallback = t.Callable[[Block, str, 'InputDevice'], None]
 
 
 @dc.dataclass(frozen=True)
-class Demuxer:
-    callback: Callback
+class DemuxContext:
+    devices: t.Sequence[InputDevice]
+    callback: ChannelCallback
+    stop: Stop
+    device_slices: SlicesDict
+
+    @contextlib.contextmanager
+    def __call__(self) -> t.Iterator[sd.InputStream]:
+        streams = [self._input_stream(d) for d in self.devices]
+        with contextlib.ExitStack() as stack:
+            [stack.enter_context(s) for s in streams]
+            yield streams
+
+    def _input_stream(self, device: InputDevice) -> sd.InputStream:
+        slices = slice_one(device, self.device_slices)
+        demux = _Demuxer(self.callback, slices)
+        return device.input_stream(demux, self.stop)
+
+
+@dc.dataclass(frozen=True)
+class _Demuxer:
+    callback: ChannelCallback
     slices: Slices
 
     def __call__(self, frame: Array, *args):
         for k, v in self.slices.items():
             self.callback(Block(frame[:, v]), k, *args)
-
-
-def input_stream(
-    device: InputDevice, callback: Callback, stop: Stop, device_slices: SlicesDict
-) -> sd.InputStream:
-    slices = slice_one(device, device_slices)
-    demux = Demuxer(callback, slices)
-    return device.input_stream(demux, stop)
-
-
-@contextlib.contextmanager
-def demux_context(
-    devices: InputDevices,
-    callback: Callback,
-    stop: Stop,
-    device_slices: SlicesDict,
-) -> t.Iterator[sd.InputStream]:
-    streams = [input_stream(d, callback, stop, device_slices) for d in devices]
-    with contextlib.ExitStack() as stack:
-        [stack.enter_context(s) for s in streams]
-        yield streams

@@ -3,11 +3,11 @@ import sys
 import traceback
 import typing as t
 
-import sounddevice as sd
+from sounddevice import InputStream, query_devices
 
 from recs import Array, DType
 
-Callback = t.Callable[[Array, 'InputDevice'], t.Any]
+DeviceCallback = t.Callable[[Array, 'InputDevice'], None]
 
 
 @dc.dataclass(frozen=True)
@@ -31,9 +31,8 @@ class InputDevice:
     def name(self):
         return self.info['name']
 
-    def input_stream(self, callback: Callback, stop: t.Callable) -> sd.InputStream:
+    def input_stream(self, callback: DeviceCallback, stop: t.Callable) -> InputStream:
         def _callback(indata: Array, frames, time, status):
-            # print('_callback')
             try:
                 self.__dict__['block_count'] += 1
                 if status:
@@ -44,7 +43,7 @@ class InputDevice:
 
                 stop()
 
-        return sd.InputStream(
+        return InputStream(
             callback=_callback,
             channels=self.channels,
             device=self.name,
@@ -54,4 +53,4 @@ class InputDevice:
 
 
 def input_devices() -> dict[str, InputDevice]:
-    return {d.name: d for i in sd.query_devices() if (d := InputDevice(i))}
+    return {d.name: d for i in query_devices() if (d := InputDevice(i))}
