@@ -4,12 +4,13 @@ import typing as t
 from copy import deepcopy
 from functools import cached_property
 
+import threa
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
 from recs import field
-from recs.util import slicer, threads
+from recs.util import slicer
 
 from . import device, mux
 
@@ -21,7 +22,7 @@ TableMaker = t.Callable[[], Table]
 
 
 @dc.dataclass
-class Monitor(threads.IsRunning):
+class Monitor(threa.Runnable):
     callback: mux.ChannelCallback
     table_maker: TableMaker
 
