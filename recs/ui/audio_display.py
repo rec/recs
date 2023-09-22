@@ -13,7 +13,7 @@ from recs.util.counter import Accumulator, Counter
 
 
 @dc.dataclass
-class _Channel(ac.Channel):
+class _ChannelCallback(ac.ChannelCallback):
     block_count: Counter = field(Counter)
     amplitude: Accumulator = field(Accumulator)
     rms: Accumulator = field(Accumulator)
@@ -35,8 +35,8 @@ class _Channel(ac.Channel):
 
 
 @dc.dataclass
-class _Device(ac.Device):
-    Channel = _Channel
+class _DeviceCallback(ac.DeviceCallback):
+    Class = _ChannelCallback
 
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
@@ -53,16 +53,16 @@ class _Device(ac.Device):
             'count': self.block_count.value,
             'device': self.device.name,
         }
-        for v in self.channels.values():
-            yield from v.rows()
+        for v in self.contents.values():
+            yield from t.cast(_ChannelCallback, v).rows()
 
 
 @dc.dataclass
-class Top(ac.Top):
+class DevicesCallback(ac.DevicesCallback):
     block_count: Counter = field(Counter)
     start_time: float = field(time.time)
 
-    Device = _Device
+    Class = _DeviceCallback
 
     @property
     def elapsed_time(self):
@@ -80,8 +80,8 @@ class Top(ac.Top):
             'time': f'{self.elapsed_time:9.3f}',
             'count': self.block_count.value,
         }
-        for v in self.devices.values():
-            yield from v.rows()
+        for v in self.contents.values():
+            yield from t.cast(_DeviceCallback, v).rows()
 
 
 def _to_str(x) -> str:

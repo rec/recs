@@ -1,5 +1,7 @@
 import dataclasses as dc
+import time
 import typing as t
+from threading import Lock
 
 from recs import field
 from recs.audio.device import InputDevice
@@ -7,8 +9,31 @@ from recs.audio.device import InputDevice
 from .block import Block
 
 
+class Maker:
+    Class: t.ClassVar[t.Type]
+    contents: t.Dict[str, t.Any]
+
+    def __init__(self):
+        self._lock = Lock()
+        self.contents = {}
+
+    def __post_init__(self):
+        Maker.__init__(self)
+
+    def get(self, name: str, value: t.Any):
+        with self._lock:
+            try:
+                return self.contents[name]
+            except KeyError:
+                pass
+            self.contents[name] = ch = self.Class(name, value)
+            return ch
+
+
 @dc.dataclass
-class Channel:
+class ChannelCallback:
+    """This class gets callbacks from blocks from a channel within a device"""
+
     channel_name: str
     device: InputDevice
 
@@ -17,29 +42,29 @@ class Channel:
 
 
 @dc.dataclass
-class Device:
+class DeviceCallback(Maker):
+    """This class gets callbacks from blocks from a single device"""
+
+    device_name: str
     device: InputDevice
-    channels: dict[str, Channel] = field(dict)
 
-    Channel: t.ClassVar[t.Type]
+    Class = ChannelCallback
 
-    def callback(self, block: Block, channel_name: str):
-        try:
-            ch = self.channels[channel_name]
-        except KeyError:
-            ch = self.channels[channel_name] = self.Channel(channel_name, self.device)
-        ch.callback(block)
+    def callback(self, block: Block, channel_name: str) -> None:
+        self.get(channel_name, self.device).callback(block)
 
 
 @dc.dataclass
-class Top:
-    devices: dict = field(dict)
+class DevicesCallback(Maker):
+    """This class gets callbacks from all blocks from all devices"""
 
-    Device: t.ClassVar[t.Type]
+    start_time: float = field(time.time)
+
+    Class = DeviceCallback
+
+    @property
+    def elapsed_time(self):
+        return time.time() - self.start_time
 
     def callback(self, block: Block, channel_name: str, device: InputDevice):
-        try:
-            dev = self.devices[device.name]
-        except KeyError:
-            dev = self.devices[device.name] = self.Device(device)
-        dev.callback(block, channel_name)
+        self.get(device.name, device).callback(block, channel_name)

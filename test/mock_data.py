@@ -14,7 +14,7 @@ DEVICES = {
     'MacBook Pro Microphone': {
         '1': slice(0, 1)
     },
-    'USB PnP Sound Device': {
+    'USB PnP Sound DeviceCallback': {
         '1': slice(0, 1)
     },
     'ZoomAudioDevice': {

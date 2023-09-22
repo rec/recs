@@ -30,7 +30,7 @@ def check():
     from recs.audio import monitor
     from recs.ui import audio_display
 
-    top = audio_display.Top()
+    top = audio_display.DevicesCallback()
     monitor.Monitor(top.callback, top.table).run()
 
 
