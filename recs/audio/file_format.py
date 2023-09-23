@@ -1,19 +1,19 @@
 import dataclasses as dc
-import enum
+import typing as t
 from pathlib import Path
 
 import soundfile as sf
 
-Format = enum.StrEnum('Format', list(sf._formats))  # type: ignore[misc]
-Subtype = enum.StrEnum('Subtypes', list(sf._subtypes))  # type: ignore[misc]
+from .format import Format
+from .subtype import Subtype
 
 
 @dc.dataclass(frozen=True)
 class AudioFileFormat:
-    channels: int
-    samplerate: int
     format: Format
     subtype: Subtype
+    channels: t.Optional[int] = None
+    samplerate: t.Optional[int] = None
 
     @property
     def suffix(self) -> str:

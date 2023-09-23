@@ -26,9 +26,9 @@ def test_file_writer(blocks, segments):
     writer = fw.FileWriter(
         file_format=ff.AudioFileFormat(
             channels=1,
+            format=ff.Format.flac,
             samplerate=SAMPLERATE,
-            format=ff.Format.FLAC,
-            subtype=ff.Subtype.PCM_24
+            subtype=ff.Subtype.pcm_24
         ),
         name='test',
         path=Path('.'),
