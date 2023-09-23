@@ -1,14 +1,9 @@
 import click
 
-from . import info
+from . import info, rec
 from .app import app, command
 
 __all__ = 'check', 'info', 'rec', 'run'
-
-
-@command(help='Record')
-def rec():
-    pass
 
 
 @command(help='Check levels')
