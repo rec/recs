@@ -657,4 +657,4 @@ dek = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "0d7da6b2971e6675fd88292938c3748d6f1be749f63c5b6b4ae44f4e0b56517a"
+content-hash = "766d71f5258aa6541205b64406cd6775d0f68090ed374fd56beb705d5d95a441"
