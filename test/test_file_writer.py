@@ -33,9 +33,9 @@ def test_file_writer(blocks, segments):
         name='test',
         path=Path('.'),
         silence=SilenceStrategy[int](
-            at_start=30,
-            at_end=40,
-            before_stopping=50,
+            before_start=30,
+            after_end=40,
+            stop_after=50,
         ),
     )
 

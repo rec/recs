@@ -12,26 +12,26 @@ class SilenceStrategy(t.Generic[T]):
     """
 
     #: Amount of silence at the start
-    at_start: T
+    before_start: T
 
     #: Amount of silence at the end
-    at_end: T
+    after_end: T
 
     #: Amount of silence before stopping a recording
-    before_stopping: T
+    stop_after: T
 
     #: The noise floor in decibels
-    noise_floor_db: float = 70
+    noise_floor: float = 70
 
     @cached_property
-    def noise_floor(self):
-        return 10 ** (-self.noise_floor_db / 10)
+    def noise_floor_amplitude(self):
+        return 10 ** (-self.noise_floor / 10)
 
 
 def scale(source: SilenceStrategy[float], sample_rate: float) -> SilenceStrategy[int]:
     return SilenceStrategy[int](
-        at_start=round(sample_rate * source.at_start),
-        at_end=round(sample_rate * source.at_end),
-        before_stopping=round(sample_rate * source.before_stopping),
-        noise_floor_db=source.noise_floor_db,
+        before_start=round(sample_rate * source.before_start),
+        after_end=round(sample_rate * source.after_end),
+        stop_after=round(sample_rate * source.stop_after),
+        noise_floor=source.noise_floor,
     )

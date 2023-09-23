@@ -1,4 +1,3 @@
-import typing as t
 from pathlib import Path
 
 import dtyper
@@ -17,10 +16,10 @@ from .app import command
 
 @command(help='Record everything coming in')
 def rec(
-    exclude: t.List[str] = Option(
+    exclude: list[str] = Option(
         None, '-e', '--exclude', help='Exclude these devices or channels'
     ),
-    include: t.List[str] = Option(
+    include: list[str] = Option(
         None, '-i', '--include', help='Only include these devices or channels'
     ),
     format: Format = Option(

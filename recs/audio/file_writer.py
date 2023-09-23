@@ -33,10 +33,10 @@ class FileWriter:
     def write(self, block: Array):
         self._blocks.append(Block(block))
 
-        if self._blocks[-1].amplitude >= self.silence.noise_floor:
+        if self._blocks[-1].amplitude >= self.silence.noise_floor_amplitude:
             self._block_not_silent()
 
-        elif self._blocks.duration > self.silence.before_stopping:
+        elif self._blocks.duration > self.silence.stop_after:
             self._close_on_silence()
 
     def close(self):
@@ -49,7 +49,7 @@ class FileWriter:
     def _block_not_silent(self):
         if not self._sf:
             blocks = self._blocks
-            length = self.silence.at_start + len(self._blocks[-1])
+            length = self.silence.before_start + len(self._blocks[-1])
             blocks.clip(length, from_start=True)
 
         self._record(self._blocks)
@@ -57,7 +57,7 @@ class FileWriter:
 
     def _close_on_silence(self):
         blocks = self._blocks
-        removed = blocks.clip(self.silence.at_end, from_start=False)
+        removed = blocks.clip(self.silence.after_end, from_start=False)
 
         if self._sf:
             self._record(reversed(removed))
