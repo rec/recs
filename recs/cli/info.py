@@ -2,7 +2,7 @@ import typing as t
 
 import dtyper
 
-from . import command
+from .app import command
 
 
 @command(help='Info')
