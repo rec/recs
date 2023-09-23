@@ -16,6 +16,7 @@ sounddevice = ">=0.4.6"
 soundfile = ">=0.12.1"
 threa = "*"
 typer = ">=0.9.0"
+impall = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"

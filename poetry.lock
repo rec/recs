@@ -190,6 +190,17 @@ pycodestyle = ">=2.11.0,<2.12.0"
 pyflakes = ">=3.1.0,<3.2.0"
 
 [[package]]
+name = "impall"
+version = "1.4.0"
+description = "🛎 Test-import all modules 🛎"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "impall-1.4.0-py3-none-any.whl", hash = "sha256:b830a6350934bcda08db706f8d8beb9e3cb9b1cc5aefd7c448b6a63a425641b9"},
+    {file = "impall-1.4.0.tar.gz", hash = "sha256:42d3ccf2cb408d7da99fb315bcd316ae60f56d8395b0887b30ae34715e4ad1eb"},
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.0.0"
 description = "brain-dead simple config-ini parsing"
@@ -657,4 +668,4 @@ dek = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11"
-content-hash = "bc233073b46fa67b852eb8731c1cdbdc18ab5c6b41070d37ee9285807d5780d1"
+content-hash = "f7efc71a67d274dffe9843db99efc8e5654ec040a08a5f240c5c931a8de54757"
