@@ -1,18 +1,9 @@
 import click
 
-from . import info, rec
-from .app import app, command
+from . import rec
+from .app import app
 
-__all__ = 'check', 'info', 'rec', 'run'
-
-
-@command(help='Check levels')
-def check():
-    from recs.audio import monitor
-    from recs.ui import audio_display
-
-    top = audio_display.DevicesCallback()
-    monitor.Monitor(top.callback, top.table).run()
+__all__ = 'rec', 'run'
 
 
 def run():

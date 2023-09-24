@@ -1,14 +1,7 @@
 import typing as t
 
-import dtyper
 
-from .app import command
-
-
-@command(help='Info')
-def info(
-    kind: t.Optional[str] = dtyper.Argument(None),
-):
+def info(kind: t.Optional[str] = None):
     import json
 
     import sounddevice as sd
