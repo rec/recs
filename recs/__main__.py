@@ -4,8 +4,7 @@ import click
 import dtyper
 from dtyper import Option
 
-from recs.audio import format, info, monitor, subtype
-from recs.ui import audio_display
+from recs.audio import format, subtype
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -22,7 +21,7 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 
 
 @app.command(help='Record everything coming in')
-def rec(
+def recs(
     path: Path = Option(
         Path(), '-p', '--path', help='Path to the parent directory for files'
     ),
@@ -66,17 +65,11 @@ def rec(
         70, '-n', '--noise-floor', help='The noise floor in decibels'
     ),
 ):
-    Rec(**locals())()
+    d = dict(locals())
 
+    from .audio import recs
 
-@dtyper.dataclass(rec)
-class Rec:
-    def __call__(self):
-        if self.info:
-            info.info()
-        else:
-            top = audio_display.DevicesCallback()
-            monitor.Monitor(top.callback, top.table).run()
+    recs.run(d)
 
 
 def run():
