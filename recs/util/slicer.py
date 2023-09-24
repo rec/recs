@@ -4,17 +4,16 @@ from recs.audio.device import InputDevice
 
 __all__ = 'auto_slice', 'slice_device'
 
-Slices = dict[str, slice]
-SlicesDict = dict[str, Slices]
+SlicesDict = dict[str, dict[str, slice]]
 
 
-def slice_device(device: InputDevice, device_slices: SlicesDict) -> Slices:
+def slice_device(device: InputDevice, device_slices: SlicesDict) -> dict[str, slice]:
     name = device.name.lower()
     m = [v for k, v in device_slices.items() if name.startswith(k.lower())]
     return _to_slices(m[0]) if m else auto_slice(device.channels)
 
 
-def auto_slice(channels: int) -> Slices:
+def auto_slice(channels: int) -> dict[str, slice]:
     def slicer():
         # Display channnels start at channel 1, not 0
         for i in range(0, channels - 1, 2):
@@ -43,7 +42,7 @@ def _to_slice(x: slice | dict[str, int] | t.Sequence) -> slice:
     return slice(start, stop, step)
 
 
-def _to_slices(d: dict) -> Slices:
+def _to_slices(d: dict) -> dict[str, slice]:
     return {k: _to_slice(v) for k, v in d.items()}
 
 

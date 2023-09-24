@@ -7,7 +7,7 @@ import sounddevice as sd
 from recs import Array
 from recs.audio.block import Block
 from recs.audio.device import InputDevice
-from recs.util.slicer import Slices, SlicesDict, slice_device
+from recs.util.slicer import SlicesDict, slice_device
 
 Stop = t.Callable[[], None]
 
@@ -45,7 +45,7 @@ class DemuxContext:
 @dc.dataclass(frozen=True)
 class _Demuxer:
     callback: ChannelCallback
-    slices: Slices
+    slices: dict[str, slice]
 
     def __call__(self, array: Array, device: InputDevice):
         for k, v in self.slices.items():

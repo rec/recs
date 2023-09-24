@@ -5,7 +5,7 @@ from threading import Lock
 
 from recs import field
 
-from . import mux
+from .mux import AudioUpdate
 
 
 class Maker:
@@ -33,7 +33,7 @@ class Maker:
 class ChannelCallback:
     """This class gets callbacks from blocks from a channel within a device"""
 
-    def callback(self, u: mux.AudioUpdate):
+    def callback(self, u: AudioUpdate):
         raise NotImplementedError
 
 
@@ -42,7 +42,7 @@ class DeviceCallback(Maker):
 
     Class = ChannelCallback
 
-    def callback(self, u: mux.AudioUpdate) -> None:
+    def callback(self, u: AudioUpdate) -> None:
         self.get(u.channel_name, u.device).callback(u)
 
 
@@ -58,5 +58,5 @@ class DevicesCallback(Maker):
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def callback(self, u: mux.AudioUpdate):
+    def callback(self, u: AudioUpdate):
         self.get(u.device.name, u.device).callback(u)
