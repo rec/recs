@@ -1,3 +1,4 @@
+import abc
 import dataclasses as dc
 import time
 import typing as t
@@ -7,6 +8,19 @@ from recs import field
 from recs.audio.device import InputDevice
 
 from .block import Block
+
+
+@dc.dataclass
+class DeviceBlock:
+    device: InputDevice
+    block: Block
+    channel_name: str = ''
+
+
+class BlockCallback(abc.ABC):
+    @abc.abstractmethod
+    def callback(self, device_block: DeviceBlock) -> None:
+        pass
 
 
 class Maker:

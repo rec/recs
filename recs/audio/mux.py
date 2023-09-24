@@ -39,5 +39,6 @@ class _Demuxer:
     slices: Slices
 
     def __call__(self, frame: Array, *args):
+        assert len(args) == 1
         for k, v in self.slices.items():
             self.callback(Block(frame[:, v]), k, *args)
