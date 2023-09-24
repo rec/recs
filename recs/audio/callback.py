@@ -1,26 +1,11 @@
-import abc
 import dataclasses as dc
 import time
 import typing as t
 from threading import Lock
 
 from recs import field
-from recs.audio.device import InputDevice
 
-from .block import Block
-
-
-@dc.dataclass
-class DeviceBlock:
-    device: InputDevice
-    block: Block
-    channel_name: str = ''
-
-
-class BlockCallback(abc.ABC):
-    @abc.abstractmethod
-    def callback(self, device_block: DeviceBlock) -> None:
-        pass
+from . import mux
 
 
 class Maker:
@@ -40,7 +25,7 @@ class Maker:
                 return self.contents[name]
             except KeyError:
                 pass
-            self.contents[name] = ch = self.Class(name, value)
+            self.contents[name] = ch = self.Class()
             return ch
 
 
@@ -48,24 +33,17 @@ class Maker:
 class ChannelCallback:
     """This class gets callbacks from blocks from a channel within a device"""
 
-    channel_name: str
-    device: InputDevice
-
-    def callback(self, block: Block):
+    def callback(self, u: mux.AudioUpdate):
         raise NotImplementedError
 
 
-@dc.dataclass
 class DeviceCallback(Maker):
     """This class gets callbacks from blocks from a single device"""
 
-    device_name: str
-    device: InputDevice
-
     Class = ChannelCallback
 
-    def callback(self, block: Block, channel_name: str) -> None:
-        self.get(channel_name, self.device).callback(block)
+    def callback(self, u: mux.AudioUpdate) -> None:
+        self.get(u.channel_name, u.device).callback(u)
 
 
 @dc.dataclass
@@ -80,5 +58,5 @@ class DevicesCallback(Maker):
     def elapsed_time(self):
         return time.time() - self.start_time
 
-    def callback(self, block: Block, channel_name: str, device: InputDevice):
-        self.get(device.name, device).callback(block, channel_name)
+    def callback(self, u: mux.AudioUpdate):
+        self.get(u.device.name, u.device).callback(u)
