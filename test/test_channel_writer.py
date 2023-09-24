@@ -7,21 +7,21 @@ import soundfile as sf
 import tdir
 
 from recs import array
-from recs.audio import channel_writer, file_opener, format, subtype
+from recs.audio import block, channel_writer, file_opener, format, subtype
 from recs.audio.silence import SilenceStrategy
 
 I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]
 
-BLOCKS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
+ARRAYS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
 RESULT1 = [[28, 16, 12], [28, 4, 12], [28, 76]]
-BLOCKS2 = (4 * I) + (3 * O) + I + (2000 * O) + (3 * I)
+ARRAYS2 = (4 * I) + (3 * O) + I + (2000 * O) + (3 * I)
 RESULT2 = [[0, 16, 12, 4, 12], [28, 12]]
 SAMPLERATE = 48_000
 
 
-@pytest.mark.parametrize('blocks,segments', [(BLOCKS1, RESULT1), (BLOCKS2, RESULT2)])
+@pytest.mark.parametrize('arrays, segments', [(ARRAYS1, RESULT1), (ARRAYS2, RESULT2)])
 @tdir
-def test_file_writer(blocks, segments):
+def test_channel_writer(arrays, segments):
     writer = channel_writer.ChannelWriter(
         opener=file_opener.FileOpener(
             channels=1,
@@ -39,7 +39,7 @@ def test_file_writer(blocks, segments):
     )
 
     with writer:
-        [writer.write(b) for b in blocks]
+        [writer.write(block.Block(a)) for a in arrays]
 
     contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
 

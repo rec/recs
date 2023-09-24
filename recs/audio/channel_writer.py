@@ -4,21 +4,30 @@ from pathlib import Path
 
 import soundfile as sf
 
-from recs import Array
-from recs.audio.block import Block, Blocks
-from recs.audio.file_opener import FileOpener
-from recs.audio.silence import SilenceStrategy
+from . import block, file_opener, silence
 
 
 @dc.dataclass
 class ChannelWriter:
-    opener: FileOpener
+    opener: file_opener.FileOpener
     name: str
     path: Path
-    silence: SilenceStrategy[int]
+    silence: silence.SilenceStrategy[int]
 
-    _blocks: Blocks = dc.field(default_factory=Blocks)
+    block_count: int = 0
+    file_count: int = 0
+
+    _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
+    _current_file: Path = Path()
     _sf: sf.SoundFile | None = None
+
+    @property
+    def is_recording(self) -> bool:
+        return bool(self._sf)
+
+    @property
+    def current_file(self) -> Path:
+        return self._current_file
 
     def __enter__(self):
         return self
@@ -30,54 +39,58 @@ class ChannelWriter:
             if type is not None:
                 raise
 
-    def write(self, block: Array):
-        self._blocks.append(Block(block))
+    def write(self, block: block.Block):
+        self._blocks.append(block)
 
         if self._blocks[-1].amplitude >= self.silence.noise_floor_amplitude:
-            self._block_not_silent()
+            self._record_on_not_silence()
 
         elif self._blocks.duration > self.silence.stop_after:
             self._close_on_silence()
 
     def close(self):
-        if self._sf is not None:
+        if self._sf:
             self._record(self._blocks)
             self._sf.close()
             self._sf = None
+
         self._blocks.clear()
 
-    def _block_not_silent(self):
+    def _record_on_not_silence(self):
         if not self._sf:
-            blocks = self._blocks
             length = self.silence.before_start + len(self._blocks[-1])
-            blocks.clip(length, from_start=True)
+            self._blocks.clip(length, from_start=True)
 
         self._record(self._blocks)
         self._blocks.clear()
 
     def _close_on_silence(self):
-        blocks = self._blocks
-        removed = blocks.clip(self.silence.after_end, from_start=False)
+        removed = self._blocks.clip(self.silence.after_end, from_start=False)
 
         if self._sf:
-            self._record(reversed(removed))
+            if removed:
+                self._record(reversed(removed))
             self._sf.close()
             self._sf = None
 
-    def _record(self, blocks: Blocks):
-        self._sf = self._sf or self.opener.open(self._new_filename(), 'w')
+    def _record(self, blocks: block.Blocks):
+        if not self._sf:
+            self._new_file()
+            self._sf = self.opener.open(self.current_file, 'w')
+            self.file_count += 1
 
         for b in blocks:
             self._sf.write(b.block)
+            self.block_count += 1
 
-    def _new_filename(self) -> Path:
+    def _new_file(self):
         istr = ''
         index = 0
         while True:
             p = self.path / f'{self.name}-{ts()}{istr}'
-            p = p.with_suffix(self.opener.suffix)
-            if not p.exists():
-                return p
+            self._current_file = p.with_suffix(self.opener.suffix)
+            if not self._current_file.exists():
+                return
             index += 1
             istr = f'_{index}'
 
