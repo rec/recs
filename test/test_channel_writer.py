@@ -7,8 +7,7 @@ import soundfile as sf
 import tdir
 
 from recs import array
-from recs.audio import file_format as ff
-from recs.audio import file_writer as fw
+from recs.audio import channel_writer, file_opener, format, subtype
 from recs.audio.silence import SilenceStrategy
 
 I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]
@@ -23,12 +22,12 @@ SAMPLERATE = 48_000
 @pytest.mark.parametrize('blocks,segments', [(BLOCKS1, RESULT1), (BLOCKS2, RESULT2)])
 @tdir
 def test_file_writer(blocks, segments):
-    writer = fw.FileWriter(
-        file_format=ff.AudioFileFormat(
+    writer = channel_writer.ChannelWriter(
+        opener=file_opener.FileOpener(
             channels=1,
-            format=ff.Format.flac,
+            format=format.Format.flac,
             samplerate=SAMPLERATE,
-            subtype=ff.Subtype.pcm_24
+            subtype=subtype.Subtype.pcm_24
         ),
         name='test',
         path=Path('.'),

@@ -4,14 +4,13 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .format import Format
-from .subtype import Subtype
+from . import format, subtype
 
 
 @dc.dataclass(frozen=True)
-class AudioFileFormat:
-    format: Format
-    subtype: Subtype
+class FileOpener:
+    format: format.Format
+    subtype: subtype.Subtype
     channels: t.Optional[int] = None
     samplerate: t.Optional[int] = None
 
@@ -19,11 +18,9 @@ class AudioFileFormat:
     def suffix(self) -> str:
         return f'.{self.format.lower()}'
 
-    def open(self, path: Path | str, mode: str = 'r') -> sf.SoundFile:
-        file = str(Path(path).with_suffix(self.suffix))
-        print('Opening', file, 'for', mode)
+    def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
         return sf.SoundFile(
-            file=file,
+            file=path.with_suffix(self.suffix),
             mode=mode,
             channels=self.channels,
             samplerate=self.samplerate,

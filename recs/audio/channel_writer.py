@@ -6,13 +6,13 @@ import soundfile as sf
 
 from recs import Array
 from recs.audio.block import Block, Blocks
-from recs.audio.file_format import AudioFileFormat
+from recs.audio.file_opener import FileOpener
 from recs.audio.silence import SilenceStrategy
 
 
 @dc.dataclass
-class FileWriter:
-    file_format: AudioFileFormat
+class ChannelWriter:
+    opener: FileOpener
     name: str
     path: Path
     silence: SilenceStrategy[int]
@@ -65,7 +65,7 @@ class FileWriter:
             self._sf = None
 
     def _record(self, blocks: Blocks):
-        self._sf = self._sf or self.file_format.open(self._new_filename(), 'w')
+        self._sf = self._sf or self.opener.open(self._new_filename(), 'w')
 
         for b in blocks:
             self._sf.write(b.block)
@@ -75,7 +75,7 @@ class FileWriter:
         index = 0
         while True:
             p = self.path / f'{self.name}-{ts()}{istr}'
-            p = p.with_suffix(self.file_format.suffix)
+            p = p.with_suffix(self.opener.suffix)
             if not p.exists():
                 return p
             index += 1
