@@ -1,5 +1,6 @@
 import dataclasses as dc
 import numbers
+from collections import deque
 from threading import Lock
 
 import numpy as np
@@ -44,3 +45,11 @@ class Accumulator:
 
     def variance(self) -> Num:
         return self.count and self.square_sum / self.count
+
+
+class Moving(deque):
+    def __call__(self, x: Num):
+        self.append(x)
+
+    def mean(self) -> Num:
+        return sum(self) / max(1, len(self))
