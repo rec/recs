@@ -2,8 +2,16 @@ import typing as t
 
 from recs.audio.device import InputDevice
 
+__all__ = 'auto_slice', 'slice_device'
+
 Slices = dict[str, slice]
 SlicesDict = dict[str, Slices]
+
+
+def slice_device(device: InputDevice, device_slices: SlicesDict) -> Slices:
+    name = device.name.lower()
+    m = [v for k, v in device_slices.items() if name.startswith(k.lower())]
+    return _to_slices(m[0]) if m else auto_slice(device.channels)
 
 
 def auto_slice(channels: int) -> Slices:
@@ -17,7 +25,7 @@ def auto_slice(channels: int) -> Slices:
     return dict(slicer())
 
 
-def to_slice(x: slice | dict[str, int] | t.Sequence) -> slice:
+def _to_slice(x: slice | dict[str, int] | t.Sequence) -> slice:
     if isinstance(x, slice):
         return x
 
@@ -35,17 +43,12 @@ def to_slice(x: slice | dict[str, int] | t.Sequence) -> slice:
     return slice(start, stop, step)
 
 
-def to_slices(d: dict) -> Slices:
-    return {k: to_slice(v) for k, v in d.items()}
+def _to_slices(d: dict) -> Slices:
+    return {k: _to_slice(v) for k, v in d.items()}
 
 
-def slice_one(device: InputDevice, device_slices: SlicesDict) -> Slices:
-    name = device.name.lower()
-    m = [v for k, v in device_slices.items() if name.startswith(k.lower())]
-    return to_slices(m[0]) if m else auto_slice(device.channels)
-
-
-def slice_all(
+# This is unused
+def _slice_all(
     devices: t.Sequence[InputDevice], device_slices: SlicesDict
 ) -> SlicesDict:
-    return {d.name: slice_one(d, device_slices) for d in devices}
+    return {d.name: slice_device(d, device_slices) for d in devices}

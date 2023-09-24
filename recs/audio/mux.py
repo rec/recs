@@ -7,7 +7,7 @@ import sounddevice as sd
 from recs import Array
 from recs.audio.block import Block
 from recs.audio.device import InputDevice
-from recs.util.slicer import Slices, SlicesDict, slice_one
+from recs.util.slicer import Slices, SlicesDict, slice_device
 
 Stop = t.Callable[[], None]
 ChannelCallback = t.Callable[[Block, str, 'InputDevice'], None]
@@ -28,7 +28,7 @@ class DemuxContext:
             yield streams
 
     def _input_stream(self, device: InputDevice) -> sd.InputStream:
-        slices = slice_one(device, self.device_slices)
+        slices = slice_device(device, self.device_slices)
         demux = _Demuxer(self.callback, slices)
         return device.input_stream(demux, self.stop)
 
