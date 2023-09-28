@@ -3,7 +3,7 @@ import json
 import dtyper
 import sounddevice as sd
 
-from recs.__main__ import recs
+from recs.cli import recs
 from recs.ui import audio_display
 
 from . import monitor
