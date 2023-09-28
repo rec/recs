@@ -16,8 +16,8 @@ class Recorder(callback.DevicesCallback):
     block_count: Counter = field(Counter)
     start_time: float = field(time.time)
 
-    def make(self):
-        return _DeviceCallback()
+    def make(self, u: mux.AudioUpdate) -> callback.HasRows:
+        return _DeviceCallback(u)
 
     @property
     def elapsed_time(self):
@@ -40,12 +40,13 @@ class Recorder(callback.DevicesCallback):
 
 @dc.dataclass
 class _DeviceCallback(callback.DeviceCallback):
+    update: mux.AudioUpdate
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
     device_name: str = ''
 
-    def make(self):
-        return _ChannelCallback()
+    def make(self, u: mux.AudioUpdate) -> callback.HasRows:
+        return _ChannelCallback(u)
 
     def callback(self, u: mux.AudioUpdate):
         self.block_count()
@@ -65,17 +66,20 @@ class _DeviceCallback(callback.DeviceCallback):
 
 @dc.dataclass
 class _ChannelCallback(callback.HasRows):
+    update: mux.AudioUpdate
     block_count: Counter = field(Counter)
     amplitude: Accumulator = field(Accumulator)
     rms: Accumulator = field(Accumulator)
 
     channel_name: str = ''
+    channel_count: int = 0
 
     def callback(self, u: mux.AudioUpdate):
         self.block_count()
         self.rms(u.block.rms)
         self.amplitude(u.block.amplitude)
-        self.channel_name = u.channel_name
+        if not self.channel_count:
+            self.channel_name = u.channel_name
 
     def rows(self):
         yield {

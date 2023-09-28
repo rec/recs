@@ -33,8 +33,10 @@ class Maker(HasRows, ABC):
     def elapsed_time(self):
         return time.time() - self.start_time
 
+    key_name: str
+
     @abstractmethod
-    def make(self) -> HasRows:
+    def make(self, u: AudioUpdate) -> HasRows:
         pass
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
@@ -48,10 +50,8 @@ class Maker(HasRows, ABC):
             try:
                 has_rows = self.contents[name]
             except KeyError:
-                self.contents[name] = has_rows = self.make()
+                self.contents[name] = has_rows = self.make(u)
         has_rows.callback(u)
-
-    key_name: str
 
 
 class DeviceCallback(Maker):
