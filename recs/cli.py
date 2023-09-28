@@ -1,10 +1,14 @@
+import json
 from pathlib import Path
 
 import click
 import dtyper
+import sounddevice as sd
 from dtyper import Option
 
+from recs.audio import monitor
 from recs.audio.file_types import Format, Subtype
+from recs.ui import audio_display
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -68,11 +72,18 @@ def recs(
         70, '-n', '--noise-floor', help='The noise floor in decibels'
     ),
 ):
-    d = dict(locals())
+    Recs(**locals())()
 
-    from .audio import recs
 
-    recs.run(d)
+@dtyper.dataclass(recs)
+class Recs:
+    def __call__(self):
+        if self.info:
+            info = sd.query_devices(kind=None)
+            print(json.dumps(info, indent=2))
+        else:
+            top = audio_display.DevicesCallback()
+            monitor.Monitor(top.callback, top.table).run()
 
 
 def run():
@@ -82,9 +93,3 @@ def run():
         return f'{e.__class__.__name__}: {e.message}'
     except click.Abort:
         return 'Aborted'
-
-
-if __name__ == '__main__':
-    import sys
-
-    sys.exit(run())
