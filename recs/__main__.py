@@ -22,6 +22,9 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 
 @app.command(help='Record everything coming in')
 def recs(
+    #
+    # General purpose settings
+    #
     path: Path = Option(
         Path(), '-p', '--path', help='Path to the parent directory for files'
     ),
