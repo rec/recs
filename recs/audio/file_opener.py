@@ -4,13 +4,13 @@ from pathlib import Path
 
 import soundfile as sf
 
-from . import format, subtype
+import recs.audio.file_types
 
 
 @dc.dataclass(frozen=True)
 class FileOpener:
-    format: format.Format
-    subtype: subtype.Subtype
+    format: recs.audio.file_types.Format
+    subtype: recs.audio.file_types.Subtype
     channels: t.Optional[int] = None
     samplerate: t.Optional[int] = None
 

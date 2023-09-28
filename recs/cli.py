@@ -4,7 +4,7 @@ import click
 import dtyper
 from dtyper import Option
 
-from recs.audio import format, subtype
+from recs.audio.file_types import Format, Subtype
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -46,11 +46,11 @@ def recs(
     #
     # Audio file format and subtype
     #
-    format: format.Format = Option(
-        format.Format.caf, '-f', '--format', help='Audio file format to use'
+    format: Format = Option(
+        Format.caf, '-f', '--format', help='Audio file format to use'
     ),
-    subtype: subtype.Subtype = Option(
-        subtype.Subtype.alac_24, '-t', '--subtype', help='File subtype to write to'
+    subtype: Subtype = Option(
+        Subtype.alac_24, '-t', '--subtype', help='File subtype to write to'
     ),
     #
     # Settings relating to silence

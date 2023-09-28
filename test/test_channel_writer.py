@@ -6,8 +6,9 @@ import pytest
 import soundfile as sf
 import tdir
 
+import recs.audio.file_types
 from recs import array
-from recs.audio import block, channel_writer, file_opener, format, subtype
+from recs.audio import block, channel_writer, file_opener
 from recs.audio.silence import SilenceStrategy
 
 I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]
@@ -25,9 +26,9 @@ def test_channel_writer(arrays, segments):
     writer = channel_writer.ChannelWriter(
         opener=file_opener.FileOpener(
             channels=1,
-            format=format.Format.flac,
+            format=recs.audio.file_types.Format.flac,
             samplerate=SAMPLERATE,
-            subtype=subtype.Subtype.pcm_24
+            subtype=recs.audio.file_types.Subtype.pcm_24
         ),
         name='test',
         path=Path('.'),

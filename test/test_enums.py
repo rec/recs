@@ -1,7 +1,6 @@
 import soundfile as sf
 
-from recs.audio.format import Format
-from recs.audio.subtype import Subtype
+from recs.audio.file_types import Format, Subtype
 
 
 def test_format():

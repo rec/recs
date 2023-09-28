@@ -1,6 +1,35 @@
 from enum import StrEnum, auto
 
 
+class Format(StrEnum):
+    aiff = auto()
+    au = auto()
+    avr = auto()
+    caf = auto()
+    flac = auto()
+    htk = auto()
+    ircam = auto()
+    mat4 = auto()
+    mat5 = auto()
+    mp3 = auto()
+    mpc2k = auto()
+    nist = auto()
+    ogg = auto()
+    paf = auto()
+    pvf = auto()
+    raw = auto()
+    rf64 = auto()
+    sd2 = auto()
+    sds = auto()
+    svx = auto()
+    voc = auto()
+    w64 = auto()
+    wav = auto()
+    wavex = auto()
+    wve = auto()
+    xi = auto()
+
+
 class Subtype(StrEnum):
     alac_16 = auto()
     alac_20 = auto()
