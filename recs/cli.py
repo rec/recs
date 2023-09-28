@@ -3,12 +3,9 @@ from pathlib import Path
 
 import click
 import dtyper
-import sounddevice as sd
 from dtyper import Option
 
-from .audio import monitor
 from .audio.file_types import Format, Subtype
-from .ui import recorder
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -72,18 +69,22 @@ def recs(
         70, '-n', '--noise-floor', help='The noise floor in decibels'
     ),
 ):
-    Recs(**locals())()
+    Recording(**locals())()
 
 
 @dtyper.dataclass(recs)
-class Recs:
+class Recording:
     def __call__(self):
         if self.info:
+            import sounddevice as sd
+
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
-            top = recorder.Recorder()
-            monitor.Monitor(top.callback, top.table).run()
+            from .audio.monitor import Monitor
+            from .ui.recorder import Recorder
+
+            Monitor(Recorder(self)).run()
 
 
 def run():

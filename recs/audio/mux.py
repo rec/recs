@@ -18,6 +18,10 @@ class AudioUpdate:
     block: Block
     channel_name: str
 
+    @property
+    def device_name(self) -> str:
+        return self.device.name
+
 
 ChannelCallback = t.Callable[[AudioUpdate], None]
 

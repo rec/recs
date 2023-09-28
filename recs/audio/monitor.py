@@ -10,6 +10,7 @@ from rich.live import Live
 from rich.table import Table
 
 from recs import field
+from recs.ui import recorder
 
 from . import device, mux, slicer
 
@@ -22,8 +23,7 @@ TableMaker = t.Callable[[], Table]
 
 @dc.dataclass
 class Monitor(threa.Runnable):
-    callback: mux.ChannelCallback
-    table_maker: TableMaker
+    recorder: recorder.Recorder
 
     slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
     devices: t.Sequence[device.InputDevice] = field(
@@ -37,16 +37,17 @@ class Monitor(threa.Runnable):
 
     @cached_property
     def live(self) -> Live:
-        table = self.table_maker()
+        table = self.recorder.table()
         return Live(table, refresh_per_second=self.refresh_per_second, console=CONSOLE)
 
     @cached_property
     def context(self):
-        return mux.DemuxContext(self.devices, self.callback, self.stop, self.slices)()
+        callback = self.recorder.callback
+        return mux.DemuxContext(self.devices, callback, self.stop, self.slices)()
 
     def run(self):
         self.start()
         with self.live, self.context:
             while self.running:
                 time.sleep(self.sleep_time)
-                self.live.update(self.table_maker())
+                self.live.update(self.recorder.table())
