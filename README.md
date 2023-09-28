@@ -1,1 +1,1 @@
-# recs: recond everything, automatically, compressed
+# recs: record everything, automatically, compressed
