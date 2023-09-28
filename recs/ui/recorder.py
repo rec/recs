@@ -61,7 +61,7 @@ class _DeviceCallback(callback.DeviceCallback):
 
 
 @dc.dataclass
-class DevicesCallback(callback.DevicesCallback):
+class Recorder(callback.DevicesCallback):
     block_count: Counter = field(Counter)
     start_time: float = field(time.time)
 

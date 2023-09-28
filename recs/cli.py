@@ -6,9 +6,9 @@ import dtyper
 import sounddevice as sd
 from dtyper import Option
 
-from recs.audio import monitor
-from recs.audio.file_types import Format, Subtype
-from recs.ui import audio_display
+from .audio import monitor
+from .audio.file_types import Format, Subtype
+from .ui import recorder
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -82,7 +82,7 @@ class Recs:
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
-            top = audio_display.DevicesCallback()
+            top = recorder.Recorder()
             monitor.Monitor(top.callback, top.table).run()
 
 
