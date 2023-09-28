@@ -7,7 +7,7 @@ import sounddevice as sd
 from recs import Array
 from recs.audio.block import Block
 from recs.audio.device import InputDevice
-from recs.util.slicer import SlicesDict, slice_device
+from recs.audio.slicer import SlicesDict, slice_device
 
 Stop = t.Callable[[], None]
 

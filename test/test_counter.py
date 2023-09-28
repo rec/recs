@@ -1,4 +1,4 @@
-from recs.util import counter
+from recs.ui import counter
 
 
 def test_counter():

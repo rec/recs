@@ -10,9 +10,8 @@ from rich.live import Live
 from rich.table import Table
 
 from recs import field
-from recs.util import slicer
 
-from . import device, mux
+from . import device, mux, slicer
 
 FLOW_SLICE = slicer.auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}

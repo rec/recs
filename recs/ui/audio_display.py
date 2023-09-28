@@ -6,8 +6,8 @@ from rich.table import Table
 
 from recs import field
 from recs.audio import callback, mux
+from recs.ui.counter import Accumulator, Counter
 from recs.ui.table import TableFormatter
-from recs.util.counter import Accumulator, Counter
 
 
 @dc.dataclass
