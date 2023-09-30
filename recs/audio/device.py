@@ -7,14 +7,14 @@ from sounddevice import InputStream, query_devices
 
 from recs import Array, DType
 
-DeviceCallback = t.Callable[[Array, 'InputDevice'], None]
+StopCallback = t.Callable[[], None]
+DeviceCallback = t.Callable[[Array], None]
 
 
 @dc.dataclass(frozen=True)
 class InputDevice:
     info: dict[str, t.Any]
     dtype: t.Any = DType
-    block_count: int = 0
 
     def __bool__(self):
         return bool(self.channels)
@@ -31,16 +31,14 @@ class InputDevice:
     def name(self):
         return self.info['name']
 
-    def input_stream(self, callback: DeviceCallback, stop: t.Callable) -> InputStream:
+    def input_stream(self, callback: DeviceCallback, stop: StopCallback) -> InputStream:
         def _callback(indata: Array, frames, time, status):
             try:
-                self.__dict__['block_count'] += 1
                 if status:
-                    print(status, file=sys.stderr)
-                callback(indata.copy(), self)
-            except BaseException:
+                    print('Status', self.name, status, file=sys.stderr)
+                callback(indata.copy())
+            except Exception:
                 traceback.print_exc()
-
                 stop()
 
         return InputStream(

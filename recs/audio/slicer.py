@@ -44,10 +44,3 @@ def _to_slice(x: slice | dict[str, int] | t.Sequence) -> slice:
 
 def _to_slices(d: dict) -> dict[str, slice]:
     return {k: _to_slice(v) for k, v in d.items()}
-
-
-# This is unused
-def _slice_all(
-    devices: t.Sequence[InputDevice], device_slices: SlicesDict
-) -> SlicesDict:
-    return {d.name: slice_device(d, device_slices) for d in devices}

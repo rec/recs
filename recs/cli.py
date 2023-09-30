@@ -54,6 +54,15 @@ def recs(
         Subtype.alac_24, '-t', '--subtype', help='File subtype to write to'
     ),
     #
+    # Console and UI settings: TODO consolidate these into one
+    #
+    ui_refresh_rate: float = Option(
+        23, '-u', '--ui-refresh-rate', help='How many UI refreshes per second'
+    ),
+    sleep_time: float = Option(
+        0.013, '--sleep-time', help='How long to sleep between data refreshes'
+    ),
+    #
     # Settings relating to silence
     #
     before_start: float = Option(
@@ -81,10 +90,9 @@ class Recording:
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
-            from .audio.monitor import Monitor
-            from .ui.recorder import Recorder
+            from .ui.session import Session
 
-            Monitor(Recorder(self)).run()
+            Session(self).run()
 
 
 def run():

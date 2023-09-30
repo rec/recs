@@ -1,154 +1,102 @@
+import contextlib
 import dataclasses as dc
 import time
 import typing as t
-from abc import ABC, abstractmethod
 from functools import cached_property
-from threading import Lock
 
+import sounddevice as sd
 from rich.table import Table
 
-from recs import cli, field
-from recs.audio.mux import AudioUpdate
+from recs import Array, field
+from recs.audio import block, device, slicer
 
 from .counter import Accumulator, Counter
+from .session import Session
 from .table import TableFormatter
 
 
-class HasRows(ABC):
-    @abstractmethod
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        pass
-
-    @abstractmethod
-    def callback(self, u: AudioUpdate) -> None:
-        pass
-
-
-class Maker(HasRows, ABC):
-    def __init__(self) -> None:
-        self._lock = Lock()
-        self.contents: t.Dict[str, HasRows] = {}
-
-    def __post_init__(self):
-        Maker.__init__(self)
-
-    @cached_property
-    def start_time(self):
-        return time.time()
+class Recorder:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.start_time = time.time()
+        self.devices = tuple(DeviceCallback(d, session) for d in session.devices)
 
     @property
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         return time.time() - self.start_time
-
-    key_name: str
-
-    @abstractmethod
-    def make(self, u: AudioUpdate) -> HasRows:
-        pass
-
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        for v in self.contents.values():
-            yield from v.rows()
-
-    def callback(self, u: AudioUpdate) -> None:
-        name = getattr(u, self.key_name)
-
-        with self._lock:
-            try:
-                has_rows = self.contents[name]
-            except KeyError:
-                self.contents[name] = has_rows = self.make(u)
-        has_rows.callback(u)
-
-
-class DeviceCallback(Maker):
-    """This class gets callbacks from blocks from a single device"""
-
-    key_name = 'channel_name'
-
-
-class DevicesCallback(Maker):
-    """This class gets callbacks from all blocks from all devices"""
-
-    key_name = 'device_name'
-
-
-@dc.dataclass
-class Recorder(DevicesCallback):
-    recording: cli.Recording
-    block_count: Counter = field(Counter)
-    start_time: float = field(time.time)
-
-    def make(self, u: AudioUpdate) -> HasRows:
-        return _DeviceCallback(u)
-
-    @property
-    def elapsed_time(self):
-        return time.time() - self.start_time
-
-    def callback(self, u: AudioUpdate) -> None:
-        self.block_count()
-        super().callback(u)
 
     def table(self) -> Table:
         return TABLE_FORMATTER(self.rows())
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'time': f'{self.elapsed_time:9.3f}',
-            'count': self.block_count.value,
-        }
-        yield from super().rows()
+        yield {'time': f'{self.elapsed_time:9.3f}'}
+        for v in self.devices:
+            yield from v.rows()
+
+    @contextlib.contextmanager
+    def context(self):
+        with contextlib.ExitStack() as stack:
+            for d in self.devices:
+                stack.enter_context(d.input_stream)
+            yield
 
 
 @dc.dataclass
-class _DeviceCallback(DeviceCallback):
-    update: AudioUpdate
+class DeviceCallback:
+    device: device.InputDevice
+    session: Session
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
-    device_name: str = ''
 
-    def make(self, u: AudioUpdate) -> HasRows:
-        return _ChannelCallback(u)
+    @cached_property
+    def channels(self) -> tuple['ChannelCallback', ...]:
+        slices = slicer.slice_device(self.device, self.session.device_slices)
+        dr = self.device, self.session
+        return tuple(ChannelCallback(k, v, *dr) for k, v in slices.items())
 
-    def callback(self, u: AudioUpdate):
+    @cached_property
+    def input_stream(self) -> sd.InputStream:
+        return self.device.input_stream(self.callback, self.session.stop)
+
+    def callback(self, array: Array) -> None:
         self.block_count()
-        assert u.block.channels <= 2, f'{len(u.block)=}, {u.block.channels=}'
-        self.block_size(len(u.block))
-        self.device_name = u.device.name
-        super().callback(u)
+        self.block_size(array.shape[0])
 
-    def rows(self):
+        for c in self.channels:
+            c.callback(array)
+
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'block': self.block_size.value,
             'count': self.block_count.value,
-            'device': self.device_name,
+            'device': self.device.name,
         }
-        yield from super().rows()
+        for v in self.channels:
+            yield from v.rows()
 
 
 @dc.dataclass
-class _ChannelCallback(HasRows):
-    update: AudioUpdate
+class ChannelCallback:
+    name: str
+    channels: slice
+    device: device.InputDevice
+    session: Session
+
     block_count: Counter = field(Counter)
     amplitude: Accumulator = field(Accumulator)
     rms: Accumulator = field(Accumulator)
 
-    channel_name: str = ''
-    channel_count: int = 0
-
-    def callback(self, u: AudioUpdate):
+    def callback(self, array: Array):
+        b = block.Block(array[:, self.channels])
         self.block_count()
-        self.rms(u.block.rms)
-        self.amplitude(u.block.amplitude)
-        if not self.channel_count:
-            self.channel_name = u.channel_name
+        self.rms(b.rms)
+        self.amplitude(b.amplitude)
 
-    def rows(self):
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
-            'channel': self.channel_name,
+            'channel': self.name,
             'count': self.block_count.value,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
