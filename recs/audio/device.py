@@ -2,6 +2,7 @@ import dataclasses as dc
 import sys
 import traceback
 import typing as t
+from functools import cached_property
 
 from sounddevice import InputStream, query_devices
 
@@ -19,15 +20,15 @@ class InputDevice:
     def __bool__(self):
         return bool(self.channels)
 
-    @property
+    @cached_property
     def channels(self):
         return self.info['max_input_channels']
 
-    @property
+    @cached_property
     def samplerate(self) -> int:
         return int(self.info['default_samplerate'])
 
-    @property
+    @cached_property
     def name(self):
         return self.info['name']
 

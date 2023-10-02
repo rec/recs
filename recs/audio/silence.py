@@ -28,10 +28,10 @@ class SilenceStrategy(t.Generic[T]):
         return 10 ** (-self.noise_floor / 10)
 
 
-def scale(source: SilenceStrategy[float], sample_rate: float) -> SilenceStrategy[int]:
+def scale(source: SilenceStrategy[float], samplerate: float) -> SilenceStrategy[int]:
     return SilenceStrategy[int](
-        before_start=round(sample_rate * source.before_start),
-        after_end=round(sample_rate * source.after_end),
-        stop_after=round(sample_rate * source.stop_after),
+        before_start=round(samplerate * source.before_start),
+        after_end=round(samplerate * source.after_end),
+        stop_after=round(samplerate * source.stop_after),
         noise_floor=source.noise_floor,
     )

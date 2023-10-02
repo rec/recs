@@ -8,9 +8,10 @@ import sounddevice as sd
 from rich.table import Table
 
 from recs import Array, field
-from recs.audio import block, device, slicer
+from recs.audio import block, channel_writer, device, slicer
 
 from .counter import Accumulator, Counter
+from .legal_filename import legal_filename
 from .session import Session
 from .table import TableFormatter
 
@@ -35,10 +36,17 @@ class Recorder:
 
     @contextlib.contextmanager
     def context(self):
-        with contextlib.ExitStack() as stack:
-            for d in self.devices:
-                stack.enter_context(d.input_stream)
-            yield
+        try:
+            with contextlib.ExitStack() as stack:
+                for d in self.devices:
+                    stack.enter_context(d.input_stream)
+                yield
+        finally:
+            self.stop()
+
+    def stop(self):
+        for d in self.devices:
+            d.stop()
 
 
 @dc.dataclass
@@ -74,6 +82,10 @@ class DeviceCallback:
         for v in self.channels:
             yield from v.rows()
 
+    def stop(self):
+        for c in self.channels:
+            c.stop()
+
 
 @dc.dataclass
 class ChannelCallback:
@@ -91,6 +103,22 @@ class ChannelCallback:
         self.block_count()
         self.rms(b.rms)
         self.amplitude(b.amplitude)
+        if not self.session.recording.dry_run:  # type: ignore[attr-defined]
+            self.channel_writer.write(b)
+
+    def stop(self):
+        if not self.session.recording.dry_run:
+            self.channel_writer.close()
+
+    @cached_property
+    def channel_writer(self) -> channel_writer.ChannelWriter:
+        channels = self.channels.stop - self.channels.start
+        return channel_writer.ChannelWriter(
+            opener=self.session.opener(channels, self.device.samplerate),
+            name=legal_filename(f'{self.device.name}-{self.name}'),
+            path=self.session.recording.path,  # type: ignore[attr-defined]
+            silence=self.session.silence(self.device.samplerate),
+        )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {

@@ -42,7 +42,13 @@ class ChannelWriter:
     def write(self, block: block.Block):
         self._blocks.append(block)
 
-        if self._blocks[-1].amplitude >= self.silence.noise_floor_amplitude:
+        amp = self._blocks[-1].amplitude
+        try:
+            amp = sum(amp) / len(amp)
+        except TypeError:
+            pass
+
+        if amp >= self.silence.noise_floor_amplitude:
             self._record_on_not_silence()
 
         elif self._blocks.duration > self.silence.stop_after:

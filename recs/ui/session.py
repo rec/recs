@@ -10,7 +10,7 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import cli, field
-from recs.audio import device, slicer
+from recs.audio import device, file_opener, silence, slicer
 
 if t.TYPE_CHECKING:
     from recs.ui.recorder import Recorder
@@ -42,7 +42,7 @@ class Session(Runnable):
 
         return Recorder(self)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__init__()
 
     @cached_property
@@ -53,9 +53,22 @@ class Session(Runnable):
             table, refresh_per_second=self.recording.ui_refresh_rate, console=CONSOLE
         )
 
-    def run(self):
+    def run(self) -> None:
         self.start()
         with self.live, self.recorder.context():
             while self.running:
-                time.sleep(self.recording.sleep_time)
+                time.sleep(self.recording.sleep_time)  # type: ignore[attr-defined]
                 self.live.update(self.recorder.table())
+
+    def silence(self, samplerate: float) -> silence.SilenceStrategy[int]:
+        fields = [f.name for f in dc.fields(silence.SilenceStrategy)]
+        s = silence.SilenceStrategy(**{k: getattr(self.recording, k) for k in fields})
+        return silence.scale(s, samplerate)
+
+    def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
+        return file_opener.FileOpener(
+            format=self.recording.format,  # type: ignore[attr-defined]
+            subtype=self.recording.subtype,  # type: ignore[attr-defined]
+            channels=channels,
+            samplerate=samplerate,
+        )
