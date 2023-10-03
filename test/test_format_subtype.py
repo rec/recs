@@ -1,4 +1,3 @@
-import itertools
 from pathlib import Path
 
 import numpy as np
@@ -58,10 +57,10 @@ def test_format_subtype_correct():
             ok.setdefault(format, []).append(subtype.lower())
 
     import json
+
     print(json.dumps(ok, indent=4))
 
     assert ok == VALID_SUBTYPES
-
 
 
 @tdir
@@ -71,23 +70,6 @@ def test_format_subtype_correct_more():
             FileOpener(format=format, subtype=subtype)
             return True
         except ValueError:
-            return False
-
-    accepts = [accept(f, s) for f, s in ALLOWED]
-    writes = [_writes(f, s) for f, s in ALLOWED]
-
-    assert accepts == writes
-
-
-@tdir
-def test_format_subtype_correct_more():
-    def accept(format, subtype):
-        try:
-            FileOpener(format, subtype, **KWARGS)
-            return True
-        except ValueError as e:
-            if False and not e.args[0].startswith('Bad subtype'):
-                raise
             return False
 
     accepts = [accept(f, s) for f, s in ALLOWED]

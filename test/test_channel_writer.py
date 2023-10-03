@@ -1,7 +1,5 @@
-import dataclasses as dc
 from pathlib import Path
 
-import numpy as np
 import pytest
 import soundfile as sf
 import tdir
@@ -11,7 +9,7 @@ from recs.audio import block, channel_writer, file_opener
 from recs.audio.file_types import Format, Subtype
 from recs.audio.silence import SilenceStrategy
 
-I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]
+I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]  # noqa: E741
 
 ARRAYS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
 RESULT1 = [[28, 16, 12], [28, 4, 12], [28, 76]]
@@ -28,7 +26,7 @@ def test_channel_writer(arrays, segments):
             channels=1,
             format=Format.FLAC,
             samplerate=SAMPLERATE,
-            subtype=Subtype.PCM_24
+            subtype=Subtype.PCM_24,
         ),
         name='test',
         path=Path('.'),

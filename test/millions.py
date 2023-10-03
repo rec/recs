@@ -6,6 +6,7 @@ from rich.table import Table
 
 CONSOLE = Console(color_system='truecolor')
 
+
 def colors():
     rgb = [0, 0, 0]
     while True:
