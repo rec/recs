@@ -67,6 +67,10 @@ class DeviceCallback:
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(self.callback, self.session.stop)
 
+    @cached_property
+    def name(self) -> str:
+        return self.session.device_names.get(self.device.name, self.device.name)
+
     def callback(self, array: Array) -> None:
         self.block_count()
         self.block_size(array.shape[0])
@@ -78,7 +82,7 @@ class DeviceCallback:
         yield {
             'block': self.block_size.value,
             'count': self.block_count.value,
-            'device': self.device.name,
+            'device': self.name,
         }
         for v in self.channels:
             yield from v.rows()

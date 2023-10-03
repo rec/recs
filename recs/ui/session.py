@@ -25,14 +25,19 @@ TableMaker = t.Callable[[], Table]
 @dc.dataclass
 class Session(Runnable):
     recording: cli.Recording
-
     slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
 
     @cached_property
     def devices(self) -> prefix_dict.PrefixDict[device.InputDevice]:
         return prefix_dict.PrefixDict(device.input_devices())
 
-    @property
+    @cached_property
+    def device_names(self) -> dict[str, str]:
+        device_names = self.recording.device_names  # type: ignore[attr-defined]
+        device_names = (s for d in device_names for s in d.split(':'))
+        return {self.devices[k].name: k for k in device_names}
+
+    @cached_property
     def device_slices(self) -> slicer.SlicesDict:
         return slicer.SlicesDict()
 

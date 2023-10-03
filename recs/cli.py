@@ -35,6 +35,8 @@ def recs(
     info: bool = Option(
         False, '--info', help='Do not run, display device info instead'
     ),
+    # Names of input devices
+    device_names: list[str] = Option((), help='Display names for devices'),
     #
     # Exclude or include devices or channels
     #
