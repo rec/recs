@@ -73,7 +73,7 @@ try:
         args.samplerate = int(device_info['default_samplerate'])
     if args.filename is None:
         args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
-                                        suffix='.wav', dir='')
+                                        suffix='.WAV', dir='')
 
     # Make sure the file is opened before recording anything:
     with sf.SoundFile(args.filename, mode='x', samplerate=args.samplerate,

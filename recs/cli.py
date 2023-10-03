@@ -48,10 +48,10 @@ def recs(
     # Audio file format and subtype
     #
     format: Format = Option(
-        Format.caf, '-f', '--format', help='Audio file format to use'
+        Format.CAF, '-f', '--format', help='Audio file format to use'
     ),
     subtype: Subtype = Option(
-        Subtype.alac_24, '-t', '--subtype', help='File subtype to write to'
+        Subtype.ALAC_24, '-t', '--subtype', help='File subtype to write to'
     ),
     #
     # Console and UI settings: TODO consolidate these into one

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import soundfile as sf
 
-from recs.audio.file_types import Format, Subtype
+from recs.audio.file_types import Format, Subtype, VALID_SUBTYPES
 
 
 @dc.dataclass(frozen=True)
@@ -13,6 +13,11 @@ class FileOpener:
     subtype: Subtype
     channels: t.Optional[int] = None
     samplerate: t.Optional[int] = None
+    _check: bool = True
+
+    def __post_init__(self):
+        if self._check and (self.subtype not in VALID_SUBTYPES.get(self.format, ())):
+            raise ValueError(f'Bad subtype for {self}')
 
     @property
     def suffix(self) -> str:
