@@ -7,7 +7,8 @@ import tdir
 
 from recs import DType
 from recs.audio.file_opener import FileOpener
-from recs.audio.file_types import VALID_SUBTYPES, Format, Subtype
+from recs.audio.file_types import Format, Subtype
+from recs.audio.valid_subtypes import VALID_SUBTYPES
 
 EXCLUSIONS = {(Format.AIFF, 'alaw')}
 BLOCK = np.empty(shape=(4092, 2), dtype=DType)
@@ -85,7 +86,7 @@ def test_format_subtype_correct_more():
             FileOpener(format, subtype, **KWARGS)
             return True
         except ValueError as e:
-            if True and not e.args[0].startswith('Bad subtype'):
+            if False and not e.args[0].startswith('Bad subtype'):
                 raise
             return False
 

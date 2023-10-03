@@ -4,7 +4,8 @@ from pathlib import Path
 
 import soundfile as sf
 
-from recs.audio.file_types import Format, Subtype, VALID_SUBTYPES
+from .file_types import Format, Subtype
+from .valid_subtypes import is_valid
 
 
 @dc.dataclass(frozen=True)
@@ -16,7 +17,7 @@ class FileOpener:
     _check: bool = True
 
     def __post_init__(self):
-        if self._check and (self.subtype not in VALID_SUBTYPES.get(self.format, ())):
+        if self._check and not is_valid(self.format, self.subtype):
             raise ValueError(f'Bad subtype for {self}')
 
     @property
