@@ -2,11 +2,13 @@ import dataclasses as dc
 import sys
 import traceback
 import typing as t
-from functools import cached_property
+from functools import cache, cached_property
 
 from sounddevice import InputStream, query_devices
 
 from recs import Array, DType
+
+from .prefix_dict import PrefixDict
 
 StopCallback = t.Callable[[], None]
 DeviceCallback = t.Callable[[Array], None]
@@ -51,5 +53,6 @@ class InputDevice:
         )
 
 
-def input_devices() -> dict[str, InputDevice]:
-    return {d.name: d for i in query_devices() if (d := InputDevice(i))}
+@cache
+def input_devices() -> PrefixDict[InputDevice]:
+    return PrefixDict({d.name: d for i in query_devices() if (d := InputDevice(i))})

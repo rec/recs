@@ -9,7 +9,7 @@ from rich.live import Live
 from rich.table import Table
 from threa import Runnable
 
-from recs import PART_SPLITTER, cli, field
+from recs import cli, field, split
 from recs.audio import device, file_opener, prefix_dict, silence, slicer
 
 if t.TYPE_CHECKING:
@@ -34,7 +34,7 @@ class Session(Runnable):
     @cached_property
     def device_names(self) -> dict[str, str]:
         device_names = self.recording.device_names  # type: ignore[attr-defined]
-        device_names = (s for d in device_names for s in d.split(PART_SPLITTER))
+        device_names = (s for d in device_names for s in split(d))
         return {self.devices[k].name: k for k in device_names}
 
     @cached_property
