@@ -10,7 +10,7 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import cli, field
-from recs.audio import device, file_opener, silence, slicer
+from recs.audio import device, file_opener, prefix_dict, silence, slicer
 
 if t.TYPE_CHECKING:
     from recs.ui.recorder import Recorder
@@ -29,12 +29,12 @@ class Session(Runnable):
     slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
 
     @cached_property
-    def devices(self) -> tuple[device.InputDevice, ...]:
-        return tuple(device.input_devices().values())
+    def devices(self) -> prefix_dict.PrefixDict[device.InputDevice]:
+        return prefix_dict.PrefixDict(device.input_devices())
 
     @property
     def device_slices(self) -> slicer.SlicesDict:
-        return {}
+        return slicer.SlicesDict()
 
     @cached_property
     def recorder(self) -> 'Recorder':

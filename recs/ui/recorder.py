@@ -20,7 +20,8 @@ class Recorder:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.start_time = time.time()
-        self.devices = tuple(DeviceCallback(d, session) for d in session.devices)
+        devices = session.devices.values()
+        self.devices = tuple(DeviceCallback(d, session) for d in devices)
 
     @property
     def elapsed_time(self) -> float:
