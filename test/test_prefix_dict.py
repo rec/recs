@@ -1,9 +1,12 @@
 import pytest
 
-from recs.audio.device import InputDevice, InputDevices
+from recs.audio.device import InputDevice
+from recs.audio.prefix_dict import PrefixDict
+
+InputDevices = PrefixDict[InputDevice]
 
 NAMES = 'One', 'ONE', 'Oner', 'Two', 'Three', 'FOUR'
-DEVICES = InputDevices(devices={n: InputDevice(info={'name': n}) for n in NAMES})
+DEVICES = InputDevices({n: InputDevice(info={'name': n}) for n in NAMES})
 
 
 @pytest.mark.parametrize('name', NAMES + ('tw', 'f'))

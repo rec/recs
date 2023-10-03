@@ -53,23 +53,3 @@ class InputDevice:
 
 def input_devices() -> dict[str, InputDevice]:
     return {d.name: d for i in query_devices() if (d := InputDevice(i))}
-
-
-@dc.dataclass
-class InputDevices:
-    devices: dict[str, InputDevice] = dc.field(default_factory=input_devices)
-
-    def __getitem__(self, key: str) -> InputDevice:
-        try:
-            return self.devices[key]
-        except KeyError:
-            key = key.lower()
-            try:
-                return self.devices[key]
-            except KeyError:
-                pass
-
-            items = self.devices.items()
-            if 1 == len(m := [v for k, v in items if k.lower().startswith(key)]):
-                return m[0]
-            raise
