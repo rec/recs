@@ -1,17 +1,12 @@
 import contextlib
-import dataclasses as dc
 import time
 import typing as t
-from functools import cached_property
 
-import sounddevice as sd
 from rich.table import Table
 
-from recs import Array, field
-from recs.audio import block, channel_writer, device, slicer
+from recs.audio import device
 
-from .counter import Accumulator, Counter
-from .legal_filename import legal_filename
+from .device_recorder import DeviceRecorder
 from .session import Session
 from .table import TableFormatter
 
@@ -48,94 +43,6 @@ class Recorder:
     def stop(self):
         for d in self.device_recorders:
             d.stop()
-
-
-@dc.dataclass
-class DeviceRecorder:
-    device: device.InputDevice
-    session: Session
-    block_count: Counter = field(Counter)
-    block_size: Accumulator = field(Accumulator)
-
-    @cached_property
-    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
-        slices = slicer.slice_device(self.device, self.session.device_slices)
-        it = ((k, v) for k, v in slices.items() if self.session.exc_inc(self.device, v))
-        dr = self.device, self.session
-        return tuple(ChannelRecorder(k, v, *dr) for k, v in it)
-
-    @cached_property
-    def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(self.callback, self.session.stop)
-
-    @cached_property
-    def name(self) -> str:
-        return self.session.device_names.get(self.device.name, self.device.name)
-
-    def callback(self, array: Array) -> None:
-        self.block_count()
-        self.block_size(array.shape[0])
-
-        for c in self.channel_recorders:
-            c.callback(array)
-
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'block': self.block_size.value,
-            'count': self.block_count.value,
-            'device': self.name,
-        }
-        for v in self.channel_recorders:
-            yield from v.rows()
-
-    def stop(self):
-        for c in self.channel_recorders:
-            c.stop()
-
-
-@dc.dataclass
-class ChannelRecorder:
-    name: str
-    channels: slice
-    device: device.InputDevice
-    session: Session
-
-    block_count: Counter = field(Counter)
-    amplitude: Accumulator = field(Accumulator)
-    rms: Accumulator = field(Accumulator)
-
-    def callback(self, array: Array):
-        b = block.Block(array[:, self.channels])
-        self.block_count()
-        self.rms(b.rms)
-        self.amplitude(b.amplitude)
-        if not self.session.recording.dry_run:  # type: ignore[attr-defined]
-            self.channel_writer.write(b)
-
-    def stop(self):
-        if not self.session.recording.dry_run:
-            self.channel_writer.close()
-
-    @cached_property
-    def channel_writer(self) -> channel_writer.ChannelWriter:
-        channels = self.channels.stop - self.channels.start
-        return channel_writer.ChannelWriter(
-            name=legal_filename(f'{self.device.name}-{self.name}'),
-            opener=self.session.opener(channels, self.device.samplerate),
-            path=self.session.recording.path,  # type: ignore[attr-defined]
-            runnable=self.session,
-            times=self.session.times(self.device.samplerate),
-        )
-
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'amplitude': self.amplitude.value,
-            'amplitude_mean': self.amplitude.mean(),
-            'channel': self.name,
-            'count': self.block_count.value,
-            'rms': self.rms.value,
-            'rms_mean': self.rms.mean(),
-        }
 
 
 def _to_str(x) -> str:
