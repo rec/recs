@@ -61,7 +61,12 @@ class Session(Runnable):
     def live(self) -> Live:
         table = self.recorder.table()
         refresh = self.recording.ui_refresh_rate  # type: ignore[attr-defined]
-        return Live(table, refresh_per_second=refresh, console=CONSOLE)
+        return Live(
+            table,
+            console=CONSOLE,
+            refresh_per_second=refresh,
+            transient=not self.recording.retain,  # type: ignore[attr-defined]
+        )
 
     def run(self) -> None:
         self.start()

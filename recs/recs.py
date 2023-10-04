@@ -35,6 +35,9 @@ def recs(
     path: Path = Option(
         Path(), '-p', '--path', help='Path to the parent directory for files'
     ),
+    retain: bool = Option(
+        False, '-r', '--retain', help='Retain rich display on shutdown'
+    ),
     #
     # Names of input devices
     #
