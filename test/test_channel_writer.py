@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 import soundfile as sf
 import tdir
+import threa
 
 from recs import array
 from recs.audio import block, channel_writer, file_opener
@@ -30,6 +31,7 @@ def test_channel_writer(arrays, segments):
         ),
         name='test',
         path=Path('.'),
+        runnable=threa.Runnable(),
         silence=SilenceStrategy[int](
             before_start=30,
             after_end=40,

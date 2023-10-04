@@ -3,6 +3,7 @@ from datetime import datetime as dt
 from pathlib import Path
 
 import soundfile as sf
+import threa
 
 from . import block, file_opener, silence
 
@@ -12,10 +13,13 @@ class ChannelWriter:
     opener: file_opener.FileOpener
     name: str
     path: Path
+    runnable: threa.Runnable
     silence: silence.SilenceStrategy[int]
+    time: int = 0
 
-    block_count: int = 0
-    file_count: int = 0
+    blocks_written: int = 0
+    files_written: int = 0
+    samples_seen: int = 0
 
     _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
     _current_file: Path = Path()
@@ -40,6 +44,7 @@ class ChannelWriter:
                 raise
 
     def write(self, block: block.Block):
+        self.samples_seen += len(block)
         self._blocks.append(block)
 
         amp = self._blocks[-1].amplitude
@@ -83,11 +88,11 @@ class ChannelWriter:
         if not self._sf:
             self._new_file()
             self._sf = self.opener.open(self.current_file, 'w')
-            self.file_count += 1
+            self.files_written += 1
 
         for b in blocks:
             self._sf.write(b.block)
-            self.block_count += 1
+            self.blocks_written += 1
 
     def _new_file(self):
         istr = ''

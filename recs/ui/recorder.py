@@ -120,10 +120,12 @@ class ChannelCallback:
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
         return channel_writer.ChannelWriter(
-            opener=self.session.opener(channels, self.device.samplerate),
             name=legal_filename(f'{self.device.name}-{self.name}'),
+            opener=self.session.opener(channels, self.device.samplerate),
             path=self.session.recording.path,  # type: ignore[attr-defined]
+            runnable=self.session,
             silence=self.session.silence(self.device.samplerate),
+            time=self.session.recording.time,  # type: ignore[attr-defined]
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

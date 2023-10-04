@@ -26,16 +26,24 @@ def recs(
     #
     # General purpose settings
     #
-    path: Path = Option(
-        Path(), '-p', '--path', help='Path to the parent directory for files'
-    ),
     dry_run: bool = Option(
         False, '-d', '--dry-run', help='Display levels only, do not record'
     ),
     info: bool = Option(
         False, '--info', help='Do not run, display device info instead'
     ),
+    path: Path = Option(
+        Path(), '-p', '--path', help='Path to the parent directory for files'
+    ),
+    time: float = Option(
+        0,
+        '-t',
+        '--time',
+        help='How long to record for? Zero or less means forever',
+    ),
+    #
     # Names of input devices
+    #
     device_names: list[str] = Option((), help='Display names for devices'),
     #
     # Exclude or include devices or channels
@@ -53,13 +61,13 @@ def recs(
         Format.CAF, '-f', '--format', help='Audio file format to use'
     ),
     subtype: Subtype = Option(
-        Subtype.ALAC_24, '-t', '--subtype', help='File subtype to write to'
+        Subtype.ALAC_24, '-u', '--subtype', help='File subtype to write to'
     ),
     #
-    # Console and UI settings: TODO consolidate these into one
+    # Console and UI settings
     #
     ui_refresh_rate: float = Option(
-        23, '-u', '--ui-refresh-rate', help='How many UI refreshes per second'
+        23, '--ui-refresh-rate', help='How many UI refreshes per second'
     ),
     sleep_time: float = Option(
         0.013, '--sleep-time', help='How long to sleep between data refreshes'
