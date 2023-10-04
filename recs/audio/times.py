@@ -6,7 +6,7 @@ T = t.TypeVar('T', float, int)
 
 
 @dc.dataclass(frozen=True)
-class SilenceStrategy(t.Generic[T]):
+class Times(t.Generic[T]):
     """Amounts of time are specified as seconds in the input but converted
     to samples when we find out the sample rate
     """
@@ -28,8 +28,8 @@ class SilenceStrategy(t.Generic[T]):
         return 10 ** (-self.noise_floor / 10)
 
 
-def scale(source: SilenceStrategy[float], samplerate: float) -> SilenceStrategy[int]:
-    return SilenceStrategy[int](
+def scale(source: Times[float], samplerate: float) -> Times[int]:
+    return Times[int](
         before_start=round(samplerate * source.before_start),
         after_end=round(samplerate * source.after_end),
         stop_after=round(samplerate * source.stop_after),

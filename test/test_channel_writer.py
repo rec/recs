@@ -8,7 +8,7 @@ import threa
 from recs import array
 from recs.audio import block, channel_writer, file_opener
 from recs.audio.file_types import Format, Subtype
-from recs.audio.silence import SilenceStrategy
+from recs.audio.times import Times
 
 I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]  # noqa: E741
 
@@ -32,7 +32,7 @@ def test_channel_writer(arrays, segments):
         name='test',
         path=Path('.'),
         runnable=threa.Runnable(),
-        silence=SilenceStrategy[int](
+        times=Times[int](
             before_start=30,
             after_end=40,
             stop_after=50,

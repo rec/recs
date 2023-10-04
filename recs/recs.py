@@ -73,7 +73,7 @@ def recs(
         0.013, '--sleep-time', help='How long to sleep between data refreshes'
     ),
     #
-    # Settings relating to silence
+    # Settings relating to times
     #
     before_start: float = Option(
         1, '-b', '--before-start', help='Silence before the start, in seconds'

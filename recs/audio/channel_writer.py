@@ -5,7 +5,7 @@ from pathlib import Path
 import soundfile as sf
 import threa
 
-from . import block, file_opener, silence
+from . import block, file_opener, times
 
 
 @dc.dataclass
@@ -14,7 +14,7 @@ class ChannelWriter:
     name: str
     path: Path
     runnable: threa.Runnable
-    silence: silence.SilenceStrategy[int]
+    times: times.Times[int]
     time: int = 0
 
     blocks_written: int = 0
@@ -53,10 +53,10 @@ class ChannelWriter:
         except TypeError:
             pass
 
-        if amp >= self.silence.noise_floor_amplitude:
+        if amp >= self.times.noise_floor_amplitude:
             self._record_on_not_silence()
 
-        elif self._blocks.duration > self.silence.stop_after:
+        elif self._blocks.duration > self.times.stop_after:
             self._close_on_silence()
 
     def close(self):
@@ -69,14 +69,14 @@ class ChannelWriter:
 
     def _record_on_not_silence(self):
         if not self._sf:
-            length = self.silence.before_start + len(self._blocks[-1])
+            length = self.times.before_start + len(self._blocks[-1])
             self._blocks.clip(length, from_start=True)
 
         self._record(self._blocks)
         self._blocks.clear()
 
     def _close_on_silence(self):
-        removed = self._blocks.clip(self.silence.after_end, from_start=False)
+        removed = self._blocks.clip(self.times.after_end, from_start=False)
 
         if self._sf:
             if removed:

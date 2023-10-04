@@ -10,7 +10,7 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import field, recs, split
-from recs.audio import device, file_opener, silence, slicer
+from recs.audio import device, file_opener, slicer, times
 
 from .exc_inc import ExcInc
 
@@ -68,10 +68,10 @@ class Session(Runnable):
                 time.sleep(self.recording.sleep_time)  # type: ignore[attr-defined]
                 self.live.update(self.recorder.table())
 
-    def silence(self, samplerate: float) -> silence.SilenceStrategy[int]:
-        fields = [f.name for f in dc.fields(silence.SilenceStrategy)]
-        s = silence.SilenceStrategy(**{k: getattr(self.recording, k) for k in fields})
-        return silence.scale(s, samplerate)
+    def times(self, samplerate: float) -> times.Times[int]:
+        fields = [f.name for f in dc.fields(times.Times)]
+        s = times.Times(**{k: getattr(self.recording, k) for k in fields})
+        return times.scale(s, samplerate)
 
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(

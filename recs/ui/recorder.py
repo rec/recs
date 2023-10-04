@@ -124,7 +124,7 @@ class ChannelCallback:
             opener=self.session.opener(channels, self.device.samplerate),
             path=self.session.recording.path,  # type: ignore[attr-defined]
             runnable=self.session,
-            silence=self.session.silence(self.device.samplerate),
+            times=self.session.times(self.device.samplerate),
             time=self.session.recording.time,  # type: ignore[attr-defined]
         )
 
