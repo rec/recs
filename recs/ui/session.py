@@ -9,7 +9,7 @@ from rich.live import Live
 from rich.table import Table
 from threa import Runnable
 
-from recs import cli, field, split
+from recs import field, recs, split
 from recs.audio import device, file_opener, silence, slicer
 
 from .exc_inc import ExcInc
@@ -28,7 +28,7 @@ TableMaker = t.Callable[[], Table]
 
 @dc.dataclass
 class Session(Runnable):
-    recording: cli.Recording
+    recording: recs.Recording
     slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
 
     @cached_property

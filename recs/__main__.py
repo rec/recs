@@ -1,6 +1,6 @@
 if __name__ == '__main__':
     import sys
 
-    from . import cli
+    from . import recs
 
-    sys.exit(cli.run())
+    sys.exit(recs.run())
