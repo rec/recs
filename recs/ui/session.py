@@ -10,13 +10,17 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import cli, field, split
-from recs.audio import device, file_opener, prefix_dict, silence, slicer
+from recs.audio import device, file_opener, silence, slicer
+
+from .exc_inc import ExcInc
 
 if t.TYPE_CHECKING:
-    from recs.ui.recorder import Recorder
+    from .recorder import Recorder
 
+# TODO: this is hardcoded for my system of course. :-)
 FLOW_SLICE = slicer.auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
+
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
@@ -28,18 +32,19 @@ class Session(Runnable):
     slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
 
     @cached_property
-    def devices(self) -> prefix_dict.PrefixDict[device.InputDevice]:
-        return prefix_dict.PrefixDict(device.input_devices())
-
-    @cached_property
     def device_names(self) -> dict[str, str]:
         device_names = self.recording.device_names  # type: ignore[attr-defined]
         device_names = (s for d in device_names for s in split(d))
-        return {self.devices[k].name: k for k in device_names}
+        return {device.input_devices()[k].name: k for k in device_names}
 
     @cached_property
     def device_slices(self) -> slicer.SlicesDict:
         return slicer.SlicesDict()
+
+    @cached_property
+    def exc_inc(self) -> ExcInc:
+        r = self.recording
+        return ExcInc(r.exclude, r.include)  # type: ignore[attr-defined]
 
     @cached_property
     def recorder(self) -> 'Recorder':
@@ -53,10 +58,8 @@ class Session(Runnable):
     @cached_property
     def live(self) -> Live:
         table = self.recorder.table()
-        assert hasattr(self.recording, 'ui_refresh_rate')  # Why?!
-        return Live(
-            table, refresh_per_second=self.recording.ui_refresh_rate, console=CONSOLE
-        )
+        refresh = self.recording.ui_refresh_rate  # type: ignore[attr-defined]
+        return Live(table, refresh_per_second=refresh, console=CONSOLE)
 
     def run(self) -> None:
         self.start()

@@ -20,8 +20,8 @@ class Recorder:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.start_time = time.time()
-        devices = session.devices.values()
-        self.devices = tuple(DeviceCallback(d, session) for d in devices)
+        devices = (d for d in device.input_devices().values() if session.exc_inc(d))
+        self.device_callbacks = tuple(DeviceCallback(d, session) for d in devices)
 
     @property
     def elapsed_time(self) -> float:
@@ -32,21 +32,21 @@ class Recorder:
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {'time': f'{self.elapsed_time:9.3f}'}
-        for v in self.devices:
+        for v in self.device_callbacks:
             yield from v.rows()
 
     @contextlib.contextmanager
     def context(self):
         try:
             with contextlib.ExitStack() as stack:
-                for d in self.devices:
+                for d in self.device_callbacks:
                     stack.enter_context(d.input_stream)
                 yield
         finally:
             self.stop()
 
     def stop(self):
-        for d in self.devices:
+        for d in self.device_callbacks:
             d.stop()
 
 
@@ -60,8 +60,9 @@ class DeviceCallback:
     @cached_property
     def channels(self) -> tuple['ChannelCallback', ...]:
         slices = slicer.slice_device(self.device, self.session.device_slices)
+        it = ((k, v) for k, v in slices.items() if self.session.exc_inc(self.device, v))
         dr = self.device, self.session
-        return tuple(ChannelCallback(k, v, *dr) for k, v in slices.items())
+        return tuple(ChannelCallback(k, v, *dr) for k, v in it)
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
