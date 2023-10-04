@@ -12,7 +12,7 @@ DEVICES = {
         'Main': slice(8, 10),
     },
     'MacBook Pro Microphone': {'1': slice(0, 1)},
-    'USB PnP Sound DeviceCallback': {'1': slice(0, 1)},
+    'USB PnP Sound DeviceRecorder': {'1': slice(0, 1)},
     'ZoomAudioDevice': {'1-2': slice(0, 2)},
 }
 

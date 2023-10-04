@@ -21,7 +21,7 @@ class Recorder:
         self.session = session
         self.start_time = time.time()
         devices = (d for d in device.input_devices().values() if session.exc_inc(d))
-        self.device_callbacks = tuple(DeviceCallback(d, session) for d in devices)
+        self.device_recorders = tuple(DeviceRecorder(d, session) for d in devices)
 
     @property
     def elapsed_time(self) -> float:
@@ -32,37 +32,37 @@ class Recorder:
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {'time': f'{self.elapsed_time:9.3f}'}
-        for v in self.device_callbacks:
+        for v in self.device_recorders:
             yield from v.rows()
 
     @contextlib.contextmanager
     def context(self):
         try:
             with contextlib.ExitStack() as stack:
-                for d in self.device_callbacks:
+                for d in self.device_recorders:
                     stack.enter_context(d.input_stream)
                 yield
         finally:
             self.stop()
 
     def stop(self):
-        for d in self.device_callbacks:
+        for d in self.device_recorders:
             d.stop()
 
 
 @dc.dataclass
-class DeviceCallback:
+class DeviceRecorder:
     device: device.InputDevice
     session: Session
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
 
     @cached_property
-    def channels(self) -> tuple['ChannelCallback', ...]:
+    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
         slices = slicer.slice_device(self.device, self.session.device_slices)
         it = ((k, v) for k, v in slices.items() if self.session.exc_inc(self.device, v))
         dr = self.device, self.session
-        return tuple(ChannelCallback(k, v, *dr) for k, v in it)
+        return tuple(ChannelRecorder(k, v, *dr) for k, v in it)
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
@@ -76,7 +76,7 @@ class DeviceCallback:
         self.block_count()
         self.block_size(array.shape[0])
 
-        for c in self.channels:
+        for c in self.channel_recorders:
             c.callback(array)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
@@ -85,16 +85,16 @@ class DeviceCallback:
             'count': self.block_count.value,
             'device': self.name,
         }
-        for v in self.channels:
+        for v in self.channel_recorders:
             yield from v.rows()
 
     def stop(self):
-        for c in self.channels:
+        for c in self.channel_recorders:
             c.stop()
 
 
 @dc.dataclass
-class ChannelCallback:
+class ChannelRecorder:
     name: str
     channels: slice
     device: device.InputDevice
