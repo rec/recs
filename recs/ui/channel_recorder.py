@@ -4,9 +4,7 @@ from functools import cached_property
 
 from recs import Array, field
 from recs.audio import block, channel_writer, device
-from recs.ui.counter import Accumulator, Counter
-from recs.ui.legal_filename import legal_filename
-from recs.ui.session import Session
+from recs.ui import counter, legal_filename, session
 
 
 @dc.dataclass
@@ -14,15 +12,15 @@ class ChannelRecorder:
     name: str
     channels: slice
     device: device.InputDevice
-    session: Session
+    session: session.Session
 
-    block_count: Counter = field(Counter)
-    amplitude: Accumulator = field(Accumulator)
-    rms: Accumulator = field(Accumulator)
+    amplitude: counter.Accumulator = field(counter.Accumulator)
+    block_count: int = 0
+    rms: counter.Accumulator = field(counter.Accumulator)
 
     def callback(self, array: Array):
         b = block.Block(array[:, self.channels])
-        self.block_count()
+        self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
         if not self.session.recording.dry_run:  # type: ignore[attr-defined]
@@ -36,7 +34,7 @@ class ChannelRecorder:
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
         return channel_writer.ChannelWriter(
-            name=legal_filename(f'{self.device.name}-{self.name}'),
+            name=legal_filename.legal_filename(f'{self.device.name}-{self.name}'),
             opener=self.session.opener(channels, self.device.samplerate),
             path=self.session.recording.path,  # type: ignore[attr-defined]
             runnable=self.session,
@@ -48,7 +46,7 @@ class ChannelRecorder:
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
             'channel': self.name,
-            'count': self.block_count.value,
+            'count': self.block_count,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
         }

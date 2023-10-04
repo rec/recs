@@ -5,7 +5,7 @@ from functools import cached_property
 import sounddevice as sd
 
 from recs import Array, field
-from recs.audio import device, slicer
+from recs.audio import device, slicer, times
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.session import Session
@@ -33,12 +33,29 @@ class DeviceRecorder:
     def name(self) -> str:
         return self.session.device_names.get(self.device.name, self.device.name)
 
+    @cached_property
+    def times(self) -> times.Times[int]:
+        return self.session.times(self.device.samplerate)
+
+    @cached_property
+    def total_run_time(self) -> int:
+        return max(self.times.total_run_time, 0)
+
     def callback(self, array: Array) -> None:
         self.block_count()
-        self.block_size(array.shape[0])
+        size = array.shape[0]
+        self.block_size(size)
+        if self.total_run_time:
+            if (delta := self.block_size.sum - self.total_run_time) >= 0:
+                self.session.stop()
+                if delta:
+                    array = array[slice(size - delta), :]
 
         for c in self.channel_recorders:
             c.callback(array)
+
+        if not self.session.running:
+            self.stop()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {

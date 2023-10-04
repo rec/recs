@@ -33,7 +33,7 @@ class Times(t.Generic[T]):
         return 10 ** (-self.noise_floor / 10)
 
 
-def scale(source: Times[float], samplerate: float) -> Times[int]:
+def scale(source: Times[float], samplerate: float | int) -> Times[int]:
     it = dc.asdict(source).items()
     d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
     return Times[int](**d)
