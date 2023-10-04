@@ -4,6 +4,8 @@ from functools import cached_property
 
 T = t.TypeVar('T', float, int)
 
+NO_SCALE = ('noise_floor',)
+
 
 @dc.dataclass(frozen=True)
 class Times(t.Generic[T]):
@@ -12,16 +14,19 @@ class Times(t.Generic[T]):
     """
 
     #: Amount of silence at the start
-    before_start: T
+    silence_before_start: T
 
     #: Amount of silence at the end
-    after_end: T
+    silence_after_end: T
 
     #: Amount of silence before stopping a recording
-    stop_after: T
+    stop_after_silence: T
 
     #: The noise floor in decibels
     noise_floor: float = 70
+
+    #: Amount of total time to run.  0 or less means "run forever"
+    total_run_time: T = t.cast(T, 0)
 
     @cached_property
     def noise_floor_amplitude(self):
@@ -29,9 +34,6 @@ class Times(t.Generic[T]):
 
 
 def scale(source: Times[float], samplerate: float) -> Times[int]:
-    return Times[int](
-        before_start=round(samplerate * source.before_start),
-        after_end=round(samplerate * source.after_end),
-        stop_after=round(samplerate * source.stop_after),
-        noise_floor=source.noise_floor,
-    )
+    it = dc.asdict(source).items()
+    d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
+    return Times[int](**d)

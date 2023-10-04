@@ -125,7 +125,6 @@ class ChannelCallback:
             path=self.session.recording.path,  # type: ignore[attr-defined]
             runnable=self.session,
             times=self.session.times(self.device.samplerate),
-            time=self.session.recording.time,  # type: ignore[attr-defined]
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

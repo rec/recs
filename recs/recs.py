@@ -35,12 +35,6 @@ def recs(
     path: Path = Option(
         Path(), '-p', '--path', help='Path to the parent directory for files'
     ),
-    time: float = Option(
-        0,
-        '-t',
-        '--time',
-        help='How long to record for? Zero or less means forever',
-    ),
     #
     # Names of input devices
     #
@@ -75,17 +69,20 @@ def recs(
     #
     # Settings relating to times
     #
-    before_start: float = Option(
-        1, '-b', '--before-start', help='Silence before the start, in seconds'
+    silence_before_start: float = Option(
+        1, '-b', '--silence-before-start', help='Silence before the start, in seconds'
     ),
-    after_end: float = Option(
-        2, '-a', '--after-end', help='Silence after the end, in seconds'
+    silence_after_end: float = Option(
+        2, '-a', '--silence-after-end', help='Silence after the end, in seconds'
     ),
-    stop_after: float = Option(
-        20, '-s', '--stop-after', help='Stop recording after silence'
+    stop_after_silence: float = Option(
+        20, '-s', '--stop-after-silence', help='Stop recording after silence'
     ),
     noise_floor: float = Option(
         70, '-n', '--noise-floor', help='The noise floor in decibels'
+    ),
+    total_run_time: float = Option(
+        0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
     ),
 ):
     Recording(**locals())()

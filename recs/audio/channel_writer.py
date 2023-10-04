@@ -15,7 +15,6 @@ class ChannelWriter:
     path: Path
     runnable: threa.Runnable
     times: times.Times[int]
-    time: int = 0
 
     blocks_written: int = 0
     files_written: int = 0
@@ -56,7 +55,7 @@ class ChannelWriter:
         if amp >= self.times.noise_floor_amplitude:
             self._record_on_not_silence()
 
-        elif self._blocks.duration > self.times.stop_after:
+        elif self._blocks.duration > self.times.stop_after_silence:
             self._close_on_silence()
 
     def close(self):
@@ -69,14 +68,14 @@ class ChannelWriter:
 
     def _record_on_not_silence(self):
         if not self._sf:
-            length = self.times.before_start + len(self._blocks[-1])
+            length = self.times.silence_before_start + len(self._blocks[-1])
             self._blocks.clip(length, from_start=True)
 
         self._record(self._blocks)
         self._blocks.clear()
 
     def _close_on_silence(self):
-        removed = self._blocks.clip(self.times.after_end, from_start=False)
+        removed = self._blocks.clip(self.times.silence_after_end, from_start=False)
 
         if self._sf:
             if removed:

@@ -33,9 +33,9 @@ def test_channel_writer(arrays, segments):
         path=Path('.'),
         runnable=threa.Runnable(),
         times=Times[int](
-            before_start=30,
-            after_end=40,
-            stop_after=50,
+            silence_before_start=30,
+            silence_after_end=40,
+            stop_after_silence=50,
         ),
     )
 

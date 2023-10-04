@@ -17,13 +17,15 @@ from .exc_inc import ExcInc
 if t.TYPE_CHECKING:
     from .recorder import Recorder
 
-# TODO: this is hardcoded for my system of course. :-)
+# TODO: this is hardcoded for my system  :-)
 FLOW_SLICE = slicer.auto_slice(8) | {'Main': slice(8, 10)}
 DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
+
+FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
 
 @dc.dataclass
@@ -69,8 +71,7 @@ class Session(Runnable):
                 self.live.update(self.recorder.table())
 
     def times(self, samplerate: float) -> times.Times[int]:
-        fields = [f.name for f in dc.fields(times.Times)]
-        s = times.Times(**{k: getattr(self.recording, k) for k in fields})
+        s = times.Times(**{k: getattr(self.recording, k) for k in FIELDS})
         return times.scale(s, samplerate)
 
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
