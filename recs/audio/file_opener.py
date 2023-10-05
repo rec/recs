@@ -1,35 +1,26 @@
 import dataclasses as dc
-import typing as t
 from pathlib import Path
 
 import soundfile as sf
 
 from .file_types import Format, Subtype
-from .valid_subtypes import is_valid
 
 
 @dc.dataclass(frozen=True)
 class FileOpener:
-    format: Format
-    subtype: Subtype
-    channels: t.Optional[int] = None
-    samplerate: t.Optional[int] = None
-    _check: bool = True
+    channels: int | None = None
+    exist_ok: bool = False
+    format: Format | None = None
+    samplerate: int | None = None
+    subtype: Subtype | None = None
+    suffix: str | None = None
 
-    def __post_init__(self):
-        if self._check and not is_valid(self.format, self.subtype):
-            raise ValueError(f'Bad subtype for {self}')
-
-    @property
-    def suffix(self) -> str:
-        return f'.{self.format.lower()}'
+    def with_suffix(self, path: Path) -> Path:
+        return path.with_suffix(self.suffix) if self.suffix else path
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
-        return sf.SoundFile(
-            file=path.with_suffix(self.suffix),
-            mode=mode,
-            channels=self.channels,
-            samplerate=self.samplerate,
-            format=self.format.upper(),
-            subtype=self.subtype.upper(),
-        )
+        kwargs = dc.asdict(self)
+        if not kwargs.pop('exist_ok') and path.exists():
+            raise FileExistsError(str(path))
+        kwargs.pop('suffix')
+        return sf.SoundFile(file=self.with_suffix(path), mode=mode, **kwargs)

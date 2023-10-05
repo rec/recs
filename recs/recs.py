@@ -55,11 +55,9 @@ def recs(
     # Audio file format and subtype
     #
     format: Format = Option(
-        Format.CAF, '-f', '--format', help='Audio file format to use'
+        Format.FLAC, '-f', '--format', help='Audio file format to use'
     ),
-    subtype: Subtype = Option(
-        Subtype.ALAC_24, '-u', '--subtype', help='File subtype to write to'
-    ),
+    subtype: Subtype = Option(None, '-u', '--subtype', help='File subtype to write to'),
     #
     # Console and UI settings
     #

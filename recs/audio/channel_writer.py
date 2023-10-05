@@ -98,7 +98,7 @@ class ChannelWriter:
         index = 0
         while True:
             p = self.path / f'{self.name}-{ts()}{istr}'
-            self._current_file = p.with_suffix(self.opener.suffix)
+            self._current_file = self.opener.with_suffix(p)
             if not self._current_file.exists():
                 return
             index += 1
