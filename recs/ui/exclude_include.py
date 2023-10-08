@@ -11,16 +11,16 @@ DeviceDict = PrefixDict[device.InputDevice]
 Match = str | t.Sequence[str]
 
 
-class ExcInc:
+class ExcludeInclude:
     def __init__(self, exclude: Match = (), include: Match = ()) -> None:
-        self.exclude = Accept(exclude)
-        self.include = Accept(include)
+        self.exclude = _Accept(exclude)
+        self.include = _Accept(include)
 
     def __call__(self, *args) -> bool:
         return not self.exclude(*args) and (not self.include or self.include(*args))
 
 
-class Accept(list):
+class _Accept(list):
     def __init__(self, matches: Match) -> None:
         if not matches:
             super().__init__()

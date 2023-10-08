@@ -12,7 +12,7 @@ from threa import Runnable
 from recs import field, recs, split
 from recs.audio import device, file_opener, slicer, times
 
-from .exc_inc import ExcInc
+from .exclude_include import ExcludeInclude
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -44,9 +44,9 @@ class Session(Runnable):
         return slicer.SlicesDict()
 
     @cached_property
-    def exc_inc(self) -> ExcInc:
+    def exclude_include(self) -> ExcludeInclude:
         r = self.recording
-        return ExcInc(r.exclude, r.include)  # type: ignore[attr-defined]
+        return ExcludeInclude(r.exclude, r.include)  # type: ignore[attr-defined]
 
     @cached_property
     def recorder(self) -> 'Recorder':

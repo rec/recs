@@ -15,7 +15,8 @@ class Recorder:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.start_time = time.time()
-        devices = (d for d in device.input_devices().values() if session.exc_inc(d))
+        values = device.input_devices().values()
+        devices = (d for d in values if session.exclude_include(d))
         self.device_recorders = tuple(DeviceRecorder(d, session) for d in devices)
 
     @property
