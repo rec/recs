@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
 
 from recs import DType
 from recs.audio.file_opener import FileOpener
@@ -16,7 +15,7 @@ CRASH_SUBTYPES_FORMAT = {
     Format.MP3: {Subtype.MPEG_LAYER_III},
 }
 KWARGS = {'samplerate': 48_000, 'channels': 2}
-ALLOWED = [(f, Subtype[s]) for f in Format for s in sf.available_subtypes(f).keys()]
+TYPES = 'int16', 'int32', 'float32', 'float64'
 
 
 def _writes(format, subtype):
@@ -34,13 +33,29 @@ def _writes(format, subtype):
         return False
 
 
-def write_mp3_file(
-    dtype='int32', suffix='.mp3', length=4096, channels=2, count=1, **ka
-):
+def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **ka):
+    print('writing', format, dtype)
     import numpy as np
     import soundfile as sf
 
-    f = f'test{suffix}'
+    f = f'test.{format.strip(".").lower()}'
     with sf.SoundFile(f, mode='w', channels=channels, samplerate=48_000, **ka) as fp:
         for i in range(count):
             fp.write(np.empty(shape=(length, channels), dtype=dtype))
+    print('done')
+    print()
+
+
+def print_commands():
+    for format in Format:
+        for number_type in TYPES:
+            print('python -m test.test_format_subtype', format.lower(), number_type)
+
+
+if __name__ == '__main__':
+    import sys
+
+    if True:
+        write_file(sys.argv[1], sys.argv[2])
+    else:
+        print_commands()

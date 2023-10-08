@@ -2,10 +2,11 @@ import dataclasses as dc
 import typing as t
 from functools import cached_property
 
+import numpy as np
 import sounddevice as sd
 
 from recs import Array, field
-from recs.audio import device, slicer, times
+from recs.audio import device, file_types, slicer, times
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.session import Session
@@ -42,6 +43,11 @@ class DeviceRecorder:
         return max(self.times.total_run_time, 0)
 
     def callback(self, array: Array) -> None:
+        fmt = self.session.recording.format  # type: ignore[attr-defined]
+        if fmt == file_types.Format.MP3 and array.dtype == np.float32:
+            # Fix crash!
+            array = array.astype(np.float64)
+
         self.block_count()
         size = array.shape[0]
         self.block_size(size)

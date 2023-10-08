@@ -54,7 +54,7 @@ def recs(
     #
     # Audio file format and subtype
     #
-    format: Format = Option(
+    format: str = Option(
         Format.FLAC, '-f', '--format', help='Audio file format to use'
     ),
     subtype: Subtype = Option(None, '-u', '--subtype', help='File subtype to write to'),
@@ -86,6 +86,7 @@ def recs(
         0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
     ),
 ):
+    format = Format[format.strip('.').upper()]
     Recording(**locals())()
 
 

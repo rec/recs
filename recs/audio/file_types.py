@@ -7,7 +7,6 @@ class Format(StrEnum):
     AVR = auto()
     CAF = auto()
     FLAC = auto()
-    HTK = auto()
     IRCAM = auto()
     MAT4 = auto()
     MAT5 = auto()
@@ -20,14 +19,10 @@ class Format(StrEnum):
     RAW = auto()
     RF64 = auto()
     SD2 = auto()
-    SDS = auto()
-    SVX = auto()
     VOC = auto()
     W64 = auto()
     WAV = auto()
     WAVEX = auto()
-    WVE = auto()
-    XI = auto()
 
 
 class Subtype(StrEnum):
