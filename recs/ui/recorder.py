@@ -4,6 +4,7 @@ import typing as t
 
 from rich.table import Table
 
+from recs import RecsError
 from recs.audio import device
 
 from .device_recorder import DeviceRecorder
@@ -16,7 +17,8 @@ class Recorder:
         self.session = session
         self.start_time = time.time()
         values = device.input_devices().values()
-        devices = (d for d in values if session.exclude_include(d))
+        if not (devices := [d for d in values if session.exclude_include(d)]):
+            raise RecsError('No devices or channels selected!')
         self.device_recorders = tuple(DeviceRecorder(d, session) for d in devices)
 
     @property

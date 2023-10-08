@@ -1,9 +1,12 @@
 import json
+import sys
 from pathlib import Path
 
 import click
 import dtyper
 from dtyper import Option
+
+from recs import RecsError
 
 from .audio.file_types import Format, Subtype
 
@@ -19,6 +22,7 @@ app = dtyper.Typer(
 Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 """,
 )
+VERBOSE = False
 
 
 @app.command(help='Record everything coming in')
@@ -38,6 +42,7 @@ def recs(
     retain: bool = Option(
         False, '-r', '--retain', help='Retain rich display on shutdown'
     ),
+    verbose: bool = Option(False, '-v', '--verbose', help='Print full stack traces'),
     #
     # Names of input devices
     #
@@ -86,6 +91,9 @@ def recs(
         0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
     ),
 ):
+    global VERBOSE
+    VERBOSE = verbose
+
     format = Format[format.strip('.').upper()]
     Recording(**locals())()
 
@@ -107,7 +115,11 @@ class Recording:
 def run():
     try:
         app(standalone_mode=False)
+    except RecsError as e:
+        print('ERROR:', *e.args, file=sys.stderr)
     except click.ClickException as e:
-        return f'{e.__class__.__name__}: {e.message}'
+        print(f'{e.__class__.__name__}: {e.message}', file=sys.stderr)
     except click.Abort:
-        return 'Aborted'
+        print('Aborted', file=sys.stderr)
+    except KeyboardInterrupt:
+        print('Interrupted', file=sys.stderr)

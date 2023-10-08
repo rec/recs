@@ -19,3 +19,7 @@ def field(default_factory: t.Optional[t.Callable[[], t.Any]] = None, **ka):
     if default_factory is not None:
         ka['default_factory'] = default_factory
     return dc.field(**ka)
+
+
+class RecsError(ValueError):
+    pass
