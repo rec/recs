@@ -4,11 +4,12 @@ from pathlib import Path
 
 import click
 import dtyper
+import sounddevice as sd
 from dtyper import Option
 
 from recs import RecsError
 
-from .audio.file_types import Format, Subtype
+from .audio.file_types import Format, Numbers, Subtype
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -59,10 +60,9 @@ def recs(
     #
     # Audio file format and subtype
     #
-    format: str = Option(
-        Format.FLAC, '-f', '--format', help='Audio file format to use'
-    ),
-    subtype: Subtype = Option(None, '-u', '--subtype', help='File subtype to write to'),
+    format: Format = Option(Format.FLAC, '-f', '--format', help='Audio format to use'),
+    subtype: Subtype = Option('', '-u', '--subtype', help='File subtype to use to'),
+    numbers: Numbers = Option('', '-n', '--numbers', help='Type of numbers to use'),
     #
     # Console and UI settings
     #
@@ -85,7 +85,7 @@ def recs(
         20, '-s', '--stop-after-silence', help='Stop recording after silence'
     ),
     noise_floor: float = Option(
-        70, '-n', '--noise-floor', help='The noise floor in decibels'
+        70, '-o', '--noise-floor', help='The noise floor in decibels'
     ),
     total_run_time: float = Option(
         0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
@@ -102,8 +102,6 @@ def recs(
 class Recording:
     def __call__(self):
         if self.info:
-            import sounddevice as sd
-
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
@@ -115,11 +113,15 @@ class Recording:
 def run():
     try:
         app(standalone_mode=False)
+
     except RecsError as e:
         print('ERROR:', *e.args, file=sys.stderr)
+
     except click.ClickException as e:
         print(f'{e.__class__.__name__}: {e.message}', file=sys.stderr)
+
     except click.Abort:
         print('Aborted', file=sys.stderr)
+
     except KeyboardInterrupt:
         print('Interrupted', file=sys.stderr)

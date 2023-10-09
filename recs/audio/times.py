@@ -1,10 +1,19 @@
 import dataclasses as dc
+import math
 import typing as t
 from functools import cached_property
 
 T = t.TypeVar('T', float, int)
 
 NO_SCALE = ('noise_floor',)
+
+
+def db_to_amplitude(db: float) -> float:
+    return 10 ** (-db / 20)
+
+
+def amplitude_to_db(amp: float) -> float:
+    return -20 * math.log10(amp)
 
 
 @dc.dataclass(frozen=True)
@@ -30,7 +39,7 @@ class Times(t.Generic[T]):
 
     @cached_property
     def noise_floor_amplitude(self):
-        return 10 ** (-self.noise_floor / 10)
+        return db_to_amplitude(self.noise_floor)
 
 
 def scale(source: Times[float], samplerate: float | int) -> Times[int]:

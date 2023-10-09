@@ -4,7 +4,7 @@ import numpy as np
 
 from recs import DType
 from recs.audio.file_opener import FileOpener
-from recs.audio.file_types import Format, Subtype
+from recs.audio.file_types import Format, Numbers, Subtype
 
 EXCLUSIONS = {(Format.AIFF, 'alaw')}
 BLOCK = np.empty(shape=(4096, 2), dtype=DType)
@@ -15,7 +15,6 @@ CRASH_SUBTYPES_FORMAT = {
     Format.MP3: {Subtype.MPEG_LAYER_III},
 }
 KWARGS = {'samplerate': 48_000, 'channels': 2}
-TYPES = 'int16', 'int32', 'float32', 'float64'
 
 
 def _writes(format, subtype):
@@ -48,8 +47,9 @@ def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **
 
 def print_commands():
     for format in Format:
-        for number_type in TYPES:
-            print('python -m test.test_format_subtype', format.lower(), number_type)
+        for number_type in Numbers:
+            if format and number_type:
+                print('python -m test.test_format_subtype', format.lower(), number_type)
 
 
 if __name__ == '__main__':

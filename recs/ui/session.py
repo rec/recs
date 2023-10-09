@@ -11,6 +11,7 @@ from threa import Runnable
 
 from recs import field, recs, split
 from recs.audio import device, file_opener, slicer, times
+from recs.audio.file_types import Format, Subtype
 
 from .exclude_include import ExcludeInclude
 
@@ -58,6 +59,16 @@ class Session(Runnable):
         super().__init__()
 
     @cached_property
+    def format(self) -> Format:
+        format = self.recording.format.upper()  # type: ignore[attr-defined]
+        return Format[format or 'none']
+
+    @cached_property
+    def subtype(self) -> Subtype:
+        subtype = self.recording.subtype.upper()  # type: ignore[attr-defined]
+        return Subtype[subtype or 'none']
+
+    @cached_property
     def live(self) -> Live:
         table = self.recorder.table()
         refresh = self.recording.ui_refresh_rate  # type: ignore[attr-defined]
@@ -81,8 +92,8 @@ class Session(Runnable):
 
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(
-            format=self.recording.format,  # type: ignore[attr-defined]
-            subtype=self.recording.subtype,  # type: ignore[attr-defined]
             channels=channels,
+            format=self.format,
             samplerate=samplerate,
+            subtype=self.subtype,
         )

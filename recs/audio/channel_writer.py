@@ -21,7 +21,6 @@ class ChannelWriter:
     samples_seen: int = 0
 
     _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
-    _current_file: Path = Path()
     _sf: sf.SoundFile | None = None
 
     @property
@@ -29,8 +28,8 @@ class ChannelWriter:
         return bool(self._sf)
 
     @property
-    def current_file(self) -> Path:
-        return self._current_file
+    def current_file(self) -> str:
+        return self._sf and self._sf._name or '(none)'
 
     def __enter__(self):
         return self
@@ -85,24 +84,24 @@ class ChannelWriter:
 
     def _record(self, blocks: block.Blocks):
         if not self._sf:
-            self._new_file()
-            self._sf = self.opener.open(self.current_file, 'w')
+            self._sf = self._open_new_file()
             self.files_written += 1
 
         for b in blocks:
             self._sf.write(b.block)
             self.blocks_written += 1
 
-    def _new_file(self):
-        istr = ''
+    def _open_new_file(self):
+        s = ''
         index = 0
+
         while True:
-            p = self.path / f'{self.name}-{ts()}{istr}'
-            self._current_file = self.opener.with_suffix(p)
-            if not self._current_file.exists():
-                return
-            index += 1
-            istr = f'_{index}'
+            p = self.path / f'{self.name}-{ts()}{s}'
+            try:
+                return self.opener.open(p, 'w')
+            except FileExistsError:
+                index += 1
+                s = f'_{index}'
 
 
 def ts():

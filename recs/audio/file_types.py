@@ -1,7 +1,18 @@
 from enum import StrEnum, auto
 
 
+class Numbers(StrEnum):
+    none = ''
+
+    int16 = auto()
+    int32 = auto()
+    float32 = auto()
+    float64 = auto()
+
+
 class Format(StrEnum):
+    none = ''
+
     AIFF = auto()
     AU = auto()
     AVR = auto()
@@ -26,6 +37,8 @@ class Format(StrEnum):
 
 
 class Subtype(StrEnum):
+    none = ''
+
     ALAC_16 = auto()
     ALAC_20 = auto()
     ALAC_24 = auto()
