@@ -1,6 +1,6 @@
 import string
 
-CHARS = (string.ascii_letters + string.digits + '-_=,. ').encode()
+CHARS = (string.ascii_letters + string.digits + '-_=,. ()[]').encode()
 
 
 def legal_filename(s):
