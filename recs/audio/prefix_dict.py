@@ -17,3 +17,9 @@ class PrefixDict(dict[str, T]):
             if 1 == len(m := [v for k, v in self.items() if k.lower().startswith(key)]):
                 return m[0]
             raise
+
+    def get_value(self, key: str, default: T | None = None) -> T | None:
+        try:
+            return self[key]
+        except KeyError:
+            return default

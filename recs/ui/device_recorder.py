@@ -19,14 +19,19 @@ class DeviceRecorder:
     block_count: Counter = field(Counter)
     block_size: Accumulator = field(Accumulator)
 
+    def __bool__(self) -> bool:
+        return bool(self.channel_recorders)
+
     @cached_property
-    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
+    def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
+        def accept(v: slice):
+            b, e = v.start + 1, v.stop
+            ch = str(b) if b == e else f'{b}-{e}'
+            return self.session.exclude_include(self.device, ch)
+
         slices = slicer.slice_device(self.device, self.session.device_slices)
-        it = (
-            (k, v)
-            for k, v in slices.items()
-            if self.session.exclude_include(self.device, v)
-        )
+
+        it = ((k, v) for k, v in slices.items() if accept(v))
         dr = self.device, self.session
         return tuple(ChannelRecorder(k, v, *dr) for k, v in it)
 

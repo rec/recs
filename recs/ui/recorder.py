@@ -17,9 +17,12 @@ class Recorder:
         self.session = session
         self.start_time = time.time()
         values = device.input_devices().values()
-        if not (devices := [d for d in values if session.exclude_include(d)]):
+        dr1 = (d for d in values if session.exclude_include(d))
+        dr2 = (DeviceRecorder(d, session) for d in dr1)
+        self.device_recorders = tuple(d for d in dr2 if d)
+
+        if not self.device_recorders:
             raise RecsError('No devices or channels selected!')
-        self.device_recorders = tuple(DeviceRecorder(d, session) for d in devices)
 
     @property
     def elapsed_time(self) -> float:

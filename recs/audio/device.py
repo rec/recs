@@ -22,6 +22,9 @@ class InputDevice:
     def __bool__(self):
         return bool(self.channels)
 
+    def __str__(self):
+        return f'InputDevice({self.name})'
+
     @cached_property
     def channels(self):
         return self.info['max_input_channels']

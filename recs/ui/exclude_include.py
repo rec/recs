@@ -1,52 +1,58 @@
 import typing as t
 
 import recs
-from recs import split
 from recs.audio import device
+from recs.audio.device import InputDevice
 from recs.audio.prefix_dict import PrefixDict
 
 CHANNEL_SPLITTER = ':'
 Strs = t.Sequence[t.Sequence[str]]
-DeviceDict = PrefixDict[device.InputDevice]
+DeviceDict = PrefixDict[InputDevice]
 Match = str | t.Sequence[str]
 
 
 class ExcludeInclude:
     def __init__(self, exclude: Match = (), include: Match = ()) -> None:
-        self.exclude = _Accept(exclude)
-        self.include = _Accept(include)
+        self.exclude = _Split(exclude)
+        self.include = _Split(include)
+        self.ed, self.id = self.exclude.devices, self.include.devices
+        self.ec, self.ic = self.exclude.channels, self.include.channels
 
-    def __call__(self, *args) -> bool:
-        return not self.exclude(*args) and (not self.include or self.include(*args))
+    def __call__(self, d: InputDevice, c: str = '') -> bool:
+        if d.name in self.ed or (self.id and d.name not in self.id):
+            return False
+        if not c:
+            return True
+        if (d.name, c) in self.ec:
+            return False
+        return not self.ic or (d.name, c) in self.ic
 
 
-class _Accept(list):
+class _Split:
     def __init__(self, matches: Match) -> None:
-        if not matches:
-            super().__init__()
-            return
+        self.devices: set[str] = set()
+        self.channels: set[tuple[str, str]] = set()
 
-        def dev(i) -> tuple:
-            k, *a = split(i, CHANNEL_SPLITTER)
-            try:
-                return device.input_devices()[k], *a
-            except KeyError:
-                return k, *a
-
-        if isinstance(matches, str):
-            s = matches
+        if not isinstance(matches, str):
+            mat = matches
         else:
-            s = recs.PART_SPLITTER.join(matches)
+            mat = recs.split(matches)
 
-        super().__init__(dev(i) for i in (s and split(s)))
+        bad_match: list[str] = []
+        for m in mat:
+            d, _, rest = m.partition(':')
+            if not (dev := device.input_devices().get_value(d)):
+                print('one', d)
+                bad_match.append(m)
+            elif not rest:
+                self.devices.add(dev.name)
+            else:
+                ch, _, rest = rest.partition(':')
+                if rest:
+                    print('two', d)
+                    bad_match.append(m)
+                else:
+                    self.channels.add((dev.name, ch))
 
-        if unknown_devices := [k for k, *_ in self if isinstance(k, str)]:
-            raise ValueError(f'{unknown_devices=}')
-
-        if too_many_colons := [m for m in self if len(m) > 2]:
-            raise ValueError(f'{too_many_colons=}')
-
-    def __call__(self, *args) -> bool:
-        assert 1 <= len(args) <= 2
-        # TODO: this is gnarly, find a better way
-        return any(args == i[:len(args)] for i in self)
+        if bad_match:
+            raise ValueError(f'{bad_match=}')
