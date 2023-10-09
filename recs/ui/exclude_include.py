@@ -48,4 +48,5 @@ class _Accept(list):
 
     def __call__(self, *args) -> bool:
         assert 1 <= len(args) <= 2
-        return any(args[: len(i)] == i for i in self)
+        # TODO: this is gnarly, find a better way
+        return any(args == i[:len(args)] for i in self)
