@@ -14,14 +14,19 @@ class FileOpener:
     samplerate: int | None = None
     subtype: Subtype = Subtype.none
 
+    @property
+    def suffix(self) -> str:
+        return f'.{self.format.lower()}'
+
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
+        path = path.with_suffix(self.suffix)
         if not self.exist_ok and path.exists():
             raise FileExistsError(str(path))
 
         return sf.SoundFile(
             channels=self.channels,
             file=path,
-            format=self.format or None,
+            format=self.format,
             mode=mode,
             samplerate=self.samplerate,
             subtype=self.subtype or None,

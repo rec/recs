@@ -27,10 +27,6 @@ class ChannelWriter:
     def is_recording(self) -> bool:
         return bool(self._sf)
 
-    @property
-    def current_file(self) -> str:
-        return self._sf and self._sf._name or '(none)'
-
     def __enter__(self):
         return self
 
