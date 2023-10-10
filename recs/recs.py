@@ -9,6 +9,7 @@ from dtyper import Option
 from typer import rich_utils
 
 from . import RecsError
+from .audio.channel_writer import TIMESTAMP_FORMAT
 from .audio.file_types import DTYPE, DType, Format, Subtype
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
@@ -43,6 +44,9 @@ def recs(
     ),
     retain: bool = Option(
         False, '-r', '--retain', help='Retain rich display on shutdown'
+    ),
+    timestamp_format: str = Option(
+        TIMESTAMP_FORMAT, help='Format string for timestamps'
     ),
     verbose: bool = Option(False, '-v', '--verbose', help='Print full stack traces'),
     #

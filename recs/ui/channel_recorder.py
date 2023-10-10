@@ -34,12 +34,15 @@ class ChannelRecorder:
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
+        rec = self.session.recording
+
         return channel_writer.ChannelWriter(
             name=legal_filename.legal_filename(f'{self.device.name}-{self.name}'),
             opener=self.session.opener(channels, self.device.samplerate),
-            path=self.session.recording.path,  # type: ignore[attr-defined]
+            path=rec.path,  # type: ignore[attr-defined]
             runnable=self.session,
             times=self.session.times(self.device.samplerate),
+            timestamp_format=rec.timestamp_format,  # type: ignore[attr-defined]
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

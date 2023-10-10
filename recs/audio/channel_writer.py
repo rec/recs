@@ -7,6 +7,8 @@ import threa
 
 from . import block, file_opener, times
 
+TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
+
 
 @dc.dataclass
 class ChannelWriter:
@@ -15,6 +17,7 @@ class ChannelWriter:
     path: Path
     runnable: threa.Runnable
     times: times.Times[int]
+    timestamp_format: str = TIMESTAMP_FORMAT
 
     blocks_written: int = 0
     files_written: int = 0
@@ -92,13 +95,12 @@ class ChannelWriter:
         index = 0
 
         while True:
-            p = self.path / f'{self.name}-{ts()}{s}'
+            p = self.path / f'{self.name}-{self._timestamp()}{s}'
             try:
                 return self.opener.open(p, 'w')
             except FileExistsError:
                 index += 1
                 s = f'_{index}'
 
-
-def ts():
-    return dt.now().strftime('%Y%m%d-%H%M%S')
+    def _timestamp(self) -> str:
+        return dt.now().strftime(self.timestamp_format)
