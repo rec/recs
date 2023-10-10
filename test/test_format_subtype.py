@@ -2,9 +2,8 @@ from pathlib import Path
 
 import numpy as np
 
-from recs.audio.device import DTYPE
 from recs.audio.file_opener import FileOpener
-from recs.audio.file_types import Format, Numbers, Subtype
+from recs.audio.file_types import DTYPE, DType, Format, Subtype
 
 EXCLUSIONS = {(Format.AIFF, 'alaw')}
 BLOCK = np.empty(shape=(4096, 2), dtype=DTYPE)
@@ -47,7 +46,7 @@ def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **
 
 def print_commands():
     for format in Format:
-        for number_type in Numbers:
+        for number_type in DType:
             if format and number_type:
                 print('python -m test.test_format_subtype', format.lower(), number_type)
 

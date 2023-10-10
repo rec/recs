@@ -8,7 +8,7 @@ import sounddevice as sd
 from dtyper import Option
 
 from . import RecsError
-from .audio.file_types import Format, Numbers, Subtype
+from .audio.file_types import DTYPE, DType, Format, Subtype
 
 ICON = '🎙'
 CLI_NAME = 'recs'
@@ -31,7 +31,7 @@ def recs(
     # General purpose settings
     #
     dry_run: bool = Option(
-        False, '-d', '--dry-run', help='Display levels only, do not record'
+        False, '-n', '--dry-run', help='Display levels only, do not record'
     ),
     info: bool = Option(
         False, '--info', help='Do not run, display device info instead'
@@ -59,9 +59,9 @@ def recs(
     #
     # Audio file format and subtype
     #
-    format: Format = Option(Format.FLAC, '-f', '--format', help='Audio format to use'),
-    subtype: Subtype = Option('', '-u', '--subtype', help='File subtype to use to'),
-    numbers: Numbers = Option('', '-n', '--numbers', help='Type of numbers to use'),
+    format: Format = Option(Format.FLAC, '-f', '--format', help='Audio format'),
+    subtype: Subtype = Option(Subtype.none, '-u', '--subtype', help='File subtype'),
+    dtype: DType = Option(DTYPE, '-d', '--dtype', help='Type of numpy numbers'),
     #
     # Console and UI settings
     #

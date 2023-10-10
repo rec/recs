@@ -7,18 +7,17 @@ from functools import cache, cached_property
 import numpy as np
 import sounddevice as sd
 
+from recs.audio.file_types import DTYPE, DType
+
 from .prefix_dict import PrefixDict
 
 StopCallback = t.Callable[[], None]
 DeviceCallback = t.Callable[[np.ndarray], None]
 
-DTYPE = sd.default.dtype[0]
-
 
 @dc.dataclass(frozen=True)
 class InputDevice:
     info: dict[str, t.Any]
-    dtype: str = DTYPE
 
     def __bool__(self):
         return bool(self.channels)
@@ -39,7 +38,7 @@ class InputDevice:
         return self.info['name']
 
     def input_stream(
-        self, callback: DeviceCallback, stop: StopCallback, dtype: str = DTYPE
+        self, callback: DeviceCallback, stop: StopCallback, dtype: DType = DTYPE
     ) -> sd.InputStream:
         def _callback(indata: np.ndarray, frames, time, status):
             try:
@@ -54,7 +53,7 @@ class InputDevice:
             callback=_callback,
             channels=self.channels,
             device=self.name,
-            dtype=self.dtype,
+            dtype=dtype,
             samplerate=self.samplerate,
         )
 

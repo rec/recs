@@ -1,13 +1,18 @@
 from enum import StrEnum, auto
 
+import sounddevice as sd
 
-class Numbers(StrEnum):
+
+class DType(StrEnum):
     none = ''
 
     int16 = auto()
     int32 = auto()
     float32 = auto()
     float64 = auto()
+
+
+DTYPE = DType[sd.default.dtype[0]]
 
 
 class Format(StrEnum):

@@ -36,7 +36,9 @@ class DeviceRecorder:
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(self.callback, self.session.stop)
+        return self.device.input_stream(
+            self.callback, self.session.stop, self.session.dtype
+        )
 
     @cached_property
     def name(self) -> str:

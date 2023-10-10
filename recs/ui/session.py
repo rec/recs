@@ -10,7 +10,7 @@ from threa import Runnable
 
 from recs import recs
 from recs.audio import device, file_opener, slicer, times
-from recs.audio.file_types import Format, Subtype
+from recs.audio.file_types import DType, Format, Subtype
 from recs.audio.slicer import SlicesDict
 
 from .exclude_include import ExcludeInclude
@@ -68,6 +68,11 @@ class Session(Runnable):
     def subtype(self) -> Subtype:
         subtype = self.recording.subtype.upper()  # type: ignore[attr-defined]
         return Subtype[subtype or 'none']
+
+    @cached_property
+    def dtype(self) -> DType:
+        dtype = self.recording.dtype.lower()  # type: ignore[attr-defined]
+        return DType[dtype]
 
     @cached_property
     def live(self) -> Live:
