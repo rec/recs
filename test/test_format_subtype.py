@@ -2,12 +2,12 @@ from pathlib import Path
 
 import numpy as np
 
-from recs import DType
+from recs.audio.device import DTYPE
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Format, Numbers, Subtype
 
 EXCLUSIONS = {(Format.AIFF, 'alaw')}
-BLOCK = np.empty(shape=(4096, 2), dtype=DType)
+BLOCK = np.empty(shape=(4096, 2), dtype=DTYPE)
 
 # These cause a Python crash in external C code...!
 CRASH_SUBTYPES = {Subtype.ULAW, Subtype.ALAW}

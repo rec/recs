@@ -5,7 +5,7 @@ from functools import cached_property
 import numpy as np
 import sounddevice as sd
 
-from recs import Array, field
+from recs import field
 from recs.audio import device, file_types, slicer, times
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
@@ -51,7 +51,7 @@ class DeviceRecorder:
     def total_run_time(self) -> int:
         return max(self.times.total_run_time, 0)
 
-    def callback(self, array: Array) -> None:
+    def callback(self, array: np.ndarray) -> None:
         fmt = self.session.recording.format  # type: ignore[attr-defined]
         if fmt == file_types.Format.MP3 and array.dtype == np.float32:
             # Fix crash!

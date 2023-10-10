@@ -2,7 +2,9 @@ import dataclasses as dc
 import typing as t
 from functools import cached_property
 
-from recs import Array, field
+import numpy as np
+
+from recs import field
 from recs.audio import block, channel_writer, device
 from recs.ui import counter, legal_filename, session
 
@@ -18,7 +20,7 @@ class ChannelRecorder:
     block_count: int = 0
     rms: counter.Accumulator = field(counter.Accumulator)
 
-    def callback(self, array: Array):
+    def callback(self, array: np.ndarray):
         b = block.Block(array[:, self.channels])
         self.block_count += 1
         self.rms(b.rms)

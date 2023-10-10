@@ -1,12 +1,5 @@
 import dataclasses as dc
-import functools
 import typing as t
-
-import numpy as np
-
-DType = np.float32
-Array = np.ndarray
-array = functools.partial(np.array, dtype=DType)
 
 PART_SPLITTER = '+'
 

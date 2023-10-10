@@ -4,12 +4,10 @@ from functools import cached_property
 
 import numpy as np
 
-from recs import Array
-
 
 @dc.dataclass(frozen=True)
 class Block:
-    block: Array
+    block: np.ndarray
 
     def __post_init__(self):
         if len(self.block.shape) == 1:
@@ -26,19 +24,19 @@ class Block:
         return self.block.shape[1]
 
     @cached_property
-    def amplitude(self) -> Array:
+    def amplitude(self) -> np.ndarray:
         return (self.max - self.min) / 2
 
     @cached_property
-    def max(self) -> Array:
+    def max(self) -> np.ndarray:
         return self.block.max(0)
 
     @cached_property
-    def min(self) -> Array:
+    def min(self) -> np.ndarray:
         return self.block.min(0)
 
     @cached_property
-    def rms(self) -> Array:
+    def rms(self) -> np.ndarray:
         b = self.block.astype(float)
         b *= b
         return np.sqrt(b.mean(0))

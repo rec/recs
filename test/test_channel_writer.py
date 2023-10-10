@@ -1,16 +1,17 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 import soundfile as sf
 import tdir
 import threa
 
-from recs import array
-from recs.audio import block, channel_writer, file_opener
+from recs.audio import block, channel_writer, device, file_opener
 from recs.audio.file_types import Format, Subtype
 from recs.audio.times import Times
 
-I, O = [array((1, -1, 1, -1))], [array((0, 0, 0, 0))]  # noqa: E741
+I = [np.array((1, -1, 1, -1), dtype=device.DTYPE)]  # noqa: E741
+O = [np.array((0, 0, 0, 0), dtype=device.DTYPE)]  # noqa: E741
 
 ARRAYS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
 RESULT1 = [[28, 16, 12], [28, 4, 12], [28, 76]]
