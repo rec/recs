@@ -4,7 +4,6 @@ from functools import cached_property
 
 import numpy as np
 
-from recs import field
 from recs.audio import block, channel_writer, device
 from recs.ui import counter, legal_filename, session
 
@@ -16,9 +15,9 @@ class ChannelRecorder:
     device: device.InputDevice
     session: session.Session
 
-    amplitude: counter.Accumulator = field(counter.Accumulator)
+    amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
     block_count: int = 0
-    rms: counter.Accumulator = field(counter.Accumulator)
+    rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
 
     def callback(self, array: np.ndarray):
         b = block.Block(array[:, self.channels])

@@ -1,7 +1,6 @@
 import dataclasses as dc
 import time
 import typing as t
-from copy import deepcopy
 from functools import cached_property
 
 from rich.console import Console
@@ -9,11 +8,13 @@ from rich.live import Live
 from rich.table import Table
 from threa import Runnable
 
-from recs import field, recs, split
+from recs import recs
 from recs.audio import device, file_opener, slicer, times
 from recs.audio.file_types import Format, Subtype
+from recs.audio.slicer import SlicesDict
 
 from .exclude_include import ExcludeInclude
+from .splitter import split
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -32,7 +33,7 @@ FIELDS = tuple(f.name for f in dc.fields(times.Times))
 @dc.dataclass
 class Session(Runnable):
     recording: recs.Recording
-    slices: slicer.SlicesDict = field(lambda: deepcopy(DEVICE_SLICES))
+    slices: SlicesDict = dc.field(default_factory=lambda: SlicesDict(DEVICE_SLICES))
 
     @cached_property
     def device_names(self) -> dict[str, str]:

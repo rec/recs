@@ -7,8 +7,7 @@ import dtyper
 import sounddevice as sd
 from dtyper import Option
 
-from recs import RecsError
-
+from . import RecsError
 from .audio.file_types import Format, Numbers, Subtype
 
 ICON = '🎙'

@@ -5,7 +5,6 @@ from functools import cached_property
 import numpy as np
 import sounddevice as sd
 
-from recs import field
 from recs.audio import device, file_types, slicer, times
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
@@ -16,8 +15,8 @@ from recs.ui.session import Session
 class DeviceRecorder:
     device: device.InputDevice
     session: Session
-    block_count: Counter = field(Counter)
-    block_size: Accumulator = field(Accumulator)
+    block_count: Counter = dc.field(default_factory=Counter)
+    block_size: Accumulator = dc.field(default_factory=Accumulator)
 
     def __bool__(self) -> bool:
         return bool(self.channel_recorders)

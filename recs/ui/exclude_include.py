@@ -1,6 +1,7 @@
 import typing as t
 
 import recs
+import recs.ui.splitter
 from recs.audio import device
 from recs.audio.device import InputDevice
 from recs.audio.prefix_dict import PrefixDict
@@ -36,7 +37,7 @@ class _Split:
         if not isinstance(matches, str):
             mat = matches
         else:
-            mat = recs.split(matches)
+            mat = recs.ui.splitter.split(matches)
 
         bad_match: list[str] = []
         for m in mat:

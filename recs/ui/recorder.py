@@ -4,9 +4,9 @@ import typing as t
 
 from rich.table import Table
 
-from recs import RecsError
 from recs.audio import device
 
+from .. import RecsError
 from .device_recorder import DeviceRecorder
 from .session import Session
 from .table import TableFormatter
