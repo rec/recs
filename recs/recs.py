@@ -6,10 +6,12 @@ import click
 import dtyper
 import sounddevice as sd
 from dtyper import Option
+from typer import rich_utils
 
 from . import RecsError
 from .audio.file_types import DTYPE, DType, Format, Subtype
 
+rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎙'
 CLI_NAME = 'recs'
 
