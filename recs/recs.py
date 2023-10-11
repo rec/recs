@@ -5,7 +5,6 @@ from pathlib import Path
 import click
 import dtyper
 import sounddevice as sd
-from dtyper import Option
 from typer import rich_utils
 
 from . import RecsError
@@ -26,6 +25,13 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 """,
 )
 VERBOSE = False
+_SINGLES: set[str] = set()
+EXPECTED_SINGLES = 'abdefinoprstuvy'
+
+
+def Option(default, *a, **ka):
+    _SINGLES.update(i[1] for i in a if len(i) == 2)
+    return dtyper.Option(default, *a, **ka)
 
 
 @app.command(help='Record everything coming in')
@@ -52,7 +58,7 @@ def recs(
     #
     # Names of input devices
     #
-    device_names: list[str] = Option((), help='Display names for devices'),
+    device_names: list[str] = Option((), '-d', help='Display names for devices'),
     #
     # Exclude or include devices or channels
     #
@@ -67,7 +73,7 @@ def recs(
     #
     format: Format = Option(Format.FLAC, '-f', '--format', help='Audio format'),
     subtype: Subtype = Option(Subtype.none, '-u', '--subtype', help='File subtype'),
-    dtype: DType = Option(DTYPE, '-d', '--dtype', help='Type of numpy numbers'),
+    dtype: DType = Option(DTYPE, '-y', '--dtype', help='Type of numpy numbers'),
     #
     # Console and UI settings
     #
@@ -101,6 +107,10 @@ def recs(
 
     format = Format[format.strip('.').upper()]
     Recording(**locals())()
+
+
+_ACTUAL_SINGLES = ''.join(sorted(_SINGLES))
+assert _ACTUAL_SINGLES == EXPECTED_SINGLES, _ACTUAL_SINGLES
 
 
 @dtyper.dataclass(recs)
