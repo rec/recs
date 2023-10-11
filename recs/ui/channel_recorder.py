@@ -4,15 +4,15 @@ from functools import cached_property
 
 import numpy as np
 
-from recs.audio import block, channel_writer, device
-from recs.ui import counter, legal_filename, session
+from recs.audio import block, channel_writer
+from recs.ui import counter, session
 
 
 @dc.dataclass
 class ChannelRecorder:
-    name: str
     channels: slice
-    device: device.InputDevice
+    name: t.Sequence[str]
+    samplerate: int
     session: session.Session
 
     amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
@@ -35,14 +35,13 @@ class ChannelRecorder:
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
         rec = self.session.recording
-        fname = f'{self.device.name}{channel_writer.NAME_JOINER}{self.name}'
 
         return channel_writer.ChannelWriter(
-            name=legal_filename.legal_filename(fname),
-            opener=self.session.opener(channels, self.device.samplerate),
+            name=self.name,
+            opener=self.session.opener(channels, self.samplerate),
             path=rec.path,  # type: ignore[attr-defined]
             runnable=self.session,
-            times=self.session.times(self.device.samplerate),
+            times=self.session.times(self.samplerate),
             timestamp_format=rec.timestamp_format,  # type: ignore[attr-defined]
         )
 
@@ -50,7 +49,7 @@ class ChannelRecorder:
         yield {
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
-            'channel': self.name,
+            'channel': self.name[1],
             'count': self.block_count,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),

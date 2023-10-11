@@ -1,9 +1,12 @@
 import dataclasses as dc
+import typing as t
 from datetime import datetime as dt
 from pathlib import Path
 
 import soundfile as sf
 import threa
+
+from recs.ui.legal_filename import legal_filename
 
 from . import block, file_opener, times
 
@@ -14,7 +17,7 @@ NAME_JOINER = ' + '
 @dc.dataclass
 class ChannelWriter:
     opener: file_opener.FileOpener
-    name: str
+    name: str | t.Sequence[str]
     path: Path
     runnable: threa.Runnable
     times: times.Times[int]
@@ -57,7 +60,7 @@ class ChannelWriter:
         elif self._blocks.duration > self.times.stop_after_silence:
             self._close_on_silence()
 
-    def close(self):
+    def close(self) -> None:
         if self._sf:
             self._record(self._blocks)
             self._sf.close()
@@ -65,7 +68,7 @@ class ChannelWriter:
 
         self._blocks.clear()
 
-    def _record_on_not_silence(self):
+    def _record_on_not_silence(self) -> None:
         if not self._sf:
             length = self.times.silence_before_start + len(self._blocks[-1])
             self._blocks.clip(length, from_start=True)
@@ -73,7 +76,7 @@ class ChannelWriter:
         self._record(self._blocks)
         self._blocks.clear()
 
-    def _close_on_silence(self):
+    def _close_on_silence(self) -> None:
         removed = self._blocks.clip(self.times.silence_after_end, from_start=False)
 
         if self._sf:
@@ -82,7 +85,7 @@ class ChannelWriter:
             self._sf.close()
             self._sf = None
 
-    def _record(self, blocks: block.Blocks):
+    def _record(self, blocks: t.Iterable[block.Block]) -> None:
         if not self._sf:
             self._sf = self._open_new_file()
             self.files_written += 1
@@ -91,12 +94,14 @@ class ChannelWriter:
             self._sf.write(b.block)
             self.blocks_written += 1
 
-    def _open_new_file(self):
+    def _open_new_file(self) -> sf.SoundFile:
         index = 0
         suffix = ''
+        name = [self.name] if isinstance(self.name, str) else self.name
+        name = NAME_JOINER.join((*name, self._timestamp()))
 
         while True:
-            p = self.path / f'{self.name}{NAME_JOINER}{self._timestamp()}{suffix}'
+            p = self.path / legal_filename(name + suffix)
             try:
                 return self.opener.open(p, 'w')
             except FileExistsError:

@@ -23,16 +23,20 @@ class DeviceRecorder:
 
     @cached_property
     def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
-        def accept(v: slice):
-            b, e = v.start + 1, v.stop
-            ch = str(b) if b == e else f'{b}-{e}'
-            return self.session.exclude_include(self.device, ch)
+        def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
+            if not self.session.exclude_include(self.device, channels_name):
+                return None
+
+            return ChannelRecorder(
+                channels=channels,
+                name=(self.name, channels_name),
+                samplerate=self.device.samplerate,
+                session=self.session,
+            )
 
         slices = slicer.slice_device(self.device, self.session.device_slices)
-
-        it = ((k, v) for k, v in slices.items() if accept(v))
-        dr = self.device, self.session
-        return tuple(ChannelRecorder(k, v, *dr) for k, v in it)
+        it = (recorder(k, v) for k, v in slices.items())
+        return tuple(r for r in it if r is not None)
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
