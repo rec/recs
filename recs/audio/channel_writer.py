@@ -8,6 +8,7 @@ import threa
 from . import block, file_opener, times
 
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
+NAME_JOINER = ' + '
 
 
 @dc.dataclass
@@ -91,16 +92,16 @@ class ChannelWriter:
             self.blocks_written += 1
 
     def _open_new_file(self):
-        s = ''
         index = 0
+        suffix = ''
 
         while True:
-            p = self.path / f'{self.name}-{self._timestamp()}{s}'
+            p = self.path / f'{self.name}{NAME_JOINER}{self._timestamp()}{suffix}'
             try:
                 return self.opener.open(p, 'w')
             except FileExistsError:
                 index += 1
-                s = f'_{index}'
+                suffix = f'_{index}'
 
     def _timestamp(self) -> str:
         return dt.now().strftime(self.timestamp_format)

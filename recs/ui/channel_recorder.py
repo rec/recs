@@ -35,9 +35,10 @@ class ChannelRecorder:
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
         rec = self.session.recording
+        fname = f'{self.device.name}{channel_writer.NAME_JOINER}{self.name}'
 
         return channel_writer.ChannelWriter(
-            name=legal_filename.legal_filename(f'{self.device.name}-{self.name}'),
+            name=legal_filename.legal_filename(fname),
             opener=self.session.opener(channels, self.device.samplerate),
             path=rec.path,  # type: ignore[attr-defined]
             runnable=self.session,

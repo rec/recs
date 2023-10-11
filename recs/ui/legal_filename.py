@@ -1,6 +1,7 @@
 import string
 
-CHARS = (string.ascii_letters + string.digits + '-_=,. ()[]').encode()
+PUNCTUATION = ' ()+,-.=[]_'
+CHARS = (string.ascii_letters + string.digits + PUNCTUATION).encode()
 
 
 def legal_filename(s):
