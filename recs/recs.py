@@ -26,7 +26,7 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 )
 VERBOSE = False
 _SINGLES: set[str] = set()
-EXPECTED_SINGLES = 'abdefinoprstuvy'
+EXPECTED_SINGLES = 'abcefinoprstuvy'
 
 
 def Option(default, *a, **ka):
@@ -56,9 +56,11 @@ def recs(
     ),
     verbose: bool = Option(False, '-v', '--verbose', help='Print full stack traces'),
     #
-    # Names of input devices
+    # Aliases for input devices or channels
     #
-    device_names: list[str] = Option((), '-d', help='Display names for devices'),
+    alias: list[str] = Option(
+        (), '-a', '--alias', help='Aliases for devices or channels'
+    ),
     #
     # Exclude or include devices or channels
     #
@@ -90,7 +92,7 @@ def recs(
         1, '-b', '--silence-before-start', help='Silence before the start, in seconds'
     ),
     silence_after_end: float = Option(
-        2, '-a', '--silence-after-end', help='Silence after the end, in seconds'
+        2, '-c', '--silence-after-end', help='Silence after the end, in seconds'
     ),
     stop_after_silence: float = Option(
         20, '-s', '--stop-after-silence', help='Stop recording after silence'

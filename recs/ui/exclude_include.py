@@ -2,57 +2,43 @@ import typing as t
 
 from recs.audio import device
 from recs.audio.device import InputDevice
-from recs.audio.prefix_dict import PrefixDict
-from recs.ui import splitter
 
-CHANNEL_SPLITTER = ':'
-Strs = t.Sequence[t.Sequence[str]]
-DeviceDict = PrefixDict[InputDevice]
-Match = str | t.Sequence[str]
+CHANNEL_SPLITTER = '+'
 
 
 class ExcludeInclude:
-    def __init__(self, exclude: Match = (), include: Match = ()) -> None:
-        self.exclude = _Split(exclude)
-        self.include = _Split(include)
-        self.ed, self.id = self.exclude.devices, self.include.devices
-        self.ec, self.ic = self.exclude.channels, self.include.channels
+    def __init__(
+        self, exclude: t.Sequence[str] = (), include: t.Sequence[str] = ()
+    ) -> None:
+        self.exclude = set(split_all(exclude))
+        self.include = set(split_all(include))
 
     def __call__(self, d: InputDevice, c: str = '') -> bool:
-        if d.name in self.ed or (self.id and d.name not in self.id):
+        if (d.name, c) in self.exclude:
             return False
-        if not c:
+
+        if (d.name, c) in self.include:
             return True
-        if (d.name, c) in self.ec:
+
+        if not c:
+            return not self.include or any(n == d.name for n, _ in self.include)
+
+        if (d.name, '') in self.exclude:
             return False
-        return not self.ic or (d.name, c) in self.ic
+
+        if (d.name, '') in self.include:
+            return True
+
+        return not self.include
 
 
-class _Split:
-    def __init__(self, matches: Match) -> None:
-        self.devices: set[str] = set()
-        self.channels: set[tuple[str, str]] = set()
+def split_all(it: t.Sequence[str]) -> t.Iterator[tuple[str, str]]:
+    def split(s: str) -> tuple[str, InputDevice | None, str]:
+        name, _, channels = (i.strip() for i in s.partition(CHANNEL_SPLITTER))
+        return name, device.input_devices().get_value(name), channels
 
-        if not isinstance(matches, str):
-            mat = matches
-        else:
-            mat = splitter.split(matches)
+    splits = [split(i) for i in it]
+    if bad_devices := [n for n, d, _ in splits if d is None]:
+        raise ValueError(f'{bad_devices=}')
 
-        bad_match: list[str] = []
-        for m in mat:
-            d, _, rest = m.partition(CHANNEL_SPLITTER)
-            if not (dev := device.input_devices().get_value(d)):
-                print('one', d)
-                bad_match.append(m)
-            elif not rest:
-                self.devices.add(dev.name)
-            else:
-                ch, _, rest = rest.partition(CHANNEL_SPLITTER)
-                if rest:
-                    print('two', d)
-                    bad_match.append(m)
-                else:
-                    self.channels.add((dev.name, ch))
-
-        if bad_match:
-            raise ValueError(f'{bad_match=}')
+    yield from ((d.name, channels) for _, d, channels in splits if d)

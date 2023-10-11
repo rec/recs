@@ -13,8 +13,7 @@ from recs.audio import device, file_opener, slicer, times
 from recs.audio.file_types import DType, Format, Subtype
 from recs.audio.slicer import SlicesDict
 
-from . import splitter
-from .exclude_include import ExcludeInclude
+from .exclude_include import ExcludeInclude, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -26,6 +25,8 @@ DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
+Aliases = dict[str, tuple[str, str]]
+AliasesInv = dict[tuple[str, str], list[str]]
 
 FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
@@ -36,13 +37,29 @@ class Session(Runnable):
     slices: SlicesDict = dc.field(default_factory=lambda: SlicesDict(DEVICE_SLICES))
 
     @cached_property
-    def device_names(self) -> dict[str, str]:
-        device_names = self.recording.device_names  # type: ignore[attr-defined]
-        device_names = (s for d in device_names for s in splitter.split(d))
-        return {device.input_devices()[k].name: k for k in device_names}
+    def aliases(self) -> Aliases:
+        aliases_flag = self.recording.alias  # type: ignore[attr-defined]
+
+        def split(name):
+            alias, sep, value = (n.strip() for n in name.partition('='))
+            return alias, (value or alias)
+
+        aliases, values = zip(*(split(n) for n in aliases_flag))
+        if len(set(aliases)) < len(aliases):
+            raise ValueError(f'Duplicates in alias names: {aliases}')
+
+        return dict(sorted(zip(aliases, split_all(values))))
+
+    @cached_property
+    def aliases_inv(self) -> AliasesInv:
+        d: AliasesInv = {}
+        for k, v in self.aliases.items():
+            d.setdefault(v, []).append(k)
+        return d
 
     @cached_property
     def device_slices(self) -> slicer.SlicesDict:
+        # TODO: somehow get from user, as part of aliases maybe?
         return slicer.SlicesDict()
 
     @cached_property

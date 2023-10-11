@@ -46,7 +46,8 @@ class DeviceRecorder:
 
     @cached_property
     def name(self) -> str:
-        return self.session.device_names.get(self.device.name, self.device.name)
+        name = self.device.name
+        return self.session.aliases_inv.get((name, ''), [name])[0]
 
     @cached_property
     def times(self) -> times.Times[int]:
