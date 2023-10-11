@@ -13,8 +13,8 @@ from recs.audio import device, file_opener, slicer, times
 from recs.audio.file_types import DType, Format, Subtype
 from recs.audio.slicer import SlicesDict
 
+from . import splitter
 from .exclude_include import ExcludeInclude
-from .splitter import split
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -38,7 +38,7 @@ class Session(Runnable):
     @cached_property
     def device_names(self) -> dict[str, str]:
         device_names = self.recording.device_names  # type: ignore[attr-defined]
-        device_names = (s for d in device_names for s in split(d))
+        device_names = (s for d in device_names for s in splitter.split(d))
         return {device.input_devices()[k].name: k for k in device_names}
 
     @cached_property

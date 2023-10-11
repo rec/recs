@@ -1,10 +1,9 @@
 import typing as t
 
-import recs
-import recs.ui.splitter
 from recs.audio import device
 from recs.audio.device import InputDevice
 from recs.audio.prefix_dict import PrefixDict
+from recs.ui import splitter
 
 CHANNEL_SPLITTER = ':'
 Strs = t.Sequence[t.Sequence[str]]
@@ -37,18 +36,18 @@ class _Split:
         if not isinstance(matches, str):
             mat = matches
         else:
-            mat = recs.ui.splitter.split(matches)
+            mat = splitter.split(matches)
 
         bad_match: list[str] = []
         for m in mat:
-            d, _, rest = m.partition(':')
+            d, _, rest = m.partition(CHANNEL_SPLITTER)
             if not (dev := device.input_devices().get_value(d)):
                 print('one', d)
                 bad_match.append(m)
             elif not rest:
                 self.devices.add(dev.name)
             else:
-                ch, _, rest = rest.partition(':')
+                ch, _, rest = rest.partition(CHANNEL_SPLITTER)
                 if rest:
                     print('two', d)
                     bad_match.append(m)
