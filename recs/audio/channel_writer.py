@@ -6,7 +6,7 @@ from pathlib import Path
 import soundfile as sf
 import threa
 
-from recs.ui.legal_filename import legal_filename
+from recs.audio.legal_filename import legal_filename
 
 from . import block, file_opener, times
 
