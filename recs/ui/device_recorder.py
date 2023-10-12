@@ -58,7 +58,7 @@ class DeviceRecorder:
         return max(self.times.total_run_time, 0)
 
     def callback(self, array: np.ndarray) -> None:
-        fmt = self.session.recording.format  # type: ignore[attr-defined]
+        fmt = self.session.recording.format
         if fmt == file_types.Format.MP3 and array.dtype == np.float32:
             # Fix crash!
             array = array.astype(np.float64)

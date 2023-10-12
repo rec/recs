@@ -24,11 +24,11 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
-        if not self.session.recording.dry_run:  # type: ignore[attr-defined]
+        if not self.session.recording.dry_run:
             self.channel_writer.write(b)
 
     def stop(self) -> None:
-        if not self.session.recording.dry_run:  # type: ignore[attr-defined]
+        if not self.session.recording.dry_run:
             self.channel_writer.close()
 
     @cached_property
@@ -39,10 +39,10 @@ class ChannelRecorder:
         return channel_writer.ChannelWriter(
             name=self.name,
             opener=self.session.opener(channels, self.samplerate),
-            path=rec.path,  # type: ignore[attr-defined]
+            path=rec.path,
             runnable=self.session,
             times=self.session.times(self.samplerate),
-            timestamp_format=rec.timestamp_format,  # type: ignore[attr-defined]
+            timestamp_format=rec.timestamp_format,
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

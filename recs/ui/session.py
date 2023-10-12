@@ -38,7 +38,7 @@ class Session(Runnable):
 
     @cached_property
     def aliases(self) -> Aliases:
-        aliases_flag = self.recording.alias  # type: ignore[attr-defined]
+        aliases_flag = self.recording.alias
 
         def split(name) -> tuple[str, str]:
             alias, sep, value = (n.strip() for n in name.partition('='))
@@ -65,7 +65,7 @@ class Session(Runnable):
     @cached_property
     def exclude_include(self) -> ExcludeInclude:
         r = self.recording
-        return ExcludeInclude(r.exclude, r.include)  # type: ignore[attr-defined]
+        return ExcludeInclude(r.exclude, r.include)
 
     @cached_property
     def recorder(self) -> 'Recorder':
@@ -78,35 +78,35 @@ class Session(Runnable):
 
     @cached_property
     def format(self) -> Format:
-        format = self.recording.format.upper()  # type: ignore[attr-defined]
+        format = self.recording.format.upper()
         return Format[format or 'none']
 
     @cached_property
     def subtype(self) -> Subtype:
-        subtype = self.recording.subtype.upper()  # type: ignore[attr-defined]
+        subtype = self.recording.subtype.upper()
         return Subtype[subtype or 'none']
 
     @cached_property
     def dtype(self) -> DType:
-        dtype = self.recording.dtype.lower()  # type: ignore[attr-defined]
+        dtype = self.recording.dtype.lower()
         return DType[dtype]
 
     @cached_property
     def live(self) -> Live:
         table = self.recorder.table()
-        refresh = self.recording.ui_refresh_rate  # type: ignore[attr-defined]
+        refresh = self.recording.ui_refresh_rate
         return Live(
             table,
             console=CONSOLE,
             refresh_per_second=refresh,
-            transient=not self.recording.retain,  # type: ignore[attr-defined]
+            transient=not self.recording.retain,
         )
 
     def run(self) -> None:
         self.start()
         with self.live, self.recorder.context():
             while self.running:
-                time.sleep(self.recording.sleep_time)  # type: ignore[attr-defined]
+                time.sleep(self.recording.sleep_time)
                 self.live.update(self.recorder.table())
 
     def times(self, samplerate: float) -> times.Times[int]:
