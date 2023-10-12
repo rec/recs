@@ -37,14 +37,14 @@ class ChannelWriter:
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type, value, traceback) -> None:
         try:
             self.close()
         except Exception:
             if type is not None:
                 raise
 
-    def write(self, block: block.Block):
+    def write(self, block: block.Block) -> None:
         self.samples_seen += len(block)
         self._blocks.append(block)
 

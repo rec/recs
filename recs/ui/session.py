@@ -40,7 +40,7 @@ class Session(Runnable):
     def aliases(self) -> Aliases:
         aliases_flag = self.recording.alias  # type: ignore[attr-defined]
 
-        def split(name):
+        def split(name) -> tuple[str, str]:
             alias, sep, value = (n.strip() for n in name.partition('='))
             return alias, (value or alias)
 

@@ -26,7 +26,7 @@ class Accumulator:
     sum: Num
     square_sum: Num
 
-    def __call__(self, x: Num):
+    def __call__(self, x: Num) -> None:
         self.value = x
         self.count += 1
         try:
@@ -48,7 +48,7 @@ class Accumulator:
 
 
 class Moving(deque):
-    def __call__(self, x: Num):
+    def __call__(self, x: Num) -> None:
         self.append(x)
 
     def mean(self) -> Num:

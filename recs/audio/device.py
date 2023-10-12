@@ -26,7 +26,7 @@ class InputDevice:
         return f'InputDevice({self.name})'
 
     @cached_property
-    def channels(self):
+    def channels(self) -> int:
         return self.info['max_input_channels']
 
     @cached_property
@@ -34,13 +34,13 @@ class InputDevice:
         return int(self.info['default_samplerate'])
 
     @cached_property
-    def name(self):
+    def name(self) -> str:
         return self.info['name']
 
     def input_stream(
         self, callback: DeviceCallback, stop: StopCallback, dtype: DType = DTYPE
     ) -> sd.InputStream:
-        def _callback(indata: np.ndarray, frames, time, status):
+        def _callback(indata: np.ndarray, frames, time, status) -> None:
             try:
                 if status:
                     print('Status', self.name, status, file=sys.stderr)

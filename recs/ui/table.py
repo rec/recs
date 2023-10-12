@@ -4,7 +4,7 @@ import typing as t
 from rich.table import Table
 
 
-def _to_str(x):
+def _to_str(x: t.Any) -> str:
     if isinstance(x, str):
         return x
     if isinstance(x, numbers.Real):
@@ -22,7 +22,7 @@ class TableFormatter:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
-    def _to_str(self, row, column):
+    def _to_str(self, row, column) -> str:
         to_str = self.kwargs.get(column) or _to_str
         return to_str(row.get(column, ''))
 

@@ -19,7 +19,7 @@ class ChannelRecorder:
     block_count: int = 0
     rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
 
-    def callback(self, array: np.ndarray):
+    def callback(self, array: np.ndarray) -> None:
         b = block.Block(array[:, self.channels])
         self.block_count += 1
         self.rms(b.rms)
@@ -27,8 +27,8 @@ class ChannelRecorder:
         if not self.session.recording.dry_run:  # type: ignore[attr-defined]
             self.channel_writer.write(b)
 
-    def stop(self):
-        if not self.session.recording.dry_run:
+    def stop(self) -> None:
+        if not self.session.recording.dry_run:  # type: ignore[attr-defined]
             self.channel_writer.close()
 
     @cached_property

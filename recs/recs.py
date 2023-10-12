@@ -29,7 +29,7 @@ _SINGLES: set[str] = set()
 EXPECTED_SINGLES = 'abcefinoprstuvy'
 
 
-def Option(default, *a, **ka):
+def Option(default, *a, **ka) -> dtyper.Option:
     _SINGLES.update(i[1] for i in a if len(i) == 2)
     return dtyper.Option(default, *a, **ka)
 
@@ -117,8 +117,8 @@ assert _ACTUAL_SINGLES == EXPECTED_SINGLES, _ACTUAL_SINGLES
 
 @dtyper.dataclass(recs)
 class Recording:
-    def __call__(self):
-        if self.info:
+    def __call__(self) -> None:
+        if self.info:  # type: ignore[attr-defined]
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
@@ -127,9 +127,10 @@ class Recording:
             Session(self).run()
 
 
-def run():
+def run() -> int:
     try:
         app(standalone_mode=False)
+        return 0
 
     except RecsError as e:
         print('ERROR:', *e.args, file=sys.stderr)
@@ -142,3 +143,5 @@ def run():
 
     except KeyboardInterrupt:
         print('Interrupted', file=sys.stderr)
+
+    return -1

@@ -4,10 +4,10 @@ PUNCTUATION = ' ()+,-.=[]_'
 CHARS = (string.ascii_letters + string.digits + PUNCTUATION).encode()
 
 
-def legal_filename(s):
+def legal_filename(s) -> str:
     """Encode any string so it is safe for filenames"""
 
-    def enc(i):
+    def enc(i) -> str:
         if i in CHARS:
             return chr(i)
         if i < 0x100:

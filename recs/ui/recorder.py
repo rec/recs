@@ -37,7 +37,7 @@ class Recorder:
             yield from v.rows()
 
     @contextlib.contextmanager
-    def context(self):
+    def context(self) -> t.Generator:
         try:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
@@ -46,7 +46,7 @@ class Recorder:
         finally:
             self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         for d in self.device_recorders:
             d.stop()
 

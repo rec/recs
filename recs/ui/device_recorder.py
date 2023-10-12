@@ -87,6 +87,6 @@ class DeviceRecorder:
         for v in self.channel_recorders:
             yield from v.rows()
 
-    def stop(self):
+    def stop(self) -> None:
         for c in self.channel_recorders:
             c.stop()

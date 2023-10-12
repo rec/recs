@@ -38,7 +38,7 @@ class Times(t.Generic[T]):
     total_run_time: T = t.cast(T, 0)
 
     @cached_property
-    def noise_floor_amplitude(self):
+    def noise_floor_amplitude(self) -> float:
         return db_to_amplitude(self.noise_floor)
 
 

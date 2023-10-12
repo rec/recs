@@ -9,7 +9,7 @@ import numpy as np
 class Block:
     block: np.ndarray
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if len(self.block.shape) == 1:
             self.__dict__['block'] = self.block.reshape(*self.block.shape, 1)
 
@@ -47,11 +47,11 @@ class Blocks:
     blocks: list[Block] = dc.field(default_factory=list)
     duration: int = 0
 
-    def append(self, block):
+    def append(self, block) -> None:
         self.blocks.append(block)
         self.duration += len(block)
 
-    def clear(self):
+    def clear(self) -> None:
         self.duration = 0
         self.blocks.clear()
 
@@ -63,16 +63,16 @@ class Blocks:
             self.duration -= len(clipped[-1])
         return clipped
 
-    def write(self, sf):
+    def write(self, sf) -> None:
         for b in self:
             sf.write(b)
         self.clear()
 
-    def __iter__(self):
+    def __iter__(self) -> t.Iterator[Block]:
         return iter(self.blocks)
 
     def __getitem__(self, i) -> Block:
         return self.blocks[i]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.blocks)
