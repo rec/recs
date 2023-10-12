@@ -19,15 +19,15 @@ DeviceCallback = t.Callable[[np.ndarray], None]
 class InputDevice:
     info: dict[str, t.Any]
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.channels)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'InputDevice({self.name})'
 
     @cached_property
     def channels(self) -> int:
-        return self.info['max_input_channels']
+        return t.cast(int, self.info['max_input_channels'])
 
     @cached_property
     def samplerate(self) -> int:
@@ -35,12 +35,14 @@ class InputDevice:
 
     @cached_property
     def name(self) -> str:
-        return self.info['name']
+        return t.cast(str, self.info['name'])
 
     def input_stream(
         self, callback: DeviceCallback, stop: StopCallback, dtype: DType = DTYPE
     ) -> sd.InputStream:
-        def _callback(indata: np.ndarray, frames, time, status) -> None:
+        def _callback(
+            indata: np.ndarray, frames: int, time: float, status: int
+        ) -> None:
             try:
                 if status:
                     print('Status', self.name, status, file=sys.stderr)

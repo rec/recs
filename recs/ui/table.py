@@ -19,7 +19,7 @@ def _to_str(x: t.Any) -> str:
 
 
 class TableFormatter:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: t.Any):
         self.kwargs = kwargs
 
     def _to_str(self, row, column) -> str:

@@ -51,7 +51,7 @@ class Recorder:
             d.stop()
 
 
-def _to_str(x) -> str:
+def _to_str(x: str | float) -> str:
     if isinstance(x, str):
         return x
 

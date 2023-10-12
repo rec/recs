@@ -3,6 +3,7 @@ import typing as t
 from functools import cached_property
 
 import numpy as np
+import soundfile as sf
 
 
 @dc.dataclass(frozen=True)
@@ -16,7 +17,7 @@ class Block:
     def __len__(self) -> int:
         return self.block.shape[0]
 
-    def __getitem__(self, index) -> 'Block':
+    def __getitem__(self, index: int | slice) -> 'Block':
         return Block(self.block[index])
 
     @cached_property
@@ -47,7 +48,7 @@ class Blocks:
     blocks: list[Block] = dc.field(default_factory=list)
     duration: int = 0
 
-    def append(self, block) -> None:
+    def append(self, block: Block) -> None:
         self.blocks.append(block)
         self.duration += len(block)
 
@@ -63,7 +64,7 @@ class Blocks:
             self.duration -= len(clipped[-1])
         return clipped
 
-    def write(self, sf) -> None:
+    def write(self, writer: sf.SoundFile) -> None:
         for b in self:
             sf.write(b)
         self.clear()
@@ -71,7 +72,7 @@ class Blocks:
     def __iter__(self) -> t.Iterator[Block]:
         return iter(self.blocks)
 
-    def __getitem__(self, i) -> Block:
+    def __getitem__(self, i: int) -> Block:
         return self.blocks[i]
 
     def __len__(self) -> int:

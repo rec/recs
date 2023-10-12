@@ -155,7 +155,7 @@ def recs(
     total_run_time: float = Option(
         0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
     ),
-):
+) -> None:
     global VERBOSE
     VERBOSE = verbose
 

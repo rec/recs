@@ -47,7 +47,7 @@ class Accumulator:
         return self.count and self.square_sum / self.count
 
 
-class Moving(deque):
+class Moving(deque[Num]):
     def __call__(self, x: Num) -> None:
         self.append(x)
 

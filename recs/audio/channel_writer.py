@@ -34,7 +34,7 @@ class ChannelWriter:
     def is_recording(self) -> bool:
         return bool(self._sf)
 
-    def __enter__(self):
+    def __enter__(self) -> 'ChannelWriter':
         return self
 
     def __exit__(self, type, value, traceback) -> None:
