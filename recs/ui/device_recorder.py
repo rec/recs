@@ -35,7 +35,7 @@ class DeviceRecorder:
                 session=self.session,
             )
 
-        slices = slicer.slice_device(self.device, self.session.device_slices)
+        slices = slicer.auto_slice(self.device.channels)
         it = (recorder(k, v) for k, v in slices.items())
         return tuple(r for r in it if r is not None)
 

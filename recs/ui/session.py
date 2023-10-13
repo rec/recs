@@ -9,18 +9,14 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import recs
-from recs.audio import device, file_opener, slicer, times
+from recs.audio import device, file_opener, times
 from recs.audio.file_types import DType, Format, Subtype
-from recs.audio.slicer import SlicesDict
 
 from .exclude_include import ExcludeInclude, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
 
-# TODO: this is hardcoded for my system  :-)
-FLOW_SLICE = slicer.auto_slice(8) | {'Main': slice(8, 10)}
-DEVICE_SLICES = {'FLOW': FLOW_SLICE}
 
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
@@ -34,7 +30,6 @@ FIELDS = tuple(f.name for f in dc.fields(times.Times))
 @dc.dataclass
 class Session(Runnable):
     recording: recs.Recording
-    slices: SlicesDict = dc.field(default_factory=lambda: SlicesDict(DEVICE_SLICES))
 
     @cached_property
     def aliases(self) -> Aliases:
@@ -56,11 +51,6 @@ class Session(Runnable):
         for k, v in self.aliases.items():
             d.setdefault(v, []).append(k)
         return d
-
-    @cached_property
-    def device_slices(self) -> slicer.SlicesDict:
-        # TODO: somehow get from user, as part of aliases maybe?
-        return slicer.SlicesDict()
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:

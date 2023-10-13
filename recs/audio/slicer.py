@@ -1,19 +1,6 @@
 import typing as t
 
-from recs.audio.device import InputDevice
-from recs.audio.prefix_dict import PrefixDict
-
-__all__ = 'auto_slice', 'slice_device'
-
-SlicesDict = PrefixDict[dict[str, slice]]
-
-
-def slice_device(device: InputDevice, device_slices: SlicesDict) -> dict[str, slice]:
-    try:
-        m = device_slices[device.name]
-    except KeyError:
-        return auto_slice(device.channels)
-    return _to_slices(m)
+__all__ = ('auto_slice',)
 
 
 def auto_slice(channels: int) -> dict[str, slice]:
