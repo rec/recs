@@ -12,7 +12,7 @@ from recs import recs
 from recs.audio import device, file_opener, times
 from recs.audio.file_types import DType, Format, Subtype
 
-from .exclude_include import ExcludeInclude, split_all
+from .exclude_include import DeviceChannel, ExcludeInclude, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -21,8 +21,6 @@ if t.TYPE_CHECKING:
 CONSOLE = Console(color_system='truecolor')
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
-Aliases = dict[str, tuple[str, str]]
-AliasesInv = dict[tuple[str, str], list[str]]
 
 FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
@@ -32,7 +30,7 @@ class Session(Runnable):
     recording: recs.Recording
 
     @cached_property
-    def aliases(self) -> Aliases:
+    def aliases(self) -> dict[str, DeviceChannel]:
         aliases_flag = self.recording.alias
 
         def split(name: str) -> tuple[str, str]:
@@ -46,11 +44,22 @@ class Session(Runnable):
         return dict(sorted(zip(aliases, split_all(values))))
 
     @cached_property
-    def aliases_inv(self) -> AliasesInv:
-        d: AliasesInv = {}
+    def aliases_inv(self) -> dict[DeviceChannel, str]:
+        d: dict = {}
         for k, v in self.aliases.items():
             d.setdefault(v, []).append(k)
-        return d
+
+        if duplicate_aliases := [(k, v) for k, v in d.items() if len(v) > 1]:
+            raise ValueError(f'{duplicate_aliases = }')
+
+        return {k: v[0] for k, v in sorted(d.items())}
+
+    @cached_property
+    def device_slices(self) -> dict[str, list[DeviceChannel]]:
+        def device_slice(d: device.InputDevice) -> t.Iterator[DeviceChannel]:
+            yield DeviceChannel('FIXME', str(d.channels))
+
+        return {d.name: list(device_slice(d)) for d in device.input_devices().values()}
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:
