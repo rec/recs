@@ -1,4 +1,5 @@
 import dataclasses as dc
+import itertools
 import time
 import typing as t
 from functools import cached_property
@@ -54,11 +55,33 @@ class Session(Runnable):
         return {k: v[0] for k, v in sorted(d.items())}
 
     @cached_property
-    def device_slices(self) -> dict[str, list[DeviceChannel]]:
-        def device_slice(d: device.InputDevice) -> t.Iterator[DeviceChannel]:
-            yield DeviceChannel('FIXME', str(d.channels))
+    def device_channels(self) -> dict[str, list[DeviceChannel]]:
+        def channels(d: device.InputDevice) -> t.Iterator[DeviceChannel]:
+            last = 0
 
-        return {d.name: list(device_slice(d)) for d in device.input_devices().values()}
+            def dc(*channels) -> DeviceChannel:
+                return DeviceChannel(d.name, '-'.join(str(i) for i in channels))
+
+            def unaliased_channels(limit: int) -> t.Iterator[DeviceChannel]:
+                c = last + 1
+                if c < limit and last % 2:
+                    yield dc(c)
+                    c += 1
+
+                it = iter(range(c, limit))
+                while channels := tuple(itertools.islice(it, 2)):
+                    yield dc(*channels)
+
+            for dch in self.aliases_inv:
+                if dch.name == d.name and dch.channel:
+                    a, _, b = dch.channel.partition('-')
+                    yield from unaliased_channels(int(a))
+                    yield dch
+                    last = int(b or a)
+
+            yield from unaliased_channels(d.channels)
+
+        return {d.name: sorted(channels(d)) for d in device.input_devices().values()}
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:
