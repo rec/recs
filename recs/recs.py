@@ -1,5 +1,6 @@
 import dataclasses as dc
 import json
+import string
 import sys
 import typing as t
 from pathlib import Path
@@ -162,9 +163,11 @@ def recs(
     Recording(**locals())()
 
 
-EXPECTED_SINGLES = 'abcdefinoprstuv'
-_ACTUAL_SINGLES = ''.join(sorted(_SINGLES))
-assert _ACTUAL_SINGLES == EXPECTED_SINGLES, _ACTUAL_SINGLES
+_USED_SINGLES = ''.join(sorted(_SINGLES))
+_UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
+
+assert _USED_SINGLES == 'abcdefinoprstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklmqwxyz', _UNUSED_SINGLES
 
 
 def run() -> int:
