@@ -4,10 +4,13 @@ import sounddevice as sd
 
 
 class DType(StrEnum):
-    int16 = auto()
-    int32 = auto()
     float32 = auto()
     float64 = auto()
+    int16 = auto()
+    int32 = auto()
+
+    int8 = auto()
+    uint8 = auto()
 
 
 DTYPE = DType[sd.default.dtype[0]]

@@ -5,7 +5,8 @@ from functools import cached_property
 import numpy as np
 import sounddevice as sd
 
-from recs.audio import device, file_types, slicer, times
+from recs.audio import device, slicer, times
+from recs.audio.file_types import Format
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.session import Session
@@ -58,10 +59,16 @@ class DeviceRecorder:
         return max(self.times.total_run_time, 0)
 
     def callback(self, array: np.ndarray) -> None:
-        fmt = self.session.recording.format
-        if fmt == file_types.Format.mp3 and array.dtype == np.float32:
-            # Fix crash!
+        fmt = self.session.format
+        if fmt == Format.mp3 and array.dtype == np.float32:
+            # float32 crashes every time on my machine
             array = array.astype(np.float64)
+
+        if array.dtype in (np.int8, np.int8):
+            array = array.astype(np.int16)
+            if array.dtype == np.uint8:
+                array -= 0x80
+            array *= 0x100
 
         self.block_count()
         size = array.shape[0]
