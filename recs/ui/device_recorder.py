@@ -43,7 +43,7 @@ class DeviceRecorder:
     @cached_property
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(
-            self.callback, self.session.stop, self.session.dtype
+            self.callback, self.session.stop, self.session.recs.dtype
         )
 
     @cached_property
@@ -60,7 +60,7 @@ class DeviceRecorder:
         return max(self.times.total_run_time, 0)
 
     def callback(self, array: np.ndarray) -> None:
-        fmt = self.session.format
+        fmt = self.session.recs.format
         if fmt == Format.mp3 and array.dtype == np.float32:
             # float32 crashes every time on my machine
             array = array.astype(np.float64)

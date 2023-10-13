@@ -10,7 +10,6 @@ from threa import Runnable
 
 from recs import recs
 from recs.audio import device, file_opener, times
-from recs.audio.file_types import DType, Format, Subtype
 
 from .exclude_include import DeviceChannel, ExcludeInclude, split_all
 
@@ -63,8 +62,7 @@ class Session(Runnable):
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:
-        r = self.recs
-        return ExcludeInclude(r.exclude, r.include)
+        return ExcludeInclude(self.recs.exclude, self.recs.include)
 
     @cached_property
     def recorder(self) -> 'Recorder':
@@ -76,25 +74,11 @@ class Session(Runnable):
         super().__init__()
 
     @cached_property
-    def format(self) -> Format:
-        return self.recs.format
-
-    @cached_property
-    def subtype(self) -> Subtype | None:
-        return self.recs.subtype
-
-    @cached_property
-    def dtype(self) -> DType:
-        return self.recs.dtype
-
-    @cached_property
     def live(self) -> Live:
-        table = self.recorder.table()
-        refresh = self.recs.ui_refresh_rate
         return Live(
-            table,
+            self.recorder.table(),
             console=CONSOLE,
-            refresh_per_second=refresh,
+            refresh_per_second=self.recs.ui_refresh_rate,
             transient=not self.recs.retain,
         )
 
@@ -112,7 +96,7 @@ class Session(Runnable):
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(
             channels=channels,
-            format=self.format,
+            format=self.recs.format,
             samplerate=samplerate,
-            subtype=self.subtype,
+            subtype=self.recs.subtype,
         )
