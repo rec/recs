@@ -27,11 +27,11 @@ FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
 @dc.dataclass
 class Session(Runnable):
-    recording: recs.Recording
+    recs: recs.Recs
 
     @cached_property
     def aliases(self) -> dict[str, DeviceChannel]:
-        aliases_flag = self.recording.alias
+        aliases_flag = self.recs.alias
 
         def split(name: str) -> tuple[str, str]:
             alias, sep, value = (n.strip() for n in name.partition('='))
@@ -63,7 +63,7 @@ class Session(Runnable):
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:
-        r = self.recording
+        r = self.recs
         return ExcludeInclude(r.exclude, r.include)
 
     @cached_property
@@ -77,36 +77,36 @@ class Session(Runnable):
 
     @cached_property
     def format(self) -> Format:
-        return self.recording.format
+        return self.recs.format
 
     @cached_property
     def subtype(self) -> Subtype | None:
-        return self.recording.subtype
+        return self.recs.subtype
 
     @cached_property
     def dtype(self) -> DType:
-        return self.recording.dtype
+        return self.recs.dtype
 
     @cached_property
     def live(self) -> Live:
         table = self.recorder.table()
-        refresh = self.recording.ui_refresh_rate
+        refresh = self.recs.ui_refresh_rate
         return Live(
             table,
             console=CONSOLE,
             refresh_per_second=refresh,
-            transient=not self.recording.retain,
+            transient=not self.recs.retain,
         )
 
     def run(self) -> None:
         self.start()
         with self.live, self.recorder.context():
             while self.running:
-                time.sleep(self.recording.sleep_time)
+                time.sleep(self.recs.sleep_time)
                 self.live.update(self.recorder.table())
 
     def times(self, samplerate: float) -> times.Times[int]:
-        s = times.Times(**{k: getattr(self.recording, k) for k in FIELDS})
+        s = times.Times(**{k: getattr(self.recs, k) for k in FIELDS})
         return times.scale(s, samplerate)
 
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:

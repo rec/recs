@@ -24,17 +24,17 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
-        if not self.session.recording.dry_run:
+        if not self.session.recs.dry_run:
             self.channel_writer.write(b)
 
     def stop(self) -> None:
-        if not self.session.recording.dry_run:
+        if not self.session.recs.dry_run:
             self.channel_writer.close()
 
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
-        rec = self.session.recording
+        rec = self.session.recs
 
         return channel_writer.ChannelWriter(
             name=self.name,

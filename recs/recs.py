@@ -37,7 +37,7 @@ def Option(default, *a, **ka) -> dtyper.Option:
 
 
 @dc.dataclass(frozen=True)
-class Recording:
+class Recs:
     #
     # General purpose settings
     #
@@ -147,7 +147,7 @@ def recs(
         2, '-c', '--silence-after-end', help='Silence after the end, in seconds'
     ),
     stop_after_silence: float = Option(
-        20, '-s', '--stop-after-silence', help='Stop recording after silence'
+        20, '-s', '--stop-after-silence', help='Stop recs after silence'
     ),
     noise_floor: float = Option(
         70, '-o', '--noise-floor', help='The noise floor in decibels'
@@ -159,7 +159,7 @@ def recs(
     global VERBOSE
     VERBOSE = verbose
 
-    Recording(**locals())()
+    Recs(**locals())()
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))
