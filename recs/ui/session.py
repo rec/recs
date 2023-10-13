@@ -1,5 +1,4 @@
 import dataclasses as dc
-import itertools
 import time
 import typing as t
 from functools import cached_property
@@ -12,7 +11,7 @@ from threa import Runnable
 from recs import recs
 from recs.audio import device, file_opener, times
 
-from .exclude_include import DeviceChannel, ExcludeInclude, split_all
+from .exclude_include import ExcludeInclude, Track, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -30,7 +29,7 @@ class Session(Runnable):
     recs: recs.Recs
 
     @cached_property
-    def aliases(self) -> dict[str, DeviceChannel]:
+    def aliases(self) -> dict[str, Track]:
         aliases_flag = self.recs.alias
 
         def split(name: str) -> tuple[str, str]:
@@ -44,7 +43,7 @@ class Session(Runnable):
         return dict(sorted(zip(aliases, split_all(values))))
 
     @cached_property
-    def aliases_inv(self) -> dict[DeviceChannel, str]:
+    def aliases_inv(self) -> dict[Track, str]:
         d: dict = {}
         for k, v in self.aliases.items():
             d.setdefault(v, []).append(k)
@@ -53,35 +52,6 @@ class Session(Runnable):
             raise ValueError(f'{duplicate_aliases = }')
 
         return {k: v[0] for k, v in sorted(d.items())}
-
-    @cached_property
-    def device_channels(self) -> dict[str, list[DeviceChannel]]:
-        def channels(d: device.InputDevice) -> t.Iterator[DeviceChannel]:
-            last = 0
-
-            def dc(*channels) -> DeviceChannel:
-                return DeviceChannel(d.name, '-'.join(str(i) for i in channels))
-
-            def unaliased_channels(limit: int) -> t.Iterator[DeviceChannel]:
-                c = last + 1
-                if c < limit and last % 2:
-                    yield dc(c)
-                    c += 1
-
-                it = iter(range(c, limit))
-                while channels := tuple(itertools.islice(it, 2)):
-                    yield dc(*channels)
-
-            for dch in self.aliases_inv:
-                if dch.name == d.name and dch.channel:
-                    a, _, b = dch.channel.partition('-')
-                    yield from unaliased_channels(int(a))
-                    yield dch
-                    last = int(b or a)
-
-            yield from unaliased_channels(d.channels)
-
-        return {d.name: sorted(channels(d)) for d in device.input_devices().values()}
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:

@@ -8,12 +8,12 @@ CHANNEL_SPLITTER = '+'
 
 
 @dc.dataclass(frozen=True, order=True, slots=True)
-class DeviceChannel:
+class Track:
     name: str
     channel: str = ''
 
     @property
-    def without_channel(self) -> 'DeviceChannel':
+    def without_channel(self) -> 'Track':
         return dc.replace(self, channel='')
 
 
@@ -24,7 +24,7 @@ class ExcludeInclude:
         self.exclude = set(split_all(exclude))
         self.include = set(split_all(include))
 
-    def match(self, dc: DeviceChannel):
+    def match(self, dc: Track):
         if dc in self.exclude:
             return False
 
@@ -43,10 +43,10 @@ class ExcludeInclude:
         return not self.include
 
     def __call__(self, d: InputDevice, c: str = '') -> bool:
-        return self.match(DeviceChannel(d.name, c))
+        return self.match(Track(d.name, c))
 
 
-def split_all(it: t.Sequence[str]) -> t.Iterator[DeviceChannel]:
+def split_all(it: t.Sequence[str]) -> t.Iterator[Track]:
     def split(s: str) -> tuple[str, str, str]:
         name, _, channels = (i.strip() for i in s.partition(CHANNEL_SPLITTER))
         try:
@@ -59,4 +59,4 @@ def split_all(it: t.Sequence[str]) -> t.Iterator[DeviceChannel]:
     if bad_devices := [n for n, f, _ in splits if not f]:
         raise ValueError(f'{bad_devices=}')
 
-    yield from (DeviceChannel(d, channels) for _, d, channels in splits)
+    yield from (Track(d, channels) for _, d, channels in splits)

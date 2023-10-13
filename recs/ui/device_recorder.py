@@ -9,7 +9,7 @@ from recs.audio import device, slicer, times
 from recs.audio.file_types import Format
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
-from recs.ui.exclude_include import DeviceChannel
+from recs.ui.exclude_include import Track
 from recs.ui.session import Session
 
 
@@ -49,7 +49,7 @@ class DeviceRecorder:
     @cached_property
     def name(self) -> str:
         name = self.device.name
-        return self.session.aliases_inv.get(DeviceChannel(name), [name])[0]
+        return self.session.aliases_inv.get(Track(name), [name])[0]
 
     @cached_property
     def times(self) -> times.Times[int]:
