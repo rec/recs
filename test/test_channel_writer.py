@@ -27,9 +27,9 @@ def test_channel_writer(arrays, segments):
     writer = channel_writer.ChannelWriter(
         opener=file_opener.FileOpener(
             channels=1,
-            format=Format.FLAC,
+            format=Format.flac,
             samplerate=SAMPLERATE,
-            subtype=Subtype.PCM_24,
+            subtype=Subtype.pcm_24,
         ),
         name='test',
         path=Path('.'),

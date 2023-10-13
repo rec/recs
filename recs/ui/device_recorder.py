@@ -59,7 +59,7 @@ class DeviceRecorder:
 
     def callback(self, array: np.ndarray) -> None:
         fmt = self.session.recording.format
-        if fmt == file_types.Format.MP3 and array.dtype == np.float32:
+        if fmt == file_types.Format.mp3 and array.dtype == np.float32:
             # Fix crash!
             array = array.astype(np.float64)
 

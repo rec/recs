@@ -59,8 +59,8 @@ class Recording:
     #
     # Audio file format and subtype
     #
-    format: Format = Format.FLAC
-    subtype: Subtype = Subtype.none
+    format: Format = Format.flac
+    subtype: Subtype | None = None
     dtype: DType = DTYPE
     #
     # Console and UI settings
@@ -125,8 +125,8 @@ def recs(
     #
     # Audio file format and subtype
     #
-    format: Format = Option(Format.FLAC, '-f', '--format', help='Audio format'),
-    subtype: Subtype = Option(Subtype.none, '-u', '--subtype', help='File subtype'),
+    format: Format = Option(Format.flac, '-f', '--format', help='Audio format'),
+    subtype: Subtype = Option(None, '-u', '--subtype', help='File subtype'),
     dtype: DType = Option(DTYPE, '-d', '--dtype', help='Type of numpy numbers'),
     #
     # Console and UI settings
@@ -159,7 +159,6 @@ def recs(
     global VERBOSE
     VERBOSE = verbose
 
-    format = Format[format.strip('.').upper()]
     Recording(**locals())()
 
 

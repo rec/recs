@@ -5,13 +5,13 @@ import numpy as np
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import DTYPE, DType, Format, Subtype
 
-EXCLUSIONS = {(Format.AIFF, 'alaw')}
+EXCLUSIONS = {(Format.aiff, 'alaw')}
 BLOCK = np.empty(shape=(4096, 2), dtype=DTYPE)
 
 # These cause a Python crash in external C code...!
-CRASH_SUBTYPES = {Subtype.ULAW, Subtype.ALAW}
+CRASH_SUBTYPES = {Subtype.ulaw, Subtype.alaw}
 CRASH_SUBTYPES_FORMAT = {
-    Format.MP3: {Subtype.MPEG_LAYER_III},
+    Format.mp3: {Subtype.mpeg_layer_iii},
 }
 KWARGS = {'samplerate': 48_000, 'channels': 2}
 

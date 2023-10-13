@@ -78,18 +78,15 @@ class Session(Runnable):
 
     @cached_property
     def format(self) -> Format:
-        format = self.recording.format.upper()
-        return Format[format or 'none']
+        return self.recording.format
 
     @cached_property
-    def subtype(self) -> Subtype:
-        subtype = self.recording.subtype.upper()
-        return Subtype[subtype or 'none']
+    def subtype(self) -> Subtype | None:
+        return self.recording.subtype
 
     @cached_property
     def dtype(self) -> DType:
-        dtype = self.recording.dtype.lower()
-        return DType[dtype]
+        return self.recording.dtype
 
     @cached_property
     def live(self) -> Live:

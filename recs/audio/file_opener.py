@@ -8,18 +8,14 @@ from .file_types import Format, Subtype
 
 @dc.dataclass(frozen=True)
 class FileOpener:
-    channels: int | None = None
+    format: Format
+    channels: int
+    samplerate: int
+    subtype: Subtype | None = None
     exist_ok: bool = False
-    format: Format = Format.none
-    samplerate: int | None = None
-    subtype: Subtype = Subtype.none
-
-    @property
-    def suffix(self) -> str:
-        return f'.{self.format.lower()}'
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
-        path = path.with_suffix(self.suffix)
+        path = path.with_suffix('.' + self.format)
         if not self.exist_ok and path.exists():
             raise FileExistsError(str(path))
 
