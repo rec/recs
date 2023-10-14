@@ -11,8 +11,8 @@ from threa import Runnable
 from recs import recs
 from recs.audio import device, file_opener, times
 
+from .aliases import Aliases
 from .exclude_include import ExcludeInclude
-from .track import Track, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -30,29 +30,8 @@ class Session(Runnable):
     recs: recs.Recs
 
     @cached_property
-    def aliases(self) -> dict[str, Track]:
-        aliases_flag = self.recs.alias
-
-        def split(name: str) -> tuple[str, str]:
-            alias, sep, value = (n.strip() for n in name.partition('='))
-            return alias, (value or alias)
-
-        aliases, values = zip(*(split(n) for n in aliases_flag))
-        if len(set(aliases)) < len(aliases):
-            raise ValueError(f'Duplicates in alias names: {aliases}')
-
-        return dict(sorted(zip(aliases, split_all(values))))
-
-    @cached_property
-    def aliases_inv(self) -> dict[Track, str]:
-        d: dict = {}
-        for k, v in self.aliases.items():
-            d.setdefault(v, []).append(k)
-
-        if duplicate_aliases := [(k, v) for k, v in d.items() if len(v) > 1]:
-            raise ValueError(f'{duplicate_aliases = }')
-
-        return {k: v[0] for k, v in sorted(d.items())}
+    def aliases(self) -> Aliases:
+        return Aliases(self.recs.alias)
 
     @cached_property
     def exclude_include(self) -> ExcludeInclude:

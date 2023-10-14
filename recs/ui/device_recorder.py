@@ -49,7 +49,7 @@ class DeviceRecorder:
     @cached_property
     def name(self) -> str:
         name = self.device.name
-        return self.session.aliases_inv.get(Track(name), [name])[0]
+        return self.session.aliases.inv.get(Track(name), [name])[0]
 
     @cached_property
     def times(self) -> times.Times[int]:
