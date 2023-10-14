@@ -2,7 +2,7 @@ import itertools
 import typing as t
 
 from recs.audio import device
-from recs.ui.exclude_include import Track
+from recs.ui.track import Track
 
 
 def device_tracks(aliases: t.Iterator[Track]) -> dict[str, tuple[Track, ...]]:

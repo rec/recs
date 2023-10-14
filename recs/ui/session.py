@@ -11,7 +11,8 @@ from threa import Runnable
 from recs import recs
 from recs.audio import device, file_opener, times
 
-from .exclude_include import ExcludeInclude, Track, split_all
+from .exclude_include import ExcludeInclude
+from .track import Track, split_all
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
