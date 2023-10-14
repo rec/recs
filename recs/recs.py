@@ -132,10 +132,10 @@ def recs(
     # Console and UI settings
     #
     ui_refresh_rate: float = Option(
-        23, '--ui-refresh-rate', help='How many UI refreshes per second'
+        25, '--ui-refresh-rate', help='How many UI refreshes per second'
     ),
     sleep_time: float = Option(
-        0.013, '--sleep-time', help='How long to sleep between data refreshes'
+        0.08, '--sleep-time', help='How long to sleep between data refreshes'
     ),
     #
     # Settings relating to times
