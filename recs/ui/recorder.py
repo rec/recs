@@ -1,7 +1,10 @@
 import contextlib
 import time
 import typing as t
+from functools import cached_property
 
+from rich.console import Console
+from rich.live import Live
 from rich.table import Table
 
 from recs.audio import device
@@ -10,6 +13,8 @@ from .. import RecsError
 from .device_recorder import DeviceRecorder
 from .session import Session
 from .table import TableFormatter
+
+CONSOLE = Console(color_system='truecolor')
 
 
 class Recorder:
@@ -36,12 +41,25 @@ class Recorder:
         for v in self.device_recorders:
             yield from v.rows()
 
+    def update(self) -> None:
+        self.live.update(self.table())
+
+    @cached_property
+    def live(self) -> Live:
+        return Live(
+            self.table(),
+            console=CONSOLE,
+            refresh_per_second=self.session.recs.ui_refresh_rate,
+            transient=not self.session.recs.retain,
+        )
+
     @contextlib.contextmanager
     def context(self) -> t.Generator:
         try:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
                     stack.enter_context(d.input_stream)
+                stack.enter_context(self.live)
                 yield
         finally:
             self.stop()
