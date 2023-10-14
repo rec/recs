@@ -17,7 +17,7 @@ NAME_JOINER = ' + '
 @dc.dataclass
 class ChannelWriter:
     opener: file_opener.FileOpener
-    name: str | t.Sequence[str]
+    names: t.Sequence[str]
     path: Path
     runnable: threa.Runnable
     times: times.Times[int]
@@ -97,8 +97,7 @@ class ChannelWriter:
     def _open_new_file(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        name = [self.name] if isinstance(self.name, str) else self.name
-        name = NAME_JOINER.join((*name, self._timestamp()))
+        name = NAME_JOINER.join((*self.names, self._timestamp()))
 
         while True:
             p = self.path / legal_filename(name + suffix)

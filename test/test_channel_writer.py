@@ -31,7 +31,7 @@ def test_channel_writer(arrays, segments):
             samplerate=SAMPLERATE,
             subtype=Subtype.pcm_24,
         ),
-        name='test',
+        names=['test'],
         path=Path('.'),
         runnable=threa.Runnable(),
         times=Times[int](

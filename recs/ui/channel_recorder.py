@@ -11,7 +11,7 @@ from recs.ui import counter, session
 @dc.dataclass
 class ChannelRecorder:
     channels: slice
-    name: t.Sequence[str]
+    names: t.Sequence[str]
     samplerate: int
     session: session.Session
 
@@ -37,7 +37,7 @@ class ChannelRecorder:
         rec = self.session.recs
 
         return channel_writer.ChannelWriter(
-            name=self.name,
+            names=self.names,
             opener=self.session.opener(channels, self.samplerate),
             path=rec.path,
             runnable=self.session,
@@ -49,7 +49,7 @@ class ChannelRecorder:
         yield {
             'amplitude': self.amplitude.value,
             'amplitude_mean': self.amplitude.mean(),
-            'channel': self.name[1],
+            'channel': self.names[1],  # Really?
             'count': self.block_count,
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
