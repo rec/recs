@@ -42,10 +42,12 @@ class Recorder:
             yield from v.rows()
 
     def update(self) -> None:
-        self.live.update(self.table())
+        if not self.session.recs.quiet:
+            self.live.update(self.table())
 
     @cached_property
     def live(self) -> Live:
+        assert not self.session.recs.quiet
         return Live(
             self.table(),
             console=CONSOLE,
@@ -59,7 +61,8 @@ class Recorder:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
                     stack.enter_context(d.input_stream)
-                stack.enter_context(self.live)
+                if not self.session.recs.quiet:
+                    stack.enter_context(self.live)
                 yield
         finally:
             self.stop()

@@ -65,6 +65,7 @@ class Recs:
     #
     # Console and UI settings
     #
+    quiet: bool = False
     ui_refresh_rate: float = 23
     sleep_time: float = 0.013
     #
@@ -131,6 +132,9 @@ def recs(
     #
     # Console and UI settings
     #
+    quiet: bool = Option(
+        False, '-q', '--quiet', help='If true, do not display live updates'
+    ),
     ui_refresh_rate: float = Option(
         25, '--ui-refresh-rate', help='How many UI refreshes per second'
     ),
@@ -165,8 +169,8 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefinoprstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklmqwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefinopqrstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklmwxyz', _UNUSED_SINGLES
 
 
 def run() -> int:
