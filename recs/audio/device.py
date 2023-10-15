@@ -11,9 +11,6 @@ from recs.audio.file_types import DTYPE, DType
 
 from .prefix_dict import PrefixDict
 
-StopCallback = t.Callable[[], None]
-DeviceCallback = t.Callable[[np.ndarray], None]
-
 
 @dc.dataclass(frozen=True)
 class InputDevice:
@@ -38,21 +35,26 @@ class InputDevice:
         return t.cast(str, self.info['name'])
 
     def input_stream(
-        self, callback: DeviceCallback, stop: StopCallback, dtype: DType = DTYPE
+        self,
+        callback: t.Callable[[np.ndarray], None],
+        stop: t.Callable[[], None],
+        dtype: DType = DTYPE,
     ) -> sd.InputStream:
-        def _callback(
-            indata: np.ndarray, frames: int, time: float, status: int
-        ) -> None:
+        def cb(indata: np.ndarray, frames: int, time: float, status: int) -> None:
             try:
                 if status:
-                    print('Status', self.name, status, file=sys.stderr)
-                callback(indata.copy())
+                    # This has not yet happened, probably because we never get behind
+                    # the device callback cycle.
+                    print('Status', self, status, file=sys.stderr)
+
+                callback(indata.copy())  # `indata` is always the same variable!
+
             except Exception:
                 traceback.print_exc()
                 stop()
 
         return sd.InputStream(
-            callback=_callback,
+            callback=cb,
             channels=self.channels,
             device=self.name,
             dtype=dtype,
