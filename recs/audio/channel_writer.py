@@ -1,6 +1,6 @@
 import dataclasses as dc
 import typing as t
-from datetime import datetime as dt
+from datetime import datetime
 from pathlib import Path
 
 import soundfile as sf
@@ -12,6 +12,8 @@ from . import block, file_opener, times
 
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 NAME_JOINER = ' + '
+
+now = datetime.now
 
 
 @dc.dataclass
@@ -108,4 +110,4 @@ class ChannelWriter:
                 suffix = f'_{index}'
 
     def _timestamp(self) -> str:
-        return dt.now().strftime(self.timestamp_format)
+        return now().strftime(self.timestamp_format)

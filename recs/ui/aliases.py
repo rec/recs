@@ -8,6 +8,10 @@ from .track import Track, split_all
 
 class Aliases(PrefixDict[Track]):
     def __init__(self, aliases: t.Sequence[str]) -> None:
+        if not aliases:
+            super().__init__()
+            return
+
         def split(name: str) -> tuple[str, str]:
             alias, sep, value = (n.strip() for n in name.partition('='))
             return alias, (value or alias)
