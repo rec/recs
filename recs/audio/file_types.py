@@ -41,6 +41,8 @@ class Format(StrEnum):
 
 
 class Subtype(StrEnum):
+    _none = ''
+
     alac_16 = auto()
     alac_20 = auto()
     alac_24 = auto()

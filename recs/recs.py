@@ -60,7 +60,7 @@ class Recs:
     # Audio file format and subtype
     #
     format: Format = Format.flac
-    subtype: Subtype | None = None
+    subtype: Subtype = Subtype._none
     dtype: DType = DTYPE
     #
     # Console and UI settings
@@ -87,77 +87,96 @@ class Recs:
             Session(self).run()
 
 
+RECS = Recs()
+
+
 @app.command(help='Record everything coming in')
 def recs(
     #
     # General purpose settings
     #
     dry_run: bool = Option(
-        False, '-n', '--dry-run', help='Display levels only, do not record'
+        RECS.dry_run, '-n', '--dry-run', help='Display levels only, do not record'
     ),
     info: bool = Option(
-        False, '--info', help='Do not run, display device info instead'
+        RECS.info, '--info', help='Do not run, display device info instead'
     ),
     path: Path = Option(
-        Path(), '-p', '--path', help='Path to the parent directory for files'
+        RECS.path, '-p', '--path', help='Path to the parent directory for files'
     ),
     retain: bool = Option(
-        False, '-r', '--retain', help='Retain rich display on shutdown'
+        RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
     ),
     timestamp_format: str = Option(
-        TIMESTAMP_FORMAT, help='Format string for timestamps'
+        RECS.timestamp_format, help='Format string for timestamps'
     ),
-    verbose: bool = Option(False, '-v', '--verbose', help='Print full stack traces'),
+    verbose: bool = Option(
+        RECS.verbose, '-v', '--verbose', help='Print full stack traces'
+    ),
     #
     # Aliases for input devices or channels
     #
     alias: list[str] = Option(
-        (), '-a', '--alias', help='Aliases for devices or channels'
+        RECS.alias, '-a', '--alias', help='Aliases for devices or channels'
     ),
     #
     # Exclude or include devices or channels
     #
     exclude: list[str] = Option(
-        None, '-e', '--exclude', help='Exclude these devices or channels'
+        RECS.exclude, '-e', '--exclude', help='Exclude these devices or channels'
     ),
     include: list[str] = Option(
-        None, '-i', '--include', help='Only include these devices or channels'
+        RECS.include, '-i', '--include', help='Only include these devices or channels'
     ),
     #
     # Audio file format and subtype
     #
-    format: Format = Option(Format.flac, '-f', '--format', help='Audio format'),
-    subtype: Subtype = Option(None, '-u', '--subtype', help='File subtype'),
-    dtype: DType = Option(DTYPE, '-d', '--dtype', help='Type of numpy numbers'),
+    format: Format = Option(RECS.format, '-f', '--format', help='Audio format'),
+    subtype: Subtype = Option(RECS.subtype, '-u', '--subtype', help='File subtype'),
+    dtype: DType = Option(RECS.dtype, '-d', '--dtype', help='Type of numpy numbers'),
     #
     # Console and UI settings
     #
     quiet: bool = Option(
-        False, '-q', '--quiet', help='If true, do not display live updates'
+        RECS.quiet, '-q', '--quiet', help='If true, do not display live updates'
     ),
     ui_refresh_rate: float = Option(
-        25, '--ui-refresh-rate', help='How many UI refreshes per second'
+        RECS.ui_refresh_rate,
+        '--ui-refresh-rate',
+        help='How many UI refreshes per second',
     ),
     sleep_time: float = Option(
-        0.08, '--sleep-time', help='How long to sleep between data refreshes'
+        RECS.sleep_time, '--sleep-time', help='How long to sleep between data refreshes'
     ),
     #
     # Settings relating to times
     #
     silence_before_start: float = Option(
-        1, '-b', '--silence-before-start', help='Silence before the start, in seconds'
+        RECS.silence_before_start,
+        '-b',
+        '--silence-before-start',
+        help='Silence before the start, in seconds',
     ),
     silence_after_end: float = Option(
-        2, '-c', '--silence-after-end', help='Silence after the end, in seconds'
+        RECS.silence_after_end,
+        '-c',
+        '--silence-after-end',
+        help='Silence after the end, in seconds',
     ),
     stop_after_silence: float = Option(
-        20, '-s', '--stop-after-silence', help='Stop recs after silence'
+        RECS.stop_after_silence,
+        '-s',
+        '--stop-after-silence',
+        help='Stop recs after silence',
     ),
     noise_floor: float = Option(
-        70, '-o', '--noise-floor', help='The noise floor in decibels'
+        RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'
     ),
     total_run_time: float = Option(
-        0, '-t', '--total-run-time', help='How many seconds to record? 0 means forever'
+        RECS.total_run_time,
+        '-t',
+        '--total-run-time',
+        help='How many seconds to record? 0 means forever',
     ),
 ) -> None:
     global VERBOSE
