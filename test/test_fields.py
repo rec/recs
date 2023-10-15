@@ -3,10 +3,10 @@ import typing as t
 
 import dtyper
 
-from recs import recs
+from recs import cli, recs
 
 
-@dtyper.dataclass(recs.recs)
+@dtyper.dataclass(cli.recs)
 class Recs:
     pass
 
