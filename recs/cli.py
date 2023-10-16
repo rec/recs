@@ -11,7 +11,7 @@ from .audio.file_types import DType, Format, Subtype
 from .recs import RECS, Recs
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
-ICON = '🎙'
+ICON = '🎬'
 CLI_NAME = 'recs'
 
 app = dtyper.Typer(
