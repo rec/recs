@@ -5,12 +5,17 @@ from functools import cached_property
 import numpy as np
 import soundfile as sf
 
+_EMPTY_SEEN = False
+
 
 @dc.dataclass(frozen=True)
 class Block:
     block: np.ndarray
 
     def __post_init__(self) -> None:
+        if not self.block.size:
+            raise ValueError('Empty block')
+
         if len(self.block.shape) == 1:
             self.__dict__['block'] = self.block.reshape(*self.block.shape, 1)
 
