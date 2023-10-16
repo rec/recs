@@ -1,4 +1,5 @@
 import dataclasses as dc
+import sys
 import typing as t
 from functools import cached_property
 
@@ -18,9 +19,17 @@ class ChannelRecorder:
     amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
     block_count: int = 0
     rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
+    empty_block_count: int = 0
 
     def callback(self, array: np.ndarray) -> None:
+        if not array.size:
+            print('Empty block', file=sys.stderr)
+            self.empty_block_count += 1
+            assert False
+            return
+
         b = block.Block(array[:, self.channels])
+
         self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
@@ -29,7 +38,7 @@ class ChannelRecorder:
 
     def stop(self) -> None:
         if not self.session.recs.dry_run:
-            self.channel_writer.close()
+            self.channel_writer.stop()
 
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
@@ -40,7 +49,6 @@ class ChannelRecorder:
             names=self.names,
             opener=self.session.opener(channels, self.samplerate),
             path=rec.path,
-            runnable=self.session,
             times=self.session.times(self.samplerate),
             timestamp_format=rec.timestamp_format,
         )

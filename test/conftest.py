@@ -25,7 +25,9 @@ EXT = _device('Ext', 2, 44_100)
 FLOWER = _device('Flower 8', 10)
 MIC = _device('Mic', 1)
 
-MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in (EXT, FLOWER, MIC)})
+DEVICES = FLOWER, EXT, MIC
+
+MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in DEVICES})
 BLOCK_SIZE = 128
 SLEEP_TIME = 0.01
 
@@ -37,6 +39,8 @@ DELTA = timedelta(seconds=1)
 def now():
     global TIME
 
+    if True:
+        return TIME
     return (TIME := TIME + DELTA)
 
 
@@ -47,6 +51,8 @@ class InputStream(sd.InputStream):
                 setattr(self, k, v)
             except AttributeError:
                 setattr(self, '_' + k, v)
+
+        self.__count = 0
 
     @override
     def start(self) -> None:
@@ -74,12 +80,20 @@ class InputStream(sd.InputStream):
 
     @cached_property
     def __thread(self) -> HasThread:
-        return HasThread(self.__callback, looping=True)
+        return HasThread(self.__callback, looping=True, name=f'Thread-{self.device}')
+
+    @cached_property
+    def __array(self) -> np.ndarray:
+        shape = BLOCK_SIZE, self.channels
+
+        array = self.__rng.uniform(-1, 1, size=shape)
+        assert self.dtype == 'float32'
+        assert array.dtype == np.double
+
+        return array.astype(self.dtype)
 
     def __callback(self) -> None:
-        shape = BLOCK_SIZE, self.channels
-        array = np.ones(dtype=self.dtype, shape=shape)
-        self.callback(array, BLOCK_SIZE, 0, 0)
+        self.callback(self.__array, BLOCK_SIZE, 0, 0)
         time.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
 
 

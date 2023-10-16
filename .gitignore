@@ -105,6 +105,4 @@ venv.bak/
 
 .direnv/
 .envrc
-*.wav
-*.flac
 .idea/

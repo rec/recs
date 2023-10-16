@@ -6,6 +6,7 @@ from functools import cached_property
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
+from threa import Runnable
 
 from recs.audio import device
 
@@ -17,17 +18,25 @@ from .table import TableFormatter
 CONSOLE = Console(color_system='truecolor')
 
 
-class Recorder:
+class Recorder(Runnable):
     def __init__(self, session: Session) -> None:
+        super().__init__()
+
         self.session = session
         self.start_time = time.time()
-        values = device.input_devices().values()
-        dr1 = (d for d in values if session.exclude_include(d))
-        dr2 = (DeviceRecorder(d, session) for d in dr1)
-        self.device_recorders = tuple(d for d in dr2 if d)
+
+        devices = device.input_devices().values()
+        ie_devices = (d for d in devices if session.exclude_include(d))
+        recorders = (dr for d in ie_devices if (dr := DeviceRecorder(d, session)))
+        self.device_recorders = tuple(recorders)
 
         if not self.device_recorders:
             raise RecsError('No devices or channels selected!')
+
+        for d in self.device_recorders:
+            d.stopped.on_set.append(self._on_stopped)
+
+        self.start()
 
     @property
     def elapsed_time(self) -> float:
@@ -67,9 +76,15 @@ class Recorder:
         finally:
             self.stop()
 
+    def _on_stopped(self):
+        if self.running and all(d.stopped for d in self.device_recorders):
+            self.stop()
+
     def stop(self) -> None:
+        self.running.clear()
         for d in self.device_recorders:
             d.stop()
+        self.stopped.set()
 
 
 def _to_str(x: str | float) -> str:

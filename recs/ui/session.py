@@ -45,6 +45,7 @@ class Session(Runnable):
 
     def run(self) -> None:
         self.start()
+        self.recorder.stopped.on_set.append(self.stop)
         with self.recorder.context():
             while self.running:
                 time.sleep(self.recs.sleep_time)

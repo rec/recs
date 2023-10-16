@@ -17,11 +17,10 @@ now = datetime.now
 
 
 @dc.dataclass
-class ChannelWriter:
+class ChannelWriter(threa.Runnable):
     opener: file_opener.FileOpener
     names: t.Sequence[str]
     path: Path
-    runnable: threa.Runnable
     times: times.Times[int]
     timestamp_format: str = TIMESTAMP_FORMAT
 
@@ -36,17 +35,14 @@ class ChannelWriter:
     def is_recording(self) -> bool:
         return bool(self._sf)
 
-    def __enter__(self) -> 'ChannelWriter':
-        return self
-
-    def __exit__(self, type, value, traceback) -> None:
-        try:
-            self.close()
-        except Exception:
-            if type is not None:
-                raise
+    def __post_init__(self):
+        super().__init__()
+        self.start()
 
     def write(self, block: block.Block) -> None:
+        if not self.running:
+            return
+
         self.samples_seen += len(block)
         self._blocks.append(block)
 
@@ -62,13 +58,18 @@ class ChannelWriter:
         elif self._blocks.duration > self.times.stop_after_silence:
             self._close_on_silence()
 
-    def close(self) -> None:
-        if self._sf:
+    def stop(self) -> None:
+        self.running.clear()
+
+        if self._blocks:
             self._record(self._blocks)
+            self._blocks.clear()
+
+        if self._sf:
             self._sf.close()
             self._sf = None
 
-        self._blocks.clear()
+        self.stopped.set()
 
     def _record_on_not_silence(self) -> None:
         if not self._sf:
@@ -84,15 +85,16 @@ class ChannelWriter:
         if self._sf:
             if removed:
                 self._record(reversed(removed))
+
             self._sf.close()
             self._sf = None
 
     def _record(self, blocks: t.Iterable[block.Block]) -> None:
-        if not self._sf:
-            self._sf = self._open_new_file()
-            self.files_written += 1
-
         for b in blocks:
+            if not self._sf:
+                self._sf = self._open_new_file()
+                self.files_written += 1
+
             self._sf.write(b.block)
             self.blocks_written += 1
 

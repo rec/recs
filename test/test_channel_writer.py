@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 import soundfile as sf
 import tdir
-import threa
 
 import recs.audio.file_types
 from recs.audio import block, channel_writer, file_opener
@@ -33,7 +32,6 @@ def test_channel_writer(arrays, segments):
         ),
         names=['test'],
         path=Path('.'),
-        runnable=threa.Runnable(),
         times=Times[int](
             silence_before_start=30,
             silence_after_end=40,

@@ -47,7 +47,10 @@ class InputDevice:
                     # the device callback cycle.
                     print('Status', self, status, file=sys.stderr)
 
-                callback(indata.copy())  # `indata` is always the same variable!
+                if indata.size:
+                    callback(indata.copy())  # `indata` is always the same variable!
+                else:
+                    print('Empty block', self, file=sys.stderr)
 
             except Exception:
                 traceback.print_exc()
