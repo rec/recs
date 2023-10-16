@@ -6,7 +6,7 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs.audio import device, slicer, times
+from recs.audio import auto_slice, device, times
 from recs.audio.file_types import Format
 from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
@@ -40,7 +40,7 @@ class DeviceRecorder(Runnable):
                 session=self.session,
             )
 
-        slices = slicer.auto_slice(self.device.channels)
+        slices = auto_slice.auto_slice(self.device.channels)
         it = (recorder(k, v) for k, v in slices.items())
         return tuple(r for r in it if r is not None)
 
