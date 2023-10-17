@@ -40,7 +40,7 @@ source = ["recs"]
 
 [tool.coverage.report]
 
-fail_under = 83
+fail_under = 86
 skip_covered = true
 
 [tool.mypy]
