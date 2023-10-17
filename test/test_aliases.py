@@ -4,7 +4,7 @@ from recs.ui.aliases import Aliases
 from recs.ui.track import Track
 
 
-def test_empty_aliases():
+def test_empty_aliases(mock_devices):
     aliases = Aliases(())
     assert not aliases
     assert not aliases.inv
