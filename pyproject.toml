@@ -33,6 +33,16 @@ tdir = "*"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.coverage.run]
+
+branch = true
+source = ["recs"]
+
+[tool.coverage.report]
+
+fail_under = 83
+skip_covered = true
+
 [tool.mypy]
 ignore_missing_imports = true
 no_implicit_optional = true
