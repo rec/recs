@@ -3,7 +3,6 @@ import typing as t
 from functools import cached_property
 
 import numpy as np
-import soundfile as sf
 
 _EMPTY_SEEN = False
 
@@ -68,11 +67,6 @@ class Blocks:
             clipped.append(self.blocks.pop(0 if from_start else -1))
             self.duration -= len(clipped[-1])
         return clipped
-
-    def write(self, writer: sf.SoundFile) -> None:
-        for b in self:
-            sf.write(b)
-        self.clear()
 
     def __iter__(self) -> t.Iterator[Block]:
         return iter(self.blocks)

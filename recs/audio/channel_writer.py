@@ -31,10 +31,6 @@ class ChannelWriter(threa.Runnable):
     _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
     _sf: sf.SoundFile | None = None
 
-    @property
-    def is_recording(self) -> bool:
-        return bool(self._sf)
-
     def __post_init__(self):
         super().__init__()
         self.start()
