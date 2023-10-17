@@ -24,16 +24,16 @@ def test_end_to_end(quiet, mock_devices):
     if not expected:
         for a in actual:
             (TESTDATA / a).write_bytes(a.read_bytes())
+        return
 
-    else:
-        assert [p.name for p in actual] == [p.name for p in expected]
+    assert [p.name for p in actual] == [p.name for p in expected]
 
-        ae = zip(actual, expected)
-        nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
+    ae = zip(actual, expected)
+    nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
 
-        [(n, a.shape, e.shape) for n, a, e in nae]
-        ds = [(n, a.shape, e.shape) for n, a, e in nae if a.shape != e.shape]
-        assert ds == []
+    [(n, a.shape, e.shape) for n, a, e in nae]
+    ds = [(n, a.shape, e.shape) for n, a, e in nae if a.shape != e.shape]
+    assert ds == []
 
-        differs_contents = [n for n, a, e in nae if not np.allclose(a, e)]
-        assert differs_contents == []
+    differs_contents = [n for n, a, e in nae if not np.allclose(a, e)]
+    assert differs_contents == []
