@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 import tdir
 
@@ -9,10 +10,11 @@ from recs.recs import Recs
 TESTDATA = Path(__file__).parent / 'testdata' / 'end_to_end'
 
 
+@pytest.mark.parametrize('quiet', (True, False))
 @tdir
-def test_end_to_end(mock_devices):
+def test_end_to_end(quiet, mock_devices):
     Recs(
-        quiet=True,
+        quiet=quiet,
         total_run_time=0.1,
     )()
 
