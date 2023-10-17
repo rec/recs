@@ -16,12 +16,6 @@ from .prefix_dict import PrefixDict
 class InputDevice:
     info: dict[str, t.Any]
 
-    def __bool__(self) -> bool:
-        return bool(self.channels)
-
-    def __str__(self) -> str:
-        return f'InputDevice({self.name})'
-
     @cached_property
     def channels(self) -> int:
         return t.cast(int, self.info['max_input_channels'])
