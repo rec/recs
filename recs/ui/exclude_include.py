@@ -1,15 +1,15 @@
 import typing as t
 
 from recs.audio.device import InputDevice
-from recs.ui.track import Track, split_all
+from recs.ui.track import Track
 
 
 class ExcludeInclude:
     def __init__(
         self, exclude: t.Sequence[str] = (), include: t.Sequence[str] = ()
     ) -> None:
-        self.exclude = set(split_all(exclude))
-        self.include = set(split_all(include))
+        self.exclude = set(Track.split_all(exclude))
+        self.include = set(Track.split_all(include))
 
     def match(self, dc: Track):
         if dc in self.exclude:
