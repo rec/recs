@@ -34,13 +34,12 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.coverage.run]
-
 branch = true
 source = ["recs"]
+omit = ["recs/cli.py"]
 
 [tool.coverage.report]
-
-fail_under = 86
+fail_under = 92
 skip_covered = true
 
 [tool.mypy]
