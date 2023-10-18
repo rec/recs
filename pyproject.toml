@@ -41,6 +41,13 @@ omit = ["recs/cli.py"]
 [tool.coverage.report]
 fail_under = 92
 skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if False:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if t.TYPE_CHECKING:",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
