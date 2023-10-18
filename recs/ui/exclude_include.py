@@ -21,10 +21,10 @@ class ExcludeInclude:
         if not dc.channel:
             return not self.include or any(i.name == dc.name for i in self.include)
 
-        if dc.without_channel in self.exclude:
+        if (dr := dc.replace(channel='')) in self.exclude:
             return False
 
-        if dc.without_channel in self.include:
+        if dr in self.include:
             return True
 
         return not self.include

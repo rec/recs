@@ -8,6 +8,8 @@ class PrefixDict(dict[str, T]):
         try:
             return super().__getitem__(key)
         except KeyError:
+            if not key:
+                raise
             key = key.lower()
             try:
                 return super().__getitem__(key)

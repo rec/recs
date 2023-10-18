@@ -24,6 +24,7 @@ class Aliases(PrefixDict[Track]):
 
         d: dict[Track, list[str]] = {}
         for k, v in self.items():
+            print('!!!', v)
             d.setdefault(v, []).append(k)
 
         if duplicate_aliases := [(k, v) for k, v in d.items() if len(v) > 1]:
