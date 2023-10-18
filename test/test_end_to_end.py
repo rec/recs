@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,8 @@ import soundfile as sf
 import tdir
 
 from recs.recs import Recs
+
+from .conftest import DEVICES
 
 TESTDATA = Path(__file__).parent / 'testdata' / 'end_to_end'
 
@@ -37,3 +40,9 @@ def test_end_to_end(quiet, mock_devices):
 
     differs_contents = [n for n, a, e in nae if not np.allclose(a, e)]
     assert differs_contents == []
+
+
+def test_info(mock_devices, capsys):
+    Recs(info=True)()
+    actual = json.loads(capsys.readouterr().out)
+    assert actual == DEVICES
