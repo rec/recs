@@ -30,7 +30,8 @@ class DeviceRecorder(Runnable):
     @cached_property
     def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
         def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
-            if not self.session.exclude_include(self.device, channels_name):
+            # TODO
+            if False:
                 return None
 
             return ChannelRecorder(

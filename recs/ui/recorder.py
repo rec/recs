@@ -26,7 +26,8 @@ class Recorder(Runnable):
         self.start_time = time.time()
 
         devices = device.input_devices().values()
-        ie_devices = (d for d in devices if session.exclude_include(d))
+        # ie_devices = (d for d in devices if session.exclude_include(d))
+        ie_devices = devices  # TODO
         recorders = (dr for d in ie_devices if (dr := DeviceRecorder(d, session)))
         self.device_recorders = tuple(recorders)
 

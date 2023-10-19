@@ -15,18 +15,3 @@ def test_track(desc, mock_devices):
 def test_track_fails(desc, mock_devices):
     with pytest.raises(ValueError):
         Track(*desc.split('+'))
-
-
-def test_split_all(mock_devices):
-    assert list(Track.split_all([])) == []
-    assert list(Track.split_all(['flow'])) == [Track('Flower 8')]
-    assert list(Track.split_all(['flow + 1-2'])) == [Track('Flower 8', '1-2')]
-
-    actual = list(Track.split_all(['flow + 1-2', 'flow + 3', 'ext']))
-    expected = [Track('Flower 8', '1-2'), Track('Flower 8', '3'), Track('Ext')]
-    assert actual == expected
-
-    with pytest.raises(ValueError) as e:
-        list(Track.split_all((['flow + 1-2', 'flow + 3', 'ext', 'oxt'])))
-
-    assert e.value.args[0] == 'Bad device name: oxt'

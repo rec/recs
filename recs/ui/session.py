@@ -10,7 +10,6 @@ from recs import recs
 from recs.audio import device, file_opener, times
 
 from .aliases import Aliases
-from .exclude_include import ExcludeInclude
 
 if t.TYPE_CHECKING:
     from .recorder import Recorder
@@ -29,10 +28,6 @@ class Session(Runnable):
     @cached_property
     def aliases(self) -> Aliases:
         return Aliases(self.recs.alias)
-
-    @cached_property
-    def exclude_include(self) -> ExcludeInclude:
-        return ExcludeInclude(self.recs.exclude, self.recs.include)
 
     @cached_property
     def recorder(self) -> 'Recorder':
