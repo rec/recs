@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses as dc
 import typing as t
 from functools import cached_property
@@ -8,16 +10,18 @@ from threa import Runnable
 
 from recs.audio import auto_slice, device, times
 from recs.audio.file_types import Format
-from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
-from recs.ui.session import Session
+from recs.ui.recorder import Recorder
 from recs.ui.track import Track
+
+if t.TYPE_CHECKING:
+    from recs.ui.channel_recorder import ChannelRecorder
 
 
 @dc.dataclass
 class DeviceRecorder(Runnable):
     device: device.InputDevice
-    session: Session
+    recorder: Recorder
     block_count: Counter = dc.field(default_factory=Counter)
     block_size: Accumulator = dc.field(default_factory=Accumulator)
 
@@ -28,17 +32,16 @@ class DeviceRecorder(Runnable):
         return bool(self.channel_recorders)
 
     @cached_property
-    def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
-        def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
-            # TODO
-            if False:
-                return None
+    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
+        from recs.ui.channel_recorder import ChannelRecorder
 
+        def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
             return ChannelRecorder(
                 channels=channels,
                 names=[self.name, channels_name],
                 samplerate=self.device.samplerate,
-                session=self.session,
+                recorder=self.recorder,
+                times=self.times,
             )
 
         slices = auto_slice.auto_slice(self.device.channels)
@@ -48,17 +51,17 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(
-            self.callback, self.session.stop, self.session.recs.dtype
+            self.callback, self.recorder.stop, self.recorder.recs.dtype
         )
 
     @cached_property
     def name(self) -> str:
         name = self.device.name
-        return self.session.aliases.inv.get(Track(name), name)
+        return self.recorder.aliases.inv.get(Track(name), name)
 
     @cached_property
     def times(self) -> times.Times[int]:
-        return self.session.times(self.device.samplerate)
+        return self.recorder.times(self.device.samplerate)
 
     @cached_property
     def total_run_time(self) -> float:
@@ -67,7 +70,7 @@ class DeviceRecorder(Runnable):
     def callback(self, array: np.ndarray) -> None:
         assert array.size
 
-        fmt = self.session.recs.format
+        fmt = self.recorder.recs.format
         if fmt == Format.mp3 and array.dtype == np.float32:
             # float32 crashes every time on my machine
             array = array.astype(np.float64)
@@ -92,7 +95,7 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.callback(array)
 
-        if not self.session.running:
+        if not self.recorder.running:
             self.stop()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

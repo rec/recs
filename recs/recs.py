@@ -61,9 +61,9 @@ class Recs:
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=2))
         else:
-            from .ui.session import Session
+            from .ui.recorder import Recorder
 
-            Session(self).run()
+            Recorder(self).run()
 
 
 RECS = Recs()

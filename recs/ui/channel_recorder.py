@@ -5,8 +5,9 @@ from functools import cached_property
 
 import numpy as np
 
-from recs.audio import block, channel_writer
-from recs.ui import counter, session
+from recs.audio import block, channel_writer, times
+
+from . import counter, recorder
 
 
 @dc.dataclass
@@ -14,7 +15,8 @@ class ChannelRecorder:
     channels: slice
     names: t.Sequence[str]
     samplerate: int
-    session: session.Session
+    recorder: recorder.Recorder
+    times: times.Times[int]
 
     amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
     block_count: int = 0
@@ -33,23 +35,23 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
-        if not self.session.recs.dry_run:
+        if not self.recorder.recs.dry_run:
             self.channel_writer.write(b)
 
     def stop(self) -> None:
-        if not self.session.recs.dry_run:
+        if not self.recorder.recs.dry_run:
             self.channel_writer.stop()
 
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
-        rec = self.session.recs
+        rec = self.recorder.recs
 
         return channel_writer.ChannelWriter(
             names=self.names,
-            opener=self.session.opener(channels, self.samplerate),
+            opener=self.recorder.opener(channels, self.samplerate),
             path=rec.path,
-            times=self.session.times(self.samplerate),
+            times=self.times,
             timestamp_format=rec.timestamp_format,
         )
 

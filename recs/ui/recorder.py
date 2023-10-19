@@ -1,29 +1,37 @@
 import contextlib
+import dataclasses as dc
 import time
 import typing as t
 from functools import cached_property
 
+from rich.table import Table
 from threa import Runnable
 
-from recs.audio import device
+from recs import recs
+from recs.audio import device, file_opener, times
 
 from .. import RecsError
-from .device_recorder import DeviceRecorder
+from .aliases import Aliases
 from .live import Live
-from .session import Session
+
+InputDevice = device.InputDevice
+TableMaker = t.Callable[[], Table]
+
+FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
 
 class Recorder(Runnable):
-    def __init__(self, session: Session) -> None:
-        super().__init__()
+    def __init__(self, recs: recs.Recs) -> None:
+        from .device_recorder import DeviceRecorder
 
-        self.session = session
+        super().__init__()
+        self.recs = recs
         self.start_time = time.time()
+        self.aliases = Aliases(self.recs.alias)
 
         devices = device.input_devices().values()
-        # ie_devices = (d for d in devices if session.exclude_include(d))
         ie_devices = devices  # TODO
-        recorders = (dr for d in ie_devices if (dr := DeviceRecorder(d, session)))
+        recorders = (dr for d in ie_devices if (dr := DeviceRecorder(d, self)))
         self.device_recorders = tuple(recorders)
 
         if not self.device_recorders:
@@ -34,6 +42,25 @@ class Recorder(Runnable):
 
         self.start()
 
+    def times(self, samplerate: float) -> times.Times[int]:
+        s = times.Times(**{k: getattr(self.recs, k) for k in FIELDS})
+        return times.scale(s, samplerate)
+
+    def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
+        return file_opener.FileOpener(
+            channels=channels,
+            format=self.recs.format,
+            samplerate=samplerate,
+            subtype=self.recs.subtype,
+        )
+
+    def run(self) -> None:
+        self.start()
+        with self.context():
+            while self.running:
+                time.sleep(self.recs.sleep_time)
+                self.live.update()
+
     @property
     def elapsed_time(self) -> float:
         return time.time() - self.start_time
@@ -43,12 +70,9 @@ class Recorder(Runnable):
         for v in self.device_recorders:
             yield from v.rows()
 
-    def update(self) -> None:
-        self.live.update()
-
     @cached_property
     def live(self) -> Live:
-        return Live(self.session.recs, self.rows)
+        return Live(self.recs, self.rows)
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
