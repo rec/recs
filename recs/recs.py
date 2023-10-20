@@ -5,10 +5,10 @@ from pathlib import Path
 
 import sounddevice as sd
 
-from .audio.channel_writer import TIMESTAMP_FORMAT
 from .audio.file_types import DTYPE, DType, Format, Subtype
 
 VERBOSE = False
+TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
 
 @dc.dataclass(frozen=True)

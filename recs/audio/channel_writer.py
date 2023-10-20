@@ -8,9 +8,9 @@ import threa
 
 from recs.audio.legal_filename import legal_filename
 
+from ..recs import TIMESTAMP_FORMAT
 from . import block, file_opener, times
 
-TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 NAME_JOINER = ' + '
 
 now = datetime.now
