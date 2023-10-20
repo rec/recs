@@ -14,7 +14,7 @@ def test_match(name):
     DEVICES[name]
 
 
-@pytest.mark.parametrize('name', ('one', 'x', 't', 'T'))
+@pytest.mark.parametrize('name', ('one', 'x', 't', 'T', ''))
 def test_fail(name):
     with pytest.raises(KeyError):
         DEVICES[name]
