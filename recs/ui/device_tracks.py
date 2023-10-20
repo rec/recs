@@ -11,9 +11,6 @@ def device_tracks(
     exclude: t.Sequence[str] = (),
     include: t.Sequence[str] = (),
 ) -> t.Iterator[Track]:
-    def channels(tracks: t.Sequence[Track]) -> set[int]:
-        return {int(c) for t in tracks for c in t.channels}
-
     ali = Aliases(aliases)
     exc = ali.split_all(exclude)
     inc = ali.split_all(include)
