@@ -1,12 +1,11 @@
 import dataclasses as dc
-import sys
 import typing as t
 from functools import cached_property
 
 import numpy as np
 
 from recs import RECS
-from recs.audio import block, channel_writer, times
+from recs.audio import block, channel_writer
 
 from . import counter, device_recorder
 
@@ -17,19 +16,14 @@ class ChannelRecorder:
     names: t.Sequence[str]
     samplerate: int
     recorder: device_recorder.DeviceRecorder
-    times: times.Times[int]
 
     amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
     block_count: int = 0
     rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
-    empty_block_count: int = 0
 
     def callback(self, array: np.ndarray) -> None:
         if not array.size:
-            print('Empty block', file=sys.stderr)
-            self.empty_block_count += 1
-            assert False
-            return
+            raise ValueError('Empty array')
 
         b = block.Block(array[:, self.channels])
 
@@ -51,7 +45,7 @@ class ChannelRecorder:
             names=self.names,
             opener=self.recorder.opener(channels),
             path=RECS.path,
-            times=self.times,
+            times=self.recorder.times,
             timestamp_format=RECS.timestamp_format,
         )
 
