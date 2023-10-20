@@ -7,16 +7,15 @@ from .track import Track
 
 
 def device_tracks(
-    aliases: t.Sequence[str] = (),
+    aliases: Aliases,
     exclude: t.Sequence[str] = (),
     include: t.Sequence[str] = (),
-) -> t.Iterator[Track]:
-    ali = Aliases(aliases)
-    exc = ali.split_all(exclude)
-    inc = ali.split_all(include)
+) -> dict[str, t.Sequence[Track]]:
+    exc = aliases.split_all(exclude)
+    inc = aliases.split_all(include)
 
-    for d in device.input_devices().values():
-        yield from device_track(d, exc, inc)
+    devices = device.input_devices().values()
+    return {d.name: ld for d in devices if (ld := list(device_track(d, exc, inc)))}
 
 
 def device_track(
