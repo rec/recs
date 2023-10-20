@@ -25,7 +25,7 @@ class Track:
     @cached_property
     def slice(self) -> slice:
         c1, *c2 = self.channels
-        return slice(c1, c1 + 1 + bool(c2))
+        return slice(c1 - 1, c1 + bool(c2))
 
     @cached_property
     def channels(self) -> tuple[int, ...]:

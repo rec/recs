@@ -6,12 +6,11 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
-from recs import RECS
+from recs import RECS, RecsError
 from recs.audio import device, times
 
-from .. import RecsError
-from .aliases import Aliases
-from .live import Live
+from . import aliases, live
+from .device_tracks import device_tracks
 
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
@@ -26,13 +25,11 @@ class Recorder(Runnable):
         super().__init__()
 
         self.start_time = time.time()
-        self.aliases = Aliases(RECS.alias)
-        self.live = Live(RECS, self.rows)
+        self.aliases = aliases.Aliases(RECS.alias)
+        self.live = live.Live(RECS, self.rows)
 
-        devices = device.input_devices().values()
-        ie_devices = devices  # TODO
-        recorders = (dr for d in ie_devices if (dr := DeviceRecorder(d, self)))
-        self.device_recorders = tuple(recorders)
+        dts = device_tracks(self.aliases, RECS.exclude, RECS.include).items()
+        self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
 
         if not self.device_recorders:
             raise RecsError('No devices or channels selected!')

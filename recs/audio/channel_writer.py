@@ -43,10 +43,7 @@ class ChannelWriter(threa.Runnable):
         self._blocks.append(block)
 
         amp = self._blocks[-1].amplitude
-        try:
-            amp = sum(amp) / len(amp)
-        except TypeError:
-            pass
+        amp = sum(amp) / len(amp)
 
         if amp >= self.times.noise_floor_amplitude:
             self._record_on_not_silence()

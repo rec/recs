@@ -8,7 +8,7 @@ import sounddevice as sd
 from threa import Runnable
 
 from recs import RECS
-from recs.audio import auto_slice, device, file_opener
+from recs.audio import device, file_opener
 from recs.audio.file_types import Format
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.recorder import Recorder
@@ -19,34 +19,30 @@ if t.TYPE_CHECKING:
 
 
 class DeviceRecorder(Runnable):
-    def __init__(self, d: device.InputDevice, recorder: Recorder) -> None:
+    def __init__(
+        self, dname: str, recorder: Recorder, tracks: t.Sequence[Track]
+    ) -> None:
         super().__init__()
-        self.device = d
+
+        self.device = device.input_devices()[dname]
         self.recorder = recorder
         self.stopped.on_set.append(self.recorder.on_stopped)
         self.block_count = Counter()
         self.block_size = Accumulator()
         self.times = self.recorder.times(self.device.samplerate)
-        self.name = self.recorder.aliases.inv.get(Track(d.name), d.name)
+        self.name = self.recorder.aliases.inv.get(Track(dname), dname)
 
-    def __bool__(self) -> bool:
-        return bool(self.channel_recorders)
-
-    @cached_property
-    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
         from recs.ui.channel_recorder import ChannelRecorder
 
-        def recorder(channels_name: str, channels: slice) -> ChannelRecorder:
+        def channel_recorder(track: Track) -> ChannelRecorder:
             return ChannelRecorder(
-                channels=channels,
-                names=[self.name, channels_name],
+                channels=track.slice,
+                names=[self.name, track.channel],
                 samplerate=self.device.samplerate,
                 recorder=self,
             )
 
-        slices = auto_slice.auto_slice(self.device.channels)
-        it = (recorder(k, v) for k, v in slices.items())
-        return tuple(r for r in it if r is not None)
+        self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
 
     @cached_property
     def input_stream(self) -> sd.InputStream:

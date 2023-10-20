@@ -23,13 +23,13 @@ class Times(t.Generic[T]):
     """
 
     #: Amount of silence at the start
-    silence_before_start: T
+    silence_before_start: T = t.cast(T, 0)
 
     #: Amount of silence at the end
-    silence_after_end: T
+    silence_after_end: T = t.cast(T, 0)
 
     #: Amount of silence before stopping a recording
-    stop_after_silence: T
+    stop_after_silence: T = t.cast(T, 0)
 
     #: The noise floor in decibels
     noise_floor: float = 70
