@@ -7,7 +7,7 @@ import numpy as np
 
 from recs.audio import block, channel_writer, times
 
-from . import counter, recorder
+from . import counter, device_recorder
 
 
 @dc.dataclass
@@ -15,7 +15,7 @@ class ChannelRecorder:
     channels: slice
     names: t.Sequence[str]
     samplerate: int
-    recorder: recorder.Recorder
+    recorder: device_recorder.DeviceRecorder
     times: times.Times[int]
 
     amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
@@ -49,7 +49,7 @@ class ChannelRecorder:
 
         return channel_writer.ChannelWriter(
             names=self.names,
-            opener=self.recorder.opener(channels, self.samplerate),
+            opener=self.recorder.opener(channels),
             path=rec.path,
             times=self.times,
             timestamp_format=rec.timestamp_format,

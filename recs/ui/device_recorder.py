@@ -8,12 +8,15 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs.audio import auto_slice, device, times
+from recs import recs
+from recs.audio import auto_slice, device, file_opener, times
 from recs.audio.file_types import Format
-from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.recorder import Recorder
 from recs.ui.track import Track
+
+if t.TYPE_CHECKING:
+    from recs.ui.channel_recorder import ChannelRecorder
 
 
 @dc.dataclass
@@ -31,14 +34,20 @@ class DeviceRecorder(Runnable):
     def __bool__(self) -> bool:
         return bool(self.channel_recorders)
 
+    @property
+    def recs(self) -> recs.Recs:
+        return self.recorder.recs
+
     @cached_property
-    def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
-        def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
+    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
+        from recs.ui.channel_recorder import ChannelRecorder
+
+        def recorder(channels_name: str, channels: slice) -> ChannelRecorder:
             return ChannelRecorder(
                 channels=channels,
                 names=[self.name, channels_name],
                 samplerate=self.device.samplerate,
-                recorder=self.recorder,
+                recorder=self,
                 times=self.times,
             )
 
@@ -49,7 +58,7 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(
-            self.callback, self.recorder.stop, self.recorder.recs.dtype
+            self.callback, self.recorder.stop, self.recs.dtype
         )
 
     @cached_property
@@ -68,7 +77,7 @@ class DeviceRecorder(Runnable):
     def callback(self, array: np.ndarray) -> None:
         assert array.size
 
-        fmt = self.recorder.recs.format
+        fmt = self.recs.format
         if fmt == Format.mp3 and array.dtype == np.float32:
             # float32 crashes every time on my machine
             array = array.astype(np.float64)
@@ -111,3 +120,11 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.stop()
         self.stopped.set()
+
+    def opener(self, channels: int) -> file_opener.FileOpener:
+        return file_opener.FileOpener(
+            channels=channels,
+            format=self.recs.format,
+            samplerate=self.device.samplerate,
+            subtype=self.recs.subtype,
+        )

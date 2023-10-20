@@ -7,7 +7,7 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import recs
-from recs.audio import device, file_opener, times
+from recs.audio import device, times
 
 from .. import RecsError
 from .aliases import Aliases
@@ -43,14 +43,6 @@ class Recorder(Runnable):
     def times(self, samplerate: float) -> times.Times[int]:
         s = times.Times(**{k: getattr(self.recs, k) for k in FIELDS})
         return s.scale(samplerate)
-
-    def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
-        return file_opener.FileOpener(
-            channels=channels,
-            format=self.recs.format,
-            samplerate=samplerate,
-            subtype=self.recs.subtype,
-        )
 
     def run(self) -> None:
         self.start()
