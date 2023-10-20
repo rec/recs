@@ -2,7 +2,6 @@ import contextlib
 import dataclasses as dc
 import time
 import typing as t
-from functools import cached_property
 
 from rich.table import Table
 from threa import Runnable
@@ -25,9 +24,11 @@ class Recorder(Runnable):
         from .device_recorder import DeviceRecorder
 
         super().__init__()
+
         self.recs = recs
         self.start_time = time.time()
         self.aliases = Aliases(self.recs.alias)
+        self.live = Live(self.recs, self.rows)
 
         devices = device.input_devices().values()
         ie_devices = devices  # TODO
@@ -69,10 +70,6 @@ class Recorder(Runnable):
         yield {'time': f'{self.elapsed_time:9.3f}'}
         for v in self.device_recorders:
             yield from v.rows()
-
-    @cached_property
-    def live(self) -> Live:
-        return Live(self.recs, self.rows)
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
