@@ -41,8 +41,7 @@ class Times(t.Generic[T]):
     def noise_floor_amplitude(self) -> float:
         return db_to_amplitude(self.noise_floor)
 
-
-def scale(source: Times[float], samplerate: float | int) -> Times[int]:
-    it = dc.asdict(source).items()
-    d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
-    return Times[int](**d)
+    def scale(self, samplerate: float | int) -> 'Times[int]':
+        it = dc.asdict(self).items()
+        d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
+        return Times[int](**d)

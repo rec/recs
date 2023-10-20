@@ -44,7 +44,7 @@ class Recorder(Runnable):
 
     def times(self, samplerate: float) -> times.Times[int]:
         s = times.Times(**{k: getattr(self.recs, k) for k in FIELDS})
-        return times.scale(s, samplerate)
+        return s.scale(samplerate)
 
     def opener(self, channels: int, samplerate: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(
