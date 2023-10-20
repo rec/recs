@@ -6,7 +6,7 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
-from recs import recs
+from recs import RECS
 from recs.audio import device, times
 
 from .. import RecsError
@@ -20,15 +20,14 @@ FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
 
 class Recorder(Runnable):
-    def __init__(self, recs: recs.Recs) -> None:
+    def __init__(self) -> None:
         from .device_recorder import DeviceRecorder
 
         super().__init__()
 
-        self.recs = recs
         self.start_time = time.time()
-        self.aliases = Aliases(self.recs.alias)
-        self.live = Live(self.recs, self.rows)
+        self.aliases = Aliases(RECS.alias)
+        self.live = Live(RECS, self.rows)
 
         devices = device.input_devices().values()
         ie_devices = devices  # TODO
@@ -41,14 +40,14 @@ class Recorder(Runnable):
         self.start()
 
     def times(self, samplerate: float) -> times.Times[int]:
-        s = times.Times(**{k: getattr(self.recs, k) for k in FIELDS})
+        s = times.Times(**{k: getattr(RECS, k) for k in FIELDS})
         return s.scale(samplerate)
 
     def run(self) -> None:
         self.start()
         with self.context():
             while self.running:
-                time.sleep(self.recs.sleep_time)
+                time.sleep(RECS.sleep_time)
                 self.live.update()
 
     @property

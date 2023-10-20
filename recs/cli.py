@@ -1,14 +1,16 @@
+import json
 import string
 import sys
 from pathlib import Path
 
 import click
 import dtyper
+import sounddevice as sd
 from typer import rich_utils
 
-from . import RecsError
+from . import RECS, RecsError
 from .audio.file_types import DType, Format, Subtype
-from .recs import RECS, Recs
+from .ui.recorder import Recorder
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
@@ -120,7 +122,14 @@ def recs(
         help='How many seconds to record? 0 means forever',
     ),
 ) -> None:
-    Recs(**locals())()
+    for k, v in list(locals().items()):
+        setattr(RECS, k, v)
+
+    if RECS.info:
+        info = sd.query_devices(kind=None)
+        print(json.dumps(info, indent=2))
+    else:
+        Recorder().run()
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))

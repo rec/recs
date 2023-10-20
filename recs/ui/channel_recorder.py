@@ -5,6 +5,7 @@ from functools import cached_property
 
 import numpy as np
 
+from recs import RECS
 from recs.audio import block, channel_writer, times
 
 from . import counter, device_recorder
@@ -35,24 +36,23 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.amplitude(b.amplitude)
-        if not self.recorder.recs.dry_run:
+        if not RECS.dry_run:
             self.channel_writer.write(b)
 
     def stop(self) -> None:
-        if not self.recorder.recs.dry_run:
+        if not RECS.dry_run:
             self.channel_writer.stop()
 
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
-        rec = self.recorder.recs
 
         return channel_writer.ChannelWriter(
             names=self.names,
             opener=self.recorder.opener(channels),
-            path=rec.path,
+            path=RECS.path,
             times=self.times,
-            timestamp_format=rec.timestamp_format,
+            timestamp_format=RECS.timestamp_format,
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

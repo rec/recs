@@ -8,7 +8,7 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs import recs
+from recs import RECS
 from recs.audio import auto_slice, device, file_opener, times
 from recs.audio.file_types import Format
 from recs.ui.counter import Accumulator, Counter
@@ -34,10 +34,6 @@ class DeviceRecorder(Runnable):
     def __bool__(self) -> bool:
         return bool(self.channel_recorders)
 
-    @property
-    def recs(self) -> recs.Recs:
-        return self.recorder.recs
-
     @cached_property
     def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
         from recs.ui.channel_recorder import ChannelRecorder
@@ -57,9 +53,7 @@ class DeviceRecorder(Runnable):
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(
-            self.callback, self.recorder.stop, self.recs.dtype
-        )
+        return self.device.input_stream(self.callback, self.recorder.stop, RECS.dtype)
 
     @cached_property
     def name(self) -> str:
@@ -77,7 +71,7 @@ class DeviceRecorder(Runnable):
     def callback(self, array: np.ndarray) -> None:
         assert array.size
 
-        fmt = self.recs.format
+        fmt = RECS.format
         if fmt == Format.mp3 and array.dtype == np.float32:
             # float32 crashes every time on my machine
             array = array.astype(np.float64)
@@ -124,7 +118,7 @@ class DeviceRecorder(Runnable):
     def opener(self, channels: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(
             channels=channels,
-            format=self.recs.format,
+            format=RECS.format,
             samplerate=self.device.samplerate,
-            subtype=self.recs.subtype,
+            subtype=RECS.subtype,
         )

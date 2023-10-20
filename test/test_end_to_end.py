@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.recs import Recs
+from recs.cli import recs
 
 from .conftest import DEVICES
 
@@ -16,10 +16,10 @@ TESTDATA = Path(__file__).parent / 'testdata' / 'end_to_end'
 @pytest.mark.parametrize('quiet', (True, False))
 @tdir
 def test_end_to_end(quiet, mock_devices):
-    Recs(
+    recs(
         quiet=quiet,
         total_run_time=0.1,
-    )()
+    )
 
     actual = sorted(Path().glob('*.flac'))
     expected = sorted(TESTDATA.glob('*.flac'))
@@ -43,6 +43,6 @@ def test_end_to_end(quiet, mock_devices):
 
 
 def test_info(mock_devices, capsys):
-    Recs(info=True)()
+    recs(info=True)
     actual = json.loads(capsys.readouterr().out)
     assert actual == DEVICES

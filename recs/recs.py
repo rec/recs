@@ -1,17 +1,13 @@
 import dataclasses as dc
-import json
 import typing as t
 from pathlib import Path
 
-import sounddevice as sd
-
 from .audio.file_types import DTYPE, DType, Format, Subtype
 
-VERBOSE = False
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
 
-@dc.dataclass(frozen=True)
+@dc.dataclass
 class Recs:
     #
     # General purpose settings
@@ -51,19 +47,6 @@ class Recs:
     stop_after_silence: float = 20
     noise_floor: float = 70
     total_run_time: float = 0
-
-    def __call__(self) -> None:
-        global VERBOSE
-
-        VERBOSE = self.verbose
-
-        if self.info:
-            info = sd.query_devices(kind=None)
-            print(json.dumps(info, indent=2))
-        else:
-            from .ui.recorder import Recorder
-
-            Recorder(self).run()
 
 
 RECS = Recs()
