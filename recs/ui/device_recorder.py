@@ -10,12 +10,10 @@ from threa import Runnable
 
 from recs.audio import auto_slice, device, times
 from recs.audio.file_types import Format
+from recs.ui.channel_recorder import ChannelRecorder
 from recs.ui.counter import Accumulator, Counter
 from recs.ui.recorder import Recorder
 from recs.ui.track import Track
-
-if t.TYPE_CHECKING:
-    from recs.ui.channel_recorder import ChannelRecorder
 
 
 @dc.dataclass
@@ -34,9 +32,7 @@ class DeviceRecorder(Runnable):
         return bool(self.channel_recorders)
 
     @cached_property
-    def channel_recorders(self) -> tuple['ChannelRecorder', ...]:
-        from recs.ui.channel_recorder import ChannelRecorder
-
+    def channel_recorders(self) -> tuple[ChannelRecorder, ...]:
         def recorder(channels_name: str, channels: slice) -> ChannelRecorder | None:
             return ChannelRecorder(
                 channels=channels,
