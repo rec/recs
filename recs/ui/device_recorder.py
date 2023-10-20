@@ -22,11 +22,13 @@ if t.TYPE_CHECKING:
 class DeviceRecorder(Runnable):
     device: device.InputDevice
     recorder: Recorder
+
     block_count: Counter = dc.field(default_factory=Counter)
     block_size: Accumulator = dc.field(default_factory=Accumulator)
 
     def __post_init__(self) -> None:
         super().__init__()
+        self.stopped.on_set.append(self.recorder.on_stopped)
 
     def __bool__(self) -> bool:
         return bool(self.channel_recorders)

@@ -38,9 +38,6 @@ class Recorder(Runnable):
         if not self.device_recorders:
             raise RecsError('No devices or channels selected!')
 
-        for d in self.device_recorders:
-            d.stopped.on_set.append(self._on_stopped)
-
         self.start()
 
     def times(self, samplerate: float) -> times.Times[int]:
@@ -82,7 +79,7 @@ class Recorder(Runnable):
         finally:
             self.stop()
 
-    def _on_stopped(self) -> None:
+    def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):
             self.stop()
 
