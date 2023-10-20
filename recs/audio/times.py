@@ -41,6 +41,10 @@ class Times(t.Generic[T]):
     def noise_floor_amplitude(self) -> float:
         return db_to_amplitude(self.noise_floor)
 
+    def __post_init__(self):
+        if negative_fields := [k for k, v in dc.asdict(self).items() if v < 0]:
+            raise ValueError(f'Times cannot be negative: {negative_fields=}')
+
     def scale(self, samplerate: float | int) -> 'Times[int]':
         it = dc.asdict(self).items()
         d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
