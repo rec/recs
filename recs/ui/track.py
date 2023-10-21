@@ -1,14 +1,13 @@
-import typing as t
-from functools import cached_property, total_ordering
+from functools import cached_property
 
 from recs import RecsError
 from recs.audio import device as _device
+from recs.audio import hash_cmp
 
 __all__ = ('Track',)
 
 
-@total_ordering
-class Track:
+class Track(hash_cmp.HashCmp):
     def __init__(
         self, device: str | _device.InputDevice, channel: str | tuple[int, ...] = ()
     ) -> None:
@@ -32,25 +31,8 @@ class Track:
         return '-'.join(str(c) for c in self.channels)
 
     @cached_property
-    def astuple(self) -> tuple[str, tuple[int, ...]]:
+    def _key(self) -> tuple[str, tuple[int, ...]]:
         return self.device.name, self.channels
-
-    def __eq__(self, other: t.Any) -> bool:
-        if not isinstance(other, Track):
-            return NotImplemented
-        return self.astuple == other.astuple
-
-    def __lt__(self, other) -> bool:
-        if not isinstance(other, Track):
-            return NotImplemented
-        return self.astuple < other.astuple
-
-    @cached_property
-    def _hash(self) -> int:
-        return hash(self.astuple)
-
-    def __hash__(self) -> int:
-        return self._hash
 
 
 def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, ...]:

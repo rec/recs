@@ -1,32 +1,24 @@
-import dataclasses as dc
 import sys
 import traceback
 import typing as t
-from functools import cache, cached_property
+from functools import cache
 
 import numpy as np
 import sounddevice as sd
 
+from recs.audio import hash_cmp
 from recs.audio.file_types import DTYPE, DType
 
 from .prefix_dict import PrefixDict
 
 
-@dc.dataclass(frozen=True)
-class InputDevice:
-    info: dict[str, t.Any]
-
-    @cached_property
-    def channels(self) -> int:
-        return t.cast(int, self.info['max_input_channels'])
-
-    @cached_property
-    def samplerate(self) -> int:
-        return int(self.info['default_samplerate'])
-
-    @cached_property
-    def name(self) -> str:
-        return t.cast(str, self.info['name'])
+class InputDevice(hash_cmp.HashCmp):
+    def __init__(self, info: dict[str, t.Any]) -> None:
+        self.info = info
+        self.channels = t.cast(int, self.info['max_input_channels'])
+        self.samplerate = int(self.info['default_samplerate'])
+        self.name = t.cast(str, self.info['name'])
+        self._key = self.name
 
     def input_stream(
         self,
