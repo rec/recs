@@ -1,6 +1,7 @@
 import dataclasses as dc
 from functools import cached_property
 
+from recs import RecsError
 from recs.audio import device
 
 __all__ = ('Track',)
@@ -20,7 +21,7 @@ class Track:
         try:
             return device.input_devices()[self.name.strip()]
         except KeyError:
-            raise ValueError(f'Bad device name {self.name=}')
+            raise RecsError(f'Bad device name {self.name=}') from None
 
     @cached_property
     def slice(self) -> slice:
@@ -52,7 +53,8 @@ class Track:
                 raise ValueError(f'Device has only {self.device.channels} channels')
 
         except ValueError as e:
-            raise ValueError(f'{e.args[0]}: device={self.name}, {self.channel=}')
+            msg = f'{e.args[0]}: device={self.name}, {self.channel=}'
+            raise RecsError(msg) from None
 
         return channels
 
