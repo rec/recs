@@ -17,6 +17,7 @@ class Recs:
     path: Path = Path()
     retain: bool = False
     timestamp_format: str = TIMESTAMP_FORMAT
+    use_locking: bool = True
     verbose: bool = False
     #
     # Aliases for input devices or channels

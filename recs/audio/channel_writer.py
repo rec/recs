@@ -1,14 +1,18 @@
+import contextlib
 import dataclasses as dc
 import typing as t
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
+from threading import Lock
 
 import soundfile as sf
 import threa
 
+from recs import RECS
 from recs.audio.legal_filename import legal_filename
+from recs.recs import TIMESTAMP_FORMAT
 
-from ..recs import TIMESTAMP_FORMAT
 from . import block, file_opener, times
 
 NAME_JOINER = ' + '
@@ -36,33 +40,41 @@ class ChannelWriter(threa.Runnable):
         self.start()
 
     def write(self, block: block.Block) -> None:
-        if not self.running:
-            return
+        with self._lock:
+            if not self.running:
+                return
 
-        self.samples_seen += len(block)
-        self._blocks.append(block)
+            self.samples_seen += len(block)
+            self._blocks.append(block)
 
-        amp = self._blocks[-1].amplitude
-        amp = sum(amp) / len(amp)
+            amp = self._blocks[-1].amplitude
+            amp = sum(amp) / len(amp)
 
-        if amp >= self.times.noise_floor_amplitude:
-            self._record_on_not_silence()
+            if amp >= self.times.noise_floor_amplitude:
+                self._record_on_not_silence()
 
-        elif self._blocks.duration > self.times.stop_after_silence:
-            self._close_on_silence()
+            elif self._blocks.duration > self.times.stop_after_silence:
+                self._close_on_silence()
 
     def stop(self) -> None:
-        self.running.clear()
+        with self._lock:
+            self.running.clear()
 
-        if self._blocks:
-            self._record(self._blocks)
-            self._blocks.clear()
+            if self._blocks:
+                self._record(self._blocks)
+                self._blocks.clear()
 
-        if self._sf:
-            self._sf.close()
-            self._sf = None
+            if self._sf:
+                self._sf.close()
+                self._sf = None
 
-        self.stopped.set()
+            self.stopped.set()
+
+    @cached_property
+    def _lock(self):
+        if RECS.use_locking:
+            return Lock()
+        return contextlib.nullcontext()
 
     def _record_on_not_silence(self) -> None:
         if not self._sf:

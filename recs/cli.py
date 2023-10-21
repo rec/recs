@@ -53,6 +53,9 @@ def recs(
     timestamp_format: str = Option(
         RECS.timestamp_format, help='Format string for timestamps'
     ),
+    use_locking: bool = Option(
+        RECS.use_locking, '--use-locking', help='Use locking for writing audio files'
+    ),
     verbose: bool = Option(
         RECS.verbose, '-v', '--verbose', help='Print full stack traces'
     ),
