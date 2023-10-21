@@ -10,12 +10,12 @@ def device_tracks(
     aliases: Aliases,
     exclude: t.Sequence[str] = (),
     include: t.Sequence[str] = (),
-) -> dict[str, t.Sequence[Track]]:
+) -> dict[device.InputDevice, t.Sequence[Track]]:
     exc = aliases.split_all(exclude)
     inc = aliases.split_all(include)
 
     devices = device.input_devices().values()
-    return {d.name: ld for d in devices if (ld := list(device_track(d, exc, inc)))}
+    return {d: ld for d in devices if (ld := list(device_track(d, exc, inc)))}
 
 
 def device_track(

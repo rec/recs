@@ -20,17 +20,17 @@ if t.TYPE_CHECKING:
 
 class DeviceRecorder(Runnable):
     def __init__(
-        self, dname: str, recorder: Recorder, tracks: t.Sequence[Track]
+        self, d: device.InputDevice, recorder: Recorder, tracks: t.Sequence[Track]
     ) -> None:
         super().__init__()
 
-        self.device = device.input_devices()[dname]
+        self.device = d
         self.recorder = recorder
         self.stopped.on_set.append(self.recorder.on_stopped)
         self.block_count = Counter()
         self.block_size = Accumulator()
         self.times = self.recorder.times(self.device.samplerate)
-        self.name = self.recorder.aliases.inv.get(Track(dname), dname)
+        self.name = self.recorder.aliases.inv.get(Track(d), d.name)
 
         from recs.ui.channel_recorder import ChannelRecorder
 
