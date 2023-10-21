@@ -23,11 +23,11 @@ def device_track(
     exc: t.Sequence[Track] = (),
     inc: t.Sequence[Track] = (),
 ) -> t.Iterator[Track]:
-    if Track(d.name) in exc:
+    if Track(d) in exc:
         return
 
-    excs = [i for i in exc if d.name == i.name]
-    incs = [i for i in inc if d.name == i.name]
+    excs = [i for i in exc if d.name == i.device.name]
+    incs = [i for i in inc if d.name == i.device.name]
     if inc and not incs:
         return
 
@@ -65,6 +65,6 @@ def device_track(
                 assert c1 + 1 == c2
                 ch = f'{c1}-{c2}'
 
-        yield Track(d.name, ch)
+        yield Track(d, ch)
 
     yield from tracks

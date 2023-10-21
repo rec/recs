@@ -47,7 +47,7 @@ class Aliases(PrefixDict[Track]):
         else:
             if track.channels:
                 raise KeyError(f'Alias {name} is a device alias: {s} is not legal')
-            name = track.name
+            name = track.device.name
 
         return Track(name, channels)
 
