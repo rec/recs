@@ -23,11 +23,11 @@ class Track(hash_cmp.HashCmp):
 
     def __str__(self) -> str:
         if self.channels:
-            return f'{self.device.name}+{self.channels_name}'
+            return f'{self.device.name} + {self.channels_name}'
         return self.device.name
 
     def __repr__(self) -> str:
-        return f'Track({self})'
+        return f'Track(\'{self}\')'
 
     @cached_property
     def slice(self) -> slice:

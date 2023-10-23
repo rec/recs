@@ -22,3 +22,13 @@ def test_track_fails_key(desc, mock_devices):
 def test_track_fails_value(desc, mock_devices):
     with pytest.raises(ValueError):
         Track(*desc.split('+'))
+
+
+def test_track_display(mock_devices):
+    t = Track('flow')
+    assert str(t) == 'Flower 8'
+    assert repr(t) == 'Track(\'Flower 8\')'
+
+    t = Track('flow', '2-3')
+    assert str(t) == 'Flower 8 + 2-3'
+    assert repr(t) == 'Track(\'Flower 8 + 2-3\')'

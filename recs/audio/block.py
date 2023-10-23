@@ -25,7 +25,7 @@ class Block:
         return Block(self.block[index])
 
     @cached_property
-    def channels(self) -> int:
+    def channel_count(self) -> int:
         return self.block.shape[1]
 
     @cached_property
