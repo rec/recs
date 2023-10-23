@@ -22,8 +22,8 @@ now = datetime.now
 
 @dc.dataclass
 class ChannelWriter(threa.Runnable):
-    opener: file_opener.FileOpener
     names: t.Sequence[str]
+    opener: file_opener.FileOpener
     path: Path
     times: times.Times[int]
     timestamp_format: str = TIMESTAMP_FORMAT
