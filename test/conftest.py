@@ -21,7 +21,7 @@ def _device(name, channels, samplerate=48_000):
     return device.InputDevice(info)
 
 
-EXT = _device('Ext', 2, 44_100)
+EXT = _device('Ext', 3, 44_100)
 FLOWER = _device('Flower 8', 10)
 MIC = _device('Mic', 1)
 

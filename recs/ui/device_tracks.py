@@ -53,6 +53,7 @@ def device_track(
 
             if found:
                 yield tracks.pop(0)
+                continue
 
             if not channels:
                 break

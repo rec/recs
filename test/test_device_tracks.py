@@ -8,7 +8,10 @@ from .conftest import EXT, FLOWER, MIC
 def test_empty_device_tracks(mock_devices):
     actual = device_tracks(Aliases())
     expected = {
-        EXT: [Track(EXT, '1-2')],
+        EXT: [
+            Track(EXT, '1-2'),
+            Track(EXT, '3'),
+        ],
         FLOWER: [
             Track(FLOWER, '1-2'),
             Track(FLOWER, '3-4'),
@@ -24,7 +27,9 @@ def test_empty_device_tracks(mock_devices):
 def test_device_tracks_inc(mock_devices):
     aliases = 'e', 'Main = fl + 1', 'mai=Mic'
     actual = device_tracks(Aliases(aliases), include=['Main'])
-    expected = {FLOWER: [Track(FLOWER, '1')]}
+    expected = {
+        FLOWER: [Track(FLOWER, '1')],
+    }
     assert actual == expected
 
 
@@ -40,6 +45,31 @@ def test_device_tracks_exc(mock_devices):
             Track(FLOWER, '9-10'),
         ],
         MIC: [Track(MIC, '1')],
+    }
+    assert actual == expected
+
+
+def test_device_tracks_inc_exc(mock_devices):
+    aliases = 'e', 'Main = fl + 1', 'mai=Mic'
+    actual = device_tracks(Aliases(aliases), include=['e'], exclude=['e + 2'])
+    expected = {
+        EXT: [
+            Track(EXT, '1'),
+            Track(EXT, '3'),
+        ],
+    }
+    assert actual == expected
+
+
+def test_device_tracks_inc_exc2(mock_devices):
+    aliases = 'e', 'Main = fl + 1', 'mai=Mic'
+    actual = device_tracks(Aliases(aliases), include=['e+1', 'e + 2-3'])
+    print(actual)
+    expected = {
+        EXT: [
+            Track(EXT, '1'),
+            Track(EXT, '2-3'),
+        ],
     }
     assert actual == expected
 
