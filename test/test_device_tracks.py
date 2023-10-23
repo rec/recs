@@ -1,4 +1,3 @@
-from recs.audio.device import input_devices
 from recs.ui.aliases import Aliases
 from recs.ui.device_tracks import device_track, device_tracks
 from recs.ui.track import Track
