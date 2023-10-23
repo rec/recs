@@ -11,17 +11,24 @@ from recs.cli import recs
 from .conftest import DEVICES
 
 TESTDATA = Path(__file__).parent / 'testdata' / 'end_to_end'
+CASES = (False, False), (True, True)
 
 
-@pytest.mark.parametrize('quiet', (True, False))
+@pytest.mark.parametrize('dry_run, quiet', CASES)
 @tdir
-def test_end_to_end(quiet, mock_devices):
+def test_end_to_end(dry_run, quiet, mock_devices):
     recs(
+        dry_run=dry_run,
         quiet=quiet,
         total_run_time=0.1,
     )
 
     actual = sorted(Path().glob('*.flac'))
+
+    if dry_run:
+        assert not actual
+        return
+
     expected = sorted(TESTDATA.glob('*.flac'))
 
     if not expected:

@@ -23,32 +23,41 @@ class InputDevice(hash_cmp.HashCmp):
     def input_stream(
         self,
         callback: t.Callable[[np.ndarray], None],
+        dtype: DType | None,
         stop: t.Callable[[], None],
-        dtype: DType = DTYPE,
     ) -> sd.InputStream:
         def cb(indata: np.ndarray, frames: int, time: float, status: int) -> None:
+            if status:  # pragma: no cover
+                # This has not yet happened, probably because we never get behind
+                # the device callback cycle.
+                print('Status', self, status, file=sys.stderr)
+
+            if not indata.size:  # pragma: no cover
+                print('Empty block', self, file=sys.stderr)
+                return
+
             try:
-                if status:
-                    # This has not yet happened, probably because we never get behind
-                    # the device callback cycle.
-                    print('Status', self, status, file=sys.stderr)
+                callback(indata.copy())  # `indata` is always the same variable!
 
-                if indata.size:
-                    callback(indata.copy())  # `indata` is always the same variable!
-                else:
-                    print('Empty block', self, file=sys.stderr)
-
-            except Exception:
+            except Exception:  # pragma: no cover
                 traceback.print_exc()
-                stop()
+                try:
+                    stream.stop()
+                except Exception:
+                    traceback.print_exc()
+                try:
+                    stop()
+                except Exception:
+                    traceback.print_exc()
 
-        return sd.InputStream(
+        stream = sd.InputStream(
             callback=cb,
             channels=self.channels,
             device=self.name,
-            dtype=dtype,
+            dtype=DTYPE if dtype is None else DTYPE,
             samplerate=self.samplerate,
         )
+        return stream
 
 
 @cache

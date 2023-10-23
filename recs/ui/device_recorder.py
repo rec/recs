@@ -44,20 +44,10 @@ class DeviceRecorder(Runnable):
 
         self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
 
-    @cached_property
-    def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(self.callback, self.recorder.stop, RECS.dtype)
-
     def callback(self, array: np.ndarray) -> None:
         if RECS.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
-
-        if array.dtype in (np.int8, np.int8):
-            array = array.astype(np.int16)
-            if array.dtype == np.uint8:
-                array -= 0x80
-            array *= 0x100
 
         self.block_count()
         self.block_size(array.shape[0])
@@ -89,6 +79,14 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.stop()
         self.stopped.set()
+
+    @cached_property
+    def input_stream(self) -> sd.InputStream:
+        return self.device.input_stream(
+            callback=self.callback,
+            dtype=RECS.dtype,
+            stop=self.recorder.stop,
+        )
 
     def opener(self, channels: int) -> file_opener.FileOpener:
         return file_opener.FileOpener(

@@ -22,9 +22,6 @@ class ChannelRecorder:
     rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
 
     def callback(self, array: np.ndarray) -> None:
-        if not array.size:
-            raise ValueError('Empty array')
-
         b = block.Block(array[:, self.channels])
 
         self.block_count += 1

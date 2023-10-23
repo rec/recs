@@ -9,9 +9,6 @@ class DType(StrEnum):
     int16 = auto()
     int32 = auto()
 
-    int8 = auto()
-    uint8 = auto()
-
 
 DTYPE = DType[sd.default.dtype[0]]
 
@@ -41,8 +38,6 @@ class Format(StrEnum):
 
 
 class Subtype(StrEnum):
-    _none = ''
-
     alac_16 = auto()
     alac_20 = auto()
     alac_24 = auto()

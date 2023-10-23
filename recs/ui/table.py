@@ -12,7 +12,7 @@ def _to_str(x: t.Any) -> str:
 
     try:
         len(x)
-    except TypeError:
+    except TypeError:  # pragma: no cover
         return str(x)
     assert len(x) <= 2, f'{len(x)}'
     return ' |'.join(_to_str(i) for i in x)
@@ -30,7 +30,7 @@ class TableFormatter:
         t = Table(*self.kwargs)
         cols = set(self.kwargs)
         for r in rows:
-            if unknown := set(r) - cols:
+            if unknown := set(r) - cols:  # pragma: no cover
                 raise ValueError(f'{unknown=}')
             t.add_row(*(self._to_str(r, c) for c in self.kwargs))
         return t

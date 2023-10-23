@@ -8,9 +8,7 @@ class HashCmp(ABC):
     _key: t.Any
 
     def __eq__(self, o: t.Any) -> bool:
-        if not isinstance(o, type(self)):
-            return NotImplemented
-        return self._key == o._key
+        return isinstance(o, type(self)) and self._key == o._key
 
     def __lt__(self, o) -> bool:
         if not isinstance(o, type(self)):

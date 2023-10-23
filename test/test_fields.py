@@ -4,6 +4,7 @@ import typing as t
 import dtyper
 
 from recs import cli, recs
+from recs.audio.file_types import DType, Subtype
 
 
 @dtyper.dataclass(cli.recs)
@@ -18,6 +19,10 @@ def test_fields():
     assert not [h.name for h, a in zip(hand, auto) if h.default != a.default]
 
     types = [(h.type, a.type) for h, a in zip(hand, auto)]
-    ok = t.Sequence[str], list[str]
+    ok = (
+        (t.Sequence[str], list[str]),
+        (DType | None, DType),
+        (Subtype | None, Subtype),
+    )
 
-    assert all((h, a) == ok for h, a in types if h != a)
+    assert all((h, a) in ok for h, a in types if h != a)

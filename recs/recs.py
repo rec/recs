@@ -2,7 +2,7 @@ import dataclasses as dc
 import typing as t
 from pathlib import Path
 
-from .audio.file_types import DTYPE, DType, Format, Subtype
+from .audio.file_types import DType, Format, Subtype
 
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
@@ -32,8 +32,8 @@ class Recs:
     # Audio file format and subtype
     #
     format: Format = Format.flac
-    subtype: Subtype = Subtype._none
-    dtype: DType = DTYPE
+    subtype: Subtype | None = None
+    dtype: DType | None = None
     #
     # Console and UI settings
     #
