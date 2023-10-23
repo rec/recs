@@ -26,7 +26,7 @@ class Block:
 
     @cached_property
     def channel_count(self) -> int:
-        return self.block.shape[1]
+        return (self.block.shape + (1,))[1]
 
     @cached_property
     def amplitude(self) -> np.ndarray:
