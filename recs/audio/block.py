@@ -1,4 +1,5 @@
 import dataclasses as dc
+import numbers
 import typing as t
 from functools import cached_property
 
@@ -25,6 +26,20 @@ class Block:
         return Block(self.block[index])
 
     @cached_property
+    def is_float(self):
+        return not issubclass(self.block.dtype.type, numbers.Integral)
+
+    @cached_property
+    def scale(self) -> float:
+        if self.is_float:
+            return 1
+        return float(1 << (8 * self.block.dtype.itemsize - 1))
+
+    @cached_property
+    def volume(self) -> float:
+        return sum(self.amplitude) / len(self.amplitude) / self.scale
+
+    @cached_property
     def channel_count(self) -> int:
         return (self.block.shape + (1,))[1]
 
@@ -41,10 +56,19 @@ class Block:
         return self.block.min(0)
 
     @cached_property
+    def asfloat(self) -> np.ndarray:
+        if self.is_float:
+            return self.block
+        return self.block.astype('double' if self.block.dtype.itemsize > 4 else 'float')
+
+    @cached_property
     def rms(self) -> np.ndarray:
-        b = self.block.astype(float)
-        b *= b
-        return np.sqrt(b.mean(0))
+        b = self.asfloat
+        if b is self.block:
+            b = b * b
+        else:
+            b *= b
+        return np.sqrt(b.mean(0)) / self.scale
 
 
 @dc.dataclass

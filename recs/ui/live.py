@@ -68,6 +68,6 @@ TABLE_FORMATTER = TableFormatter(
     block=_to_str,
     rms=None,
     rms_mean=None,
-    amplitude=None,
-    amplitude_mean=None,
+    volume=None,
+    volume_mean=None,
 )

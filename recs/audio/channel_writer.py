@@ -47,10 +47,7 @@ class ChannelWriter(threa.Runnable):
             self.samples_seen += len(block)
             self._blocks.append(block)
 
-            amp = self._blocks[-1].amplitude
-            amp = sum(amp) / len(amp)
-
-            if amp >= self.times.noise_floor_amplitude:
+            if self._blocks[-1].volume >= self.times.noise_floor_amplitude:
                 self._record_on_not_silence()
 
             elif self._blocks.duration > self.times.stop_after_silence:

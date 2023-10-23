@@ -17,7 +17,7 @@ class ChannelRecorder:
     samplerate: int
     recorder: device_recorder.DeviceRecorder
 
-    amplitude: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
+    volume: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
     block_count: int = 0
     rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
 
@@ -26,7 +26,7 @@ class ChannelRecorder:
 
         self.block_count += 1
         self.rms(b.rms)
-        self.amplitude(b.amplitude)
+        self.volume(b.volume)
         if not RECS.dry_run:
             self.channel_writer.write(b)
 
@@ -48,8 +48,8 @@ class ChannelRecorder:
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
-            'amplitude': self.amplitude.value,
-            'amplitude_mean': self.amplitude.mean(),
+            'volume': self.volume.value,
+            'volume_mean': self.volume.mean(),
             'channel': self.names[1],  # Really?
             'count': self.block_count,
             'rms': self.rms.value,
