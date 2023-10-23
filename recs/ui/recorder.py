@@ -3,6 +3,7 @@ import dataclasses as dc
 import time
 import typing as t
 
+import soundfile as sf
 from rich.table import Table
 from threa import Runnable
 
@@ -30,6 +31,9 @@ class Recorder(Runnable):
 
         dts = device_tracks(self.aliases, RECS.exclude, RECS.include).items()
         self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
+
+        if not sf.check_format(RECS.format, RECS.subtype):
+            raise RecsError(f'{RECS.format} and {RECS.subtype} are incompatible')
 
         if not self.device_recorders:
             raise RecsError('No devices or channels selected')
