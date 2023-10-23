@@ -16,3 +16,4 @@ def test_accumulator():
     assert a.count == 16
     assert a.mean() == 7.5
     assert a.variance() == 77.5
+    assert a.stdev() == 77.5**0.5
