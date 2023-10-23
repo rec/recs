@@ -32,7 +32,7 @@ class Recorder(Runnable):
         self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
 
         if not self.device_recorders:
-            raise RecsError('No devices or channels selected!')
+            raise RecsError('No devices or channels selected')
 
         self.start()
 
