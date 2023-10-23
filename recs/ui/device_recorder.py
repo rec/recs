@@ -81,7 +81,6 @@ class DeviceRecorder(Runnable):
 
     def stop(self) -> None:
         self.running.clear()
-        self.input_stream.close()
         for c in self.channel_recorders:
             c.stop()
         self.stopped.set()
