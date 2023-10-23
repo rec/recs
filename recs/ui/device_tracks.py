@@ -42,9 +42,6 @@ def device_track(
         return tracks[0].channels[-1]
 
     while channels:
-        while tracks and track_channel() < channels[0]:
-            yield tracks.pop(0)
-
         if tracks:
             found = False
             while channels and track_channel() >= channels[0]:
@@ -60,11 +57,15 @@ def device_track(
 
         c1 = channels.pop(0)
         ch = f'{c1}'
-        if channels and c1 % 2 and channels[0] == c1 + 1:
-            if not (tracks and track_channel() == c1 + 1):
-                c2 = channels.pop(0)
-                assert c1 + 1 == c2
-                ch = f'{c1}-{c2}'
+        if (
+            channels
+            and channels[0] == c1 + 1
+            and c1 % 2
+            and not (tracks and track_channel() == c1 + 1)
+        ):
+            c2 = channels.pop(0)
+            assert c1 + 1 == c2
+            ch = f'{c1}-{c2}'
 
         yield Track(d, ch)
 

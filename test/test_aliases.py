@@ -50,3 +50,11 @@ def test_split_all(mock_devices):
         list(split_all((['flow + 1-2', 'flow + 3', 'ext', 'oxt'])))
 
     assert e.value.args[0] == 'Bad device name: oxt'
+
+
+def test_error(mock_devices):
+    aliases = Aliases(('e', 'Main = fl + 7-8', 'mai=Mic'))
+    aliases.to_track('Main')
+    with pytest.raises(KeyError) as e:
+        aliases.to_track('Main + 3')
+    assert e.value.args == ('Alias Main is a device alias: "Main + 3" is not legal',)
