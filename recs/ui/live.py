@@ -6,7 +6,7 @@ from rich import live
 from rich.console import Console
 from rich.table import Table
 
-from recs.recs import Recs
+from recs import RECS
 
 from .table import TableFormatter
 
@@ -16,12 +16,11 @@ CONSOLE = Console(color_system='truecolor')
 
 
 class Live:
-    def __init__(self, recs: Recs, rows: RowsFunction):
-        self.recs = recs
+    def __init__(self, rows: RowsFunction):
         self.rows = rows
 
     def update(self) -> None:
-        if not self.recs.quiet:
+        if not RECS.quiet:
             self.live.update(self.table())
 
     @cached_property
@@ -29,8 +28,8 @@ class Live:
         return live.Live(
             self.table(),
             console=CONSOLE,
-            refresh_per_second=self.recs.ui_refresh_rate,
-            transient=not self.recs.retain,
+            refresh_per_second=RECS.ui_refresh_rate,
+            transient=not RECS.retain,
         )
 
     def table(self) -> Table:
@@ -38,7 +37,7 @@ class Live:
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
-        if self.recs.quiet:
+        if RECS.quiet:
             yield
         else:
             with self.live:

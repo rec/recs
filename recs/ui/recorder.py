@@ -26,7 +26,7 @@ class Recorder(Runnable):
 
         self.start_time = time.time()
         self.aliases = aliases.Aliases(RECS.alias)
-        self.live = live.Live(RECS, self.rows)
+        self.live = live.Live(self.rows)
 
         dts = device_tracks(self.aliases, RECS.exclude, RECS.include).items()
         self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
