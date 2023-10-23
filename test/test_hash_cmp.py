@@ -1,8 +1,4 @@
-import dataclasses as dc
-from functools import partial, cached_property
-import typing as t
 import pytest
-
 
 from recs.audio.hash_cmp import HashCmp
 
@@ -10,7 +6,6 @@ from recs.audio.hash_cmp import HashCmp
 class Cmp(HashCmp):
     def __init__(self, i: int):
         self._key = -i
-
 
 
 def test_hash_cmp():
