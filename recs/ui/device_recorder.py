@@ -37,7 +37,7 @@ class DeviceRecorder(Runnable):
         def channel_recorder(track: Track) -> ChannelRecorder:
             return ChannelRecorder(
                 channels=track.slice,
-                names=[self.name, track.channel],
+                names=[self.name, track.channels_name],
                 samplerate=self.device.samplerate,
                 recorder=self,
             )

@@ -31,7 +31,7 @@ def device_track(
     if inc and not incs:
         return
 
-    tracks = [i for i in incs if i.channel]
+    tracks = [i for i in incs if i.channels]
 
     ic = {int(c) for t in tracks for c in t.channels} or set(range(1, d.channels + 1))
     ec = {int(c) for t in excs for c in t.channels}
