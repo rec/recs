@@ -14,6 +14,7 @@ class Recs:
     #
     dry_run: bool = False
     info: bool = False
+    list_subtypes: bool = False
     path: Path = Path()
     retain: bool = False
     timestamp_format: str = TIMESTAMP_FORMAT

@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import dtyper
 import sounddevice as sd
+import soundfile as sf
 from typer import rich_utils
 
 from . import RECS, RecsError
@@ -43,6 +44,9 @@ def recs(
     ),
     info: bool = Option(
         RECS.info, '--info', help='Do not run, display device info instead'
+    ),
+    list_subtypes: bool = Option(
+        RECS.list_subtypes, '--list-subtypes', help='List all subtypes for each format'
     ),
     path: Path = Option(
         RECS.path, '-p', '--path', help='Path to the parent directory for files'
@@ -130,7 +134,14 @@ def recs(
 
     if RECS.info:
         info = sd.query_devices(kind=None)
-        print(json.dumps(info, indent=2))
+        print(json.dumps(info, indent=4))
+
+    elif RECS.list_subtypes:
+        avail = sf.available_formats()
+        fmts = [f.upper() for f in Format]
+        formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
+        print(json.dumps(formats, indent=4))
+
     else:
         Recorder().run()
 
