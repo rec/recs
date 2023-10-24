@@ -106,3 +106,9 @@ venv.bak/
 .direnv/
 .envrc
 .idea/
+
+# Output files in the top directory
+/*.flac
+/*.m4a
+/*.mp3
+/*.wav
