@@ -9,13 +9,18 @@ TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
 @dc.dataclass
 class Recs:
+    # See ./cli.py for full help
+    #
+    # Directory settings
+    #
+    path: Path = Path()
+    subdirectory: t.Sequence[str] = ()
     #
     # General purpose settings
     #
     dry_run: bool = False
     info: bool = False
     list_subtypes: bool = False
-    path: Path = Path()
     retain: bool = False
     timestamp_format: str = TIMESTAMP_FORMAT
     use_locking: bool = True

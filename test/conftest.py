@@ -9,7 +9,7 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs.audio import channel_writer, device, prefix_dict
+from recs.audio import channel_writer, device, file_creator, prefix_dict
 
 
 def _device(name, channels, samplerate=48_000):
@@ -108,6 +108,7 @@ def query_devices(kind=None):
 def mock_devices(monkeypatch):
     monkeypatch.setattr(channel_writer, 'now', now)
     monkeypatch.setattr(device, 'input_devices', lambda: MOCK_DEVICES)
+    monkeypatch.setattr(file_creator, 'now', now)
     monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(sd, 'query_devices', query_devices)
 

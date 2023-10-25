@@ -37,6 +37,18 @@ def Option(default, *a, **ka) -> dtyper.Option:
 @app.command(help='Record everything coming in')
 def recs(
     #
+    # Directory settings
+    #
+    path: Path = Option(
+        RECS.path, '-p', '--path', help='Path to the parent directory for files'
+    ),
+    subdirectory: list[str] = Option(
+        RECS.subdirectory,
+        '-s',
+        '--subdirectory',
+        help='Organize files by date, device or both',
+    ),
+    #
     # General purpose settings
     #
     dry_run: bool = Option(
@@ -47,9 +59,6 @@ def recs(
     ),
     list_subtypes: bool = Option(
         RECS.list_subtypes, '--list-subtypes', help='List all subtypes for each format'
-    ),
-    path: Path = Option(
-        RECS.path, '-p', '--path', help='Path to the parent directory for files'
     ),
     retain: bool = Option(
         RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
@@ -115,7 +124,6 @@ def recs(
     ),
     stop_after_silence: float = Option(
         RECS.stop_after_silence,
-        '-s',
         '--stop-after-silence',
         help='Stop recs after silence',
     ),

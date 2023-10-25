@@ -10,10 +10,9 @@ import soundfile as sf
 import threa
 
 from recs import RECS
-from recs.audio.legal_filename import legal_filename
 from recs.recs import TIMESTAMP_FORMAT
 
-from . import block, file_opener, times
+from . import block, file_creator, file_opener, times
 
 NAME_JOINER = ' + '
 
@@ -100,18 +99,9 @@ class ChannelWriter(threa.Runnable):
             self._sf.write(b.block)
             self.blocks_written += 1
 
-    def _open_new_file(self) -> sf.SoundFile:
-        index = 0
-        suffix = ''
-        name = NAME_JOINER.join((*self.names, self._timestamp()))
-
-        while True:
-            p = self.path / legal_filename(name + suffix)
-            try:
-                return self.opener.open(p, 'w')
-            except FileExistsError:
-                index += 1
-                suffix = f'_{index}'
+    @cached_property
+    def _open_new_file(self) -> file_creator.FileCreator:
+        return file_creator.FileCreator(self.names, self.opener, self.path)
 
     def _timestamp(self) -> str:
         return now().strftime(self.timestamp_format)
