@@ -9,8 +9,7 @@ from threa import Runnable
 
 from recs import RECS
 from recs.audio import device, file_opener
-from recs.audio.file_types import DTYPE, Format
-from recs.audio.file_types_conversion import SUBTYPE_TO_DTYPE
+from recs.audio.file_types import Format
 
 from .counter import Accumulator, Counter
 from .recorder import Recorder
@@ -45,10 +44,6 @@ class DeviceRecorder(Runnable):
             )
 
         self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
-        self.subtype = RECS.subtype
-        self.dtype = RECS.dtype
-        if self.subtype is not None and self.dtype is None:
-            self.dtype = SUBTYPE_TO_DTYPE.get(self.subtype, DTYPE)
 
     def callback(self, array: np.ndarray) -> None:
         if RECS.format == Format.mp3 and array.dtype == np.float32:
@@ -89,7 +84,7 @@ class DeviceRecorder(Runnable):
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(
             callback=self.callback,
-            dtype=self.dtype,
+            dtype=self.recorder.dtype,
             stop=self.recorder.stop,
         )
 
@@ -98,5 +93,5 @@ class DeviceRecorder(Runnable):
             channels=channels,
             format=RECS.format,
             samplerate=self.device.samplerate,
-            subtype=self.subtype,
+            subtype=self.recorder.subtype,
         )
