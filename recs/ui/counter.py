@@ -1,11 +1,12 @@
 import dataclasses as dc
 import numbers
+import typing as t
 from threading import Lock
 
 import numpy as np
 
 # TODO: isn't there some type comprising these first four?
-Num = int | float | numbers.Integral | numbers.Real | np.ndarray
+Num: t.TypeAlias = int | float | numbers.Integral | numbers.Real | np.ndarray
 
 
 @dc.dataclass
