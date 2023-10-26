@@ -9,6 +9,8 @@ from threa import Runnable
 
 from recs import RECS
 from recs.audio import device
+from recs.audio.channel_writer import ChannelWriter
+from recs.audio.file_creator import FileCreator
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Format
 
@@ -37,12 +39,14 @@ class DeviceRecorder(Runnable):
         from recs.ui.channel_recorder import ChannelRecorder
 
         def channel_recorder(track: Track) -> ChannelRecorder:
-            return ChannelRecorder(
-                channels=track.slice,
-                names=[self.name, track.channels_name],
-                samplerate=self.device.samplerate,
-                recorder=self,
-            )
+            names = self.name, track.channels_name
+            samplerate = self.device.samplerate
+
+            opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
+            creator = FileCreator(names=names, opener=opener, path=RECS.path)
+            writer = ChannelWriter(creator=creator, times=self.times)
+
+            return ChannelRecorder(track=track, writer=writer)
 
         self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
 
@@ -84,6 +88,3 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(callback=self.callback, stop=self.recorder.stop)
-
-    def opener(self, channels: int) -> FileOpener:
-        return FileOpener(channels=channels, samplerate=self.device.samplerate)

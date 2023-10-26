@@ -35,6 +35,10 @@ class Track(hash_cmp.HashCmp):
         return slice(c1 - 1, c1 + bool(c2))
 
     @cached_property
+    def channel_count(self) -> int:
+        return len(self.channels)
+
+    @cached_property
     def channels_name(self) -> str:
         return '-'.join(str(c) for c in self.channels)
 
