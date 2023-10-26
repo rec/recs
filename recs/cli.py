@@ -9,8 +9,9 @@ import sounddevice as sd
 import soundfile as sf
 from typer import rich_utils
 
-from . import RECS, RecsError
+from . import RECS
 from .audio.file_types import DType, Format, Subtype
+from .error import RecsError
 from .ui.recorder import Recorder
 
 rich_utils.STYLE_METAVAR = 'dim yellow'

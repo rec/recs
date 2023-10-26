@@ -1,0 +1,2 @@
+class RecsError(ValueError):
+    pass

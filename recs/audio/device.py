@@ -6,7 +6,6 @@ from functools import cache
 import numpy as np
 import sounddevice as sd
 
-from recs import RECS
 from recs.audio import hash_cmp
 from recs.audio.file_types import DTYPE
 
@@ -24,6 +23,8 @@ class InputDevice(hash_cmp.HashCmp):
     def input_stream(
         self, callback: t.Callable[[np.ndarray], None], stop: t.Callable[[], None]
     ) -> sd.InputStream:
+        stream: sd.InputStream
+
         def cb(indata: np.ndarray, frames: int, time: float, status: int) -> None:
             if status:  # pragma: no cover
                 # This has not yet happened, probably because we never get behind
@@ -47,6 +48,8 @@ class InputDevice(hash_cmp.HashCmp):
                     stop()
                 except Exception:
                     traceback.print_exc()
+
+        from recs.recs import RECS
 
         stream = sd.InputStream(
             callback=cb,

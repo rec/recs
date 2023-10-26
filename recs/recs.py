@@ -10,6 +10,8 @@ from .audio import times
 from .audio.file_types import DTYPE, DType, Format, Subtype
 from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
 from .audio.prefix_dict import PrefixDict
+from .error import RecsError
+from .ui.aliases import Aliases
 
 
 class Subdirectory(StrEnum):
@@ -19,10 +21,6 @@ class Subdirectory(StrEnum):
 
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
-
-
-class RecsError(ValueError):
-    pass
 
 
 @dc.dataclass
@@ -71,6 +69,10 @@ class Recs:
     stop_after_silence: float = 20
     noise_floor: float = 70
     total_run_time: float = 0
+
+    @cached_property
+    def aliases(self) -> Aliases:
+        return Aliases(self.alias)
 
     @cached_property
     def subdirectories(self) -> tuple[Subdirectory, ...]:

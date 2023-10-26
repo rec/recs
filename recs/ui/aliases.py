@@ -52,17 +52,17 @@ class Aliases(PrefixDict[Track]):
         return Track(name, channels)
 
     def split_all(self, names: t.Iterable[str]) -> t.Sequence[Track]:
-        bad_device_names = []
+        bad_track_names = []
         result: list[Track] = []
 
         for name in names:
             try:
                 result.append(self.to_track(name))
             except Exception:
-                bad_device_names.append(name)
+                bad_track_names.append(name)
 
-        if bad_device_names:
-            s = 's' * (len(bad_device_names) != 1)
-            raise ValueError(f'Bad device name{s}: {", ".join(bad_device_names)}')
+        if bad_track_names:
+            s = 's' * (len(bad_track_names) != 1)
+            raise ValueError(f'Bad device name{s}: {", ".join(bad_track_names)}')
 
         return result

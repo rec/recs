@@ -1,3 +1,3 @@
-from .recs import RECS, RecsError
+from .recs import RECS
 
-__all__ = 'RECS', 'RecsError'
+__all__ = ('RECS',)

@@ -1,6 +1,7 @@
 import pytest
 
-from recs import RECS, RecsError
+from recs import RECS
+from recs.error import RecsError
 from recs.ui.recorder import Recorder
 
 

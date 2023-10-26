@@ -1,18 +1,18 @@
 from functools import cached_property
 
-from recs import RecsError
-from recs.audio import device as _device
 from recs.audio import hash_cmp
+from recs.audio.device import InputDevice, input_devices
+from recs.error import RecsError
 
 __all__ = ('Track',)
 
 
 class Track(hash_cmp.HashCmp):
     def __init__(
-        self, device: str | _device.InputDevice, channel: str | tuple[int, ...] = ()
+        self, device: str | InputDevice, channel: str | tuple[int, ...] = ()
     ) -> None:
         if isinstance(device, str):
-            self.device = _device.input_devices()[device]
+            self.device = input_devices()[device]
         else:
             self.device = device
         channels = channel or ()

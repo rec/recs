@@ -5,10 +5,11 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
-from recs import RECS, RecsError
+from recs import RECS
 from recs.audio import device
+from recs.error import RecsError
 
-from . import aliases, live
+from . import live
 from .device_tracks import device_tracks
 
 InputDevice = device.InputDevice
@@ -22,10 +23,9 @@ class Recorder(Runnable):
         super().__init__()
 
         self.start_time = time.time()
-        self.aliases = aliases.Aliases(RECS.alias)
         self.live = live.Live(self.rows)
 
-        dts = device_tracks(self.aliases, RECS.exclude, RECS.include).items()
+        dts = device_tracks(RECS.aliases, RECS.exclude, RECS.include).items()
         self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
 
         if not self.device_recorders:
