@@ -4,8 +4,6 @@ from pathlib import Path
 
 from .audio.file_types import DType, Format, Subtype
 
-TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
-
 
 @dc.dataclass
 class Recs:
@@ -22,7 +20,6 @@ class Recs:
     info: bool = False
     list_subtypes: bool = False
     retain: bool = False
-    timestamp_format: str = TIMESTAMP_FORMAT
     use_locking: bool = True
     verbose: bool = False
     #

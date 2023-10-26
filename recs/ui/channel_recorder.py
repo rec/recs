@@ -43,7 +43,6 @@ class ChannelRecorder:
             opener=self.recorder.opener(channels),
             path=RECS.path,
             times=self.recorder.times,
-            timestamp_format=RECS.timestamp_format,
         )
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

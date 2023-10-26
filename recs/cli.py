@@ -63,9 +63,6 @@ def recs(
     retain: bool = Option(
         RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
     ),
-    timestamp_format: str = Option(
-        RECS.timestamp_format, help='Format string for timestamps'
-    ),
     use_locking: bool = Option(
         RECS.use_locking, '--use-locking', help='Use locking for writing audio files'
     ),

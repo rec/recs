@@ -10,7 +10,6 @@ import soundfile as sf
 import threa
 
 from recs import RECS
-from recs.recs import TIMESTAMP_FORMAT
 
 from . import block, file_creator, file_opener, times
 
@@ -25,7 +24,6 @@ class ChannelWriter(threa.Runnable):
     opener: file_opener.FileOpener
     path: Path
     times: times.Times[int]
-    timestamp_format: str = TIMESTAMP_FORMAT
 
     blocks_written: int = 0
     files_written: int = 0
@@ -102,6 +100,3 @@ class ChannelWriter(threa.Runnable):
     @cached_property
     def _open_new_file(self) -> file_creator.FileCreator:
         return file_creator.FileCreator(self.names, self.opener, self.path)
-
-    def _timestamp(self) -> str:
-        return now().strftime(self.timestamp_format)

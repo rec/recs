@@ -6,11 +6,11 @@ from pathlib import Path
 import soundfile as sf
 
 from recs.audio.legal_filename import legal_filename
-from recs.recs import TIMESTAMP_FORMAT
 
 from . import file_opener
 
 NAME_JOINER = ' + '
+TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
 now = datetime.now
 
@@ -20,7 +20,6 @@ class FileCreator:
     names: t.Sequence[str]
     opener: file_opener.FileOpener
     path: Path
-    timestamp_format: str = TIMESTAMP_FORMAT
 
     def __call__(self) -> sf.SoundFile:
         index = 0
@@ -36,4 +35,4 @@ class FileCreator:
                 suffix = f'_{index}'
 
     def _timestamp(self) -> str:
-        return now().strftime(self.timestamp_format)
+        return now().strftime(TIMESTAMP_FORMAT)
