@@ -1,11 +1,23 @@
 import dataclasses as dc
 import typing as t
+from enum import StrEnum, auto
+from functools import cached_property
 from pathlib import Path
 
 import soundfile as sf
 
 from .audio.file_types import DTYPE, DType, Format, Subtype
 from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
+from .audio.prefix_dict import PrefixDict
+
+
+class Subdirectory(StrEnum):
+    channel = auto()
+    date = auto()
+    device = auto()
+
+
+SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 class RecsError(ValueError):
@@ -59,6 +71,13 @@ class Recs:
     noise_floor: float = 70
     total_run_time: float = 0
 
+    @cached_property
+    def subdirectories(self) -> tuple[Subdirectory, ...]:
+        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
+        if bad_subdirectories := [s for s, t in subs if t is None]:
+            raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
+        return tuple(t for s, t in subs if t is not None)
+
     def __post_init__(self):
         if self.subtype and not sf.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
@@ -70,6 +89,8 @@ class Recs:
             subtype = DTYPE_TO_SUBTYPE.get(self.dtype, None)
             if sf.check_format(RECS.format, subtype):
                 self.subtype = subtype
+
+        self.subdirectories
 
 
 RECS = Recs()
