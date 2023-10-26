@@ -6,6 +6,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from .audio import times
 from .audio.file_types import DTYPE, DType, Format, Subtype
 from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
 from .audio.prefix_dict import PrefixDict
@@ -77,6 +78,11 @@ class Recs:
         if bad_subdirectories := [s for s, t in subs if t is None]:
             raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
         return tuple(t for s, t in subs if t is not None)
+
+    @cached_property
+    def times(self) -> times.Times:
+        fields = (f.name for f in dc.fields(times.Times))
+        return times.Times(**{k: getattr(self, k) for k in fields})
 
     def __post_init__(self):
         if self.subtype and not sf.check_format(self.format, self.subtype):

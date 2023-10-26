@@ -1,5 +1,4 @@
 import contextlib
-import dataclasses as dc
 import time
 import typing as t
 
@@ -7,15 +6,13 @@ from rich.table import Table
 from threa import Runnable
 
 from recs import RECS, RecsError
-from recs.audio import device, times
+from recs.audio import device
 
 from . import aliases, live
 from .device_tracks import device_tracks
 
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
-
-FIELDS = tuple(f.name for f in dc.fields(times.Times))
 
 
 class Recorder(Runnable):
@@ -35,10 +32,6 @@ class Recorder(Runnable):
             raise RecsError('No devices or channels selected')
 
         self.start()
-
-    def times(self, samplerate: float) -> times.Times[int]:
-        s = times.Times(**{k: getattr(RECS, k) for k in FIELDS})
-        return s.scale(samplerate)
 
     def run(self) -> None:
         self.start()

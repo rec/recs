@@ -33,7 +33,7 @@ class DeviceRecorder(Runnable):
         self.stopped.on_set.append(self.recorder.on_stopped)
         self.block_count = Counter()
         self.block_size = Accumulator()
-        self.times = self.recorder.times(self.device.samplerate)
+        self.times = RECS.times.scale(self.device.samplerate)
         self.name = self.recorder.aliases.inv.get(Track(d), d.name)
 
         from recs.ui.channel_recorder import ChannelRecorder
