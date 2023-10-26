@@ -54,12 +54,12 @@ def test_split_all(mock_devices):
 
 def test_error(mock_devices):
     aliases = Aliases(('e', 'Main = fl + 7-8', 'mai=Mic'))
-    aliases.to_track('Main')
+    aliases._to_track('Main')
     with pytest.raises(KeyError) as e:
-        aliases.to_track('Main + 3')
+        aliases._to_track('Main + 3')
     assert e.value.args == ('Alias Main is a device alias: "Main + 3" is not legal',)
 
 
 def test_to_track(mock_devices):
     aliases = Aliases(('e', 'Main = fl + 1', 'mai=Mic'))
-    aliases.to_track('e + 2-3')
+    aliases._to_track('e + 2-3')

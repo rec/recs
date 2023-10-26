@@ -1,6 +1,7 @@
 import typing as t
 
 from recs.audio.prefix_dict import PrefixDict
+from recs.audio.device import InputDevice
 
 from .track import Track
 
@@ -33,7 +34,27 @@ class Aliases(PrefixDict[Track]):
 
         self.inv = {k: v[0] for k, v in sorted(inv.items())}
 
-    def to_track(self, s: str) -> Track:
+    def split_all(self, names: t.Iterable[str]) -> t.Sequence[Track]:
+        bad_track_names = []
+        result: list[Track] = []
+
+        for name in names:
+            try:
+                result.append(self._to_track(name))
+            except Exception:
+                bad_track_names.append(name)
+
+        if bad_track_names:
+            s = 's' * (len(bad_track_names) != 1)
+            raise ValueError(f'Bad device name{s}: {", ".join(bad_track_names)}')
+
+        return result
+
+    def display_name(self, item: InputDevice | Track) -> str:
+        track = Track(item) if isinstance(item, InputDevice) else item
+        return self.inv.get(track, str(item))
+
+    def _to_track(self, s: str) -> Track:
         try:
             return self[s]
         except KeyError:
@@ -50,19 +71,3 @@ class Aliases(PrefixDict[Track]):
             name = track.device.name
 
         return Track(name, channels)
-
-    def split_all(self, names: t.Iterable[str]) -> t.Sequence[Track]:
-        bad_track_names = []
-        result: list[Track] = []
-
-        for name in names:
-            try:
-                result.append(self.to_track(name))
-            except Exception:
-                bad_track_names.append(name)
-
-        if bad_track_names:
-            s = 's' * (len(bad_track_names) != 1)
-            raise ValueError(f'Bad device name{s}: {", ".join(bad_track_names)}')
-
-        return result

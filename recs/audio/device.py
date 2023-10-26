@@ -20,6 +20,9 @@ class InputDevice(hash_cmp.HashCmp):
         self.name = t.cast(str, self.info['name'])
         self._key = self.name
 
+    def __str__(self) -> str:
+        return self.name
+
     def input_stream(
         self, callback: t.Callable[[np.ndarray], None], stop: t.Callable[[], None]
     ) -> sd.InputStream:
