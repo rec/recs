@@ -1,5 +1,4 @@
 import dataclasses as dc
-import typing as t
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +6,7 @@ import soundfile as sf
 
 from recs import RECS
 from recs.audio.legal_filename import legal_filename
+from recs.ui.track import Track
 
 from . import file_opener
 
@@ -19,14 +19,15 @@ RECS.verbose
 
 @dc.dataclass
 class FileCreator:
-    names: t.Sequence[str]
     opener: file_opener.FileOpener
     path: Path
+    track: Track
 
     def __call__(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        name = NAME_JOINER.join((*self.names, self._timestamp()))
+        names = RECS.aliases.display_name(self.track.device), self.track.channels_name
+        name = NAME_JOINER.join((*names, self._timestamp()))
 
         while True:
             p = self.path / legal_filename(name + suffix)

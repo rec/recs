@@ -12,6 +12,7 @@ from recs.audio.file_creator import FileCreator
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Subtype
 from recs.audio.times import Times
+from recs.ui.track import Track
 
 I = [np.array((1, -1, 1, -1), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
 O = [np.array((0, 0, 0, 0), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
@@ -24,12 +25,13 @@ SAMPLERATE = 48_000
 
 TIMES = Times[int](silence_before_start=30, silence_after_end=40, stop_after_silence=50)
 OPENER = FileOpener(channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24)
-CREATOR = FileCreator(names=['test'], opener=OPENER, path=Path('.'))
 
 
 @pytest.mark.parametrize('arrays, segments', [(ARRAYS1, RESULT1), (ARRAYS2, RESULT2)])
 @tdir
-def test_channel_writer(arrays, segments):
+def test_channel_writer(arrays, segments, mock_devices):
+    CREATOR = FileCreator(opener=OPENER, path=Path('.'), track=Track('Ext', '2'))
+
     with ChannelWriter(creator=CREATOR, times=TIMES) as writer:
         [writer.write(block.Block(a)) for a in arrays]
 

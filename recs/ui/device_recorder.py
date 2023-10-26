@@ -39,11 +39,9 @@ class DeviceRecorder(Runnable):
         from recs.ui.channel_recorder import ChannelRecorder
 
         def channel_recorder(track: Track) -> ChannelRecorder:
-            names = self.name, track.channels_name
             samplerate = self.device.samplerate
-
             opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
-            creator = FileCreator(names=names, opener=opener, path=RECS.path)
+            creator = FileCreator(opener=opener, path=RECS.path, track=track)
             writer = ChannelWriter(creator=creator, times=self.times)
 
             return ChannelRecorder(track=track, writer=writer)
