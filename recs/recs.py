@@ -2,7 +2,14 @@ import dataclasses as dc
 import typing as t
 from pathlib import Path
 
-from .audio.file_types import DType, Format, Subtype
+import soundfile as sf
+
+from .audio.file_types import DTYPE, DType, Format, Subtype
+from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
+
+
+class RecsError(ValueError):
+    pass
 
 
 @dc.dataclass
@@ -51,6 +58,18 @@ class Recs:
     stop_after_silence: float = 20
     noise_floor: float = 70
     total_run_time: float = 0
+
+    def __post_init__(self):
+        if self.subtype and not sf.check_format(self.format, self.subtype):
+            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+
+        if self.subtype is not None and self.dtype is None:
+            self.dtype = SUBTYPE_TO_DTYPE.get(self.subtype, DTYPE)
+
+        elif self.subtype is None and self.dtype is not None:
+            subtype = DTYPE_TO_SUBTYPE.get(self.dtype, None)
+            if sf.check_format(RECS.format, subtype):
+                self.subtype = subtype
 
 
 RECS = Recs()

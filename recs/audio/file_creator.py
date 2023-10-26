@@ -5,6 +5,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from recs import RECS
 from recs.audio.legal_filename import legal_filename
 
 from . import file_opener
@@ -13,6 +14,7 @@ NAME_JOINER = ' + '
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 
 now = datetime.now
+RECS.verbose
 
 
 @dc.dataclass

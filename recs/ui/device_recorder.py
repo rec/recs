@@ -8,7 +8,8 @@ import sounddevice as sd
 from threa import Runnable
 
 from recs import RECS
-from recs.audio import device, file_opener
+from recs.audio import device
+from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Format
 
 from .counter import Accumulator, Counter
@@ -82,16 +83,7 @@ class DeviceRecorder(Runnable):
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(
-            callback=self.callback,
-            dtype=self.recorder.dtype,
-            stop=self.recorder.stop,
-        )
+        return self.device.input_stream(callback=self.callback, stop=self.recorder.stop)
 
-    def opener(self, channels: int) -> file_opener.FileOpener:
-        return file_opener.FileOpener(
-            channels=channels,
-            format=RECS.format,
-            samplerate=self.device.samplerate,
-            subtype=self.recorder.subtype,
-        )
+    def opener(self, channels: int) -> FileOpener:
+        return FileOpener(channels=channels, samplerate=self.device.samplerate)

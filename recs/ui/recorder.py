@@ -3,14 +3,11 @@ import dataclasses as dc
 import time
 import typing as t
 
-import soundfile as sf
 from rich.table import Table
 from threa import Runnable
 
 from recs import RECS, RecsError
 from recs.audio import device, times
-from recs.audio.file_types import DTYPE
-from recs.audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
 
 from . import aliases, live
 from .device_tracks import device_tracks
@@ -30,20 +27,6 @@ class Recorder(Runnable):
         self.start_time = time.time()
         self.aliases = aliases.Aliases(RECS.alias)
         self.live = live.Live(self.rows)
-
-        self.subtype = RECS.subtype
-        self.dtype = RECS.dtype
-
-        if self.subtype and not sf.check_format(RECS.format, self.subtype):
-            raise RecsError(f'{RECS.format} and {self.subtype} are incompatible')
-
-        if self.subtype is not None and self.dtype is None:
-            self.dtype = SUBTYPE_TO_DTYPE.get(self.subtype, DTYPE)
-
-        elif self.subtype is None and self.dtype is not None:
-            subtype = DTYPE_TO_SUBTYPE.get(self.dtype, None)
-            if sf.check_format(RECS.format, subtype):
-                self.subtype = subtype
 
         dts = device_tracks(self.aliases, RECS.exclude, RECS.include).items()
         self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)

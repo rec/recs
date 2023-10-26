@@ -1,7 +1,3 @@
-from .recs import RECS
+from .recs import RECS, RecsError
 
 __all__ = 'RECS', 'RecsError'
-
-
-class RecsError(ValueError):
-    pass

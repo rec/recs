@@ -7,7 +7,7 @@ import tdir
 
 import recs.audio.file_types
 from recs.audio import block, channel_writer, file_opener
-from recs.audio.file_types import Format, Subtype
+from recs.audio.file_types import Subtype
 from recs.audio.times import Times
 
 I = [np.array((1, -1, 1, -1), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
@@ -25,17 +25,12 @@ SAMPLERATE = 48_000
 def test_channel_writer(arrays, segments):
     writer = channel_writer.ChannelWriter(
         opener=file_opener.FileOpener(
-            channels=1,
-            format=Format.flac,
-            samplerate=SAMPLERATE,
-            subtype=Subtype.pcm_24,
+            channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24
         ),
         names=['test'],
         path=Path('.'),
         times=Times[int](
-            silence_before_start=30,
-            silence_after_end=40,
-            stop_after_silence=50,
+            silence_before_start=30, silence_after_end=40, stop_after_silence=50
         ),
     )
 

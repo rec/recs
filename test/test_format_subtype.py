@@ -1,7 +1,13 @@
+"""
+This file no longer contains any active tests, but preserves
+some useful exploratory scripts
+"""
+
 from pathlib import Path
 
 import numpy as np
 
+from recs import RECS
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import DTYPE, DType, Format, Subtype
 
@@ -16,13 +22,13 @@ CRASH_SUBTYPES_FORMAT = {
 KWARGS = {'samplerate': 48_000, 'channels': 2}
 
 
-def _writes(format, subtype):
+def _writes(subtype):
     if subtype in (CRASH_SUBTYPES | CRASH_SUBTYPES_FORMAT.get(format, set())):
         return False
 
-    opener = FileOpener(format=format, subtype=subtype, **KWARGS)
+    opener = FileOpener(subtype=subtype, **KWARGS)
     try:
-        with opener.open(Path(f'file.{format}'), 'w') as fp:
+        with opener.open(Path(f'file.{RECS.format}'), 'w') as fp:
             fp.write(BLOCK)
         return True
     except Exception:
@@ -36,6 +42,7 @@ def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **
     import numpy as np
     import soundfile as sf
 
+    RECS.format = format
     f = f'test.{format.strip(".").lower()}'
     with sf.SoundFile(f, mode='w', channels=channels, samplerate=48_000, **ka) as fp:
         for i in range(count):
