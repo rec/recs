@@ -30,7 +30,7 @@ OPENER = FileOpener(channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24)
 @pytest.mark.parametrize('arrays, segments', [(ARRAYS1, RESULT1), (ARRAYS2, RESULT2)])
 @tdir
 def test_channel_writer(arrays, segments, mock_devices):
-    CREATOR = FileCreator(opener=OPENER, path=Path('.'), track=Track('Ext', '2'))
+    CREATOR = FileCreator(opener=OPENER, track=Track('Ext', '2'))
 
     with ChannelWriter(creator=CREATOR, times=TIMES) as writer:
         [writer.write(block.Block(a)) for a in arrays]

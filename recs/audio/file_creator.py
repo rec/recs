@@ -1,6 +1,5 @@
 import dataclasses as dc
 from datetime import datetime
-from pathlib import Path
 
 import soundfile as sf
 
@@ -20,7 +19,6 @@ RECS.verbose
 @dc.dataclass
 class FileCreator:
     opener: file_opener.FileOpener
-    path: Path
     track: Track
 
     def __call__(self) -> sf.SoundFile:
@@ -30,7 +28,7 @@ class FileCreator:
         name = NAME_JOINER.join((*names, self._timestamp()))
 
         while True:
-            p = self.path / legal_filename(name + suffix)
+            p = RECS.path / legal_filename(name + suffix)
             try:
                 return self.opener.open(p, 'w')
             except FileExistsError:
