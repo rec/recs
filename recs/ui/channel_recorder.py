@@ -5,7 +5,7 @@ from functools import cached_property
 import numpy as np
 
 from recs import RECS
-from recs.audio import block, channel_writer
+from recs.audio import block, channel_writer, file_creator
 
 from . import counter, device_recorder
 
@@ -37,13 +37,13 @@ class ChannelRecorder:
     @cached_property
     def channel_writer(self) -> channel_writer.ChannelWriter:
         channels = self.channels.stop - self.channels.start
-
-        return channel_writer.ChannelWriter(
+        creator = file_creator.FileCreator(
             names=self.names,
             opener=self.recorder.opener(channels),
             path=RECS.path,
-            times=self.recorder.times,
         )
+
+        return channel_writer.ChannelWriter(creator=creator, times=self.recorder.times)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {

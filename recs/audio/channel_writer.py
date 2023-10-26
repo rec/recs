@@ -1,9 +1,7 @@
 import contextlib
 import dataclasses as dc
 import typing as t
-from datetime import datetime
 from functools import cached_property
-from pathlib import Path
 from threading import Lock
 
 import soundfile as sf
@@ -11,18 +9,12 @@ import threa
 
 from recs import RECS
 
-from . import block, file_creator, file_opener, times
-
-NAME_JOINER = ' + '
-
-now = datetime.now
+from . import block, file_creator, times
 
 
 @dc.dataclass
 class ChannelWriter(threa.Runnable):
-    names: t.Sequence[str]
-    opener: file_opener.FileOpener
-    path: Path
+    creator: file_creator.FileCreator
     times: times.Times[int]
 
     blocks_written: int = 0
@@ -91,12 +83,8 @@ class ChannelWriter(threa.Runnable):
     def _record(self, blocks: t.Iterable[block.Block]) -> None:
         for b in blocks:
             if not self._sf:
-                self._sf = self._open_new_file()
+                self._sf = self.creator()
                 self.files_written += 1
 
             self._sf.write(b.block)
             self.blocks_written += 1
-
-    @cached_property
-    def _open_new_file(self) -> file_creator.FileCreator:
-        return file_creator.FileCreator(self.names, self.opener, self.path)

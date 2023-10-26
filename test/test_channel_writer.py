@@ -6,7 +6,10 @@ import soundfile as sf
 import tdir
 
 import recs.audio.file_types
-from recs.audio import block, channel_writer, file_opener
+from recs.audio import block
+from recs.audio.channel_writer import ChannelWriter
+from recs.audio.file_creator import FileCreator
+from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Subtype
 from recs.audio.times import Times
 
@@ -19,22 +22,15 @@ ARRAYS2 = (4 * I) + (3 * O) + I + (2000 * O) + (3 * I)
 RESULT2 = [[0, 16, 12, 4, 12], [28, 12]]
 SAMPLERATE = 48_000
 
+TIMES = Times[int](silence_before_start=30, silence_after_end=40, stop_after_silence=50)
+OPENER = FileOpener(channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24)
+CREATOR = FileCreator(names=['test'], opener=OPENER, path=Path('.'))
+
 
 @pytest.mark.parametrize('arrays, segments', [(ARRAYS1, RESULT1), (ARRAYS2, RESULT2)])
 @tdir
 def test_channel_writer(arrays, segments):
-    writer = channel_writer.ChannelWriter(
-        opener=file_opener.FileOpener(
-            channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24
-        ),
-        names=['test'],
-        path=Path('.'),
-        times=Times[int](
-            silence_before_start=30, silence_after_end=40, stop_after_silence=50
-        ),
-    )
-
-    with writer:
+    with ChannelWriter(creator=CREATOR, times=TIMES) as writer:
         [writer.write(block.Block(a)) for a in arrays]
 
     contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
