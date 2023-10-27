@@ -1,7 +1,9 @@
+import json
 import random
 import time
 from datetime import datetime, timedelta
 from functools import cached_property
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -10,6 +12,9 @@ from overrides import override
 from threa import HasThread
 
 from recs.audio import device, file_creator, prefix_dict
+
+DEVICES_FILE = Path(__file__).parent / 'devices.json'
+DEVICES = json.loads(DEVICES_FILE.read_text())
 
 
 def _device(name, channels, samplerate=48_000):
@@ -25,9 +30,9 @@ EXT = _device('Ext', 3, 44_100)
 FLOWER = _device('Flower 8', 10)
 MIC = _device('Mic', 1)
 
-DEVICES = FLOWER, EXT, MIC
+_DEVICES = FLOWER, EXT, MIC
 
-MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in DEVICES})
+MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in _DEVICES})
 BLOCK_SIZE = 128
 SLEEP_TIME = 0.01
 
@@ -110,55 +115,3 @@ def mock_devices(monkeypatch):
     monkeypatch.setattr(file_creator, 'now', now)
     monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(sd, 'query_devices', query_devices)
-
-
-DEVICES = [
-    {
-        "name": "Some output",
-        "index": 0,
-        "hostapi": 0,
-        "max_input_channels": 0,
-        "max_output_channels": 2,
-        "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.009833333333333333,
-        "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.019166666666666665,
-        "default_samplerate": 48000.0,
-    },
-    {
-        "name": "Flower 8",
-        "index": 1,
-        "hostapi": 0,
-        "max_input_channels": 10,
-        "max_output_channels": 4,
-        "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.004354166666666667,
-        "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.0136875,
-        "default_samplerate": 48000.0,
-    },
-    {
-        "name": "Mic",
-        "index": 3,
-        "hostapi": 0,
-        "max_input_channels": 1,
-        "max_output_channels": 0,
-        "default_low_input_latency": 0.033242630385487526,
-        "default_low_output_latency": 0.01,
-        "default_high_input_latency": 0.043401360544217685,
-        "default_high_output_latency": 0.1,
-        "default_samplerate": 44100.0,
-    },
-    {
-        "name": "Ext",
-        "index": 5,
-        "hostapi": 0,
-        "max_input_channels": 3,
-        "max_output_channels": 10,
-        "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.03333333333333333,
-        "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.042666666666666665,
-        "default_samplerate": 48000.0,
-    },
-]
