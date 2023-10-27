@@ -10,7 +10,7 @@ from recs.cli import recs
 
 from .conftest import DEVICES
 
-TESTDATA = Path(__file__).parent / 'testdata' / 'end_to_end'
+TESTDATA = Path(__file__).parent / 'testdata/end_to_end/simple'
 CASES = (False, False), (True, True)
 
 
