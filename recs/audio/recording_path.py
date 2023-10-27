@@ -18,13 +18,13 @@ def recording_path(track: Track) -> tuple[Path, str]:
         return legal_filename(s)
 
     ts = now()
-    date = ts.strftime('%Y/%m/%d')
-    time = ts.strftime('%H%M%S')
+    time = ts.strftime('%Y/%m/%d')
+    hms = ts.strftime('%H%M%S')
 
     pieces: dict[str, str] = {
         'device': display_name(track.device),
         'channel': display_name(track),
-        'date': date,
+        'time': time,
     }
 
     paths: list[str] = []
@@ -34,11 +34,11 @@ def recording_path(track: Track) -> tuple[Path, str]:
 
     file_parts = []
     for k, v in pieces.items():
-        if k == 'date':
+        if k == 'time':
             date = v.replace('/', '')
-            time = f'{date}-{time}'
+            hms = f'{date}-{hms}'
         else:
             file_parts.append(v)
 
-    filename = NAME_JOINER.join([*file_parts, time])
+    filename = NAME_JOINER.join([*file_parts, hms])
     return Path(*paths), filename
