@@ -40,7 +40,8 @@ class Track(hash_cmp.HashCmp):
 
     @cached_property
     def channels_name(self) -> str:
-        return '-'.join(str(c) for c in self.channels)
+        a, b = self.channels[0], self.channels[-1]
+        return f'{a}' if a == b else f'{a}-{b}'
 
     @cached_property
     def _key(self) -> tuple[str, tuple[int, ...]]:
