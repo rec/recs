@@ -11,7 +11,7 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs.audio import device, file_creator, prefix_dict
+from recs.audio import device, prefix_dict, recording_path
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -112,6 +112,6 @@ def query_devices(kind=None):
 @pytest.fixture
 def mock_devices(monkeypatch):
     monkeypatch.setattr(device, 'input_devices', lambda: MOCK_DEVICES)
-    monkeypatch.setattr(file_creator, 'now', now)
+    monkeypatch.setattr(recording_path, 'now', now)
     monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(sd, 'query_devices', query_devices)

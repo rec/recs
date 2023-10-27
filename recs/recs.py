@@ -16,8 +16,8 @@ from .ui.aliases import Aliases
 
 class Subdirectory(StrEnum):
     channel = auto()
-    date = auto()
     device = auto()
+    time = auto()
 
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
@@ -79,7 +79,10 @@ class Recs:
         subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
         if bad_subdirectories := [s for s, t in subs if t is None]:
             raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
-        return tuple(t for s, t in subs if t is not None)
+        res = tuple(t for s, t in subs if t is not None)
+        if len(set(res)) < len(res):
+            raise RecsError(f'Duplicates in --subdirectory {res}')
+        return res
 
     @cached_property
     def times(self) -> times.Times:
