@@ -24,8 +24,7 @@ class FileCreator:
     def __call__(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        names = RECS.aliases.display_name(self.track.device), self.track.channels_name
-        name = NAME_JOINER.join((*names, self._timestamp()))
+        name = self._base_filename()
 
         while True:
             p = RECS.path / legal_filename(name + suffix)
@@ -35,5 +34,7 @@ class FileCreator:
                 index += 1
                 suffix = f'_{index}'
 
-    def _timestamp(self) -> str:
-        return now().strftime(TIMESTAMP_FORMAT)
+    def _base_filename(self) -> str:
+        names = RECS.aliases.display_name(self.track.device), self.track.channels_name
+        timestamp = now().strftime(TIMESTAMP_FORMAT)
+        return NAME_JOINER.join([*names, timestamp])
