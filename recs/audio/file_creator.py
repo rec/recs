@@ -21,6 +21,7 @@ class FileCreator:
 
         while True:
             p = RECS.path / path / legal_filename.legal_filename(name + suffix)
+            p.parent.mkdir(exist_ok=True, parents=True)
             try:
                 return self.opener.open(p, 'w')
             except FileExistsError:
