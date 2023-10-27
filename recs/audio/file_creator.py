@@ -5,7 +5,7 @@ import soundfile as sf
 
 from recs import RECS
 from recs.audio.legal_filename import legal_filename
-from recs.ui.track import Track
+from recs.audio.track import Track
 
 from . import file_opener
 

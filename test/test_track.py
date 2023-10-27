@@ -1,6 +1,6 @@
 import pytest
 
-from recs.ui.track import Track
+from recs.audio.track import Track
 
 OK = 'flow', 'f', 'e', 'f + 9-10', 'f + 8', 'f + 8-9'
 KEY_ERRORS = 'flaw', 'a'

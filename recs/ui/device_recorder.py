@@ -13,10 +13,10 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_creator import FileCreator
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Format
+from recs.audio.track import Track
 
 from .counter import Accumulator, Counter
 from .recorder import Recorder
-from .track import Track
 
 if t.TYPE_CHECKING:
     from .ui.channel_recorder import ChannelRecorder

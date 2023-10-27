@@ -1,9 +1,9 @@
 import typing as t
 
 from recs.audio import device
+from recs.audio.track import Track
 
 from .aliases import Aliases
-from .track import Track
 
 
 def device_tracks(

@@ -4,9 +4,9 @@ import typing as t
 import numpy as np
 
 from recs import RECS
-from recs.audio import block, channel_writer
+from recs.audio import block, channel_writer, track
 
-from . import counter, track
+from . import counter
 
 
 @dc.dataclass
