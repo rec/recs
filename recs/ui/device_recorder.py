@@ -27,23 +27,21 @@ class DeviceRecorder(Runnable):
         self, d: device.InputDevice, recorder: Recorder, tracks: t.Sequence[Track]
     ) -> None:
         super().__init__()
+        self.stopped.on_set.append(recorder.on_stopped)
 
-        self.device = d
-        self.recorder = recorder
-        self.stopped.on_set.append(self.recorder.on_stopped)
         self.block_count = Counter()
         self.block_size = Accumulator()
-        self.times = RECS.times.scale(self.device.samplerate)
+        self.device = d
         self.name = RECS.aliases.display_name(d)
+        self.recorder = recorder
+        self.times = RECS.times.scale(d.samplerate)
 
         from recs.ui.channel_recorder import ChannelRecorder
 
         def channel_recorder(track: Track) -> ChannelRecorder:
-            samplerate = self.device.samplerate
-            opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
+            opener = FileOpener(channels=track.channel_count, samplerate=d.samplerate)
             creator = FileCreator(opener=opener, track=track)
             writer = ChannelWriter(creator=creator, times=self.times)
-
             return ChannelRecorder(track=track, writer=writer)
 
         self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
@@ -85,4 +83,4 @@ class DeviceRecorder(Runnable):
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(callback=self.callback, stop=self.recorder.stop)
+        return self.device.input_stream(callback=self.callback, stop=self.stop)
