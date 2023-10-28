@@ -8,11 +8,12 @@ import sounddevice as sd
 from threa import Runnable
 
 from recs import RECS
-from recs.audio import device
+from recs.audio import channel_writer, device
 from recs.audio.file_types import Format
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator, Counter
 
+from .channel_recorder import ChannelRecorder
 from .recorder import Recorder
 
 
@@ -33,11 +34,10 @@ class DeviceRecorder(Runnable):
         from recs.ui import channel_recorder
 
         def make(track: Track) -> channel_recorder.ChannelRecorder:
-            return channel_recorder.make(
-                samplerate=d.samplerate,
-                track=track,
-                times=self.times,
+            writer = channel_writer.ChannelWriter(
+                samplerate=d.samplerate, times=self.times, track=track
             )
+            return ChannelRecorder(writer=writer)
 
         self.channel_recorders = tuple(make(t) for t in tracks)
 

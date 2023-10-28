@@ -4,12 +4,10 @@ import typing as t
 import numpy as np
 
 from recs import RECS
-from recs.audio import channel_writer, file_opener
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator
-from recs.misc.times import Times
 
 
 @dc.dataclass
@@ -45,9 +43,3 @@ class ChannelRecorder:
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
         }
-
-
-def make(samplerate: int, track: Track, times: Times[int]) -> ChannelRecorder:
-    opener = file_opener.FileOpener(channels=track.channel_count, samplerate=samplerate)
-    writer = channel_writer.ChannelWriter(opener=opener, times=times, track=track)
-    return ChannelRecorder(writer=writer)

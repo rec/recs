@@ -36,15 +36,15 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
-    def __init__(self, opener: FileOpener, times: Times[int], track: Track) -> None:
+    def __init__(self, samplerate: int, times: Times[int], track: Track) -> None:
         super().__init__()
 
-        self.opener = opener
         self.times = times
         self.track = track
+        self.opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
         self._blocks = Blocks()
 
-        self.frame_size = ITEMSIZE[RECS.dtype or DTYPE] * opener.channels
+        self.frame_size = ITEMSIZE[RECS.dtype or DTYPE] * track.channel_count
         self.longest_file_frames = times.longest_file_time
 
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
