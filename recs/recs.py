@@ -74,25 +74,6 @@ class Recs:
     stop_after_silence: float = 20
     total_run_time: float = 0
 
-    @cached_property
-    def aliases(self) -> Aliases:
-        return Aliases(self.alias)
-
-    @cached_property
-    def subdirectories(self) -> tuple[Subdirectory, ...]:
-        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
-        if bad_subdirectories := [s for s, t in subs if t is None]:
-            raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
-        res = tuple(t for s, t in subs if t is not None)
-        if len(set(res)) < len(res):
-            raise RecsError(f'Duplicates in --subdirectory {res}')
-        return res
-
-    @cached_property
-    def times(self) -> times.Times:
-        fields = (f.name for f in dc.fields(times.Times))
-        return times.Times(**{k: getattr(self, k) for k in fields})
-
     def __post_init__(self):
         if self.subtype and not sf.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
@@ -106,6 +87,28 @@ class Recs:
                 self.subtype = subtype
 
         self.subdirectories
+
+    @cached_property
+    def aliases(self) -> Aliases:
+        return Aliases(self.alias)
+
+    @cached_property
+    def subdirectories(self) -> tuple[Subdirectory, ...]:
+        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
+        res = tuple(t for s, t in subs if t is not None)
+
+        if bad_subdirectories := [s for s, t in subs if t is None]:
+            raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
+
+        if len(set(res)) < len(res):
+            raise RecsError(f'Duplicates in --subdirectory {res}')
+
+        return res
+
+    @cached_property
+    def times(self) -> times.Times:
+        fields = (f.name for f in dc.fields(times.Times))
+        return times.Times(**{k: getattr(self, k) for k in fields})
 
 
 RECS = Recs()
