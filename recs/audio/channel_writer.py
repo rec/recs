@@ -1,15 +1,13 @@
-import contextlib
 import typing as t
-from functools import cached_property
 from threading import Lock
 
+import numpy as np
 from soundfile import SoundFile
 from threa import Runnable
 
 from recs import RECS
-from recs.misc import legal_filename, recording_path
+from recs.misc import legal_filename, recording_path, times
 
-from ..misc.times import Times
 from .block import Block, Blocks
 from .file_opener import FileOpener
 from .file_types import DTYPE, DType, Format
@@ -36,19 +34,21 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
-    def __init__(self, samplerate: int, times: Times[int], track: Track) -> None:
+    def __init__(self, samplerate: int, times: times.Times[int], track: Track) -> None:
         super().__init__()
 
         self.times = times
         self.track = track
-        self.opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
-        self._blocks = Blocks()
 
-        self.frame_size = ITEMSIZE[RECS.dtype or DTYPE] * track.channel_count
+        self._blocks = Blocks()
+        self._lock = Lock()
+        self._opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
+
         self.longest_file_frames = times.longest_file_time
 
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
-            max_frames = (max_size - LARGEST_FRAME) // self.frame_size
+            frame_size = ITEMSIZE[RECS.dtype or DTYPE] * track.channel_count
+            max_frames = (max_size - LARGEST_FRAME) // frame_size
             self.longest_file_frames = min(max_frames, self.longest_file_frames)
 
         self.start()
@@ -85,12 +85,6 @@ class ChannelWriter(Runnable):
 
             self.stopped.set()
 
-    @cached_property
-    def _lock(self):
-        if RECS.use_locking:
-            return Lock()
-        return contextlib.nullcontext()
-
     def _record_on_not_silence(self) -> None:
         if not self._sf:
             length = self.times.silence_before_start + len(self._blocks[-1])
@@ -113,20 +107,10 @@ class ChannelWriter(Runnable):
         self._close_file()
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
-        def write(a):
-            if not self._sf:
-                self._sf = self._creator()
-                self.files_written += 1
-                self.frames_in_this_file = 0
-
-            self._sf.write(a)
-            self.blocks_written += 1
-            self.frames_in_this_file += len(a)
-
         for b in blocks:
             remains = self.longest_file_frames - self.frames_in_this_file
             if self.longest_file_frames and remains <= len(b):
-                write(b.block[:remains])
+                self._write(b.block[:remains])
                 self._close_file()
 
                 if remains == len(b):
@@ -134,7 +118,17 @@ class ChannelWriter(Runnable):
 
                 b = b[remains:]
 
-            write(b.block)
+            self._write(b.block)
+
+    def _write(self, a: np.ndarray) -> None:
+        if not self._sf:
+            self._sf = self._creator()
+            self.files_written += 1
+            self.frames_in_this_file = 0
+
+        self._sf.write(a)
+        self.blocks_written += 1
+        self.frames_in_this_file += len(a)
 
     def _creator(self) -> SoundFile:
         index = 0
@@ -145,7 +139,7 @@ class ChannelWriter(Runnable):
             p = RECS.path / path / legal_filename.legal_filename(name + suffix)
             p.parent.mkdir(exist_ok=True, parents=True)
             try:
-                return self.opener.open(p, 'w')
+                return self._opener.open(p, 'w')
             except FileExistsError:
                 index += 1
                 suffix = f'_{index}'

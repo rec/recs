@@ -42,7 +42,6 @@ class Recs:
     info: bool = False
     list_subtypes: bool = False
     retain: bool = False
-    use_locking: bool = True
     verbose: bool = False
     #
     # Aliases for input devices or channels

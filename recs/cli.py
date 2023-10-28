@@ -61,9 +61,6 @@ def recs(
     retain: bool = Option(
         RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
     ),
-    use_locking: bool = Option(
-        RECS.use_locking, '--use-locking', help='Use locking for writing audio files'
-    ),
     verbose: bool = Option(
         RECS.verbose, '-v', '--verbose', help='Print full stack traces'
     ),
