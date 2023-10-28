@@ -65,7 +65,6 @@ TABLE_FORMATTER = TableFormatter(
     device=None,
     channel=None,
     count=_to_str,
-    block=_to_str,
     rms=None,
     rms_mean=None,
     volume=None,

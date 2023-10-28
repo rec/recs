@@ -15,9 +15,6 @@ from recs.misc.counter import Accumulator, Counter
 
 from .recorder import Recorder
 
-if t.TYPE_CHECKING:
-    pass
-
 
 class DeviceRecorder(Runnable):
     def __init__(
@@ -65,11 +62,7 @@ class DeviceRecorder(Runnable):
             self.stop()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'block': self.block_size.value,
-            'count': self.block_count.value,
-            'device': self.name,
-        }
+        yield {'count': self.block_count.value, 'device': self.name}
         for v in self.channel_recorders:
             yield from v.rows()
 

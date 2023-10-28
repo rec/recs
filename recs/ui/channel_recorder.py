@@ -14,12 +14,15 @@ from recs.misc.times import Times
 
 @dc.dataclass
 class ChannelRecorder:
-    track: Track
     writer: ChannelWriter
 
     volume: Accumulator = dc.field(default_factory=Accumulator)
     block_count: int = 0
     rms: Accumulator = dc.field(default_factory=Accumulator)
+
+    @property
+    def track(self) -> Track:
+        return self.writer.creator.track
 
     def callback(self, array: np.ndarray) -> None:
         b = Block(array[:, self.track.slice])
@@ -31,8 +34,7 @@ class ChannelRecorder:
             self.writer.write(b)
 
     def stop(self) -> None:
-        if not RECS.dry_run:
-            self.writer.stop()
+        self.writer.stop()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
@@ -50,4 +52,4 @@ def make(samplerate: int, track: Track, times: Times[int]) -> ChannelRecorder:
     creator = file_creator.FileCreator(opener=opener, track=track)
     writer = channel_writer.ChannelWriter(creator=creator, times=times)
 
-    return ChannelRecorder(track=track, writer=writer)
+    return ChannelRecorder(writer=writer)
