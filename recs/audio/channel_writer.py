@@ -109,11 +109,13 @@ class ChannelWriter(Runnable):
         def write(a):
             self._sf.write(a)
             self.blocks_written += 1
+            self.frames_in_this_file += len(a)
 
         for b in blocks:
             remains = self.longest_file_frames - self.frames_in_this_file
             if self.longest_file_frames and remains <= len(b):
                 assert self._sf, 'Tiny file length'
+
                 write(b.block[:remains])
 
                 self._sf.close()
@@ -129,6 +131,4 @@ class ChannelWriter(Runnable):
                 self.files_written += 1
                 self.frames_in_this_file = 0
 
-            self._sf.write(b.block)
-            self.frames_in_this_file += len(b)
-            self.blocks_written += 1
+            write(b.block)
