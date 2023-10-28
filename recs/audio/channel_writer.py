@@ -53,6 +53,20 @@ class ChannelWriter(Runnable):
 
         self.start()
 
+    def stop(self) -> None:
+        with self._lock:
+            self.running.clear()
+
+            if self._blocks:
+                self._record(self._blocks)
+                self._blocks.clear()
+
+            if self._sf:
+                self._sf.close()
+                self._sf = None
+
+            self.stopped.set()
+
     def write(self, block: Block) -> None:
         with self._lock:
             if not (self.running or self._sf):
@@ -71,28 +85,6 @@ class ChannelWriter(Runnable):
                 self._close_on_silence()
                 return
 
-    def stop(self) -> None:
-        with self._lock:
-            self.running.clear()
-
-            if self._blocks:
-                self._record(self._blocks)
-                self._blocks.clear()
-
-            if self._sf:
-                self._sf.close()
-                self._sf = None
-
-            self.stopped.set()
-
-    def _record_on_not_silence(self) -> None:
-        if not self._sf:
-            length = self.times.silence_before_start + len(self._blocks[-1])
-            self._blocks.clip(length, from_start=True)
-
-        self._record(self._blocks)
-        self._blocks.clear()
-
     def _close_file(self):
         if self._sf:
             self._sf.close()
@@ -105,6 +97,20 @@ class ChannelWriter(Runnable):
             self._record(reversed(removed))
 
         self._close_file()
+
+    def _new_file(self) -> SoundFile:
+        index = 0
+        suffix = ''
+        path, name = recording_path.recording_path(self.track)
+
+        while True:
+            p = RECS.path / path / legal_filename.legal_filename(name + suffix)
+            p.parent.mkdir(exist_ok=True, parents=True)
+            try:
+                return self._opener.open(p, 'w')
+            except FileExistsError:
+                index += 1
+                suffix = f'_{index}'
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
@@ -120,26 +126,20 @@ class ChannelWriter(Runnable):
 
             self._write(b.block)
 
+    def _record_on_not_silence(self) -> None:
+        if not self._sf:
+            length = self.times.silence_before_start + len(self._blocks[-1])
+            self._blocks.clip(length, from_start=True)
+
+        self._record(self._blocks)
+        self._blocks.clear()
+
     def _write(self, a: np.ndarray) -> None:
         if not self._sf:
-            self._sf = self._creator()
+            self._sf = self._new_file()
             self.files_written += 1
             self.frames_in_this_file = 0
 
         self._sf.write(a)
         self.blocks_written += 1
         self.frames_in_this_file += len(a)
-
-    def _creator(self) -> SoundFile:
-        index = 0
-        suffix = ''
-        path, name = recording_path.recording_path(self.track)
-
-        while True:
-            p = RECS.path / path / legal_filename.legal_filename(name + suffix)
-            p.parent.mkdir(exist_ok=True, parents=True)
-            try:
-                return self._opener.open(p, 'w')
-            except FileExistsError:
-                index += 1
-                suffix = f'_{index}'
