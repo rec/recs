@@ -2,10 +2,9 @@ from datetime import datetime
 from pathlib import Path
 
 from recs import RECS
-
-from .device import InputDevice
-from .legal_filename import legal_filename
-from .track import Track
+from recs.audio.device import InputDevice
+from recs.audio.track import Track
+from recs.misc.legal_filename import legal_filename
 
 now = datetime.now
 

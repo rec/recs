@@ -7,7 +7,7 @@ from threa import Runnable
 
 from recs import RECS
 from recs.audio import device
-from recs.error import RecsError
+from recs.misc import RecsError
 
 from . import live
 from .device_tracks import device_tracks

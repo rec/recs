@@ -6,10 +6,10 @@ from functools import cache
 import numpy as np
 import sounddevice as sd
 
-from recs.audio import hash_cmp
 from recs.audio.file_types import DTYPE
+from recs.misc.prefix_dict import PrefixDict
 
-from .prefix_dict import PrefixDict
+from ..misc import hash_cmp
 
 
 class InputDevice(hash_cmp.HashCmp):

@@ -11,7 +11,8 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs.audio import device, prefix_dict, recording_path
+from recs.audio import device
+from recs.misc import prefix_dict, recording_path
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())

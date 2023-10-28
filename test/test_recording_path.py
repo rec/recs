@@ -1,7 +1,7 @@
 import pytest
 
-from recs.audio.recording_path import recording_path
 from recs.audio.track import Track
+from recs.misc.recording_path import recording_path
 from recs.recs import RECS, Subdirectory
 
 _channel, _device, _time = Subdirectory.channel, Subdirectory.device, Subdirectory.time

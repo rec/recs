@@ -6,7 +6,7 @@ import numpy as np
 from recs import RECS
 from recs.audio import block, channel_writer, track
 
-from . import counter
+from ..misc import counter
 
 
 @dc.dataclass

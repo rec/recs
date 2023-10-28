@@ -11,8 +11,8 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_creator import FileCreator
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Subtype
-from recs.audio.times import Times
 from recs.audio.track import Track
+from recs.misc.times import Times
 
 I = [np.array((1, -1, 1, -1), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
 O = [np.array((0, 0, 0, 0), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741

@@ -2,7 +2,7 @@ import dataclasses as dc
 
 import pytest
 
-from recs.audio import times
+from recs.misc import times
 
 
 @pytest.mark.parametrize('db', (-10, 0, 3.1, 35, 123))

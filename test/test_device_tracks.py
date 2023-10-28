@@ -1,5 +1,5 @@
 from recs.audio.track import Track
-from recs.ui.aliases import Aliases
+from recs.misc.aliases import Aliases
 from recs.ui.device_tracks import device_track, device_tracks
 
 from .conftest import EXT, FLOWER, MIC

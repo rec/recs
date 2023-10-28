@@ -6,8 +6,9 @@ import click
 import dtyper
 from typer import rich_utils
 
+from recs.misc import RecsError
+
 from .audio.file_types import DType, Format, Subtype
-from .error import RecsError
 from .recs import RECS, run_recs
 
 rich_utils.STYLE_METAVAR = 'dim yellow'

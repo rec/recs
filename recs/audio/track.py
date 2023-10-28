@@ -1,8 +1,7 @@
 from functools import cached_property
 
-from recs.audio import hash_cmp
 from recs.audio.device import InputDevice, input_devices
-from recs.error import RecsError
+from recs.misc import RecsError, hash_cmp
 
 __all__ = ('Track',)
 

@@ -2,8 +2,7 @@ import typing as t
 
 from recs.audio import device
 from recs.audio.track import Track
-
-from .aliases import Aliases
+from recs.misc.aliases import Aliases
 
 
 def device_tracks(

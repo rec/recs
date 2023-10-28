@@ -9,7 +9,8 @@ import threa
 
 from recs import RECS
 
-from . import block, file_creator, times
+from ..misc import times
+from . import block, file_creator
 
 
 @dc.dataclass

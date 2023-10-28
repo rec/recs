@@ -4,7 +4,8 @@ import soundfile as sf
 
 from recs import RECS
 
-from . import file_opener, legal_filename, recording_path, track
+from ..misc import legal_filename, recording_path
+from . import file_opener, track
 
 TIMESTAMP_FORMAT = '%Y%m%d-%H%M%S'
 

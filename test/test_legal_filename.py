@@ -1,6 +1,6 @@
 import tdir
 
-from recs.audio.legal_filename import legal_filename
+from recs.misc.legal_filename import legal_filename
 
 
 @tdir

@@ -8,12 +8,13 @@ from pathlib import Path
 import sounddevice as sd
 import soundfile as sf
 
-from .audio import times
+from recs.misc import RecsError
+from recs.misc.aliases import Aliases
+from recs.misc.prefix_dict import PrefixDict
+
 from .audio.file_types import DTYPE, DType, Format, Subtype
 from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
-from .audio.prefix_dict import PrefixDict
-from .error import RecsError
-from .ui.aliases import Aliases
+from .misc import times
 
 
 class Subdirectory(StrEnum):
