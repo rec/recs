@@ -1,35 +1,34 @@
 import contextlib
-import dataclasses as dc
 import typing as t
 from functools import cached_property
 from threading import Lock
 
-import soundfile as sf
-import threa
+from soundfile import SoundFile
+from threa import Runnable
 
 from recs import RECS
 
-from ..misc import times
-from . import block, file_creator
+from ..misc.times import Times
+from .block import Block, Blocks
+from .file_creator import FileCreator
 
 
-@dc.dataclass
-class ChannelWriter(threa.Runnable):
-    creator: file_creator.FileCreator
-    times: times.Times[int]
-
+class ChannelWriter(Runnable):
     blocks_written: int = 0
     files_written: int = 0
     samples_seen: int = 0
 
-    _blocks: block.Blocks = dc.field(default_factory=block.Blocks)
-    _sf: sf.SoundFile | None = None
+    _sf: SoundFile | None = None
 
-    def __post_init__(self):
+    def __init__(self, creator: FileCreator, times: Times[int]) -> None:
         super().__init__()
         self.start()
 
-    def write(self, block: block.Block) -> None:
+        self.creator = creator
+        self.times = times
+        self._blocks = Blocks()
+
+    def write(self, block: Block) -> None:
         with self._lock:
             if not self.running:
                 return
@@ -81,7 +80,7 @@ class ChannelWriter(threa.Runnable):
             self._sf.close()
             self._sf = None
 
-    def _record(self, blocks: t.Iterable[block.Block]) -> None:
+    def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
             if not self._sf:
                 self._sf = self.creator()
