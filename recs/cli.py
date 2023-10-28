@@ -1,18 +1,14 @@
-import json
 import string
 import sys
 from pathlib import Path
 
 import click
 import dtyper
-import sounddevice as sd
-import soundfile as sf
 from typer import rich_utils
 
-from . import RECS
 from .audio.file_types import DType, Format, Subtype
 from .error import RecsError
-from .ui.recorder import Recorder
+from .recs import RECS, run_recs
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
@@ -138,18 +134,7 @@ def recs(
     for k, v in list(locals().items()):
         setattr(RECS, k, v)
 
-    if RECS.info:
-        info = sd.query_devices(kind=None)
-        print(json.dumps(info, indent=4))
-
-    elif RECS.list_subtypes:
-        avail = sf.available_formats()
-        fmts = [f.upper() for f in Format]
-        formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
-        print(json.dumps(formats, indent=4))
-
-    else:
-        Recorder().run()
+    run_recs()
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))

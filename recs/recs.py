@@ -1,9 +1,11 @@
 import dataclasses as dc
+import json
 import typing as t
 from enum import StrEnum, auto
 from functools import cached_property
 from pathlib import Path
 
+import sounddevice as sd
 import soundfile as sf
 
 from .audio import times
@@ -105,3 +107,20 @@ class Recs:
 
 
 RECS = Recs()
+
+
+def run_recs() -> None:
+    from .ui.recorder import Recorder
+
+    if RECS.info:
+        info = sd.query_devices(kind=None)
+        print(json.dumps(info, indent=4))
+
+    elif RECS.list_subtypes:
+        avail = sf.available_formats()
+        fmts = [f.upper() for f in Format]
+        formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
+        print(json.dumps(formats, indent=4))
+
+    else:
+        Recorder().run()

@@ -6,34 +6,43 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.cli import recs
+from recs.recs import RECS, run_recs
 
 from .conftest import DEVICES
 
-TESTDATA = Path(__file__).parent / 'testdata/end_to_end/simple'
-CASES = (False, False), (True, True)
+TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
+CASES = (
+    ('simple', False, False, ()),
+    ('simple', True, True, ()),
+    ('time', False, False, ('time',)),
+    ('device_channel', False, False, ('device', 'channel')),
+)
 
 
-@pytest.mark.parametrize('dry_run, quiet', CASES)
+@pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
 @tdir
-def test_end_to_end(dry_run, quiet, mock_devices):
-    recs(
-        dry_run=dry_run,
-        quiet=quiet,
-        total_run_time=0.1,
-    )
+def test_end_to_end(path, dry_run, quiet, subs, mock_devices, monkeypatch):
+    monkeypatch.setattr(RECS, 'dry_run', dry_run)
+    monkeypatch.setattr(RECS, 'quiet', quiet)
+    monkeypatch.setattr(RECS, 'subdirectories', subs)
+    monkeypatch.setattr(RECS, 'total_run_time', 0.1)
 
-    actual = sorted(Path().glob('*.flac'))
+    run_recs()
+
+    actual = sorted(Path().glob('**/*.flac'))
 
     if dry_run:
         assert not actual
         return
 
-    expected = sorted(TESTDATA.glob('*.flac'))
+    tdata = TESTDATA / path
+    expected = sorted(tdata.glob('*.flac'))
 
     if not expected:
         for a in actual:
-            (TESTDATA / a).write_bytes(a.read_bytes())
+            f = tdata / a
+            f.parent.mkdir(exist_ok=True, parents=True)
+            f.write_bytes(a.read_bytes())
         return
 
     assert [p.name for p in actual] == [p.name for p in expected]
@@ -49,7 +58,8 @@ def test_end_to_end(dry_run, quiet, mock_devices):
     assert differs_contents == []
 
 
-def test_info(mock_devices, capsys):
-    recs(info=True)
+def test_info(mock_devices, capsys, monkeypatch):
+    monkeypatch.setattr(RECS, 'info', True)
+    run_recs()
     actual = json.loads(capsys.readouterr().out)
     assert actual == DEVICES
