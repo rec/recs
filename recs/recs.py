@@ -67,10 +67,11 @@ class Recs:
     #
     # Settings relating to times
     #
-    silence_before_start: float = 1
-    silence_after_end: float = 2
-    stop_after_silence: float = 20
+    max_file_time: float = 0
     noise_floor: float = 70
+    silence_after_end: float = 2
+    silence_before_start: float = 1
+    stop_after_silence: float = 20
     total_run_time: float = 0
 
     @cached_property

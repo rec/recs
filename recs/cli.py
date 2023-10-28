@@ -105,11 +105,11 @@ def recs(
     #
     # Settings relating to times
     #
-    silence_before_start: float = Option(
-        RECS.silence_before_start,
-        '-b',
-        '--silence-before-start',
-        help='Silence before the start, in seconds',
+    max_file_time: float = Option(
+        RECS.max_file_time, help='Max amount of time per file: 0 means unlimited'
+    ),
+    noise_floor: float = Option(
+        RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'
     ),
     silence_after_end: float = Option(
         RECS.silence_after_end,
@@ -117,13 +117,16 @@ def recs(
         '--silence-after-end',
         help='Silence after the end, in seconds',
     ),
+    silence_before_start: float = Option(
+        RECS.silence_before_start,
+        '-b',
+        '--silence-before-start',
+        help='Silence before the start, in seconds',
+    ),
     stop_after_silence: float = Option(
         RECS.stop_after_silence,
         '--stop-after-silence',
         help='Stop recs after silence',
-    ),
-    noise_floor: float = Option(
-        RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'
     ),
     total_run_time: float = Option(
         RECS.total_run_time,
