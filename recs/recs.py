@@ -1,6 +1,7 @@
 import dataclasses as dc
 import json
 import typing as t
+import warnings
 from enum import StrEnum, auto
 from functools import cached_property
 from pathlib import Path
@@ -83,8 +84,11 @@ class Recs:
 
         elif self.subtype is None and self.dtype is not None:
             subtype = DTYPE_TO_SUBTYPE.get(self.dtype, None)
-            if sf.check_format(RECS.format, subtype):
+            if sf.check_format(self.format, subtype):
                 self.subtype = subtype
+            else:
+                msg = f'{self.format=:s}, {self.dtype=:s}'
+                warnings.warn(f"Can't get subtype for {msg}")
 
         self.subdirectories
 
@@ -98,10 +102,10 @@ class Recs:
         res = tuple(t for s, t in subs if t is not None)
 
         if bad_subdirectories := [s for s, t in subs if t is None]:
-            raise RecsError(f'Bad arguments to --subdirectory {bad_subdirectories}')
+            raise RecsError(f'Bad arguments to --subdirectory: {bad_subdirectories}')
 
         if len(set(res)) < len(res):
-            raise RecsError(f'Duplicates in --subdirectory {res}')
+            raise RecsError('Duplicates in --subdirectory')
 
         return res
 
