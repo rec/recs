@@ -22,6 +22,9 @@ class Times(t.Generic[T]):
     to samples when we find out the sample rate
     """
 
+    #: Longest amount of time per file: 0 means infinite
+    longest_file_time: T = t.cast(T, 0)
+
     #: Amount of silence at the start
     silence_before_start: T = t.cast(T, 0)
 

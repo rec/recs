@@ -105,8 +105,8 @@ def recs(
     #
     # Settings relating to times
     #
-    max_file_time: float = Option(
-        RECS.max_file_time, help='Max amount of time per file: 0 means unlimited'
+    longest_file_time: float = Option(
+        RECS.longest_file_time, help='Longest amount of time per file: 0 means infinite'
     ),
     noise_floor: float = Option(
         RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'

@@ -67,7 +67,7 @@ class Recs:
     #
     # Settings relating to times
     #
-    max_file_time: float = 0
+    longest_file_time: float = 0
     noise_floor: float = 70
     silence_after_end: float = 2
     silence_before_start: float = 1
