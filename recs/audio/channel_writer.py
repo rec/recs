@@ -7,11 +7,13 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs import RECS
+from recs.misc import legal_filename, recording_path
 
 from ..misc.times import Times
 from .block import Block, Blocks
-from .file_creator import FileCreator
+from .file_opener import FileOpener
 from .file_types import DTYPE, DType, Format
+from .track import Track
 
 LARGEST_FRAME = 0x100
 SIZE_RESTRICTIONS = {
@@ -34,20 +36,22 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
-    def __init__(self, creator: FileCreator, times: Times[int]) -> None:
+    def __init__(self, opener: FileOpener, times: Times[int], track: Track) -> None:
         super().__init__()
-        self.start()
 
-        self.creator = creator
+        self.opener = opener
         self.times = times
+        self.track = track
         self._blocks = Blocks()
 
-        self.frame_size = ITEMSIZE[RECS.dtype or DTYPE] * creator.opener.channels
+        self.frame_size = ITEMSIZE[RECS.dtype or DTYPE] * opener.channels
         self.longest_file_frames = times.longest_file_time
 
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
             max_frames = (max_size - LARGEST_FRAME) // self.frame_size
             self.longest_file_frames = min(max_frames, self.longest_file_frames)
+
+        self.start()
 
     def write(self, block: Block) -> None:
         with self._lock:
@@ -111,7 +115,7 @@ class ChannelWriter(Runnable):
     def _record(self, blocks: t.Iterable[Block]) -> None:
         def write(a):
             if not self._sf:
-                self._sf = self.creator()
+                self._sf = self._creator()
                 self.files_written += 1
                 self.frames_in_this_file = 0
 
@@ -131,3 +135,17 @@ class ChannelWriter(Runnable):
                 b = b[remains:]
 
             write(b.block)
+
+    def _creator(self) -> SoundFile:
+        index = 0
+        suffix = ''
+        path, name = recording_path.recording_path(self.track)
+
+        while True:
+            p = RECS.path / path / legal_filename.legal_filename(name + suffix)
+            p.parent.mkdir(exist_ok=True, parents=True)
+            try:
+                return self.opener.open(p, 'w')
+            except FileExistsError:
+                index += 1
+                suffix = f'_{index}'
