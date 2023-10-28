@@ -37,12 +37,11 @@ def test_channel_writer(arrays, segments, longest_file_time, mock_devices, monke
     track = Track('Ext', '2')
     times = Times[int](longest_file_time=longest_file_time, **TIMES)
 
-    with ChannelWriter(samplerate=SAMPLERATE, times=times, track=track) as writer:
+    with ChannelWriter(times=times, track=track) as writer:
         [writer.write(Block(a)) for a in arrays]
 
     contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
 
-    assert all(s == SAMPLERATE for s in samplerates)
     assert segments == [list(_on_and_off_segments(c)) for c in contents]
 
 

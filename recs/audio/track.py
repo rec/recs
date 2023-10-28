@@ -1,6 +1,6 @@
-from functools import cached_property
 
-from recs.audio.device import InputDevice, input_devices
+from recs.audio import device
+from recs.audio.file_opener import FileOpener
 from recs.misc import RecsError, hash_cmp
 
 __all__ = ('Track',)
@@ -8,17 +8,31 @@ __all__ = ('Track',)
 
 class Track(hash_cmp.HashCmp):
     def __init__(
-        self, device: str | InputDevice, channel: str | tuple[int, ...] = ()
+        self, d: str | device.InputDevice, channel: str | tuple[int, ...] = ()
     ) -> None:
-        if isinstance(device, str):
-            self.device = input_devices()[device]
+        if isinstance(d, str):
+            self.device = d = device.input_devices()[d]
         else:
-            self.device = device
+            self.device = d
+
         channels = channel or ()
         if isinstance(channels, str):
-            self.channels = _channels(channels, self.device.name, self.device.channels)
+            self.channels = _channels(channels, d.name, d.channels)
         else:
             self.channels = channels
+
+        self._key = d.name, self.channels
+
+        if self.channels:
+            a, b = self.channels[0], self.channels[-1]
+            self.slice = slice(a - 1, b)
+            self.channels_name = f'{a}' if a == b else f'{a}-{b}'
+
+        else:
+            self.slice = slice(0)
+            self.channels_name = ''
+
+        self.opener = FileOpener(channels=len(self.channels), samplerate=d.samplerate)
 
     def __str__(self) -> str:
         if self.channels:
@@ -27,24 +41,6 @@ class Track(hash_cmp.HashCmp):
 
     def __repr__(self) -> str:
         return f'Track(\'{self}\')'
-
-    @cached_property
-    def slice(self) -> slice:
-        c1, *c2 = self.channels
-        return slice(c1 - 1, c1 + bool(c2))
-
-    @cached_property
-    def channel_count(self) -> int:
-        return len(self.channels)
-
-    @cached_property
-    def channels_name(self) -> str:
-        a, b = self.channels[0], self.channels[-1]
-        return f'{a}' if a == b else f'{a}-{b}'
-
-    @cached_property
-    def _key(self) -> tuple[str, tuple[int, ...]]:
-        return self.device.name, self.channels
 
 
 def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, ...]:

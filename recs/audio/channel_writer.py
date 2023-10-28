@@ -9,7 +9,6 @@ from recs import RECS
 from recs.misc import legal_filename, recording_path, times
 
 from .block import Block, Blocks
-from .file_opener import FileOpener
 from .file_types import DTYPE, DType, Format
 from .track import Track
 
@@ -34,7 +33,7 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
-    def __init__(self, samplerate: int, times: times.Times[int], track: Track) -> None:
+    def __init__(self, times: times.Times[int], track: Track) -> None:
         super().__init__()
 
         self.times = times
@@ -42,12 +41,11 @@ class ChannelWriter(Runnable):
 
         self._blocks = Blocks()
         self._lock = Lock()
-        self._opener = FileOpener(channels=track.channel_count, samplerate=samplerate)
 
         self.longest_file_frames = times.longest_file_time
 
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
-            frame_size = ITEMSIZE[RECS.dtype or DTYPE] * track.channel_count
+            frame_size = ITEMSIZE[RECS.dtype or DTYPE] * len(track.channels)
             max_frames = (max_size - LARGEST_FRAME) // frame_size
             self.longest_file_frames = min(max_frames, self.longest_file_frames)
 
@@ -107,7 +105,7 @@ class ChannelWriter(Runnable):
             p = RECS.path / path / legal_filename.legal_filename(name + suffix)
             p.parent.mkdir(exist_ok=True, parents=True)
             try:
-                return self._opener.open(p, 'w')
+                return self.track.opener.open(p, 'w')
             except FileExistsError:
                 index += 1
                 suffix = f'_{index}'
