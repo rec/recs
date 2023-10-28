@@ -5,35 +5,41 @@ import pytest
 import soundfile as sf
 import tdir
 
-import recs.audio.file_types
-from recs.audio import block
-from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_creator import FileCreator
-from recs.audio.file_opener import FileOpener
-from recs.audio.file_types import Subtype
+from recs import RECS
+from recs.audio.block import Block
+from recs.audio.file_types import DTYPE
 from recs.audio.track import Track
 from recs.misc.times import Times
+from recs.ui import channel_recorder
 
-I = [np.array((1, -1, 1, -1), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
-O = [np.array((0, 0, 0, 0), dtype=recs.audio.file_types.DTYPE)]  # noqa: E741
+II = [np.array((1, -1, 1, -1), dtype=DTYPE)]
+OO = [np.array((0, 0, 0, 0), dtype=DTYPE)]
 
-ARRAYS1 = (17 * O) + (4 * I) + (40 * O) + I + (51 * O) + (19 * I)
+ARRAYS1 = (17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II)
 RESULT1 = [[28, 16, 12], [28, 4, 12], [28, 76]]
-ARRAYS2 = (4 * I) + (3 * O) + I + (2000 * O) + (3 * I)
+ARRAYS2 = (4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II)
 RESULT2 = [[0, 16, 12, 4, 12], [28, 12]]
+ARRAYS3 = 100 * II
+RESULT3 = [[0, 210], [0, 190]]
+
 SAMPLERATE = 48_000
 
-TIMES = Times[int](silence_before_start=30, silence_after_end=40, stop_after_silence=50)
-OPENER = FileOpener(channels=1, samplerate=SAMPLERATE, subtype=Subtype.pcm_24)
+TESTS = ((ARRAYS1, RESULT1, 0), (ARRAYS2, RESULT2, 0), (ARRAYS3, RESULT3, 210))
+TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silence': 50}
 
 
-@pytest.mark.parametrize('arrays, segments', [(ARRAYS1, RESULT1), (ARRAYS2, RESULT2)])
+@pytest.mark.parametrize('arrays, segments, longest_file_time', TESTS)
 @tdir
-def test_channel_writer(arrays, segments, mock_devices):
-    CREATOR = FileCreator(opener=OPENER, track=Track('Ext', '2'))
+def test_channel_writer(arrays, segments, longest_file_time, mock_devices, monkeypatch):
+    monkeypatch.setattr(RECS, 'format', 'wav')
+    recorder = channel_recorder.make(
+        samplerate=SAMPLERATE,
+        times=Times[int](longest_file_time=longest_file_time, **TIMES),
+        track=Track('Ext', '2'),
+    )
 
-    with ChannelWriter(creator=CREATOR, times=TIMES) as writer:
-        [writer.write(block.Block(a)) for a in arrays]
+    with recorder.writer as writer:
+        [writer.write(Block(a)) for a in arrays]
 
     contents, samplerates = zip(*(sf.read(f) for f in sorted(Path('.').iterdir())))
 
@@ -45,9 +51,10 @@ def _segments(it):
     pb = False
     pi = 0
 
-    for i, x in enumerate(it):
-        if (b := bool(x)) != pb:
-            yield i - pi
-            pb = b
-            pi = i
-    yield i + 1 - pi
+    if it := list(it):
+        for i, x in enumerate(it):
+            if (b := bool(x)) != pb:
+                yield i - pi
+                pb = b
+                pi = i
+        yield i + 1 - pi

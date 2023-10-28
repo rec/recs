@@ -4,22 +4,25 @@ import typing as t
 import numpy as np
 
 from recs import RECS
-from recs.audio import block, channel_writer, track
-
-from ..misc import counter
+from recs.audio import channel_writer, file_creator, file_opener
+from recs.audio.block import Block
+from recs.audio.channel_writer import ChannelWriter
+from recs.audio.track import Track
+from recs.misc.counter import Accumulator
+from recs.misc.times import Times
 
 
 @dc.dataclass
 class ChannelRecorder:
-    track: track.Track
-    writer: channel_writer.ChannelWriter
+    track: Track
+    writer: ChannelWriter
 
-    volume: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
+    volume: Accumulator = dc.field(default_factory=Accumulator)
     block_count: int = 0
-    rms: counter.Accumulator = dc.field(default_factory=counter.Accumulator)
+    rms: Accumulator = dc.field(default_factory=Accumulator)
 
     def callback(self, array: np.ndarray) -> None:
-        b = block.Block(array[:, self.track.slice])
+        b = Block(array[:, self.track.slice])
 
         self.block_count += 1
         self.rms(b.rms)
@@ -40,3 +43,11 @@ class ChannelRecorder:
             'rms': self.rms.value,
             'rms_mean': self.rms.mean(),
         }
+
+
+def make(samplerate: int, track: Track, times: Times[int]) -> ChannelRecorder:
+    opener = file_opener.FileOpener(channels=track.channel_count, samplerate=samplerate)
+    creator = file_creator.FileCreator(opener=opener, track=track)
+    writer = channel_writer.ChannelWriter(creator=creator, times=times)
+
+    return ChannelRecorder(track=track, writer=writer)

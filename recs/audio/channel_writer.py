@@ -95,18 +95,26 @@ class ChannelWriter(Runnable):
         self._record(self._blocks)
         self._blocks.clear()
 
-    def _close_on_silence(self) -> None:
-        removed = self._blocks.clip(self.times.silence_after_end, from_start=False)
-
+    def _close_file(self):
         if self._sf:
-            if removed:
-                self._record(reversed(removed))
-
             self._sf.close()
             self._sf = None
 
+    def _close_on_silence(self) -> None:
+        removed = self._blocks.clip(self.times.silence_after_end, from_start=False)
+
+        if self._sf and removed:
+            self._record(reversed(removed))
+
+        self._close_file()
+
     def _record(self, blocks: t.Iterable[Block]) -> None:
         def write(a):
+            if not self._sf:
+                self._sf = self.creator()
+                self.files_written += 1
+                self.frames_in_this_file = 0
+
             self._sf.write(a)
             self.blocks_written += 1
             self.frames_in_this_file += len(a)
@@ -114,21 +122,12 @@ class ChannelWriter(Runnable):
         for b in blocks:
             remains = self.longest_file_frames - self.frames_in_this_file
             if self.longest_file_frames and remains <= len(b):
-                assert self._sf, 'Tiny file length'
-
                 write(b.block[:remains])
-
-                self._sf.close()
-                self._sf = None
+                self._close_file()
 
                 if remains == len(b):
                     continue
 
                 b = b[remains:]
-
-            if not self._sf:
-                self._sf = self.creator()
-                self.files_written += 1
-                self.frames_in_this_file = 0
 
             write(b.block)

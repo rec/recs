@@ -9,9 +9,6 @@ from threa import Runnable
 
 from recs import RECS
 from recs.audio import device
-from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_creator import FileCreator
-from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import Format
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator, Counter
@@ -19,7 +16,7 @@ from recs.misc.counter import Accumulator, Counter
 from .recorder import Recorder
 
 if t.TYPE_CHECKING:
-    from .ui.channel_recorder import ChannelRecorder
+    pass
 
 
 class DeviceRecorder(Runnable):
@@ -36,15 +33,16 @@ class DeviceRecorder(Runnable):
         self.recorder = recorder
         self.times = RECS.times.scale(d.samplerate)
 
-        from recs.ui.channel_recorder import ChannelRecorder
+        from recs.ui import channel_recorder
 
-        def channel_recorder(track: Track) -> ChannelRecorder:
-            opener = FileOpener(channels=track.channel_count, samplerate=d.samplerate)
-            creator = FileCreator(opener=opener, track=track)
-            writer = ChannelWriter(creator=creator, times=self.times)
-            return ChannelRecorder(track=track, writer=writer)
+        def make(track: Track) -> channel_recorder.ChannelRecorder:
+            return channel_recorder.make(
+                samplerate=d.samplerate,
+                track=track,
+                times=self.times,
+            )
 
-        self.channel_recorders = tuple(channel_recorder(t) for t in tracks)
+        self.channel_recorders = tuple(make(t) for t in tracks)
 
     def callback(self, array: np.ndarray) -> None:
         if RECS.format == Format.mp3 and array.dtype == np.float32:
