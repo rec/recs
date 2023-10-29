@@ -19,6 +19,7 @@ typer = "*"
 impall = "*"
 overrides = "*"
 coverage = "*"
+strenum = "^0.4.15"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"
