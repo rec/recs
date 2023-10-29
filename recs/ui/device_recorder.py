@@ -9,7 +9,7 @@ from threa import Runnable
 
 from recs import RECS
 from recs.audio import channel_writer, device
-from recs.audio.file_types import Format
+from recs.audio.file_types import DTYPE, Format
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator, Counter
 
@@ -72,4 +72,6 @@ class DeviceRecorder(Runnable):
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
-        return self.device.input_stream(callback=self.callback, stop=self.stop)
+        return self.device.input_stream(
+            callback=self.callback, dtype=RECS.dtype or DTYPE, stop=self.stop
+        )

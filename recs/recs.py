@@ -2,12 +2,13 @@ import dataclasses as dc
 import json
 import typing as t
 import warnings
-from enum import StrEnum, auto
+from enum import auto
 from functools import cached_property
 from pathlib import Path
 
 import sounddevice as sd
 import soundfile as sf
+from strenum import StrEnum
 
 from recs.misc import RecsError
 from recs.misc.aliases import Aliases

@@ -31,8 +31,6 @@ class Recorder(Runnable):
         if not self.device_recorders:
             raise RecsError('No devices or channels selected')
 
-        self.start()
-
     def run(self) -> None:
         self.start()
         with self.context():

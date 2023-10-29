@@ -1,6 +1,7 @@
-from enum import StrEnum, auto
+from enum import auto
 
 import sounddevice as sd
+from strenum import StrEnum
 
 
 class DType(StrEnum):
