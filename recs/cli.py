@@ -135,6 +135,7 @@ def recs(
     for k, v in list(locals().items()):
         setattr(RECS, k, v)
 
+    RECS.__post_init__()
     run_recs()
 
 
