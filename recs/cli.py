@@ -102,7 +102,7 @@ def recs(
     #
     # Settings relating to times
     #
-    longest_file_time: float = Option(
+    longest_file_time: str = Option(
         RECS.longest_file_time, help='Longest amount of time per file: 0 means infinite'
     ),
     noise_floor: float = Option(

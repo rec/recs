@@ -67,7 +67,7 @@ class Recs:
     #
     # Settings relating to times
     #
-    longest_file_time: float = 0
+    longest_file_time: str = '0'  # In HH:MM:SS.SSSS
     noise_floor: float = 70
     silence_after_end: float = 2
     silence_before_start: float = 1
@@ -111,7 +111,50 @@ class Recs:
     @cached_property
     def times(self) -> times.Times:
         fields = (f.name for f in dc.fields(times.Times))
-        return times.Times(**{k: getattr(self, k) for k in fields})
+        d = {k: getattr(self, k) for k in fields}
+        d['longest_file_time'] = _to_time(d['longest_file_time'])
+        return times.Times(**d)
+
+
+def _to_time(t: str) -> float:
+    try:
+        parts = t.split(':')
+        if not (1 <= len(parts) <= 3):
+            raise ValueError
+
+        s = float(parts.pop())
+        if s < 0:
+            raise ValueError
+
+        if not parts:
+            return s
+
+        if s >= 60:
+            raise ValueError
+
+        m = int(parts.pop())
+        if m < 0:
+            raise ValueError
+
+        s += 60 * m
+        if not parts:
+            return s
+
+        if m >= 60:
+            raise ValueError
+
+        h = int(parts.pop())
+        if h < 0:
+            raise ValueError
+
+        assert not parts
+
+        return s + 3600 * h
+
+    except Exception:
+        pass
+
+    raise RecsError(f'Do not understand --longest-file-time={t}')
 
 
 RECS = Recs()

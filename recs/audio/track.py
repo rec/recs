@@ -1,4 +1,3 @@
-
 from recs.audio import device
 from recs.audio.file_opener import FileOpener
 from recs.misc import RecsError, hash_cmp
