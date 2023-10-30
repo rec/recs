@@ -13,10 +13,10 @@ from .block import Block, Blocks
 from .file_types import SDTYPE, Format, SdType
 from .track import Track
 
-LARGEST_FRAME = 0x100
-SIZE_RESTRICTIONS = {
-    Format.aiff: 0x8000_0000,
-    Format.wav: 0x1_0000_0000,
+HEADER_SIZE = 0x80
+FORMAT_LIMIT = {
+    Format.aiff: 0x1_0000_0000,
+    Format.wav: 0x2_0000_0000,
 }
 ITEMSIZE = {
     SdType.float32: 4,
@@ -44,14 +44,13 @@ class ChannelWriter(Runnable):
 
         self.longest_file_frames = times.longest_file_time
 
-        if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
+        if max_size := not RECS.infinite_length and FORMAT_LIMIT.get(RECS.format):
             frame_size = ITEMSIZE[RECS.sdtype or SDTYPE] * len(track.channels)
-            max_frames = (max_size - LARGEST_FRAME) // frame_size
+            max_frames = (max_size - HEADER_SIZE) // frame_size
             if self.longest_file_frames:
                 self.longest_file_frames = min(max_frames, self.longest_file_frames)
             else:
                 self.longest_file_frames = max_frames
-        print(f'{self.longest_file_frames=}, {max_size=}')
 
         self.files_written: list[Path] = []
 

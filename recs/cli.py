@@ -104,6 +104,10 @@ def recs(
     #
     # Settings relating to times
     #
+    infinite_length: bool = Option(
+        RECS.infinite_length,
+        help='If true, ignore file size limits (4G on .wav, 2G on .aiff)',
+    ),
     longest_file_time: str = Option(
         RECS.longest_file_time, help='Longest amount of time per file: 0 means infinite'
     ),

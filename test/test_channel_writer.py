@@ -93,13 +93,14 @@ def test_channel_writer(case, mock_devices, set_recs):
 
 
 @pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
+@tdir
 def test_long_wav(mock_devices, set_recs):
     set_recs(format=Format.wav, sdtype=SdType.float32, subtype=Subtype.float)
 
-    TARGET = 0x1_0004_0000
-    COUNT = 3
+    TARGET = 0x1_0008_0000
+    COUNT = 4
 
-    size = int(TARGET / COUNT / 2 / 4)
+    size = int(TARGET / COUNT / 4)  # Should be / 2!
     size -= size % 8
 
     rng = np.random.default_rng(seed=723)
@@ -113,8 +114,13 @@ def test_long_wav(mock_devices, set_recs):
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
             writer.write(block)
-    files = sorted(writer.files_written)
+    files = writer.files_written
     assert len(files) == 2
+    sizes = [os.path.getsize(f) for f in files]
+    big = 0x1_0000_0000
+    assert big - 0x100 < sizes[0] <= big
+
+    assert TARGET < sum(sizes) <= TARGET + 0x80
 
 
 def _on_and_off_segments(it):

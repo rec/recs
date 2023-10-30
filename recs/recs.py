@@ -68,6 +68,7 @@ class Recs:
     #
     # Settings relating to times
     #
+    infinite_length: bool = False
     longest_file_time: str = '0'  # In HH:MM:SS.SSSS
     noise_floor: float = 70
     silence_after_end: float = 2
