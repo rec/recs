@@ -10,7 +10,6 @@ from recs.audio import device, track
 from recs.misc import RecsError
 
 from . import live
-from .device_tracks import device_tracks
 
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]

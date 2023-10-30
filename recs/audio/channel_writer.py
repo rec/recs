@@ -44,7 +44,7 @@ class ChannelWriter(Runnable):
         self._lock = Lock()
 
         self.files_written: list[Path] = []
-        self.opener = FileOpener(track)
+        self.opener = FileOpener(RECS.format, RECS.path, RECS.subtype, track)
 
         self.longest_file_frames = times.longest_file_time
 

@@ -118,8 +118,8 @@ class Recs:
         return times.Times(**d)
 
     def run(self) -> None:
-        from .ui.recorder import Recorder
         from .ui.device_tracks import device_tracks
+        from .ui.recorder import Recorder
 
         if self.info:
             info = sd.query_devices(kind=None)

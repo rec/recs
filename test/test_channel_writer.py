@@ -8,7 +8,7 @@ import tdir
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
+from recs.audio.file_types import SDTYPE, Format, SdType
 from recs.audio.track import Track
 from recs.misc.times import Times
 
