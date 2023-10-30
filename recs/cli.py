@@ -58,9 +58,6 @@ def recs(
     list_subtypes: bool = Option(
         RECS.list_subtypes, '--list-subtypes', help='List all subtypes for each format'
     ),
-    retain: bool = Option(
-        RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
-    ),
     verbose: bool = Option(
         RECS.verbose, '-v', '--verbose', help='Print full stack traces'
     ),
@@ -92,6 +89,9 @@ def recs(
     #
     quiet: bool = Option(
         RECS.quiet, '-q', '--quiet', help='If true, do not display live updates'
+    ),
+    retain: bool = Option(
+        RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
     ),
     ui_refresh_rate: float = Option(
         RECS.ui_refresh_rate,

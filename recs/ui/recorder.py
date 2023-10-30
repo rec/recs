@@ -5,6 +5,7 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
+from recs import RECS
 from recs.audio import device, track
 from recs.misc import RecsError
 
@@ -26,7 +27,12 @@ class Recorder(Runnable):
 
         self.sleep_time = sleep_time
         self.start_time = time.time()
-        self.live = live.Live(self.rows)
+        self.live = live.Live(
+            self.rows,
+            quiet=RECS.quiet,
+            retain=RECS.retain,
+            ui_refresh_rate=RECS.ui_refresh_rate,
+        )
 
         drs = (DeviceRecorder(k, self, v) for k, v in device_tracks.items())
         self.device_recorders = tuple(drs)

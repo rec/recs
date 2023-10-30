@@ -45,7 +45,6 @@ class Recs:
     dry_run: bool = False
     info: bool = False
     list_subtypes: bool = False
-    retain: bool = False
     verbose: bool = False
     #
     # Aliases for input devices or channels
@@ -66,6 +65,7 @@ class Recs:
     # Console and UI settings
     #
     quiet: bool = False
+    retain: bool = False
     ui_refresh_rate: float = 23
     sleep_time: float = 0.013
     #

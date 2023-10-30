@@ -1,12 +1,11 @@
 import contextlib
+import dataclasses as dc
 import typing as t
 from functools import cached_property
 
 from rich import live
 from rich.console import Console
 from rich.table import Table
-
-from recs import RECS
 
 from .table import TableFormatter
 
@@ -15,12 +14,15 @@ RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
 CONSOLE = Console(color_system='truecolor')
 
 
+@dc.dataclass
 class Live:
-    def __init__(self, rows: RowsFunction):
-        self.rows = rows
+    rows: RowsFunction
+    quiet: bool = True
+    retain: bool = False
+    ui_refresh_rate: float = 23
 
     def update(self) -> None:
-        if not RECS.quiet:
+        if not self.quiet:
             self.live.update(self.table())
 
     @cached_property
@@ -28,8 +30,8 @@ class Live:
         return live.Live(
             self.table(),
             console=CONSOLE,
-            refresh_per_second=RECS.ui_refresh_rate,
-            transient=not RECS.retain,
+            refresh_per_second=self.ui_refresh_rate,
+            transient=not self.retain,
         )
 
     def table(self) -> Table:
@@ -37,7 +39,7 @@ class Live:
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
-        if RECS.quiet:
+        if self.quiet:
             yield
         else:
             with self.live:
