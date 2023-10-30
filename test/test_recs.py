@@ -4,11 +4,11 @@ import pytest
 
 from recs.audio.file_types import Format, SdType, Subtype
 from recs.misc import RecsError
-from recs.recs import RECS, Recs, run_recs
+from recs.recs import Recs, run_recs
 
 
-def test_list_subtypes(capsys, monkeypatch):
-    monkeypatch.setattr(RECS, 'list_subtypes', True)
+def test_list_subtypes(capsys, set_recs):
+    set_recs(list_subtypes=True)
     run_recs()
 
     data = capsys.readouterr().out

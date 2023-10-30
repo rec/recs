@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.recs import RECS, run_recs
+from recs.recs import run_recs
 
 from .conftest import DEVICES
 
@@ -21,11 +21,11 @@ CASES = (
 
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
 @tdir
-def test_end_to_end(path, dry_run, quiet, subs, mock_devices, monkeypatch):
-    monkeypatch.setattr(RECS, 'dry_run', dry_run)
-    monkeypatch.setattr(RECS, 'quiet', quiet)
-    monkeypatch.setattr(RECS, 'subdirectories', subs)
-    monkeypatch.setattr(RECS, 'total_run_time', 0.1)
+def test_end_to_end(path, dry_run, quiet, subs, mock_devices, set_recs):
+    set_recs(dry_run=dry_run)
+    set_recs(quiet=quiet)
+    set_recs(subdirectories=subs)
+    set_recs(total_run_time=0.1)
 
     run_recs()
 
@@ -58,8 +58,8 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices, monkeypatch):
     assert differs_contents == []
 
 
-def test_info(mock_devices, capsys, monkeypatch):
-    monkeypatch.setattr(RECS, 'info', True)
+def test_info(mock_devices, capsys, set_recs):
+    set_recs(info=True)
     run_recs()
     actual = json.loads(capsys.readouterr().out)
     assert actual == DEVICES

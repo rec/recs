@@ -2,7 +2,7 @@ import pytest
 
 from recs.audio.track import Track
 from recs.misc.recording_path import recording_path
-from recs.recs import RECS, Subdirectory
+from recs.recs import Subdirectory
 
 _channel, _device, _time = Subdirectory.channel, Subdirectory.device, Subdirectory.time
 
@@ -30,8 +30,8 @@ CHOICES: tuple[tuple[Subdirectory, ...]] = (
 
 
 @pytest.mark.parametrize('subs, expected', CHOICES)
-def test_recording_path(subs, expected, monkeypatch, mock_devices):
-    monkeypatch.setattr(RECS, 'subdirectories', subs)
+def test_recording_path(subs, expected, set_recs, mock_devices):
+    set_recs(subdirectories=subs)
     path, filename = recording_path(Track('e', '3'))
     actual = str(path / filename)
     assert actual == expected

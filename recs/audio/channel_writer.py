@@ -21,6 +21,7 @@ SIZE_RESTRICTIONS = {
 ITEMSIZE = {
     SdType.float32: 4,
     SdType.int16: 2,
+    SdType.int24: 3,
     SdType.int32: 4,
 }
 

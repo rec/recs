@@ -5,7 +5,6 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs import RECS
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_types import SDTYPE, Format
@@ -70,8 +69,8 @@ TEST_CASES = (
 
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
-def test_channel_writer(case, mock_devices, monkeypatch):
-    monkeypatch.setattr(RECS, 'format', case.format)
+def test_channel_writer(case, mock_devices, set_recs):
+    set_recs(format=case.format)
 
     track = Track('Ext', '2')
     times = Times[int](longest_file_time=case.longest_file_time, **TIMES)
