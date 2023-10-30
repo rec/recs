@@ -25,6 +25,9 @@ class Subdirectory(StrEnum):
     time = auto()
 
 
+Subdirectories = t.Sequence[Subdirectory]
+
+
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
@@ -98,7 +101,7 @@ class Recs:
         return Aliases(self.alias)
 
     @cached_property
-    def subdirectories(self) -> tuple[Subdirectory, ...]:
+    def subdirectories(self) -> Subdirectories:
         subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
         res = tuple(t for s, t in subs if t is not None)
 

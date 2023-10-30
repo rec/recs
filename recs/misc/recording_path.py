@@ -1,19 +1,22 @@
 from datetime import datetime
 from pathlib import Path
 
-from recs import RECS
 from recs.audio.device import InputDevice
 from recs.audio.track import Track
+from recs.misc.aliases import Aliases
 from recs.misc.legal_filename import legal_filename
+from recs.recs import Subdirectories
 
 now = datetime.now
 
 NAME_JOINER = ' + '
 
 
-def recording_path(track: Track) -> tuple[Path, str]:
+def recording_path(
+    track: Track, aliases: Aliases, subdirectories: Subdirectories
+) -> tuple[Path, str]:
     def display_name(x: Track | InputDevice) -> str:
-        s = RECS.aliases.display_name(x)
+        s = aliases.display_name(x)
         return legal_filename(s)
 
     ts = now()
@@ -28,7 +31,7 @@ def recording_path(track: Track) -> tuple[Path, str]:
 
     paths: list[str] = []
 
-    for s in RECS.subdirectories:
+    for s in subdirectories:
         paths.append(pieces.pop(s))
 
     file_parts = []

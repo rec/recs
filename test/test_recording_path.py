@@ -1,6 +1,7 @@
 import pytest
 
 from recs.audio.track import Track
+from recs.misc.aliases import Aliases
 from recs.misc.recording_path import recording_path
 from recs.recs import Subdirectory
 
@@ -30,8 +31,7 @@ CHOICES: tuple[tuple[Subdirectory, ...]] = (
 
 
 @pytest.mark.parametrize('subs, expected', CHOICES)
-def test_recording_path(subs, expected, set_recs, mock_devices):
-    set_recs(subdirectories=subs)
-    path, filename = recording_path(Track('e', '3'))
+def test_recording_path(subs, expected, mock_devices):
+    path, filename = recording_path(Track('e', '3'), Aliases(), subs)
     actual = str(path / filename)
     assert actual == expected

@@ -3,7 +3,9 @@ from pathlib import Path
 
 import soundfile as sf
 
+from recs.misc.aliases import Aliases
 from recs.misc.recording_path import recording_path
+from recs.recs import Subdirectories
 
 from .file_types import Format, Subtype
 from .track import Track
@@ -11,8 +13,10 @@ from .track import Track
 
 @dc.dataclass(frozen=True)
 class FileOpener:
+    aliases: Aliases
     format: Format
     path: Path
+    subdirectories: Subdirectories
     subtype: Subtype | None
     track: Track
 
@@ -33,7 +37,7 @@ class FileOpener:
     def create(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        path, name = recording_path(self.track)
+        path, name = recording_path(self.track, self.aliases, self.subdirectories)
 
         while True:
             p = self.path / path / (name + suffix)
