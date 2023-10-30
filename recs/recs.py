@@ -134,7 +134,7 @@ class Recs:
         else:
             dts = device_tracks(self.aliases, self.exclude, self.include)
 
-            Recorder(dts).run()
+            Recorder(dts, self.sleep_time).run()
 
 
 def _to_time(t: str) -> float:
