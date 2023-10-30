@@ -20,7 +20,6 @@ SIZE_RESTRICTIONS = {
 }
 ITEMSIZE = {
     DType.float32: 4,
-    DType.float64: 8,
     DType.int16: 2,
     DType.int32: 4,
 }

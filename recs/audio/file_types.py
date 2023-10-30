@@ -6,7 +6,6 @@ from strenum import StrEnum
 
 class DType(StrEnum):
     float32 = auto()
-    float64 = auto()
     int16 = auto()
     int32 = auto()
 

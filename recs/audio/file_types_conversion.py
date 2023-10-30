@@ -27,5 +27,4 @@ DTYPE_TO_SUBTYPE = {
     DType.int16: Subtype.pcm_16,
     DType.int32: Subtype.pcm_32,
     DType.float32: Subtype.float,
-    DType.float64: Subtype.double,
 }

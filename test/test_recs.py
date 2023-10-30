@@ -39,9 +39,9 @@ def test_missing_subtype(capsys):
 
 
 def test_error_subtype():
-    match = "Can't get subtype for self.format=flac, self.dtype=float64"
+    match = "Can't get subtype for self.format=mp3, self.dtype=float32"
     with pytest.warns(UserWarning, match=match):
-        Recs(format=Format.flac, dtype=DType.float64)
+        Recs(format=Format.mp3, dtype=DType.float32)
 
 
 def test_default_dtype1():
