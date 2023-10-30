@@ -6,7 +6,7 @@ from functools import cache
 import numpy as np
 import sounddevice as sd
 
-from recs.audio.file_types import DType
+from recs.audio.file_types import SdType
 from recs.misc.prefix_dict import PrefixDict
 
 from ..misc import hash_cmp
@@ -28,7 +28,7 @@ class InputDevice(hash_cmp.HashCmp):
     def input_stream(
         self,
         callback: Callback,
-        dtype: DType,
+        dtype: SdType,
         stop: t.Callable[[], None],
     ) -> sd.InputStream:
         stream: sd.InputStream
@@ -57,7 +57,7 @@ class InputDevice(hash_cmp.HashCmp):
                 except Exception:
                     traceback.print_exc()
 
-        # Note: if dtype is None, then the whole system blocks
+        # Note: if sdtype is None, then the whole system blocks
         assert dtype is not None
 
         stream = sd.InputStream(

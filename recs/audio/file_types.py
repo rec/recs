@@ -4,13 +4,13 @@ import sounddevice as sd
 from strenum import StrEnum
 
 
-class DType(StrEnum):
+class SdType(StrEnum):
     float32 = auto()
     int16 = auto()
     int32 = auto()
 
 
-DTYPE = DType[sd.default.dtype[0]]
+SDTYPE = SdType[sd.default.dtype[0]]
 
 
 class Format(StrEnum):

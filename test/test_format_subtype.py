@@ -9,10 +9,10 @@ import numpy as np
 
 from recs import RECS
 from recs.audio.file_opener import FileOpener
-from recs.audio.file_types import DTYPE, DType, Format, Subtype
+from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
 
 EXCLUSIONS = {(Format.aiff, 'alaw')}
-BLOCK = np.empty(shape=(4096, 2), dtype=DTYPE)
+BLOCK = np.empty(shape=(4096, 2), dtype=SDTYPE)
 
 # These cause a Python crash in external C code...!
 CRASH_SUBTYPES = {Subtype.ulaw, Subtype.alaw}
@@ -53,7 +53,7 @@ def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **
 
 def print_commands():
     for format in Format:
-        for number_type in DType:
+        for number_type in SdType:
             if format and number_type:
                 print('python -m test.test_format_subtype', format.lower(), number_type)
 

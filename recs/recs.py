@@ -14,8 +14,8 @@ from recs.misc import RecsError
 from recs.misc.aliases import Aliases
 from recs.misc.prefix_dict import PrefixDict
 
-from .audio.file_types import DTYPE, DType, Format, Subtype
-from .audio.file_types_conversion import DTYPE_TO_SUBTYPE, SUBTYPE_TO_DTYPE
+from .audio.file_types import SDTYPE, Format, SdType, Subtype
+from .audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from .misc import times
 
 
@@ -57,8 +57,8 @@ class Recs:
     # Audio file format and subtype
     #
     format: Format = Format.flac
+    sdtype: SdType | None = None
     subtype: Subtype | None = None
-    dtype: DType | None = None
     #
     # Console and UI settings
     #
@@ -79,15 +79,15 @@ class Recs:
         if self.subtype and not sf.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
 
-        if self.subtype is not None and self.dtype is None:
-            self.dtype = SUBTYPE_TO_DTYPE.get(self.subtype, DTYPE)
+        if self.subtype is not None and self.sdtype is None:
+            self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
 
-        elif self.subtype is None and self.dtype is not None:
-            subtype = DTYPE_TO_SUBTYPE.get(self.dtype, None)
+        elif self.subtype is None and self.sdtype is not None:
+            subtype = SDTYPE_TO_SUBTYPE.get(self.sdtype, None)
             if sf.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
-                msg = f'{self.format=:s}, {self.dtype=:s}'
+                msg = f'{self.format=:s}, {self.sdtype=:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
 
         self.subdirectories

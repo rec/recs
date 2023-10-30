@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from recs.audio.file_types import DType, Format, Subtype
+from recs.audio.file_types import Format, SdType, Subtype
 from recs.misc import RecsError
 from recs.recs import RECS, Recs, run_recs
 
@@ -34,25 +34,25 @@ def test_error_subdirectory2():
 
 
 def test_missing_subtype(capsys):
-    r = Recs(format=Format.flac, dtype=DType.int16)
+    r = Recs(format=Format.flac, sdtype=SdType.int16)
     assert r.subtype == Subtype.pcm_16
 
 
 def test_error_subtype():
-    match = "Can't get subtype for self.format=mp3, self.dtype=float32"
+    match = "Can't get subtype for self.format=mp3, self.sdtype=float32"
     with pytest.warns(UserWarning, match=match):
-        Recs(format=Format.mp3, dtype=DType.float32)
+        Recs(format=Format.mp3, sdtype=SdType.float32)
 
 
 def test_default_dtype1():
-    assert Recs().dtype is None
+    assert Recs().sdtype is None
 
 
 def test_default_dtype2():
     r = Recs(format=Format.wav, subtype=Subtype.pcm_32)
-    assert r.dtype == DType.int32
+    assert r.sdtype == SdType.int32
 
 
 def test_default_subtype():
-    r = Recs(format=Format.wav, dtype=DType.int32)
+    r = Recs(format=Format.wav, sdtype=SdType.int32)
     assert r.subtype == Subtype.pcm_32

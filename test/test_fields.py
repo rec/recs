@@ -4,7 +4,7 @@ import typing as t
 import dtyper
 
 from recs import cli, recs
-from recs.audio.file_types import DType, Subtype
+from recs.audio.file_types import SdType, Subtype
 
 
 @dtyper.dataclass(cli.recs)
@@ -21,7 +21,7 @@ def test_fields():
     types = [(h.type, a.type) for h, a in zip(hand, auto)]
     ok = (
         (t.Sequence[str], list[str]),
-        (DType | None, DType),
+        (SdType | None, SdType),
         (Subtype | None, Subtype),
     )
 

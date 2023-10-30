@@ -8,7 +8,7 @@ from typer import rich_utils
 
 from recs.misc import RecsError
 
-from .audio.file_types import DType, Format, Subtype
+from .audio.file_types import Format, SdType, Subtype
 from .recs import RECS, run_recs
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
@@ -83,8 +83,10 @@ def recs(
     # Audio file format and subtype
     #
     format: Format = Option(RECS.format, '-f', '--format', help='Audio format'),
+    sdtype: SdType = Option(
+        RECS.sdtype, '-d', '--sdtype', help='Type of sounddevice numbers'
+    ),
     subtype: Subtype = Option(RECS.subtype, '-u', '--subtype', help='File subtype'),
-    dtype: DType = Option(RECS.dtype, '-d', '--dtype', help='Type of numpy numbers'),
     #
     # Console and UI settings
     #

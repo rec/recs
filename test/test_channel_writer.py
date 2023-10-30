@@ -8,15 +8,15 @@ import tdir
 from recs import RECS
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_types import DTYPE, Format
+from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
 from recs.misc.times import Times
 
 SAMPLERATES = 44_100, 48_000
 TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silence': 50}
 
-II = [np.array((1, -1, 1, -1), dtype=DTYPE)]
-OO = [np.array((0, 0, 0, 0), dtype=DTYPE)]
+II = [np.array((1, -1, 1, -1), dtype=SDTYPE)]
+OO = [np.array((0, 0, 0, 0), dtype=SDTYPE)]
 
 
 @dc.dataclass

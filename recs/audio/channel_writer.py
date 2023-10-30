@@ -10,7 +10,7 @@ from recs import RECS
 from recs.misc import legal_filename, recording_path, times
 
 from .block import Block, Blocks
-from .file_types import DTYPE, DType, Format
+from .file_types import SDTYPE, Format, SdType
 from .track import Track
 
 LARGEST_FRAME = 0x100
@@ -19,9 +19,9 @@ SIZE_RESTRICTIONS = {
     Format.wav: 0x1_0000_0000,
 }
 ITEMSIZE = {
-    DType.float32: 4,
-    DType.int16: 2,
-    DType.int32: 4,
+    SdType.float32: 4,
+    SdType.int16: 2,
+    SdType.int32: 4,
 }
 
 
@@ -44,7 +44,7 @@ class ChannelWriter(Runnable):
         self.longest_file_frames = times.longest_file_time
 
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
-            frame_size = ITEMSIZE[RECS.dtype or DTYPE] * len(track.channels)
+            frame_size = ITEMSIZE[RECS.sdtype or SDTYPE] * len(track.channels)
             max_frames = (max_size - LARGEST_FRAME) // frame_size
             self.longest_file_frames = min(max_frames, self.longest_file_frames)
 
