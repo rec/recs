@@ -117,6 +117,25 @@ class Recs:
         d['longest_file_time'] = _to_time(d['longest_file_time'])
         return times.Times(**d)
 
+    def run(self) -> None:
+        from .ui.recorder import Recorder
+        from .ui.device_tracks import device_tracks
+
+        if self.info:
+            info = sd.query_devices(kind=None)
+            print(json.dumps(info, indent=4))
+
+        elif self.list_subtypes:
+            avail = sf.available_formats()
+            fmts = [f.upper() for f in Format]
+            formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
+            print(json.dumps(formats, indent=4))
+
+        else:
+            dts = device_tracks(self.aliases, self.exclude, self.include)
+
+            Recorder(dts).run()
+
 
 def _to_time(t: str) -> float:
     try:
@@ -160,20 +179,4 @@ def _to_time(t: str) -> float:
 
 
 RECS = Recs()
-
-
-def run_recs() -> None:
-    from .ui.recorder import Recorder
-
-    if RECS.info:
-        info = sd.query_devices(kind=None)
-        print(json.dumps(info, indent=4))
-
-    elif RECS.list_subtypes:
-        avail = sf.available_formats()
-        fmts = [f.upper() for f in Format]
-        formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
-        print(json.dumps(formats, indent=4))
-
-    else:
-        Recorder().run()
+run_recs = RECS.run
