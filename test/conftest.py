@@ -124,7 +124,6 @@ def set_recs(monkeypatch):
     def setter(**ka):
         for k, v in ka.items():
             monkeypatch.setattr(RECS, k, v)
-
         RECS.__post_init__()
 
     return setter

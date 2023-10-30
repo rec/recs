@@ -10,7 +10,6 @@ from .file_types import Subtype
 class FileOpener:
     channels: int
     samplerate: int
-    subtype: Subtype | None = None
     exist_ok: bool = False
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
@@ -26,5 +25,5 @@ class FileOpener:
             format=RECS.format,
             mode=mode,
             samplerate=self.samplerate,
-            subtype=self.subtype or None,
+            subtype=None and RECS.subtype,
         )

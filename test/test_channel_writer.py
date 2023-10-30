@@ -95,12 +95,12 @@ def test_channel_writer(case, mock_devices, set_recs):
 @pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
 @tdir
 def test_long_wav(mock_devices, set_recs):
-    set_recs(format=Format.wav, sdtype=SdType.float32, subtype=Subtype.float)
+    set_recs(format=Format.wav, sdtype=SdType.float32)
 
     TARGET = 0x1_0008_0000
     COUNT = 4
 
-    size = int(TARGET / COUNT / 4)  # Should be / 2!
+    size = int(TARGET / COUNT / 4)
     size -= size % 8
 
     rng = np.random.default_rng(seed=723)

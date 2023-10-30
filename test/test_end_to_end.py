@@ -61,5 +61,12 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices, set_recs):
 def test_info(mock_devices, capsys, set_recs):
     set_recs(info=True)
     run_recs()
-    actual = json.loads(capsys.readouterr().out)
+    data = capsys.readouterr().out
+
+    try:
+        actual = json.loads(data)
+    except Exception:
+        print('-------------------', data, '---------------', sep='\n')
+        raise
+
     assert actual == DEVICES
