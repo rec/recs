@@ -1,5 +1,4 @@
 from recs.audio import device
-from recs.audio.file_opener import FileOpener
 from recs.misc import RecsError, hash_cmp
 
 __all__ = ('Track',)
@@ -30,8 +29,6 @@ class Track(hash_cmp.HashCmp):
         else:
             self.slice = slice(0)
             self.channels_name = ''
-
-        self.opener = FileOpener(channels=len(self.channels), samplerate=d.samplerate)
 
     def __str__(self) -> str:
         if self.channels:

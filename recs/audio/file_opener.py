@@ -3,27 +3,40 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .file_types import Subtype
+from recs import RECS
+from recs.misc.recording_path import recording_path
+
+from .track import Track
 
 
 @dc.dataclass(frozen=True)
 class FileOpener:
-    channels: int
-    samplerate: int
-    exist_ok: bool = False
+    track: Track
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
-        from recs import RECS
-
         path = path.with_suffix('.' + RECS.format)
-        if not self.exist_ok and path.exists():
+        if path.exists():
             raise FileExistsError(str(path))
 
         return sf.SoundFile(
-            channels=self.channels,
+            channels=len(self.track.channels),
             file=path,
             format=RECS.format,
             mode=mode,
-            samplerate=self.samplerate,
-            subtype=None and RECS.subtype,
+            samplerate=self.track.device.samplerate,
+            subtype=RECS.subtype,
         )
+
+    def create(self) -> sf.SoundFile:
+        index = 0
+        suffix = ''
+        path, name = recording_path(self.track)
+
+        while True:
+            p = RECS.path / path / (name + suffix)
+            p.parent.mkdir(exist_ok=True, parents=True)
+            try:
+                return self.open(p, 'w')
+            except FileExistsError:
+                index += 1
+                suffix = f'_{index}'

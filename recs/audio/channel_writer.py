@@ -7,9 +7,10 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs import RECS
-from recs.misc import legal_filename, recording_path, times
+from recs.misc import times
 
 from .block import Block, Blocks
+from .file_opener import FileOpener
 from .file_types import SDTYPE, Format, SdType
 from .track import Track
 
@@ -42,17 +43,19 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks()
         self._lock = Lock()
 
+        self.files_written: list[Path] = []
+        self.opener = FileOpener(track)
+
         self.longest_file_frames = times.longest_file_time
 
         if max_size := not RECS.infinite_length and FORMAT_LIMIT.get(RECS.format):
             frame_size = ITEMSIZE[RECS.sdtype or SDTYPE] * len(track.channels)
             max_frames = (max_size - HEADER_SIZE) // frame_size
+
             if self.longest_file_frames:
                 self.longest_file_frames = min(max_frames, self.longest_file_frames)
             else:
                 self.longest_file_frames = max_frames
-
-        self.files_written: list[Path] = []
 
         self.start()
 
@@ -101,23 +104,6 @@ class ChannelWriter(Runnable):
 
         self._close_file()
 
-    def _new_file(self) -> SoundFile:
-        index = 0
-        suffix = ''
-        path, name = recording_path.recording_path(self.track)
-
-        while True:
-            p = RECS.path / path / legal_filename.legal_filename(name + suffix)
-            p.parent.mkdir(exist_ok=True, parents=True)
-            try:
-                fp = self.track.opener.open(p, 'w')
-            except FileExistsError:
-                index += 1
-                suffix = f'_{index}'
-            else:
-                self.files_written.append(Path(fp.name))
-                return fp
-
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
             remains = self.longest_file_frames - self.frames_in_this_file
@@ -142,7 +128,8 @@ class ChannelWriter(Runnable):
 
     def _write(self, a: np.ndarray) -> None:
         if not self._sf:
-            self._sf = self._new_file()
+            self._sf = self.opener.create()
+            self.files_written.append(Path(self._sf.name))
             self.frames_in_this_file = 0
 
         self._sf.write(a)
