@@ -47,7 +47,11 @@ class ChannelWriter(Runnable):
         if max_size := SIZE_RESTRICTIONS.get(RECS.format, 0):
             frame_size = ITEMSIZE[RECS.sdtype or SDTYPE] * len(track.channels)
             max_frames = (max_size - LARGEST_FRAME) // frame_size
-            self.longest_file_frames = min(max_frames, self.longest_file_frames)
+            if self.longest_file_frames:
+                self.longest_file_frames = min(max_frames, self.longest_file_frames)
+            else:
+                self.longest_file_frames = max_frames
+        print(f'{self.longest_file_frames=}, {max_size=}')
 
         self.files_written: list[Path] = []
 
