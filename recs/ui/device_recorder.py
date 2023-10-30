@@ -35,7 +35,7 @@ class DeviceRecorder(Runnable):
 
         def make(track: Track) -> channel_recorder.ChannelRecorder:
             writer = channel_writer.ChannelWriter(times=self.times, track=track)
-            return ChannelRecorder(writer=writer)
+            return ChannelRecorder(writer=writer, dry_run=RECS.dry_run)
 
         self.channel_recorders = tuple(make(t) for t in tracks)
 

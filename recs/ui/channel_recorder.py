@@ -3,7 +3,6 @@ import typing as t
 
 import numpy as np
 
-from recs import RECS
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.track import Track
@@ -13,6 +12,7 @@ from recs.misc.counter import Accumulator
 @dc.dataclass
 class ChannelRecorder:
     writer: ChannelWriter
+    dry_run: bool = False
 
     volume: Accumulator = dc.field(default_factory=Accumulator)
     block_count: int = 0
@@ -28,7 +28,7 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.volume(b.volume)
-        if not RECS.dry_run:
+        if not self.dry_run:
             self.writer.write(b)
 
     def stop(self) -> None:
