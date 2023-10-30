@@ -1,4 +1,5 @@
 import typing as t
+from pathlib import Path
 from threading import Lock
 
 import numpy as np
@@ -27,7 +28,6 @@ ITEMSIZE = {
 
 class ChannelWriter(Runnable):
     blocks_written: int = 0
-    files_written: int = 0
     frames_in_this_file: int = 0
     frames_seen: int = 0
 
@@ -48,6 +48,8 @@ class ChannelWriter(Runnable):
             frame_size = ITEMSIZE[RECS.dtype or DTYPE] * len(track.channels)
             max_frames = (max_size - LARGEST_FRAME) // frame_size
             self.longest_file_frames = min(max_frames, self.longest_file_frames)
+
+        self.files_written: list[Path] = []
 
         self.start()
 
@@ -105,10 +107,13 @@ class ChannelWriter(Runnable):
             p = RECS.path / path / legal_filename.legal_filename(name + suffix)
             p.parent.mkdir(exist_ok=True, parents=True)
             try:
-                return self.track.opener.open(p, 'w')
+                fp = self.track.opener.open(p, 'w')
             except FileExistsError:
                 index += 1
                 suffix = f'_{index}'
+            else:
+                self.files_written.append(Path(fp.name))
+                return fp
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
@@ -135,7 +140,6 @@ class ChannelWriter(Runnable):
     def _write(self, a: np.ndarray) -> None:
         if not self._sf:
             self._sf = self._new_file()
-            self.files_written += 1
             self.frames_in_this_file = 0
 
         self._sf.write(a)

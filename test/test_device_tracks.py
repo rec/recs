@@ -64,7 +64,6 @@ def test_device_tracks_inc_exc(mock_devices):
 def test_device_tracks_inc_exc2(mock_devices):
     aliases = 'e', 'Main = fl + 1', 'mai=Mic'
     actual = device_tracks(Aliases(aliases), include=['e+1', 'e + 2-3'])
-    print(actual)
     expected = {
         EXT: [
             Track(EXT, '1'),
