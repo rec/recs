@@ -7,6 +7,7 @@ from strenum import StrEnum
 class SdType(StrEnum):
     float32 = auto()
     int16 = auto()
+    int24 = auto()
     int32 = auto()
 
 
