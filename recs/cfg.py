@@ -17,6 +17,7 @@ from recs.misc.prefix_dict import PrefixDict
 from .audio.file_types import SDTYPE, Format, SdType, Subtype
 from .audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from .misc import times
+from .misc.to_time import to_time
 
 
 class Subdirectory(StrEnum):
@@ -115,7 +116,7 @@ class Cfg:
     def times(self) -> times.Times:
         fields = (f.name for f in dc.fields(times.Times))
         d = {k: getattr(self, k) for k in fields}
-        d['longest_file_time'] = _to_time(d['longest_file_time'])
+        d['longest_file_time'] = to_time(d['longest_file_time'])
         return times.Times(**d)
 
     def run(self) -> None:
@@ -136,44 +137,3 @@ class Cfg:
             dts = device_tracks(self.aliases, self.exclude, self.include)
 
             Recorder(self, dts).run()
-
-
-def _to_time(t: str) -> float:
-    try:
-        parts = t.split(':')
-        if not (1 <= len(parts) <= 3):
-            raise ValueError
-
-        s = float(parts.pop())
-        if s < 0:
-            raise ValueError
-
-        if not parts:
-            return s
-
-        if s >= 60:
-            raise ValueError
-
-        m = int(parts.pop())
-        if m < 0:
-            raise ValueError
-
-        s += 60 * m
-        if not parts:
-            return s
-
-        if m >= 60:
-            raise ValueError
-
-        h = int(parts.pop())
-        if h < 0:
-            raise ValueError
-
-        assert not parts
-
-        return s + 3600 * h
-
-    except Exception:
-        pass
-
-    raise RecsError(f'Do not understand --longest-file-time={t}')
