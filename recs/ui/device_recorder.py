@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 import typing as t
-from functools import cached_property
+from functools import cached_property, partial
 
 import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
 from recs import Cfg
-from recs.audio import channel_writer
 from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator, Counter
 
-from .channel_recorder import ChannelRecorder
-
 
 class DeviceRecorder(Runnable):
     def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
-        from recs.ui import channel_recorder
+        from recs.ui.channel_recorder import ChannelRecorder
 
         super().__init__()
         self.cfg = cfg
@@ -30,11 +27,8 @@ class DeviceRecorder(Runnable):
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
-        def make(tr: Track) -> channel_recorder.ChannelRecorder:
-            writer = channel_writer.ChannelWriter(cfg=cfg, times=self.times, track=tr)
-            return ChannelRecorder(writer=writer)
-
-        self.channel_recorders = tuple(make(t) for t in tracks)
+        make = partial(ChannelRecorder, cfg=cfg, times=self.times)
+        self.channel_recorders = tuple(make(track=t) for t in tracks)
 
     def callback(self, array: np.ndarray) -> None:
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:

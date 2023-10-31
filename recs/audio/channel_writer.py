@@ -61,8 +61,6 @@ class ChannelWriter(Runnable):
             else:
                 self.longest_file_frames = max_frames
 
-        self.start()
-
     def stop(self) -> None:
         with self._lock:
             self.running.clear()
