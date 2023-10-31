@@ -4,12 +4,12 @@ from recs.audio import device
 from recs.audio.track import Track
 from recs.misc.aliases import Aliases
 
+DeviceTracks = dict[device.InputDevice, t.Sequence[Track]]
+
 
 def device_tracks(
-    aliases: Aliases,
-    exclude: t.Sequence[str] = (),
-    include: t.Sequence[str] = (),
-) -> dict[device.InputDevice, t.Sequence[Track]]:
+    aliases: Aliases, exclude: t.Sequence[str] = (), include: t.Sequence[str] = ()
+) -> DeviceTracks:
     exc = aliases.split_all(exclude)
     inc = aliases.split_all(include)
 
@@ -18,9 +18,7 @@ def device_tracks(
 
 
 def device_track(
-    d: device.InputDevice,
-    exc: t.Sequence[Track] = (),
-    inc: t.Sequence[Track] = (),
+    d: device.InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
 ) -> t.Iterator[Track]:
     if Track(d) in exc:
         return
