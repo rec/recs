@@ -137,7 +137,7 @@ class Recs:
         else:
             dts = device_tracks(self.aliases, self.exclude, self.include)
 
-            Recorder(dts).run()
+            Recorder(self, dts).run()
 
 
 def _to_time(t: str) -> float:
@@ -179,7 +179,3 @@ def _to_time(t: str) -> float:
         pass
 
     raise RecsError(f'Do not understand --longest-file-time={t}')
-
-
-RECS = Recs()
-run_recs = RECS.run

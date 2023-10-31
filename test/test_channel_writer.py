@@ -11,6 +11,7 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_types import SDTYPE, Format, SdType
 from recs.audio.track import Track
 from recs.misc.times import Times
+from recs.recs import Recs
 
 SAMPLERATES = 44_100, 48_000
 TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silence': 50}
@@ -72,13 +73,11 @@ TEST_CASES = (
 
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
-def test_channel_writer(case, mock_devices, set_recs):
-    set_recs(format=case.format)
-
+def test_channel_writer(case, mock_devices):
     track = Track('Ext', '2')
     times = Times[int](longest_file_time=case.longest_file_time, **TIMES)
 
-    with ChannelWriter(times=times, track=track) as writer:
+    with ChannelWriter(Recs(format=case.format), times=times, track=track) as writer:
         [writer.write(Block(a)) for a in case.arrays]
 
     files = sorted(writer.files_written)
@@ -94,8 +93,8 @@ def test_channel_writer(case, mock_devices, set_recs):
 
 @pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
 @tdir
-def test_long_wav(mock_devices, set_recs):
-    set_recs(format=Format.wav, sdtype=SdType.float32)
+def test_long_wav(mock_devices):
+    recs = Recs(format=Format.wav, sdtype=SdType.float32)
 
     TARGET = 0x1_0008_0000
     COUNT = 4
@@ -110,7 +109,7 @@ def test_long_wav(mock_devices, set_recs):
     track = Track('Ext', '1-2')
     times = Times[int](**TIMES)
 
-    with ChannelWriter(times=times, track=track) as writer:
+    with ChannelWriter(recs=recs, times=times, track=track) as writer:
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
             writer.write(block)

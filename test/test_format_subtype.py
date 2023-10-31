@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from recs import RECS
+from recs import Recs
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
 
@@ -28,7 +28,7 @@ def _writes(subtype):
 
     opener = FileOpener(subtype=subtype, **KWARGS)
     try:
-        with opener.open(Path(f'file.{RECS.format}'), 'w') as fp:
+        with opener.open(Path(f'file.{Recs().format}'), 'w') as fp:
             fp.write(BLOCK)
         return True
     except Exception:
@@ -42,7 +42,6 @@ def write_file(format='mp3', dtype='int32', length=4096, channels=2, count=1, **
     import numpy as np
     import soundfile as sf
 
-    RECS.format = format
     f = f'test.{format.strip(".").lower()}'
     with sf.SoundFile(f, mode='w', channels=channels, samplerate=48_000, **ka) as fp:
         for i in range(count):

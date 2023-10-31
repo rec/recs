@@ -12,7 +12,6 @@ from recs.misc.counter import Accumulator
 @dc.dataclass
 class ChannelRecorder:
     writer: ChannelWriter
-    dry_run: bool = False
 
     volume: Accumulator = dc.field(default_factory=Accumulator)
     block_count: int = 0
@@ -28,8 +27,7 @@ class ChannelRecorder:
         self.block_count += 1
         self.rms(b.rms)
         self.volume(b.volume)
-        if not self.dry_run:
-            self.writer.write(b)
+        self.writer.write(b)
 
     def stop(self) -> None:
         self.writer.stop()

@@ -11,7 +11,6 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs import RECS
 from recs.audio import device
 from recs.misc import prefix_dict, recording_path
 
@@ -117,13 +116,3 @@ def mock_devices(monkeypatch):
     monkeypatch.setattr(recording_path, 'now', now)
     monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(sd, 'query_devices', query_devices)
-
-
-@pytest.fixture
-def set_recs(monkeypatch):
-    def setter(**ka):
-        for k, v in ka.items():
-            monkeypatch.setattr(RECS, k, v)
-        RECS.__post_init__()
-
-    return setter

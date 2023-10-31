@@ -5,9 +5,9 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
-from recs import RECS
 from recs.audio import device
 from recs.misc import RecsError
+from recs.recs import Recs
 from recs.ui.device_tracks import DeviceTracks
 
 from . import live
@@ -17,17 +17,18 @@ TableMaker = t.Callable[[], Table]
 
 
 class Recorder(Runnable):
-    def __init__(self, device_tracks: DeviceTracks) -> None:
+    def __init__(self, recs: Recs, device_tracks: DeviceTracks) -> None:
         from .device_recorder import DeviceRecorder
 
         super().__init__()
+        self.recs = recs
 
         self.start_time = time.time()
         self.live = live.Live(
             self.rows,
-            quiet=RECS.quiet,
-            retain=RECS.retain,
-            ui_refresh_rate=RECS.ui_refresh_rate,
+            quiet=recs.quiet,
+            retain=recs.retain,
+            ui_refresh_rate=recs.ui_refresh_rate,
         )
 
         drs = (DeviceRecorder(k, self, v) for k, v in device_tracks.items())
@@ -40,7 +41,7 @@ class Recorder(Runnable):
         self.start()
         with self.context():
             while self.running:
-                time.sleep(RECS.sleep_time)
+                time.sleep(self.recs.sleep_time)
                 self.live.update()
 
     @property

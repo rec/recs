@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.recs import run_recs
+from recs import Recs
 
 from .conftest import DEVICES
 
@@ -21,13 +21,13 @@ CASES = (
 
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
 @tdir
-def test_end_to_end(path, dry_run, quiet, subs, mock_devices, set_recs):
-    set_recs(dry_run=dry_run)
-    set_recs(quiet=quiet)
-    set_recs(subdirectories=subs)
-    set_recs(total_run_time=0.1)
-
-    run_recs()
+def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
+    Recs(
+        dry_run=dry_run,
+        quiet=quiet,
+        subdirectory=subs,
+        total_run_time=0.1,
+    ).run()
 
     actual = sorted(Path().glob('**/*.flac'))
 
@@ -58,9 +58,8 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices, set_recs):
     assert differs_contents == []
 
 
-def test_info(mock_devices, capsys, set_recs):
-    set_recs(info=True)
-    run_recs()
+def test_info(mock_devices, capsys):
+    Recs(info=True).run()
     data = capsys.readouterr().out
 
     try:

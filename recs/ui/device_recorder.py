@@ -7,7 +7,6 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs import RECS
 from recs.audio import channel_writer, device
 from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
@@ -22,25 +21,29 @@ class DeviceRecorder(Runnable):
         self, d: device.InputDevice, recorder: Recorder, tracks: t.Sequence[Track]
     ) -> None:
         super().__init__()
+        self.recs = recorder.recs
+
         self.stopped.on_set.append(recorder.on_stopped)
 
         self.block_count = Counter()
         self.block_size = Accumulator()
         self.device = d
-        self.name = RECS.aliases.display_name(d)
+        self.name = self.recs.aliases.display_name(d)
         self.recorder = recorder
-        self.times = RECS.times.scale(d.samplerate)
+        self.times = self.recs.times.scale(d.samplerate)
 
         from recs.ui import channel_recorder
 
         def make(track: Track) -> channel_recorder.ChannelRecorder:
-            writer = channel_writer.ChannelWriter(times=self.times, track=track)
-            return ChannelRecorder(writer=writer, dry_run=RECS.dry_run)
+            writer = channel_writer.ChannelWriter(
+                recs=self.recs, times=self.times, track=track
+            )
+            return ChannelRecorder(writer=writer)
 
         self.channel_recorders = tuple(make(t) for t in tracks)
 
     def callback(self, array: np.ndarray) -> None:
-        if RECS.format == Format.mp3 and array.dtype == np.float32:
+        if self.recs.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
@@ -73,5 +76,5 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> sd.InputStream:
         return self.device.input_stream(
-            callback=self.callback, dtype=RECS.sdtype or SDTYPE, stop=self.stop
+            callback=self.callback, dtype=self.recs.sdtype or SDTYPE, stop=self.stop
         )

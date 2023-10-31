@@ -1,3 +1,3 @@
-from .recs import RECS
+from .recs import Recs
 
-__all__ = ('RECS',)
+__all__ = ('Recs',)

@@ -6,10 +6,10 @@ import click
 import dtyper
 from typer import rich_utils
 
+from recs import Recs
 from recs.misc import RecsError
 
 from .audio.file_types import Format, SdType, Subtype
-from .recs import RECS, run_recs
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
@@ -25,6 +25,9 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 """,
 )
 _SINGLES: set[str] = set()
+
+RECS = Recs()
+# Reading configs and environment variables would go here
 
 
 def Option(default, *a, **ka) -> dtyper.Option:
@@ -138,11 +141,7 @@ def recs(
         help='How many seconds to record? 0 means forever',
     ),
 ) -> None:
-    for k, v in list(locals().items()):
-        setattr(RECS, k, v)
-
-    RECS.__post_init__()
-    run_recs()
+    Recs(**locals()).run()
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))
