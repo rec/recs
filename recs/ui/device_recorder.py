@@ -59,9 +59,6 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.callback(array)
 
-        if not self.recorder.running:
-            self.stop()
-
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {'count': self.block_count.value, 'device': self.name}
         for v in self.channel_recorders:

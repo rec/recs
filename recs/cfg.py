@@ -93,6 +93,7 @@ class Cfg:
                 msg = f'{self.format=:s}, {self.sdtype=:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
 
+        self.aliases
         self.subdirectories
 
     @cached_property
@@ -120,7 +121,6 @@ class Cfg:
         return times.Times(**d)
 
     def run(self) -> None:
-        from .ui.device_tracks import device_tracks
         from .ui.recorder import Recorder
 
         if self.info:
@@ -134,6 +134,4 @@ class Cfg:
             print(json.dumps(formats, indent=4))
 
         else:
-            dts = device_tracks(self.aliases, self.exclude, self.include)
-
-            Recorder(self, dts).run()
+            Recorder(self).run()
