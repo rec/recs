@@ -1,46 +1,41 @@
-import dataclasses as dc
 from pathlib import Path
 
 import soundfile as sf
 
-from recs.cfg import Subdirectories
-from recs.misc.aliases import Aliases
+from recs import Cfg
 from recs.misc.recording_path import recording_path
 
-from .file_types import Format, Subtype
 from .track import Track
 
 
-@dc.dataclass(frozen=True)
 class FileOpener:
-    aliases: Aliases
-    format: Format
-    path: Path
-    subdirectories: Subdirectories
-    subtype: Subtype | None
-    track: Track
+    def __init__(self, cfg: Cfg, track: Track) -> None:
+        self.cfg = cfg
+        self.track = track
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
-        path = path.with_suffix('.' + self.format)
+        path = path.with_suffix('.' + self.cfg.format)
         if path.exists():
             raise FileExistsError(str(path))
 
         return sf.SoundFile(
             channels=len(self.track.channels),
             file=path,
-            format=self.format,
+            format=self.cfg.format,
             mode=mode,
             samplerate=self.track.device.samplerate,
-            subtype=self.subtype,
+            subtype=self.cfg.subtype,
         )
 
     def create(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        path, name = recording_path(self.track, self.aliases, self.subdirectories)
+        path, name = recording_path(
+            self.track, self.cfg.aliases, self.cfg.subdirectories
+        )
 
         while True:
-            p = self.path / path / (name + suffix)
+            p = self.cfg.path / path / (name + suffix)
             p.parent.mkdir(exist_ok=True, parents=True)
             try:
                 return self.open(p, 'w')

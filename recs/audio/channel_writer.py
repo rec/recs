@@ -14,10 +14,10 @@ from .file_opener import FileOpener
 from .file_types import SDTYPE, Format, SdType
 from .track import Track
 
-HEADER_SIZE = 0x80
-FORMAT_LIMIT = {
-    Format.aiff: 0x1_0000_0000,
-    Format.wav: 0x2_0000_0000,
+HEADER_SIZE = 0x58
+FORMAT_SIZE_LIMIT = {
+    Format.aiff: (0x8000_0000 - 0x68),
+    Format.wav: (0x1_0000_0000 - 0x58),
 }
 ITEMSIZE = {
     SdType.float32: 4,
@@ -45,21 +45,20 @@ class ChannelWriter(Runnable):
         self._lock = Lock()
 
         self.files_written: list[Path] = []
-        subs = cfg.subdirectories
-        self.opener = FileOpener(
-            cfg.aliases, cfg.format, cfg.path, subs, cfg.subtype, track
-        )
 
+        self.opener = FileOpener(cfg, track)
         self.longest_file_frames = times.longest_file_time
 
-        if max_size := not cfg.infinite_length and FORMAT_LIMIT.get(cfg.format):
-            frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
-            max_frames = (max_size - HEADER_SIZE) // frame_size
+        if cfg.infinite_length or not (max_size := FORMAT_SIZE_LIMIT.get(cfg.format)):
+            return
 
-            if self.longest_file_frames:
-                self.longest_file_frames = min(max_frames, self.longest_file_frames)
-            else:
-                self.longest_file_frames = max_frames
+        frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
+        max_frames = max_size // frame_size
+
+        if self.longest_file_frames:
+            self.longest_file_frames = min(max_frames, self.longest_file_frames)
+        else:
+            self.longest_file_frames = max_frames
 
     def stop(self) -> None:
         with self._lock:

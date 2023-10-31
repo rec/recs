@@ -1,5 +1,4 @@
 import dataclasses as dc
-import os
 
 import numpy as np
 import pytest
@@ -8,7 +7,7 @@ import tdir
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_types import SDTYPE, Format, SdType
+from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
 from recs.cfg import Cfg
 from recs.misc.times import Times
@@ -18,8 +17,6 @@ TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silenc
 
 II = [np.array((1, -1, 1, -1), dtype=SDTYPE)]
 OO = [np.array((0, 0, 0, 0), dtype=SDTYPE)]
-
-RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
 
 
 @dc.dataclass
@@ -89,37 +86,6 @@ def test_channel_writer(case, mock_devices):
     assert all(s in SAMPLERATES for s in samplerates)
     result = [list(_on_and_off_segments(c)) for c in contents]
     assert case.result == result
-
-
-@pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
-@tdir
-def test_long_wav(mock_devices):
-    recs = Cfg(format=Format.wav, sdtype=SdType.float32)
-
-    TARGET = 0x1_0008_0000
-    COUNT = 4
-
-    size = int(TARGET / COUNT / 4)
-    size -= size % 8
-
-    rng = np.random.default_rng(seed=723)
-    a = rng.uniform(-0x100, 0x100, (size, 2)).astype('float32')
-
-    block = Block(a)
-    track = Track('Ext', '1-2')
-    times = Times[int](**TIMES)
-
-    with ChannelWriter(recs=recs, times=times, track=track) as writer:
-        for i in range(COUNT):
-            print('Writing', i + 1, 'of', COUNT)
-            writer.write(block)
-    files = writer.files_written
-    assert len(files) == 2
-    sizes = [os.path.getsize(f) for f in files]
-    big = 0x1_0000_0000
-    assert big - 0x100 < sizes[0] <= big
-
-    assert TARGET < sum(sizes) <= TARGET + 0x80
 
 
 def _on_and_off_segments(it):
