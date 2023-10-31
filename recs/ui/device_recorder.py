@@ -7,37 +7,31 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs.audio import channel_writer, device
+from recs import Cfg
+from recs.audio import channel_writer
 from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
 from recs.misc.counter import Accumulator, Counter
 
 from .channel_recorder import ChannelRecorder
-from .recorder import Recorder
 
 
 class DeviceRecorder(Runnable):
-    def __init__(
-        self, d: device.InputDevice, recorder: Recorder, tracks: t.Sequence[Track]
-    ) -> None:
-        super().__init__()
-        self.cfg = recorder.cfg
+    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
+        from recs.ui import channel_recorder
 
-        self.stopped.on_set.append(recorder.on_stopped)
+        super().__init__()
+        self.cfg = cfg
 
         self.block_count = Counter()
         self.block_size = Accumulator()
-        self.device = d
+
+        self.device = d = tracks[0].device
         self.name = self.cfg.aliases.display_name(d)
-        self.recorder = recorder
         self.times = self.cfg.times.scale(d.samplerate)
 
-        from recs.ui import channel_recorder
-
-        def make(track: Track) -> channel_recorder.ChannelRecorder:
-            writer = channel_writer.ChannelWriter(
-                cfg=self.cfg, times=self.times, track=track
-            )
+        def make(tr: Track) -> channel_recorder.ChannelRecorder:
+            writer = channel_writer.ChannelWriter(cfg=cfg, times=self.times, track=tr)
             return ChannelRecorder(writer=writer)
 
         self.channel_recorders = tuple(make(t) for t in tracks)

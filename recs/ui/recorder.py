@@ -32,11 +32,14 @@ class Recorder(Runnable):
             ui_refresh_rate=cfg.ui_refresh_rate,
         )
 
-        dts = device_tracks(cfg.aliases, cfg.exclude, cfg.include).items()
-        self.device_recorders = tuple(DeviceRecorder(k, self, v) for k, v in dts)
+        dts = device_tracks(cfg.aliases, cfg.exclude, cfg.include).values()
+        self.device_recorders = tuple(DeviceRecorder(cfg, tracks) for tracks in dts)
 
         if not self.device_recorders:
             raise RecsError('No devices or channels selected')
+
+        for d in self.device_recorders:
+            d.stopped.on_set.append(self.on_stopped)
 
     def run(self) -> None:
         self.start()
