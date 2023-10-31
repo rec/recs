@@ -14,15 +14,14 @@ from .audio.file_types import Format, SdType, Subtype
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
 CLI_NAME = 'recs'
+HELP = f"""\
+{ICON} {CLI_NAME}: record everything, automatically {ICON}
+
+"""
 
 app = dtyper.Typer(
     add_completion=False,
     context_settings={'help_option_names': ['--help', '-h']},
-    help=f"""\
-{ICON} {CLI_NAME} {ICON}
-
-Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
-""",
 )
 _SINGLES: set[str] = set()
 
@@ -35,7 +34,7 @@ def Option(default, *a, **ka) -> dtyper.Option:
     return dtyper.Option(default, *a, **ka)
 
 
-@app.command(help='Record everything coming in')
+@app.command(help=HELP)
 def recs(
     #
     # Directory settings
