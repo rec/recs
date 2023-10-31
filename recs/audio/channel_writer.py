@@ -6,8 +6,8 @@ import numpy as np
 from soundfile import SoundFile
 from threa import Runnable
 
+from recs.cfg import Cfg
 from recs.misc import times
-from recs.recs import Recs
 
 from .block import Block, Blocks
 from .file_opener import FileOpener
@@ -34,10 +34,10 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
-    def __init__(self, recs: Recs, times: times.Times[int], track: Track) -> None:
+    def __init__(self, cfg: Cfg, times: times.Times[int], track: Track) -> None:
         super().__init__()
 
-        self.dry_run = recs.dry_run
+        self.dry_run = cfg.dry_run
         self.times = times
         self.track = track
 
@@ -45,15 +45,15 @@ class ChannelWriter(Runnable):
         self._lock = Lock()
 
         self.files_written: list[Path] = []
-        subs = recs.subdirectories
+        subs = cfg.subdirectories
         self.opener = FileOpener(
-            recs.aliases, recs.format, recs.path, subs, recs.subtype, track
+            cfg.aliases, cfg.format, cfg.path, subs, cfg.subtype, track
         )
 
         self.longest_file_frames = times.longest_file_time
 
-        if max_size := not recs.infinite_length and FORMAT_LIMIT.get(recs.format):
-            frame_size = ITEMSIZE[recs.sdtype or SDTYPE] * len(track.channels)
+        if max_size := not cfg.infinite_length and FORMAT_LIMIT.get(cfg.format):
+            frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
             max_frames = (max_size - HEADER_SIZE) // frame_size
 
             if self.longest_file_frames:

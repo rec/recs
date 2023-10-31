@@ -3,9 +3,9 @@ from pathlib import Path
 
 import soundfile as sf
 
+from recs.cfg import Subdirectories
 from recs.misc.aliases import Aliases
 from recs.misc.recording_path import recording_path
-from recs.recs import Subdirectories
 
 from .file_types import Format, Subtype
 from .track import Track

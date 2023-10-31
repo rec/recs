@@ -1,11 +1,11 @@
 import pytest
 
+from recs.cfg import Cfg
 from recs.misc import RecsError
-from recs.recs import Recs
 from recs.ui.recorder import Recorder
 
 
 def test_recorder_fails():
     with pytest.raises(RecsError) as e:
-        Recorder(Recs(), {})
+        Recorder(Cfg(), {})
     assert e.value.args == ('No devices or channels selected',)

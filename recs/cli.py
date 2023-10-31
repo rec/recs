@@ -6,7 +6,7 @@ import click
 import dtyper
 from typer import rich_utils
 
-from recs import Recs
+from recs import Cfg
 from recs.misc import RecsError
 
 from .audio.file_types import Format, SdType, Subtype
@@ -26,7 +26,7 @@ Usage: {CLI_NAME} [GLOBAL-FLAGS] [COMMAND] [COMMAND-FLAGS] [COMMAND-ARGS]
 )
 _SINGLES: set[str] = set()
 
-RECS = Recs()
+RECS = Cfg()
 # Reading configs and environment variables would go here
 
 
@@ -141,7 +141,7 @@ def recs(
         help='How many seconds to record? 0 means forever',
     ),
 ) -> None:
-    Recs(**locals()).run()
+    Cfg(**locals()).run()
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))

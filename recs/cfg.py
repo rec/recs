@@ -26,13 +26,11 @@ class Subdirectory(StrEnum):
 
 
 Subdirectories = t.Sequence[Subdirectory]
-
-
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 @dc.dataclass
-class Recs:
+class Cfg:
     # See ./cli.py for full help
     #
     # Directory settings

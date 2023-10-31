@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs import Recs
+from recs import Cfg
 
 from .conftest import DEVICES
 
@@ -22,7 +22,7 @@ CASES = (
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
 @tdir
 def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
-    Recs(
+    Cfg(
         dry_run=dry_run,
         quiet=quiet,
         subdirectory=subs,
@@ -59,7 +59,7 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
 
 
 def test_info(mock_devices, capsys):
-    Recs(info=True).run()
+    Cfg(info=True).run()
     data = capsys.readouterr().out
 
     try:

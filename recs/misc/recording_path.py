@@ -3,9 +3,9 @@ from pathlib import Path
 
 from recs.audio.device import InputDevice
 from recs.audio.track import Track
+from recs.cfg import Subdirectories
 from recs.misc.aliases import Aliases
 from recs.misc.legal_filename import legal_filename
-from recs.recs import Subdirectories
 
 now = datetime.now
 

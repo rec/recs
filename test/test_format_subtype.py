@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from recs import Recs
+from recs import Cfg
 from recs.audio.file_opener import FileOpener
 from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
 
@@ -28,7 +28,7 @@ def _writes(subtype):
 
     opener = FileOpener(subtype=subtype, **KWARGS)
     try:
-        with opener.open(Path(f'file.{Recs().format}'), 'w') as fp:
+        with opener.open(Path(f'file.{Cfg().format}'), 'w') as fp:
             fp.write(BLOCK)
         return True
     except Exception:

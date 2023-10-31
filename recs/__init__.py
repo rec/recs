@@ -1,3 +1,3 @@
-from .recs import Recs
+from .cfg import Cfg
 
-__all__ = ('Recs',)
+__all__ = ('Cfg',)

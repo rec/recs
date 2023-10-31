@@ -3,7 +3,7 @@ import typing as t
 
 import dtyper
 
-from recs import cli, recs
+from recs import cfg, cli
 from recs.audio.file_types import SdType, Subtype
 
 
@@ -13,7 +13,7 @@ class Recs:
 
 
 def test_fields():
-    hand, auto = dc.fields(recs.Recs), dc.fields(Recs)
+    hand, auto = dc.fields(cfg.Cfg), dc.fields(cfg.Cfg)
 
     assert [f.name for f in hand] == [f.name for f in auto]
     assert not [h.name for h, a in zip(hand, auto) if h.default != a.default]
