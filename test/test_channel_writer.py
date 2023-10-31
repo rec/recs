@@ -7,7 +7,7 @@ import tdir
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_types import SDTYPE, Format
+from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
 from recs.audio.track import Track
 from recs.cfg import Cfg
 from recs.misc.times import Times
@@ -25,46 +25,36 @@ class Case:
     result: list[list[int]]
     format: Format = Format.wav
     longest_file_time: int = 0
+    sdtype: SdType | None = None
 
     replace = dc.replace
 
 
+BASE = Case(
+    arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
+    result=[[28, 16, 12], [28, 4, 12], [28, 76]],
+)
+SIMPLE = Case(
+    arrays=100 * II,
+    longest_file_time=210,
+    result=[[0, 210], [0, 190]],
+)
+
+
 TEST_CASES = (
-    Case(
-        arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
-        result=[[28, 16, 12], [28, 4, 12], [28, 76]],
-    ),
+    BASE,
+    BASE.replace(sdtype=SdType.int16),
+    BASE.replace(sdtype=SdType.int32),
+    BASE.replace(sdtype=SdType.float32),
+    BASE.replace(sdtype=SdType.int24),
     Case(
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
         result=[[0, 16, 12, 4, 12], [28, 12]],
     ),
-    Case(
-        arrays=100 * II,
-        longest_file_time=210,
-        result=[[0, 210], [0, 190]],
-    ),
-    Case(
-        arrays=100 * II,
-        longest_file_time=210,
-        result=[[0, 210], [0, 190]],
-    ),
-    Case(
-        arrays=100 * II,
-        format=Format.flac,
-        longest_file_time=210,
-        result=[[0, 210], [0, 190]],
-    ),
-    Case(
-        arrays=100 * II,
-        format=Format.mp3,
-        longest_file_time=210,
-        result=[[0, 210], [0, 190]],
-    ),
-    Case(
-        arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
-        format=Format.caf,
-        result=[[28, 16, 12], [28, 4, 12], [28, 76]],
-    ),
+    SIMPLE,
+    SIMPLE.replace(format=Format.flac),
+    SIMPLE.replace(format=Format.mp3),
+    BASE.replace(format=Format.caf),
 )
 
 
@@ -74,7 +64,8 @@ def test_channel_writer(case, mock_devices):
     track = Track('Ext', '2')
     times = Times[int](longest_file_time=case.longest_file_time, **TIMES)
 
-    with ChannelWriter(Cfg(format=case.format), times=times, track=track) as writer:
+    cfg = Cfg(format=case.format, sdtype=case.sdtype)
+    with ChannelWriter(cfg, times=times, track=track) as writer:
         [writer.write(Block(a)) for a in case.arrays]
 
     files = sorted(writer.files_written)
@@ -86,6 +77,14 @@ def test_channel_writer(case, mock_devices):
     assert all(s in SAMPLERATES for s in samplerates)
     result = [list(_on_and_off_segments(c)) for c in contents]
     assert case.result == result
+
+    if case.sdtype == SdType.int24:
+        with sf.SoundFile(files[0]) as fp:
+            assert fp.subtype.lower() == Subtype.pcm_24
+
+    if case.sdtype == SdType.float32:
+        with sf.SoundFile(files[0]) as fp:
+            assert fp.subtype.lower() == Subtype.float
 
 
 def _on_and_off_segments(it):
