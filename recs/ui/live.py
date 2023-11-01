@@ -3,6 +3,7 @@ import dataclasses as dc
 import typing as t
 from functools import cached_property
 
+import humanize
 from rich import live
 from rich.console import Console
 from rich.table import Table
@@ -62,11 +63,18 @@ GREEN = 512 // 3
 BLUE = 0
 
 
+def naturalsize(x: str | int | float) -> str:
+    if isinstance(x, str):
+        return x
+    return humanize.naturalsize(x)
+
+
 TABLE_FORMATTER = TableFormatter(
     time=None,
     device=None,
     channel=None,
     count=_to_str,
+    total_size=naturalsize,
     rms=None,
     rms_mean=None,
     volume=None,

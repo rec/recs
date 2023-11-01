@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 
 class FileList(list[Path]):
@@ -7,6 +7,7 @@ class FileList(list[Path]):
     A list of paths with a total size. The size of the last file, only, in the list
     might be updated after it is added.
     """
+
     _count: int = 0
     _total_size: int = 0
 

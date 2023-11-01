@@ -7,7 +7,7 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.cfg import Cfg
-from recs.misc import times
+from recs.misc import file_list, times
 
 from .block import Block, Blocks
 from .file_opener import FileOpener
@@ -28,9 +28,12 @@ ITEMSIZE = {
 
 
 class ChannelWriter(Runnable):
+    blocks_seen: int = 0
     blocks_written: int = 0
+
     frames_in_this_file: int = 0
     frames_seen: int = 0
+    frames_written: int = 0
 
     _sf: SoundFile | None = None
 
@@ -44,7 +47,7 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks()
         self._lock = Lock()
 
-        self.files_written: list[Path] = []
+        self.files_written = file_list.FileList()
 
         self.opener = FileOpener(cfg, track)
         self.longest_file_frames = times.longest_file_time
@@ -75,14 +78,13 @@ class ChannelWriter(Runnable):
             self.stopped.set()
 
     def write(self, block: Block) -> None:
-        if self.dry_run:
+        self.blocks_seen += 1
+        self.frames_seen += len(block)
+
+        if self.dry_run or not (self.running or self._sf):
             return
 
         with self._lock:
-            if not (self.running or self._sf):
-                return
-
-            self.frames_seen += len(block)
             self._blocks.append(block)
 
             if self._blocks[-1].volume >= self.times.noise_floor_amplitude:
@@ -93,7 +95,6 @@ class ChannelWriter(Runnable):
 
             if not self.running:
                 self._close_on_silence()
-                return
 
     def _close_file(self):
         if self._sf:
@@ -110,6 +111,9 @@ class ChannelWriter(Runnable):
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
+            self.blocks_written += 1
+            self.frames_written += len(b)
+
             remains = self.longest_file_frames - self.frames_in_this_file
             if self.longest_file_frames and remains <= len(b):
                 self._write(b.block[:remains])
@@ -137,5 +141,4 @@ class ChannelWriter(Runnable):
             self.frames_in_this_file = 0
 
         self._sf.write(a)
-        self.blocks_written += 1
         self.frames_in_this_file += len(a)

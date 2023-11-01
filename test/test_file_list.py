@@ -1,7 +1,8 @@
-from recs.misc.file_list import FileList
 from pathlib import Path
 
 import tdir
+
+from recs.misc.file_list import FileList
 
 
 @tdir
