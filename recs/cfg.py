@@ -117,7 +117,11 @@ class Cfg:
     def times(self) -> times.Times:
         fields = (f.name for f in dc.fields(times.Times))
         d = {k: getattr(self, k) for k in fields}
-        d['longest_file_time'] = to_time(d['longest_file_time'])
+        try:
+            d['longest_file_time'] = to_time(t := d['longest_file_time'])
+        except (ValueError, TypeError):
+            raise RecsError(f'Do not understand --longest-file-time={t}')
+
         return times.Times(**d)
 
     def run(self) -> None:

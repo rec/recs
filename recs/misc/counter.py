@@ -28,7 +28,6 @@ class Accumulator:
 
     def __call__(self, x: Num) -> None:
         self.value = x
-        self.count += 1
         try:
             self.sum += x
         except AttributeError:
@@ -36,6 +35,7 @@ class Accumulator:
             self.square_sum = x * x
         else:
             self.square_sum += x * x
+        self.count += 1
 
     def mean(self) -> Num:
         return self.count and self.sum / self.count

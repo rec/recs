@@ -8,6 +8,8 @@ from rich import live
 from rich.console import Console
 from rich.table import Table
 
+from recs.misc.to_time import to_str
+
 from .table import TableFormatter
 
 RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
@@ -47,10 +49,7 @@ class Live:
                 yield
 
 
-def _to_str(x: str | float) -> str:
-    if isinstance(x, str):
-        return x
-
+def _to_str(x: float) -> str:
     global RED, GREEN, BLUE
     RED = (RED + 1) % 256
     GREEN = (GREEN + 1) % 256
@@ -62,19 +61,12 @@ RED = 256 // 3
 GREEN = 512 // 3
 BLUE = 0
 
-
-def naturalsize(x: str | int | float) -> str:
-    if isinstance(x, str):
-        return x
-    return humanize.naturalsize(x)
-
-
 TABLE_FORMATTER = TableFormatter(
-    time=None,
+    time=to_str,
     device=None,
     channel=None,
     count=_to_str,
-    total_size=naturalsize,
+    total_size=humanize.naturalsize,
     rms=None,
     rms_mean=None,
     volume=None,

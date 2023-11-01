@@ -53,7 +53,7 @@ class Recorder(Runnable):
         return time.time() - self.start_time
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {'time': f'{self.elapsed_time:9.3f}'}
+        yield {'time': self.elapsed_time}
         for v in self.device_recorders:
             yield from v.rows()
 
