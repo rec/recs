@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses as dc
+import time
 import typing as t
 from functools import cached_property
 
@@ -22,11 +23,15 @@ class Live:
     rows: RowsFunction
     quiet: bool = True
     retain: bool = False
-    ui_refresh_rate: float = 23
+    ui_refresh_rate: float = 10
+    _last_update_time: float = 0
 
     def update(self) -> None:
         if not self.quiet:
-            self.live.update(self.table())
+            t = time.time()
+            if (t - self._last_update_time) >= 1 / self.ui_refresh_rate:
+                self._last_update_time = t
+                self.live.update(self.table())
 
     @cached_property
     def live(self) -> live.Live:
@@ -69,7 +74,7 @@ def _volume(x) -> str:
     except Exception:
         s = x
 
-    if not s:
+    if s < 0.001:
         return ''
 
     if s < 1 / 3:
@@ -85,19 +90,25 @@ def _volume(x) -> str:
 def _time_to_str(x) -> str:
     if not x:
         return ''
-    return to_time.to_str(x)
+    s = to_time.to_str(x)
+    return f'{s:>10}'
 
 
 def _naturalsize(x: int) -> str:
     if not x:
         return ''
-    return humanize.naturalsize(x)
+    s = humanize.naturalsize(x)
+    return f'{s:>10}'
+
+
+def _channel(x: str) -> str:
+    return f' {x} ' if len(x) == 1 else x
 
 
 TABLE_FORMATTER = TableFormatter(
     time=_time_to_str,
     device=None,
-    channel=None,
+    channel=_channel,
     on=_on,
     recorded=_time_to_str,
     file_size=_naturalsize,
