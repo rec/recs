@@ -17,3 +17,14 @@ def test_accumulator():
     assert a.mean() == 7.5
     assert a.variance() == 77.5
     assert a.stdev() == 77.5**0.5
+
+
+def test_moving():
+    a = counter.Moving(4)
+    assert a.mean() == 0
+
+    a.extend(range(4))
+    assert a.mean() == 1.5  # 6 / 4
+
+    a.append(10)
+    assert a.mean() == 4  # 16 / 4
