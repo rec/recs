@@ -64,7 +64,7 @@ class Cfg:
     # Console and UI settings
     #
     quiet: bool = False
-    retain: bool = False
+    retain: bool = True
     ui_refresh_rate: float = 23
     sleep_time: float = 0.013
     #
