@@ -38,4 +38,9 @@ def to_str(dt: float | int) -> str:
     m, s = divmod(dt, 60)
     m = int(m)
     h, m = divmod(m, 60)
-    return f'{h}:{m:02}:{s:02.3f}'
+    t = f'{s:06.3f}'
+    if h:
+        return f'{h}:{m:02}:{t}'
+    if m:
+        return f'{m}:{t}'
+    return f'{s:.3f}'

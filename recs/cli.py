@@ -113,6 +113,9 @@ def recs(
     longest_file_time: str = Option(
         RECS.longest_file_time, help='Longest amount of time per file: 0 means infinite'
     ),
+    moving_average_time: float = Option(
+        RECS.moving_average_time, help='How long to average the volume display over'
+    ),
     noise_floor: float = Option(
         RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'
     ),

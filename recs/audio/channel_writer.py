@@ -37,6 +37,10 @@ class ChannelWriter(Runnable):
 
     _sf: SoundFile | None = None
 
+    @property
+    def active(self) -> bool:
+        return bool(self._sf)
+
     def __init__(self, cfg: Cfg, times: times.Times[int], track: Track) -> None:
         super().__init__()
 

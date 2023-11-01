@@ -72,6 +72,7 @@ class Cfg:
     #
     infinite_length: bool = False
     longest_file_time: str = '0'  # In HH:MM:SS.SSSS
+    moving_average_time: float = 1
     noise_floor: float = 70
     silence_after_end: float = 2
     silence_before_start: float = 1

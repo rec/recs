@@ -34,6 +34,9 @@ class Times(t.Generic[T]):
     #: Amount of silence before stopping a recording
     stop_after_silence: T = t.cast(T, 0)
 
+    # Time for moving averages for the meters
+    moving_average_time: T = t.cast(T, 0)
+
     #: The noise floor in decibels
     noise_floor: float = 70
 

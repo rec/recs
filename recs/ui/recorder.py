@@ -53,9 +53,21 @@ class Recorder(Runnable):
         return time.time() - self.start_time
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {'time': self.elapsed_time}
+        yield {
+            'time': self.elapsed_time,
+            'recorded': self.recorded_time,
+            'file_size': self.file_size,
+        }
         for v in self.device_recorders:
             yield from v.rows()
+
+    @property
+    def file_size(self) -> int:
+        return sum(d.file_size for d in self.device_recorders)
+
+    @property
+    def recorded_time(self) -> float:
+        return sum(d.recorded_time for d in self.device_recorders)
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:

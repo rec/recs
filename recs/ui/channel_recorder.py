@@ -9,31 +9,37 @@ from recs.misc import counter, times
 
 class ChannelRecorder:
     block_count: int = 0
+    block_size: int = 0
 
     def __init__(self, cfg: Cfg, times: times.Times[int], track: track.Track) -> None:
         self.track = track
         self.writer = channel_writer.ChannelWriter(cfg, times, track)
-        self.rms = counter.Accumulator()
-        self.volume = counter.Accumulator()
+        self.volume = counter.MovingBlock(times.moving_average_time)
 
         self.writer.start()
         self.stop = self.writer.stop
 
     def callback(self, array: np.ndarray) -> None:
         b = block.Block(array[:, self.track.slice])
-
-        self.block_count += 1
-        self.rms(b.rms)
-        self.volume(b.volume)
         self.writer.write(b)
+
+        self.block_size = len(b)
+        self.block_count += 1
+        self.volume(b)
+
+    @property
+    def file_size(self) -> int:
+        return self.writer.files_written.total_size
+
+    @property
+    def recorded_time(self) -> float:
+        return self.writer.frames_written / self.track.device.samplerate
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
-            'volume': self.volume.value,
-            'volume_mean': self.volume.mean(),
             'channel': self.track.channels_name,
-            'count': self.block_count,
-            'total_size': self.writer.files_written.total_size,
-            'rms': self.rms.value,
-            'rms_mean': self.rms.mean(),
+            'on': self.writer.active,
+            'recorded': self.recorded_time,
+            'file_size': self.file_size,
+            'volume': self.volume.mean(),
         }

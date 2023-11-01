@@ -48,7 +48,7 @@ class DeviceRecorder(Runnable):
             c.callback(array)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {'count': self.block_count.value, 'device': self.name}
+        yield {'device': self.name}
         for v in self.channel_recorders:
             yield from v.rows()
 
@@ -57,6 +57,14 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.stop()
         self.stopped.set()
+
+    @property
+    def file_size(self) -> int:
+        return sum(c.file_size for c in self.channel_recorders)
+
+    @property
+    def recorded_time(self) -> float:
+        return sum(c.recorded_time for c in self.channel_recorders)
 
     @cached_property
     def input_stream(self) -> sd.InputStream:
