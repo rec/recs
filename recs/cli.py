@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 import dtyper
-from typer import rich_utils
+from typer import Argument, rich_utils
 
 from recs import Cfg
 from recs.misc import RecsError
@@ -14,10 +14,20 @@ from .audio.file_types import Format, SdType, Subtype
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
 CLI_NAME = 'recs'
-HELP = f"""\
-{ICON} {CLI_NAME}: record everything, automatically {ICON}
+INTRO = f"""
+  {ICON} {CLI_NAME}: record everything, automatically {ICON}
 
-"""
+============================================="""
+LINES = (
+    INTRO,
+    'Why should there be a record button at all?',
+    'I wanted to digitize a huge number of cassettes and LPs, so I wanted a '
+    + 'program that ran in the background and recorded everything except silence.',
+    'Nothing like that existed so I wrote it.  Free, open-source, configurable.',
+    'Full documentation here: https://github.com/rec/recs',
+    '',
+)
+HELP = '\n\n\n\n'.join(LINES)  # Three blank lines is necessary for Typer
 
 app = dtyper.Typer(
     add_completion=False,
@@ -39,14 +49,14 @@ def recs(
     #
     # Directory settings
     #
-    path: Path = Option(
-        RECS.path, '-p', '--path', help='Path to the parent directory for files'
+    path: Path = Argument(
+        RECS.path, help='Path to the parent directory to create audio files in'
     ),
     subdirectory: list[str] = Option(
         RECS.subdirectory,
         '-s',
         '--subdirectory',
-        help='Organize files by date, device or both',
+        help='Organize files into subdirectories by channel, device or time.',
     ),
     #
     # General purpose settings
@@ -149,8 +159,8 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefinopqrstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklmwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefinoqrstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklmpwxyz', _UNUSED_SINGLES
 
 
 def run() -> int:
