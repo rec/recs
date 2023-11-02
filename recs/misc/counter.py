@@ -50,17 +50,6 @@ class Accumulator:
         return self.count and self.square_sum / self.count
 
 
-class Moving(deque[Num]):
-    def __init__(self, maxlen: int = 0):
-        super().__init__((), max(maxlen, 1))
-
-    def __call__(self, x: Num) -> None:
-        self.append(x)
-
-    def mean(self) -> Num:
-        return sum(self) / max(1, len(self)) if self else 0
-
-
 class MovingBlock:
     _deque: deque[Num] | None = None
 
