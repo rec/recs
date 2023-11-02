@@ -33,8 +33,6 @@ def to_time(t: str) -> float:
 
 
 def to_str(dt: float | int) -> str:
-    if not isinstance(dt, (float, int)):
-        return dt
     m, s = divmod(dt, 60)
     m = int(m)
     h, m = divmod(m, 60)
