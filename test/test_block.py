@@ -34,3 +34,35 @@ def test_slice():
     actual = source[0:2, :]
     expected = Block(np.array([[1, 2], [3, 4]]))
     assert np.allclose(actual.block, expected.block)
+
+
+def test_asfloat1():
+    b = Block(np.array([[1, 2], [3, 4], [5, 6]], dtype='float32'))
+    assert b.is_float
+    assert b.asfloat is b
+
+
+def test_asfloat2():
+    i = 0x4000
+    b = Block(np.array([[i, i], [0, 0], [-i, -i]], dtype='int16'))
+    assert not b.is_float
+    assert b.asfloat is not b
+
+    expected = Block(np.array([[0.5, 0.5], [0, 0], [-0.5, -0.5]], dtype='float32'))
+    actual = b.asfloat.block
+    assert np.allclose(actual, expected.block)
+
+
+def test_rms1():
+    b = Block(np.array([[0.5, 0.5], [0, 0], [-0.5, -0.5]], dtype='float32'))
+    level = 1 / 6**0.5
+    assert np.allclose(b.rms, [level, level])
+
+
+def test_rms2():
+    i = 0x4000
+    b = Block(np.array([[i, i], [0, 0], [-i, -i]], dtype='int16'))
+    print(b, b.asfloat)
+    print('!!!!', b.rms)
+    level = 1 / 6**0.5
+    assert np.allclose(b.rms, [level, level])

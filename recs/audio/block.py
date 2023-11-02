@@ -56,19 +56,21 @@ class Block:
         return self.block.min(0)
 
     @cached_property
-    def asfloat(self) -> np.ndarray:
+    def asfloat(self) -> 'Block':
         if self.is_float:
-            return self.block
-        return self.block.astype('double' if self.block.dtype.itemsize > 4 else 'float')
+            return self
+        b = self.block.astype('double' if self.block.dtype.itemsize > 4 else 'float')
+        b /= self.scale
+        return Block(b)
 
     @cached_property
     def rms(self) -> np.ndarray:
-        b = self.asfloat
+        b = self.asfloat.block
         if b is self.block:
             b = b * b
         else:
             b *= b
-        return np.sqrt(b.mean(0)) / self.scale
+        return np.sqrt(b.mean(0))
 
 
 @dc.dataclass
