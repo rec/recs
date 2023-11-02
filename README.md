@@ -1,17 +1,20 @@
-# recs: record everything, automatically
+#  🎬 recs: record everything, automatically 🎬
 
-Want to rip through a large number of old cassettes or LPs but don't want to keep
-starting and stopping a program?  Want something that just automatically watches and
-records?  Well, I certainly do anyway.
+### Why should there be a record button at all?
+
+I wanted to digitize a huge number of cassettes and LPs, so I wanted a program
+that ran in the background and recorded everything except silence.
+
+Nothing like that existed so I wrote it.  Free, open-source, configurable.
 
 `recs` records any or every audio input on your machine, intelligently filters
 out silence, and stores the results in named, organized files.
 
-Pre-beta, eta winter 2023.
 
+### Usage
 
 ```
- Usage: python -m recs [OPTIONS]
+ Usage: recs [OPTIONS]
 
  Record everything coming in
 
@@ -35,7 +38,7 @@ Pre-beta, eta winter 2023.
 │                                 |pcm_16|pcm_24|pcm_32|pcm_s8|pcm_u8|ulaw|vorbis|vox_adpcm]                                                               │
 │ --dtype                 -d      [float32|float64|int16|int32]                               Type of numpy numbers [default: None]                        │
 │ --quiet                 -q                                                                  If true, do not display live updates                         │
-│ --ui-refresh-rate               FLOAT                                                       How many UI refreshes per second [default: 23]               │
+│ --ui-refresh-rate               FLOAT                                                       How many UI refreshes per second [default: 10]               │
 │ --sleep-time                    FLOAT                                                       How long to sleep between data refreshes [default: 0.013]    │
 │ --longest-file-time             TEXT                                                        Longest amount of time per file: 0 means infinite            │
 │                                                                                             [default: 0]                                                 │
