@@ -91,14 +91,14 @@ def _time_to_str(x) -> str:
     if not x:
         return ''
     s = to_time.to_str(x)
-    return f'{s:>10}'
+    return f'{s:>11}'
 
 
 def _naturalsize(x: int) -> str:
     if not x:
         return ''
     s = humanize.naturalsize(x)
-    return f'{s:>10}'
+    return f'{s:>9}'
 
 
 def _channel(x: str) -> str:
