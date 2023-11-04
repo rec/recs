@@ -1,6 +1,7 @@
 import typing as t
 from pathlib import Path
 from threading import Lock
+from time import time
 
 import numpy as np
 from soundfile import SoundFile
@@ -26,6 +27,8 @@ ITEMSIZE = {
     SdType.int24: 3,
     SdType.int32: 4,
 }
+BLOCK_FUZZ = 2
+DETECT_SLEEP = False
 
 
 class ChannelWriter(Runnable):
@@ -35,6 +38,8 @@ class ChannelWriter(Runnable):
     frames_in_this_file: int = 0
     frames_seen: int = 0
     frames_written: int = 0
+
+    last_time: float = 0
 
     _sf: SoundFile | None = None
 
@@ -83,13 +88,22 @@ class ChannelWriter(Runnable):
             self.stopped.set()
 
     def write(self, block: Block) -> None:
+        last_time, self.last_time = self.last_time, time()
+        self.block_size = len(block)
+        self.frames_seen += self.block_size
         self.blocks_seen += 1
-        self.frames_seen += len(block)
 
         if self.dry_run or not (self.running or self._sf):
             return
 
+        dt = self.last_time - last_time
+        expected_dt = self.block_size / self.track.device.samplerate
+
         with self._lock:
+            if DETECT_SLEEP and dt > expected_dt * BLOCK_FUZZ:
+                # We were asleep, or otherwise lost time.
+                self._close_on_silence()
+
             self._blocks.append(block)
 
             if self._blocks[-1].volume >= self.times.noise_floor_amplitude:
@@ -104,6 +118,9 @@ class ChannelWriter(Runnable):
     def _close_file(self):
         if self._sf:
             self._sf.close()
+            if DETECT_SLEEP and self._sf.frames <= self.times.shortest_file_time:
+                if (p := Path(self._sf.name)).exists():
+                    p.unlink()
             self._sf = None
 
     def _close_on_silence(self) -> None:

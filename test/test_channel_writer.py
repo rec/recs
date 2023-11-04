@@ -12,7 +12,7 @@ from recs.base.cfg import Cfg
 from recs.base.times import Times
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 
-SAMPLERATES = 44_100, 48_000
+SAMPLERATE = 44_100
 TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silence': 50}
 
 II = [np.array((1, -1, 1, -1), dtype=SDTYPE)]
@@ -74,7 +74,7 @@ def test_channel_writer(case, mock_devices):
 
     contents, samplerates = zip(*(sf.read(f) for f in files))
 
-    assert all(s in SAMPLERATES for s in samplerates)
+    assert all(s == SAMPLERATE for s in samplerates)
     result = [list(_on_and_off_segments(c)) for c in contents]
     assert case.result == result
 
