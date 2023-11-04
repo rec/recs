@@ -1,3 +1,8 @@
+from datetime import datetime
+
+now = datetime.now
+
+
 def to_time(t: str) -> float:
     parts = t.split(':')
     if not (1 <= len(parts) <= 3):

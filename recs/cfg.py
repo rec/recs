@@ -14,6 +14,7 @@ from recs.misc import RecsError
 from recs.misc.aliases import Aliases
 from recs.misc.prefix_dict import PrefixDict
 
+from .audio import metadata
 from .audio.file_types import SDTYPE, Format, SdType, Subtype
 from .audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from .misc import times
@@ -58,6 +59,7 @@ class Cfg:
     # Audio file format and subtype
     #
     format: Format = Format.flac
+    metadata: t.Sequence[str] = ()
     sdtype: SdType | None = None
     subtype: Subtype | None = None
     #
@@ -100,6 +102,10 @@ class Cfg:
     @cached_property
     def aliases(self) -> Aliases:
         return Aliases(self.alias)
+
+    @cached_property
+    def metadata_dict(self) -> dict[str, str]:
+        return metadata.to_dict(self.metadata)
 
     @cached_property
     def subdirectories(self) -> Subdirectories:

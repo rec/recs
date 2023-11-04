@@ -17,10 +17,11 @@ CASES = (
     ('time', False, False, ('time',)),
     ('device_channel', False, False, ('device', 'channel')),
 )
+assert tdir
 
 
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
-@tdir
+@tdir  # (use_dir='/tmp')
 def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
     Cfg(
         dry_run=dry_run,
@@ -36,7 +37,7 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
         return
 
     tdata = TESTDATA / path
-    expected = sorted(tdata.glob('*.flac'))
+    expected = sorted(tdata.glob('**/*.flac'))
 
     if not expected:
         for a in actual:
@@ -47,7 +48,7 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
 
     assert [p.name for p in actual] == [p.name for p in expected]
 
-    ae = zip(actual, expected)
+    ae = list(zip(actual, expected))
     nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
 
     [(n, a.shape, e.shape) for n, a, e in nae]
@@ -57,15 +58,19 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
     differs_contents = [n for n, a, e in nae if not np.allclose(a, e)]
     assert differs_contents == []
 
+    # Exact equality!
+    contents = [e for a, e in ae if a.read_bytes() != e.read_bytes()]
+    assert not contents
+
+    if False:
+        print('Expected', *expected, sep='\n')
+        print('Actual', *actual, sep='\n')
+        assert False
+
 
 def test_info(mock_devices, capsys):
     Cfg(info=True).run()
     data = capsys.readouterr().out
 
-    try:
-        actual = json.loads(data)
-    except Exception:
-        print('-------------------', data, '---------------', sep='\n')
-        raise
-
+    actual = json.loads(data)
     assert actual == DEVICES

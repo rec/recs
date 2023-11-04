@@ -89,9 +89,12 @@ def recs(
         RECS.include, '-i', '--include', help='Only include these devices or channels'
     ),
     #
-    # Audio file format and subtype
+    # Audio file data
     #
     format: Format = Option(RECS.format, '-f', '--format', help='Audio format'),
+    metadata: list[str] = Option(
+        RECS.metadata, '-m', '--metadata', help='Metadata fields to add to output files'
+    ),
     sdtype: SdType = Option(
         RECS.sdtype, '-d', '--sdtype', help='Type of sounddevice numbers'
     ),
@@ -159,8 +162,8 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefinoqrstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklmpwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefimnoqrstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklpwxyz', _UNUSED_SINGLES
 
 
 def run() -> int:

@@ -3,22 +3,26 @@ from pathlib import Path
 import soundfile as sf
 
 from recs import Cfg
+from recs.misc import to_time
 from recs.misc.recording_path import recording_path
 
 from .track import Track
+
+URL = 'https://github.com/rec/recs'
 
 
 class FileOpener:
     def __init__(self, cfg: Cfg, track: Track) -> None:
         self.cfg = cfg
         self.track = track
+        self.tracknumber = 0
 
     def open(self, path: Path, mode: str = 'r') -> sf.SoundFile:
         path = path.with_suffix('.' + self.cfg.format)
         if path.exists():
             raise FileExistsError(str(path))
 
-        return sf.SoundFile(
+        fp = sf.SoundFile(
             channels=len(self.track.channels),
             file=path,
             format=self.cfg.format,
@@ -26,6 +30,16 @@ class FileOpener:
             samplerate=self.track.device.samplerate,
             subtype=self.cfg.subtype,
         )
+
+        self.tracknumber += 1
+
+        t = str(self.tracknumber)
+        metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
+
+        for k, v in (metadata | self.cfg.metadata_dict).items():
+            setattr(fp, k, v)
+
+        return fp
 
     def create(self) -> sf.SoundFile:
         index = 0
