@@ -28,6 +28,10 @@ class ChannelRecorder:
         self.volume(b)
 
     @property
+    def file_count(self) -> int:
+        return len(self.writer.files_written)
+
+    @property
     def file_size(self) -> int:
         return self.writer.files_written.total_size
 
@@ -41,5 +45,6 @@ class ChannelRecorder:
             'on': self.writer.active,
             'recorded': self.recorded_time,
             'file_size': self.file_size,
+            'file_count': self.file_count,
             'volume': self.volume.mean(),
         }

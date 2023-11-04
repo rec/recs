@@ -59,6 +59,10 @@ class DeviceRecorder(Runnable):
         self.stopped.set()
 
     @property
+    def file_count(self) -> int:
+        return sum(c.file_count for c in self.channel_recorders)
+
+    @property
     def file_size(self) -> int:
         return sum(c.file_size for c in self.channel_recorders)
 

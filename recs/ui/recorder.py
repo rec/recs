@@ -57,9 +57,14 @@ class Recorder(Runnable):
             'time': self.elapsed_time,
             'recorded': self.recorded_time,
             'file_size': self.file_size,
+            'file_count': self.file_count,
         }
         for v in self.device_recorders:
             yield from v.rows()
+
+    @property
+    def file_count(self) -> int:
+        return sum(d.file_count for d in self.device_recorders)
 
     @property
     def file_size(self) -> int:

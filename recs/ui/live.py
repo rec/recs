@@ -112,5 +112,6 @@ TABLE_FORMATTER = TableFormatter(
     on=_on,
     recorded=_time_to_str,
     file_size=_naturalsize,
+    file_count=str,
     volume=_volume,
 )
