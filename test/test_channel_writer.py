@@ -78,13 +78,19 @@ def test_channel_writer(case, mock_devices):
     result = [list(_on_and_off_segments(c)) for c in contents]
     assert case.result == result
 
-    if case.sdtype == SdType.int24:
-        with sf.SoundFile(files[0]) as fp:
+    with sf.SoundFile(files[0]) as fp:
+        if case.sdtype == SdType.int24:
             assert fp.subtype.lower() == Subtype.pcm_24
 
-    if case.sdtype == SdType.float32:
-        with sf.SoundFile(files[0]) as fp:
+        if case.sdtype == SdType.float32:
             assert fp.subtype.lower() == Subtype.float
+
+        if case.format == Format.mp3:
+            assert fp.date == '2023'
+            assert fp.software == ''
+        else:
+            assert fp.date == '2023-10-15T16:49:21.000502'
+            assert fp.software.startswith('https://github.com/rec/recs')
 
 
 def _on_and_off_segments(it):
