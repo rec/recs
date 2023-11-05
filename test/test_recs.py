@@ -7,8 +7,8 @@ from recs.base.cfg import Cfg
 from recs.base.types import Format, SdType, Subtype
 
 
-def test_list_subtypes(capsys):
-    Cfg(list_subtypes=True).run()
+def test_list_types(capsys):
+    Cfg(list_types=True).run()
     data = capsys.readouterr().out
     json.loads(data)
 

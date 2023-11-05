@@ -66,8 +66,8 @@ def recs(
     info: bool = Option(
         RECS.info, '--info', help='Do not run, display device info instead'
     ),
-    list_subtypes: bool = Option(
-        RECS.list_subtypes, '--list-subtypes', help='List all subtypes for each format'
+    list_types: bool = Option(
+        RECS.list_types, help='List all subtypes for each format'
     ),
     verbose: bool = Option(
         RECS.verbose, '-v', '--verbose', help='Print full stack traces'

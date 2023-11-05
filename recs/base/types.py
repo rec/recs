@@ -1,6 +1,5 @@
 from enum import auto
 
-import sounddevice as sd
 from strenum import StrEnum
 
 
@@ -11,7 +10,7 @@ class SdType(StrEnum):
     int32 = auto()
 
 
-SDTYPE = SdType[sd.default.dtype[0]]
+SDTYPE = SdType.float32
 
 
 class Format(StrEnum):

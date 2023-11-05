@@ -18,7 +18,7 @@ class CfgRaw:
     #
     dry_run: bool = False
     info: bool = False
-    list_subtypes: bool = False
+    list_types: bool = False
     verbose: bool = False
     #
     # Aliases for input devices or channels

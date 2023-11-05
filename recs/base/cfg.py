@@ -3,7 +3,7 @@ import json
 import typing as t
 import warnings
 from enum import auto
-from functools import cached_property, wraps
+from functools import wraps
 
 import sounddevice as sd
 import soundfile as sf
@@ -36,6 +36,7 @@ class Cfg:
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
+
         self.format = FORMATS[cfg.format]
         if cfg.sdtype:
             self.sdtype = SdType[cfg.sdtype]
@@ -56,25 +57,19 @@ class Cfg:
                 msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
                 self.subtype = None
+
         else:
             self.subtype = self.subtype
 
-        self.alias
-        self.subdirectory
+        self.alias = Aliases(self.cfg.alias)
+        self.metadata = metadata.to_dict(self.cfg.metadata)
+        self.subdirectory = self._subdirectory()
+        self.times = self._times()
 
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
 
-    @cached_property
-    def alias(self) -> Aliases:
-        return Aliases(self.cfg.alias)
-
-    @cached_property
-    def metadata(self) -> dict[str, str]:
-        return metadata.to_dict(self.cfg.metadata)
-
-    @cached_property
-    def subdirectory(self) -> Subdirectories:
+    def _subdirectory(self) -> Subdirectories:
         subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.cfg.subdirectory]
         res = tuple(t for s, t in subs if t is not None)
 
@@ -86,8 +81,7 @@ class Cfg:
 
         return res
 
-    @cached_property
-    def times(self) -> times.Times:
+    def _times(self) -> times.Times:
         fields = (f.name for f in dc.fields(times.Times))
         d = {k: getattr(self, k) for k in fields}
         try:
@@ -104,11 +98,14 @@ class Cfg:
             info = sd.query_devices(kind=None)
             print(json.dumps(info, indent=4))
 
-        elif self.list_subtypes:
+        elif self.list_types:
             avail = sf.available_formats()
             fmts = [f.upper() for f in Format]
             formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
-            print(json.dumps(formats, indent=4))
+            sdtypes = [str(s) for s in SdType]
+            d = {'formats': formats, 'sdtypes': sdtypes}
+
+            print(json.dumps(d, indent=4))
 
         else:
             Recorder(self).run()
