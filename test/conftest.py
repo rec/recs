@@ -12,7 +12,7 @@ from overrides import override
 from threa import HasThread
 
 from recs.audio import device
-from recs.misc import prefix_dict, to_time
+from recs.base import prefix_dict, to_time
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())

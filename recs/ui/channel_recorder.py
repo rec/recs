@@ -4,7 +4,8 @@ import numpy as np
 
 from recs import Cfg
 from recs.audio import block, channel_writer, track
-from recs.misc import counter, times
+from recs.base import times
+from recs.misc import counter
 
 
 class ChannelRecorder:

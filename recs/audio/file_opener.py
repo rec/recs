@@ -3,9 +3,9 @@ from pathlib import Path
 import soundfile as sf
 
 from recs import Cfg
-from recs.misc import to_time
 from recs.misc.recording_path import recording_path
 
+from ..base import to_time
 from .track import Track
 
 URL = 'https://github.com/rec/recs'

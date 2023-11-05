@@ -1,6 +1,6 @@
 import soundfile as sf
 
-from recs.audio.file_types import Format, Subtype
+from recs.base.types import Format, Subtype
 
 BAD_FORMATS = 'HTK', 'SDS', 'SVX', 'WVE', 'XI'
 

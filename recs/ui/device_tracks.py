@@ -2,7 +2,7 @@ import typing as t
 
 from recs.audio import device
 from recs.audio.track import Track
-from recs.misc.aliases import Aliases
+from recs.base.aliases import Aliases
 
 DeviceTracks = dict[device.InputDevice, t.Sequence[Track]]
 

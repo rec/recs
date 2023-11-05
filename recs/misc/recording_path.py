@@ -2,10 +2,10 @@ from pathlib import Path
 
 from recs.audio.device import InputDevice
 from recs.audio.track import Track
+from recs.base.aliases import Aliases
 from recs.base.cfg import Subdirectories
 
-from . import to_time
-from .aliases import Aliases
+from ..base import to_time
 from .legal_filename import legal_filename
 
 NAME_JOINER = ' + '

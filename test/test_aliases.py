@@ -1,7 +1,7 @@
 import pytest
 
 from recs.audio.track import Track
-from recs.misc.aliases import Aliases
+from recs.base.aliases import Aliases
 
 
 def test_empty_aliases(mock_devices):

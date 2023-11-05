@@ -1,7 +1,7 @@
 import pytest
 
+from recs.base import RecsError
 from recs.base.cfg import Cfg
-from recs.misc import RecsError
 from recs.ui.recorder import Recorder
 
 

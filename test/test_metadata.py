@@ -6,8 +6,8 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.audio.metadata import RECS_USES, UNUSABLE, USABLE, to_dict
-from recs.misc import RecsError
+from recs.base import RecsError
+from recs.base.metadata import RECS_USES, UNUSABLE, USABLE, to_dict
 
 CHANGED = {'license', 'software'}
 

@@ -7,11 +7,12 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base.cfg import Cfg
-from recs.misc import file_list, times
+from recs.base.types import SDTYPE, Format, SdType
+from recs.misc import file_list
 
+from ..base import times
 from .block import Block, Blocks
 from .file_opener import FileOpener
-from .file_types import SDTYPE, Format, SdType
 from .track import Track
 
 HEADER_SIZE = 0x58

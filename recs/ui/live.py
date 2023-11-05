@@ -9,8 +9,7 @@ from rich import live
 from rich.console import Console
 from rich.table import Table
 
-from recs.misc import to_time
-
+from ..base import to_time
 from .table import TableFormatter, _to_str
 
 RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]

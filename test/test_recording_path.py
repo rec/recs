@@ -1,8 +1,8 @@
 import pytest
 
 from recs.audio.track import Track
+from recs.base.aliases import Aliases
 from recs.base.cfg import Subdirectory
-from recs.misc.aliases import Aliases
 from recs.misc.recording_path import recording_path
 
 _channel, _device, _time = Subdirectory.channel, Subdirectory.device, Subdirectory.time

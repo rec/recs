@@ -6,8 +6,8 @@ from rich.table import Table
 from threa import Runnable
 
 from recs.audio import device
+from recs.base import RecsError
 from recs.base.cfg import Cfg
-from recs.misc import RecsError
 from recs.ui.device_tracks import device_tracks
 
 from . import live

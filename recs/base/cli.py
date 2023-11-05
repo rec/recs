@@ -6,10 +6,10 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs.audio.file_types import Format, SdType, Subtype
+from recs.base import RecsError
 from recs.base.cfg import Cfg
 from recs.base.cfg_raw import CfgRaw
-from recs.misc import RecsError
+from recs.base.types import Format, SdType, Subtype
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'

@@ -6,8 +6,8 @@ from functools import cache
 import numpy as np
 import sounddevice as sd
 
-from recs.audio.file_types import SdType
-from recs.misc.prefix_dict import PrefixDict
+from recs.base.prefix_dict import PrefixDict
+from recs.base.types import SdType
 
 from ..misc import hash_cmp
 

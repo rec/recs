@@ -8,8 +8,8 @@ import sounddevice as sd
 from threa import Runnable
 
 from recs import Cfg
-from recs.audio.file_types import SDTYPE, Format
 from recs.audio.track import Track
+from recs.base.types import SDTYPE, Format
 from recs.misc.counter import Accumulator, Counter
 
 

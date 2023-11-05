@@ -1,2 +1,1 @@
-class RecsError(ValueError):
-    pass
+

@@ -8,9 +8,9 @@ import tdir
 from recs import Cfg
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.file_types import Format, SdType
 from recs.audio.track import Track
-from recs.misc.times import Times
+from recs.base.times import Times
+from recs.base.types import Format, SdType
 
 RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
 

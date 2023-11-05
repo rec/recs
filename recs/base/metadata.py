@@ -1,6 +1,6 @@
 import typing as t
 
-from recs.misc import RecsError
+from recs.base import RecsError
 
 RECS_USES = {'date', 'software', 'tracknumber'}
 USABLE = {'album', 'artist', 'comment', 'copyright', 'genre', 'title'}

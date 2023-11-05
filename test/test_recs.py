@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from recs.audio.file_types import Format, SdType, Subtype
+from recs.base import RecsError
 from recs.base.cfg import Cfg
-from recs.misc import RecsError
+from recs.base.types import Format, SdType, Subtype
 
 
 def test_list_subtypes(capsys):

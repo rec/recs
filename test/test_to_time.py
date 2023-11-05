@@ -1,6 +1,6 @@
 import pytest
 
-from recs.misc.to_time import to_str, to_time
+from recs.base.to_time import to_str, to_time
 
 BAD = '-2', 'a', ':12', '1:60', '-1:59', '0:60:00', '-2:00:00', '', '0:0:0:0'
 GOOD = (

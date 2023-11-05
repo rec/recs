@@ -9,14 +9,13 @@ import sounddevice as sd
 import soundfile as sf
 from strenum import StrEnum
 
-from recs.audio import metadata
-from recs.audio.file_types import SDTYPE, Format
-from recs.audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
+from recs.base import RecsError, metadata, times
+from recs.base.aliases import Aliases
 from recs.base.cfg_raw import CfgRaw
-from recs.misc import RecsError, times
-from recs.misc.aliases import Aliases
-from recs.misc.prefix_dict import PrefixDict
-from recs.misc.to_time import to_time
+from recs.base.prefix_dict import PrefixDict
+from recs.base.to_time import to_time
+from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
+from recs.base.types import SDTYPE, Format
 
 
 class Subdirectory(StrEnum):

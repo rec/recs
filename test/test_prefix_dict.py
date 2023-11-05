@@ -1,7 +1,7 @@
 import pytest
 
 from recs.audio.device import InputDevice
-from recs.misc.prefix_dict import PrefixDict
+from recs.base.prefix_dict import PrefixDict
 
 InputDevices = PrefixDict[InputDevice]
 
