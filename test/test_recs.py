@@ -3,7 +3,7 @@ import json
 import pytest
 
 from recs.audio.file_types import Format, SdType, Subtype
-from recs.cfg import Cfg
+from recs.base.cfg import Cfg
 from recs.misc import RecsError
 
 

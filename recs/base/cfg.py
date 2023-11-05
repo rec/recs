@@ -14,11 +14,11 @@ from recs.misc import RecsError
 from recs.misc.aliases import Aliases
 from recs.misc.prefix_dict import PrefixDict
 
-from .audio import metadata
-from .audio.file_types import SDTYPE, Format, SdType, Subtype
-from .audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from .misc import times
-from .misc.to_time import to_time
+from recs.audio import metadata
+from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
+from recs.audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
+from recs.misc import times
+from recs.misc.to_time import to_time
 
 
 class Subdirectory(StrEnum):
@@ -144,7 +144,7 @@ class Cfg:
     # metadata_dict = metadata
 
     def run(self) -> None:
-        from .ui.recorder import Recorder
+        from recs.ui.recorder import Recorder
 
         if self.info:
             info = sd.query_devices(kind=None)

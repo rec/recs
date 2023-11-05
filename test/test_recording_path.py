@@ -1,7 +1,7 @@
 import pytest
 
 from recs.audio.track import Track
-from recs.cfg import Subdirectory
+from recs.base.cfg import Subdirectory
 from recs.misc.aliases import Aliases
 from recs.misc.recording_path import recording_path
 

@@ -6,7 +6,7 @@ import numpy as np
 from soundfile import SoundFile
 from threa import Runnable
 
-from recs.cfg import Cfg
+from recs.base.cfg import Cfg
 from recs.misc import file_list, times
 
 from .block import Block, Blocks

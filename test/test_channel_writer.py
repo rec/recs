@@ -9,7 +9,7 @@ from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
 from recs.audio.track import Track
-from recs.cfg import Cfg
+from recs.base.cfg import Cfg
 from recs.misc.times import Times
 
 SAMPLERATES = 44_100, 48_000

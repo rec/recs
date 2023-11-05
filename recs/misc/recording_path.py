@@ -2,7 +2,7 @@ from pathlib import Path
 
 from recs.audio.device import InputDevice
 from recs.audio.track import Track
-from recs.cfg import Subdirectories
+from recs.base.cfg import Subdirectories
 
 from . import to_time
 from .aliases import Aliases

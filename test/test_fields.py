@@ -3,7 +3,7 @@ import typing as t
 
 import dtyper
 
-from recs import cfg, cli
+from recs.base import cfg, cli
 from recs.audio.file_types import SdType, Subtype
 
 
