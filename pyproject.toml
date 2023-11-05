@@ -38,7 +38,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.coverage.run]
 branch = true
 source = ["recs"]
-omit = ["recs/cli.py"]
+omit = ["recs/base/cli.py"]
 
 [tool.coverage.report]
 fail_under = 98
@@ -50,6 +50,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if t.TYPE_CHECKING:",
 ]
+
+[tool.poetry.scripts]
+recs = 'recs.base.cli:run'
 
 [tool.mypy]
 ignore_missing_imports = true
