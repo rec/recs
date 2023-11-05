@@ -4,20 +4,18 @@ import typing as t
 import warnings
 from enum import auto
 from functools import cached_property, wraps
-from pathlib import Path
 
 import sounddevice as sd
 import soundfile as sf
 from strenum import StrEnum
 
-from recs.misc import RecsError
+from recs.audio import metadata
+from recs.audio.file_types import SDTYPE, Format
+from recs.audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
+from recs.base.cfg_raw import CfgRaw
+from recs.misc import RecsError, times
 from recs.misc.aliases import Aliases
 from recs.misc.prefix_dict import PrefixDict
-
-from recs.audio import metadata
-from recs.audio.file_types import SDTYPE, Format, SdType, Subtype
-from recs.audio.file_types_conversion import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from recs.misc import times
 from recs.misc.to_time import to_time
 
 
@@ -31,75 +29,27 @@ Subdirectories = t.Sequence[Subdirectory]
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
-@dc.dataclass
-class CfgRaw:
-    # See ./cli.py for full help
-    #
-    # Directory settings
-    #
-    path: Path = Path()
-    subdirectory: t.Sequence[str] = ()
-    #
-    # General purpose settings
-    #
-    dry_run: bool = False
-    info: bool = False
-    list_subtypes: bool = False
-    verbose: bool = False
-    #
-    # Aliases for input devices or channels
-    #
-    alias: t.Sequence[str] = ()
-    #
-    # Exclude or include devices or channels
-    #
-    exclude: t.Sequence[str] = ()
-    include: t.Sequence[str] = ()
-    #
-    # Audio file format and subtype
-    #
-    format: Format = Format.flac
-    metadata: t.Sequence[str] = ()
-    sdtype: SdType | None = None
-    subtype: Subtype | None = None
-    #
-    # Console and UI settings
-    #
-    quiet: bool = False
-    retain: bool = True
-    ui_refresh_rate: float = 23
-    sleep_time: float = 0.013
-    #
-    # Settings relating to times
-    #
-    infinite_length: bool = False
-    longest_file_time: str = '0'  # In HH:MM:SS.SSSS
-    moving_average_time: float = 1
-    noise_floor: float = 70
-    silence_after_end: float = 2
-    silence_before_start: float = 1
-    stop_after_silence: float = 20
-    total_run_time: float = 0
-
-
 class Cfg:
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
-        self.cfg = CfgRaw(*a, **ka)
+        self.cfg = cfg = CfgRaw(*a, **ka)
 
-        if self.subtype and not sf.check_format(self.format, self.subtype):
-            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+        if cfg.subtype and not sf.check_format(cfg.format, cfg.subtype):
+            raise RecsError(f'{cfg.format} and {cfg.subtype} are incompatible')
 
-        if self.subtype is not None and self.sdtype is None:
-            self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
+        if cfg.subtype is not None and cfg.sdtype is None:
+            self.sdtype = SUBTYPE_TO_SDTYPE.get(cfg.subtype, SDTYPE)
 
-        elif self.subtype is None and self.sdtype is not None:
-            subtype = SDTYPE_TO_SUBTYPE.get(self.sdtype, None)
-            if sf.check_format(self.format, subtype):
+        elif cfg.subtype is None and cfg.sdtype is not None:
+            subtype = SDTYPE_TO_SUBTYPE.get(cfg.sdtype, None)
+            if sf.check_format(cfg.format, subtype):
                 self.subtype = subtype
             else:
-                msg = f'{self.format=:s}, {self.sdtype=:s}'
+                msg = f'format={cfg.format:s}, sdtype={cfg.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
+                self.subtype = None
+        else:
+            self.subtype = cfg.subtype
 
         self.alias
         self.subdirectory
@@ -138,10 +88,6 @@ class Cfg:
             raise RecsError(f'Do not understand --longest-file-time={t}')
 
         return times.Times(**d)
-
-    # subdirectories = subdirectory
-    # aliases = alias
-    # metadata_dict = metadata
 
     def run(self) -> None:
         from recs.ui.recorder import Recorder

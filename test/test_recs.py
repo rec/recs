@@ -37,7 +37,7 @@ def test_missing_subtype(capsys):
 
 
 def test_error_subtype():
-    match = "Can't get subtype for self.format=mp3, self.sdtype=float32"
+    match = "Can't get subtype for format=mp3, sdtype=float32"
     with pytest.warns(UserWarning, match=match):
         Cfg(format=Format.mp3, sdtype=SdType.float32)
 

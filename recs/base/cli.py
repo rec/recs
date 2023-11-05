@@ -6,10 +6,10 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs.base.cfg import Cfg, CfgRaw
-from recs.misc import RecsError
-
 from recs.audio.file_types import Format, SdType, Subtype
+from recs.base.cfg import Cfg
+from recs.base.cfg_raw import CfgRaw
+from recs.misc import RecsError
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
@@ -155,7 +155,7 @@ def recs(
         '--total-run-time',
         help='How many seconds to record? 0 means forever',
     ),
-) -> None:
+) -> None:  # pragma: no cover: This is tested in a subprocess.
     Cfg(**locals()).run()
 
 
@@ -166,7 +166,7 @@ assert _USED_SINGLES == 'abcdefimnoqrstuv', _USED_SINGLES
 assert _UNUSED_SINGLES == 'ghjklpwxyz', _UNUSED_SINGLES
 
 
-def run() -> int:
+def run() -> int:  # pragma: no cover: This is tested in a subprocess.
     try:
         app(standalone_mode=False)
         return 0
