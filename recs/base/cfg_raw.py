@@ -2,7 +2,7 @@ import dataclasses as dc
 import typing as t
 from pathlib import Path
 
-from .types import Format, SdType, Subtype
+from .types import Format
 
 
 @dc.dataclass
@@ -32,10 +32,10 @@ class CfgRaw:
     #
     # Audio file format and subtype
     #
-    format: Format = Format.flac
+    format: str = Format.flac
     metadata: t.Sequence[str] = ()
-    sdtype: SdType | None = None
-    subtype: Subtype | None = None
+    sdtype: str = ''
+    subtype: str = ''
     #
     # Console and UI settings
     #

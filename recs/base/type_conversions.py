@@ -1,4 +1,8 @@
-from .types import SdType, Subtype
+from .prefix_dict import PrefixDict
+from .types import Format, SdType, Subtype
+
+FORMATS = PrefixDict[Format]({str(s): s for s in Format})
+SUBTYPES = PrefixDict[Subtype]({str(s): s for s in Subtype})
 
 SUBTYPE_TO_SDTYPE = {
     Subtype.alac_16: SdType.int16,

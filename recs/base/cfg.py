@@ -14,8 +14,8 @@ from .aliases import Aliases
 from .cfg_raw import CfgRaw
 from .prefix_dict import PrefixDict
 from .to_time import to_time
-from .type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from .types import SDTYPE, Format
+from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
+from .types import SDTYPE, Format, SdType, Subtype
 
 
 class Subdirectory(StrEnum):
@@ -29,26 +29,35 @@ SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 class Cfg:
+    format: Format
+    sdtype: SdType | None = None
+    subtype: Subtype | None = None
+
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
+        self.format = FORMATS[cfg.format]
+        if cfg.sdtype:
+            self.sdtype = SdType[cfg.sdtype]
+        if cfg.subtype:
+            self.subtype = SUBTYPES[cfg.subtype]
 
-        if cfg.subtype and not sf.check_format(cfg.format, cfg.subtype):
-            raise RecsError(f'{cfg.format} and {cfg.subtype} are incompatible')
+        if self.subtype and not sf.check_format(self.format, self.subtype):
+            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
 
-        if cfg.subtype is not None and cfg.sdtype is None:
-            self.sdtype = SUBTYPE_TO_SDTYPE.get(cfg.subtype, SDTYPE)
+        if self.subtype is not None and self.sdtype is None:
+            self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
 
-        elif cfg.subtype is None and cfg.sdtype is not None:
-            subtype = SDTYPE_TO_SUBTYPE.get(cfg.sdtype, None)
-            if sf.check_format(cfg.format, subtype):
+        elif self.subtype is None and self.sdtype is not None:
+            subtype = SDTYPE_TO_SUBTYPE.get(self.sdtype, None)
+            if sf.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
-                msg = f'format={cfg.format:s}, sdtype={cfg.sdtype:s}'
+                msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
                 self.subtype = None
         else:
-            self.subtype = cfg.subtype
+            self.subtype = self.subtype
 
         self.alias
         self.subdirectory

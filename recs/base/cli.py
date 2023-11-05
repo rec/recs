@@ -9,7 +9,6 @@ from typer import Argument, rich_utils
 from . import RecsError
 from .cfg import Cfg
 from .cfg_raw import CfgRaw
-from .types import Format, SdType, Subtype
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
@@ -91,14 +90,14 @@ def recs(
     #
     # Audio file data
     #
-    format: Format = Option(RECS.format, '-f', '--format', help='Audio format'),
+    format: str = Option(RECS.format, '-f', '--format', help='Audio format'),
     metadata: list[str] = Option(
         RECS.metadata, '-m', '--metadata', help='Metadata fields to add to output files'
     ),
-    sdtype: SdType = Option(
+    sdtype: str = Option(
         RECS.sdtype, '-d', '--sdtype', help='Type of sounddevice numbers'
     ),
-    subtype: Subtype = Option(RECS.subtype, '-u', '--subtype', help='File subtype'),
+    subtype: str = Option(RECS.subtype, '-u', '--subtype', help='File subtype'),
     #
     # Console and UI settings
     #
