@@ -23,7 +23,7 @@ class Recorder(Runnable):
         super().__init__()
         self.cfg = cfg
 
-        self.device_tracks = device_tracks(cfg.aliases, cfg.exclude, cfg.include)
+        self.device_tracks = device_tracks(cfg.alias, cfg.exclude, cfg.include)
         self.start_time = time.time()
         self.live = live.Live(
             self.rows,
@@ -32,7 +32,7 @@ class Recorder(Runnable):
             ui_refresh_rate=cfg.ui_refresh_rate,
         )
 
-        dts = device_tracks(cfg.aliases, cfg.exclude, cfg.include).values()
+        dts = device_tracks(cfg.alias, cfg.exclude, cfg.include).values()
         self.device_recorders = tuple(DeviceRecorder(cfg, tracks) for tracks in dts)
 
         if not self.device_recorders:

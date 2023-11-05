@@ -6,7 +6,7 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs import Cfg
+from recs.cfg import Cfg, CfgRaw
 from recs.misc import RecsError
 
 from .audio.file_types import Format, SdType, Subtype
@@ -35,7 +35,7 @@ app = dtyper.Typer(
 )
 _SINGLES: set[str] = set()
 
-RECS = Cfg()
+RECS = CfgRaw()
 # Reading configs and environment variables would go here
 
 

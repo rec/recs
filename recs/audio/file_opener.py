@@ -36,7 +36,7 @@ class FileOpener:
         t = str(self.tracknumber)
         metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
 
-        for k, v in (metadata | self.cfg.metadata_dict).items():
+        for k, v in (metadata | self.cfg.metadata).items():
             setattr(fp, k, v)
 
         return fp
@@ -44,9 +44,7 @@ class FileOpener:
     def create(self) -> sf.SoundFile:
         index = 0
         suffix = ''
-        path, name = recording_path(
-            self.track, self.cfg.aliases, self.cfg.subdirectories
-        )
+        path, name = recording_path(self.track, self.cfg.alias, self.cfg.subdirectory)
 
         while True:
             p = self.cfg.path / path / (name + suffix)

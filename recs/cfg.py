@@ -3,7 +3,7 @@ import json
 import typing as t
 import warnings
 from enum import auto
-from functools import cached_property
+from functools import cached_property, wraps
 from pathlib import Path
 
 import sounddevice as sd
@@ -32,7 +32,7 @@ SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 @dc.dataclass
-class Cfg:
+class CfgRaw:
     # See ./cli.py for full help
     #
     # Directory settings
@@ -81,7 +81,12 @@ class Cfg:
     stop_after_silence: float = 20
     total_run_time: float = 0
 
-    def __post_init__(self):
+
+class Cfg:
+    @wraps(CfgRaw.__init__)
+    def __init__(self, *a, **ka) -> None:
+        self.cfg = CfgRaw(*a, **ka)
+
         if self.subtype and not sf.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
 
@@ -96,20 +101,23 @@ class Cfg:
                 msg = f'{self.format=:s}, {self.sdtype=:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
 
-        self.aliases
-        self.subdirectories
+        self.alias
+        self.subdirectory
+
+    def __getattr__(self, k: str) -> t.Any:
+        return getattr(self.cfg, k)
 
     @cached_property
-    def aliases(self) -> Aliases:
-        return Aliases(self.alias)
+    def alias(self) -> Aliases:
+        return Aliases(self.cfg.alias)
 
     @cached_property
-    def metadata_dict(self) -> dict[str, str]:
-        return metadata.to_dict(self.metadata)
+    def metadata(self) -> dict[str, str]:
+        return metadata.to_dict(self.cfg.metadata)
 
     @cached_property
-    def subdirectories(self) -> Subdirectories:
-        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.subdirectory]
+    def subdirectory(self) -> Subdirectories:
+        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.cfg.subdirectory]
         res = tuple(t for s, t in subs if t is not None)
 
         if bad_subdirectories := [s for s, t in subs if t is None]:
@@ -130,6 +138,10 @@ class Cfg:
             raise RecsError(f'Do not understand --longest-file-time={t}')
 
         return times.Times(**d)
+
+    # subdirectories = subdirectory
+    # aliases = alias
+    # metadata_dict = metadata
 
     def run(self) -> None:
         from .ui.recorder import Recorder
