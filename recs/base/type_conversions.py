@@ -1,4 +1,4 @@
-from recs.base.types import SdType, Subtype
+from .types import SdType, Subtype
 
 SUBTYPE_TO_SDTYPE = {
     Subtype.alac_16: SdType.int16,

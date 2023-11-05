@@ -2,7 +2,7 @@ import dataclasses as dc
 import typing as t
 from pathlib import Path
 
-from recs.base.types import Format, SdType, Subtype
+from .types import Format, SdType, Subtype
 
 
 @dc.dataclass

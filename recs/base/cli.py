@@ -6,10 +6,10 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs.base import RecsError
-from recs.base.cfg import Cfg
-from recs.base.cfg_raw import CfgRaw
-from recs.base.types import Format, SdType, Subtype
+from . import RecsError
+from .cfg import Cfg
+from .cfg_raw import CfgRaw
+from .types import Format, SdType, Subtype
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 ICON = '🎬'
