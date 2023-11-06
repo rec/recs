@@ -21,7 +21,7 @@ assert tdir
 
 
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
-@tdir  # (use_dir='/tmp')
+@tdir
 def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
     Cfg(
         dry_run=dry_run,
@@ -61,11 +61,6 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
     # Exact equality!
     contents = [e for a, e in ae if a.read_bytes() != e.read_bytes()]
     assert not contents
-
-    if False:
-        print('Expected', *expected, sep='\n')
-        print('Actual', *actual, sep='\n')
-        assert False
 
 
 def test_info(mock_devices, capsys):
