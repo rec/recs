@@ -37,39 +37,33 @@ class Cfg:
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
 
-        try:
-            self.format = FORMATS[cfg.format]
-        except KeyError:
-            raise RecsError(f'Cannot understand --format={cfg.format}') from None
-
-        if cfg.sdtype:
+        def get(d, key, flag):
+            if not key:
+                return None
             try:
-                self.sdtype = SdType[cfg.sdtype]
+                return d[key]
             except KeyError:
-                raise RecsError(f'Cannot understand --sdtype={cfg.sdtype}') from None
-        if cfg.subtype:
-            try:
-                self.subtype = SUBTYPES[cfg.subtype]
-            except KeyError:
-                raise RecsError(f'Cannot understand --subtype={cfg.subtype}') from None
+                raise RecsError(f'Cannot understand --{flag}="{key}"') from None
 
-        if self.subtype and not sf.check_format(self.format, self.subtype):
-            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+        self.format = get(FORMATS, cfg.format, 'format')
+        self.sdtype = get(SdType, cfg.sdtype, 'sdtype')
+        self.subtype = get(SUBTYPES, cfg.subtype, 'subtype')
 
-        if self.subtype is not None and self.sdtype is None:
-            self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
+        if self.subtype:
+            if not self.sdtype:
+                self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
 
-        elif self.subtype is None and self.sdtype is not None:
+            if not sf.check_format(self.format, self.subtype):
+                raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+
+        elif self.sdtype:
             subtype = SDTYPE_TO_SUBTYPE.get(self.sdtype, None)
+
             if sf.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
                 msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
-                self.subtype = None
-
-        else:
-            self.subtype = self.subtype
 
         self.alias = Aliases(self.cfg.alias)
         self.metadata = metadata.to_dict(self.cfg.metadata)
