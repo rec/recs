@@ -1,15 +1,15 @@
 [
     {
-        "name": "Some output",
-        "index": 0,
+        "name": "Ext",
+        "index": 5,
         "hostapi": 0,
-        "max_input_channels": 0,
-        "max_output_channels": 2,
+        "max_input_channels": 3,
+        "max_output_channels": 10,
         "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.009833333333333333,
+        "default_low_output_latency": 0.03333333333333333,
         "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.019166666666666665,
-        "default_samplerate": 48000.0
+        "default_high_output_latency": 0.042666666666666665,
+        "default_samplerate": 44100.0
     },
     {
         "name": "Flower 8",
@@ -33,18 +33,6 @@
         "default_low_output_latency": 0.01,
         "default_high_input_latency": 0.043401360544217685,
         "default_high_output_latency": 0.1,
-        "default_samplerate": 44100.0
-    },
-    {
-        "name": "Ext",
-        "index": 5,
-        "hostapi": 0,
-        "max_input_channels": 3,
-        "max_output_channels": 10,
-        "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.03333333333333333,
-        "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.042666666666666665,
         "default_samplerate": 48000.0
     }
 ]

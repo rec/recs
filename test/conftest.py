@@ -11,29 +11,11 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs.audio import device
-from recs.base import prefix_dict, to_time
+from recs.base import to_time
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
 
-
-def _device(name, channels, samplerate=48_000):
-    info = {
-        'default_samplerate': samplerate,
-        'max_input_channels': channels,
-        'name': name,
-    }
-    return device.InputDevice(info)
-
-
-EXT = _device('Ext', 3, 44_100)
-FLOWER = _device('Flower 8', 10)
-MIC = _device('Mic', 1)
-
-_DEVICES = FLOWER, EXT, MIC
-
-MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in _DEVICES})
 BLOCK_SIZE = 0x80
 SLEEP_TIME = 0.00001
 
@@ -112,11 +94,14 @@ def query_devices(kind=None):
 
 @pytest.fixture
 def mock_devices(monkeypatch):
-    monkeypatch.setattr(device, 'input_devices', lambda: MOCK_DEVICES)
     monkeypatch.setattr(sd, 'query_devices', query_devices)
+
+
+@pytest.fixture
+def mock_now(monkeypatch, mock_devices):
     monkeypatch.setattr(to_time, 'now', now)
 
 
 @pytest.fixture
-def mock_input_streams(monkeypatch, mock_devices):
+def mock_input_streams(monkeypatch, mock_devices, mock_now):
     monkeypatch.setattr(sd, 'InputStream', InputStream)

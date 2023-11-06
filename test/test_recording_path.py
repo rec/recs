@@ -31,7 +31,7 @@ CHOICES: tuple[tuple[Subdirectory, ...]] = (
 
 
 @pytest.mark.parametrize('subs, expected', CHOICES)
-def test_recording_path(subs, expected, mock_devices):
+def test_recording_path(subs, expected, mock_devices, mock_now):
     path, filename = recording_path(Track('e', '3'), Aliases(), subs)
     actual = str(path / filename)
     assert actual == expected
