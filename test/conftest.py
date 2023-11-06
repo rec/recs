@@ -34,8 +34,8 @@ MIC = _device('Mic', 1)
 _DEVICES = FLOWER, EXT, MIC
 
 MOCK_DEVICES = prefix_dict.PrefixDict({d.name: d for d in _DEVICES})
-BLOCK_SIZE = 128
-SLEEP_TIME = 0.01
+BLOCK_SIZE = 0x80
+SLEEP_TIME = 0.00001
 
 BASE_TIME = datetime(2023, 10, 15, 16, 49, 21, 502)
 TIME = BASE_TIME
