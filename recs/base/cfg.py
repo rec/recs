@@ -37,11 +37,21 @@ class Cfg:
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
 
-        self.format = FORMATS[cfg.format]
+        try:
+            self.format = FORMATS[cfg.format]
+        except KeyError:
+            raise RecsError(f'Cannot understand --format={cfg.format}') from None
+
         if cfg.sdtype:
-            self.sdtype = SdType[cfg.sdtype]
+            try:
+                self.sdtype = SdType[cfg.sdtype]
+            except KeyError:
+                raise RecsError(f'Cannot understand --sdtype={cfg.sdtype}') from None
         if cfg.subtype:
-            self.subtype = SUBTYPES[cfg.subtype]
+            try:
+                self.subtype = SUBTYPES[cfg.subtype]
+            except KeyError:
+                raise RecsError(f'Cannot understand --subtype={cfg.subtype}') from None
 
         if self.subtype and not sf.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
