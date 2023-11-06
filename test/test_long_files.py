@@ -18,7 +18,7 @@ RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
 @pytest.mark.parametrize('format', (Format.aiff, Format.wav))
 @pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
 @tdir
-def test_long_file(mock_devices, format):
+def test_long_file(mock_input_streams, format):
     print(f'\ntest_long: {format}')
     cfg = Cfg(format=format, sdtype=SdType.float32)
 

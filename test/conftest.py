@@ -113,6 +113,10 @@ def query_devices(kind=None):
 @pytest.fixture
 def mock_devices(monkeypatch):
     monkeypatch.setattr(device, 'input_devices', lambda: MOCK_DEVICES)
-    monkeypatch.setattr(to_time, 'now', now)
-    monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(sd, 'query_devices', query_devices)
+    monkeypatch.setattr(to_time, 'now', now)
+
+
+@pytest.fixture
+def mock_input_streams(monkeypatch, mock_devices):
+    monkeypatch.setattr(sd, 'InputStream', InputStream)

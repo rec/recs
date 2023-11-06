@@ -22,7 +22,7 @@ assert tdir
 
 @pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
 @tdir
-def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
+def test_end_to_end(path, dry_run, quiet, subs, mock_input_streams):
     Cfg(
         dry_run=dry_run,
         quiet=quiet,
@@ -63,7 +63,7 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_devices):
     assert not contents
 
 
-def test_info(mock_devices, capsys):
+def test_info(mock_input_streams, capsys):
     Cfg(info=True).run()
     data = capsys.readouterr().out
 
