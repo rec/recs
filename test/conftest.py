@@ -33,6 +33,8 @@ def now():
 
 
 class InputStream(sd.InputStream):
+    BLOCK_SIZE = 0x80
+
     def __init__(self, **ka):
         for k, v in ka.items():
             try:
@@ -41,6 +43,13 @@ class InputStream(sd.InputStream):
                 setattr(self, '_' + k, v)
 
         self.__count = 0
+
+        seed = int.from_bytes(self.device.encode())
+        self.__rng = np.random.default_rng(seed)
+        self.__random = random.Random(seed)
+        self.__thread = HasThread(
+            self.__callback, looping=True, name=f'Thread-{self.device}'
+        )
 
     @override
     def start(self) -> None:
@@ -55,24 +64,8 @@ class InputStream(sd.InputStream):
         self.stop()
 
     @cached_property
-    def __random(self):
-        return random.Random(self.__seed)
-
-    @cached_property
-    def __rng(self):
-        return np.random.default_rng(self.__seed)
-
-    @cached_property
-    def __seed(self) -> int:
-        return int.from_bytes(self.device.encode())
-
-    @cached_property
-    def __thread(self) -> HasThread:
-        return HasThread(self.__callback, looping=True, name=f'Thread-{self.device}')
-
-    @cached_property
     def __array(self) -> np.ndarray:
-        shape = BLOCK_SIZE, self.channels
+        shape = self.BLOCK_SIZE, self.channels
 
         array = self.__rng.uniform(-1, 1, size=shape)
         assert self.dtype == 'float32'
@@ -81,8 +74,12 @@ class InputStream(sd.InputStream):
         return array.astype(self.dtype)
 
     def __callback(self) -> None:
-        self.callback(self.__array, BLOCK_SIZE, 0, 0)
+        self.callback(self.__array, self.BLOCK_SIZE, 0, 0)
         time.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
+
+
+class BigInputStream(InputStream):
+    BLOCK_SIZE = 0x1000
 
 
 def query_devices(kind=None):
