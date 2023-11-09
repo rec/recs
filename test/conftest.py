@@ -67,7 +67,7 @@ class InputStream(sd.InputStream):
     def __array(self) -> np.ndarray:
         shape = self.BLOCK_SIZE, self.channels
 
-        array = self.__rng.uniform(-1, 1, size=shape)
+        array = self.__rng.uniform(-1 / 16, 1 / 16, size=shape)
         assert self.dtype == 'float32'
         assert array.dtype == np.double
 
