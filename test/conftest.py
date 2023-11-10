@@ -1,3 +1,4 @@
+import copy
 import json
 import random
 import time
@@ -83,8 +84,6 @@ class BigInputStream(InputStream):
 
 
 def query_devices(kind=None):
-    import copy
-
     assert kind is None
     return copy.deepcopy(DEVICES)
 
