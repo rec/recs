@@ -12,6 +12,7 @@ class CfgRaw:
     # Directory settings
     #
     path: Path = Path()
+    largest_file_size: str = ''
     subdirectory: t.Sequence[str] = ()
     #
     # General purpose settings
