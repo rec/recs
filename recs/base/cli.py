@@ -51,12 +51,6 @@ def recs(
     path: Path = Argument(
         RECS.path, help='Path to the parent directory to create audio files in'
     ),
-    largest_file_size: str = Option(
-        RECS.largest_file_size,
-        '-l',
-        '--largest-file-size',
-        help='How large can the largest file be, in bytes? (You can use k, M and G)',
-    ),
     subdirectory: list[str] = Option(
         RECS.subdirectory,
         '-s',
@@ -167,8 +161,8 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefilmnoqrstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjkpwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefimnoqrstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklpwxyz', _UNUSED_SINGLES
 
 
 def run() -> int:  # pragma: no cover: This is tested in a subprocess.

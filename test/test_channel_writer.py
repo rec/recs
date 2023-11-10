@@ -25,16 +25,19 @@ class Case:
     result: list[list[int]]
     format: Format = Format.wav
     longest_file_time: int = 0
+    name: str = ''
     sdtype: SdType | None = None
 
     replace = dc.replace
 
 
 BASE = Case(
+    name='base',
     arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
     result=[[28, 16, 12], [28, 4, 12], [28, 76]],
 )
-SIMPLE = Case(
+LONGEST_FILE_TIME = Case(
+    name='longest_file_time',
     arrays=100 * II,
     longest_file_time=210,
     result=[[0, 210], [0, 190]],
@@ -48,12 +51,13 @@ TEST_CASES = (
     BASE.replace(sdtype=SdType.float32),
     BASE.replace(sdtype=SdType.int24),
     Case(
+        name='not sure',
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
         result=[[0, 16, 12, 4, 12], [28, 12]],
     ),
-    SIMPLE,
-    SIMPLE.replace(format=Format.flac),
-    SIMPLE.replace(format=Format.mp3),
+    LONGEST_FILE_TIME,
+    LONGEST_FILE_TIME.replace(format=Format.flac),
+    LONGEST_FILE_TIME.replace(format=Format.mp3),
     BASE.replace(format=Format.caf),
 )
 

@@ -7,7 +7,6 @@ from functools import wraps
 
 import sounddevice as sd
 import soundfile as sf
-from humanfriendly import parse_size
 from strenum import StrEnum
 
 from . import RecsError, metadata, times
@@ -33,8 +32,6 @@ class Cfg:
     format: Format
     sdtype: SdType | None = None
     subtype: Subtype | None = None
-
-    largest_file_size: int = 0
 
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
@@ -72,7 +69,6 @@ class Cfg:
         self.metadata = metadata.to_dict(cfg.metadata)
         self.subdirectory = self._subdirectory()
         self.times = self._times()
-        self.largest_file_size = parse_size(cfg.largest_file_size or '0')
 
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)

@@ -3,7 +3,6 @@ from pathlib import Path
 from threading import Lock
 from time import time
 
-import numpy as np
 from soundfile import SoundFile
 from threa import Runnable
 
@@ -17,9 +16,9 @@ from .file_opener import FileOpener
 from .track import Track
 
 HEADER_SIZE = 0x58
-FORMAT_SIZE_LIMIT = {
-    Format.aiff: (0x8000_0000 - 0x68),
-    Format.wav: (0x1_0000_0000 - 0x58),
+FORMAT_TO_SIZE_LIMIT = {
+    Format.aiff: 0x8000_0000,
+    Format.wav: 0x1_0000_0000,
 }
 ITEMSIZE = {
     SdType.float32: 4,
@@ -34,12 +33,16 @@ DETECT_SLEEP = False
 class ChannelWriter(Runnable):
     blocks_seen: int = 0
     blocks_written: int = 0
+    bytes_in_this_file: int = 0
 
     frames_in_this_file: int = 0
     frames_seen: int = 0
+    frame_size: int = 0
     frames_written: int = 0
 
     last_time: float = 0
+    largest_file_size: int = 0
+    longest_file_frames: int = 0
 
     _sf: SoundFile | None = None
 
@@ -58,20 +61,12 @@ class ChannelWriter(Runnable):
         self._lock = Lock()
 
         self.files_written = file_list.FileList()
-
-        self.opener = FileOpener(cfg, track)
+        self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
+        self.opener = FileOpener(cfg, track)
 
-        if cfg.infinite_length or not (max_size := FORMAT_SIZE_LIMIT.get(cfg.format)):
-            return
-
-        frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
-        max_frames = max_size // frame_size
-
-        if self.longest_file_frames:
-            self.longest_file_frames = min(max_frames, self.longest_file_frames)
-        else:
-            self.longest_file_frames = max_frames
+        if not cfg.infinite_length:
+            self.largest_file_size = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
 
     def stop(self) -> None:
         with self._lock:
@@ -133,20 +128,23 @@ class ChannelWriter(Runnable):
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
-            self.blocks_written += 1
-            self.frames_written += len(b)
+            # First check to see if this next block will overrun the file size
+            # or length
+            remains: list[int] = []
 
-            remains = self.longest_file_frames - self.frames_in_this_file
-            if self.longest_file_frames and remains <= len(b):
-                self._write(b.block[:remains])
+            if self.longest_file_frames:
+                remains.append(self.longest_file_frames - self.frames_in_this_file)
+
+            if self.largest_file_size and self._sf:
+                bytes_remaining = self.largest_file_size - self._sf.tell()
+                remains.append(bytes_remaining // self.frame_size)
+
+            if remains and (r := min(remains)) <= len(b):
+                self._write(b[:r])
                 self._close_file()
+                b = b[r:]
 
-                if remains == len(b):
-                    continue
-
-                b = b[remains:]
-
-            self._write(b.block)
+            self._write(b)
 
     def _record_on_not_silence(self) -> None:
         if not self._sf:
@@ -156,11 +154,19 @@ class ChannelWriter(Runnable):
         self._record(self._blocks)
         self._blocks.clear()
 
-    def _write(self, a: np.ndarray) -> None:
-        if not self._sf:
-            self._sf = self.opener.create()
-            self.files_written.append(Path(self._sf.name))
-            self.frames_in_this_file = 0
+    def _write(self, b: Block) -> None:
+        if b:
+            if not self._sf:
+                self._sf = self.opener.create()
+                if self.largest_file_size:
+                    self._sf.flush()
+                    self.bytes_in_this_file = self._sf.tell()
+                self.files_written.append(Path(self._sf.name))
+                self.frames_in_this_file = 0
 
-        self._sf.write(a)
-        self.frames_in_this_file += len(a)
+            self._sf.write(b.block)
+            self.blocks_written += 1
+            self.frames_in_this_file += len(b)
+            self.frames_written += len(b)
+            if self.largest_file_size:
+                self.bytes_in_this_file += len(b) * self.frame_size
