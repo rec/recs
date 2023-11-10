@@ -60,7 +60,7 @@ TEST_CASES = (
 
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
-def test_channel_writer(case, mock_input_streams):
+def test_channel_writer(case, mock_devices, mock_now):
     track = Track('Ext', '2')
     times = Times[int](longest_file_time=case.longest_file_time, **TIMES)
 
