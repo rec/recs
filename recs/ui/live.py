@@ -4,7 +4,7 @@ import time
 import typing as t
 from functools import cached_property
 
-import humanize
+from humanfriendly import format_size
 from rich import live
 from rich.console import Console
 from rich.table import Table
@@ -94,10 +94,7 @@ def _time_to_str(x) -> str:
 
 
 def _naturalsize(x: int) -> str:
-    if not x:
-        return ''
-    s = humanize.naturalsize(x)
-    return f'{s:>9}'
+    return f'{format_size(x):>9}' if x else ''
 
 
 def _channel(x: str) -> str:
