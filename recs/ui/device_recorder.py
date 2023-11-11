@@ -30,7 +30,7 @@ class DeviceRecorder(Runnable):
         make = partial(ChannelRecorder, cfg=cfg, times=self.times)
         self.channel_recorders = tuple(make(track=t) for t in tracks)
 
-    def callback(self, array: np.ndarray) -> None:
+    def callback(self, array: np.ndarray, time: float) -> None:
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
@@ -45,7 +45,7 @@ class DeviceRecorder(Runnable):
             array = array[slice(extra), :]
 
         for c in self.channel_recorders:
-            c.callback(array)
+            c.callback(array, time)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {'device': self.name}

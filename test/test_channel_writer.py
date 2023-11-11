@@ -74,8 +74,12 @@ def test_channel_writer(case, mock_devices, mock_now):
     )
 
     cfg = Cfg(format=case.format, sdtype=case.sdtype)
+    time = 0
     with ChannelWriter(cfg, times=times, track=track) as writer:
-        [writer.write(Block(a)) for a in case.arrays]
+        for a in case.arrays:
+            b = Block(a)
+            writer.write(b, time)
+            time += len(b) / SAMPLERATE
 
     files = sorted(writer.files_written)
     suffix = '.' + case.format

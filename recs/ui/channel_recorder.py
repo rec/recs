@@ -20,9 +20,9 @@ class ChannelRecorder:
         self.writer.start()
         self.stop = self.writer.stop
 
-    def callback(self, array: np.ndarray) -> None:
+    def callback(self, array: np.ndarray, time: float) -> None:
         b = block.Block(array[:, self.track.slice])
-        self.writer.write(b)
+        self.writer.write(b, time)
 
         self.block_size = len(b)
         self.block_count += 1

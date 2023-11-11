@@ -1,7 +1,6 @@
 import typing as t
 from pathlib import Path
 from threading import Lock
-from time import time
 
 from soundfile import SoundFile
 from threa import Runnable
@@ -40,9 +39,10 @@ class ChannelWriter(Runnable):
     frame_size: int = 0
     frames_written: int = 0
 
-    last_time: float = 0
     largest_file_size: int = 0
     longest_file_frames: int = 0
+
+    time: float = 0
 
     _sf: SoundFile | None = None
 
@@ -82,9 +82,7 @@ class ChannelWriter(Runnable):
 
             self.stopped.set()
 
-    def write(self, block: Block) -> None:
-        last_time, self.last_time = self.last_time, time()
-
+    def write(self, block: Block, time: float) -> None:
         block_size = len(block)
 
         self.frames_seen += block_size
@@ -93,7 +91,7 @@ class ChannelWriter(Runnable):
         if self.dry_run or not (self.running or self._sf):
             return
 
-        dt = self.last_time - last_time
+        dt = self.time - time
         expected_dt = block_size / self.track.device.samplerate
 
         with self._lock:
@@ -111,6 +109,8 @@ class ChannelWriter(Runnable):
 
             if not self.running:
                 self._close_on_silence()
+
+        self.time = time
 
     def _close_file(self):
         if self._sf:

@@ -1,4 +1,5 @@
 import sys
+import time
 import traceback
 import typing as t
 from functools import cache
@@ -11,7 +12,7 @@ from recs.base.types import SdType
 
 from ..misc import hash_cmp
 
-Callback = t.Callable[[np.ndarray], None]
+Callback = t.Callable[[np.ndarray, float], None]
 
 
 class InputDevice(hash_cmp.HashCmp):
@@ -33,7 +34,8 @@ class InputDevice(hash_cmp.HashCmp):
     ) -> sd.InputStream:
         stream: sd.InputStream
 
-        def cb(indata: np.ndarray, frames: int, time: float, status: int) -> None:
+        def cb(indata: np.ndarray, frames: int, _time: float, status: int) -> None:
+            # TODO: time is a _cffi_backend._CDataBase, not a float!
             if status:  # pragma: no cover
                 # This has not yet happened, probably because we never get behind
                 # the device callback cycle.
@@ -44,7 +46,8 @@ class InputDevice(hash_cmp.HashCmp):
                 return
 
             try:
-                callback(indata.copy())  # `indata` is always the same variable!
+                # `indata` is always the same variable!
+                callback(indata.copy(), time.time())
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()
@@ -57,9 +60,7 @@ class InputDevice(hash_cmp.HashCmp):
                 except Exception:
                     traceback.print_exc()
 
-        # Note: if sdtype is None, then the whole system blocks
-        assert dtype is not None
-
+        assert dtype is not None  # If sdtype is None, then the whole system blocks
         stream = sd.InputStream(
             callback=cb,
             channels=self.channels,

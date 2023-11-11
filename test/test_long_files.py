@@ -13,6 +13,7 @@ from recs.base.times import Times
 from recs.base.types import Format, SdType
 
 RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
+SAMPLERATE = 44_100
 
 
 @pytest.mark.parametrize('format', (Format.aiff, Format.wav))
@@ -20,7 +21,11 @@ RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
 @tdir
 def test_long_file(mock_input_streams, format):
     print(f'\ntest_long: {format}')
-    cfg = Cfg(format=format, sdtype=SdType.float32)
+    cfg = Cfg(
+        format=format,
+        metadata=[],
+        sdtype=SdType.float32,
+    )
 
     SIZE = 0x1_0000_0000 if format == Format.wav else 0x8000_0000
     TOTAL_SIZE = SIZE + 0x8_0000
@@ -40,10 +45,13 @@ def test_long_file(mock_input_streams, format):
     track = Track('Ext', '1-2')
     times = Times[int](**TIMES)
 
+    time = 0
     with ChannelWriter(cfg=cfg, times=times, track=track) as writer:
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
-            writer.write(block)
+            writer.write(block, time)
+            time += len(block) / SAMPLERATE
+
     files = writer.files_written
     sizes = [os.path.getsize(f) for f in files]
     print(*(hex(s) for s in sizes))
