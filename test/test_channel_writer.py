@@ -27,6 +27,7 @@ class Case:
     longest_file_time: int = 0
     name: str = ''
     sdtype: SdType | None = None
+    shortest_file_time: int = 1
 
     replace = dc.replace
 
@@ -66,7 +67,11 @@ TEST_CASES = (
 @tdir
 def test_channel_writer(case, mock_devices, mock_now):
     track = Track('Ext', '2')
-    times = Times[int](longest_file_time=case.longest_file_time, **TIMES)
+    times = Times[int](
+        longest_file_time=case.longest_file_time,
+        shortest_file_time=case.shortest_file_time,
+        **TIMES,
+    )
 
     cfg = Cfg(format=case.format, sdtype=case.sdtype)
     with ChannelWriter(cfg, times=times, track=track) as writer:

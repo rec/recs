@@ -131,6 +131,9 @@ def recs(
     noise_floor: float = Option(
         RECS.noise_floor, '-o', '--noise-floor', help='The noise floor in decibels'
     ),
+    shortest_file_time: str = Option(
+        RECS.shortest_file_time, help='Shortest amount of time per file'
+    ),
     silence_after_end: float = Option(
         RECS.silence_after_end,
         '-c',

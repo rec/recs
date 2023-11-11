@@ -50,6 +50,7 @@ class CfgRaw:
     longest_file_time: str = '0'  # In HH:MM:SS.SSSS
     moving_average_time: float = 1
     noise_floor: float = 70
+    shortest_file_time: str = '1'  # In HH:MM:SS.SSSS
     silence_after_end: float = 2
     silence_before_start: float = 1
     stop_after_silence: float = 20

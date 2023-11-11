@@ -25,6 +25,9 @@ class Times(t.Generic[T]):
     #: Longest amount of time per file: 0 means infinite
     longest_file_time: T = t.cast(T, 0)
 
+    #: Shortest amount of time per file
+    shortest_file_time: T = t.cast(T, 0)
+
     #: Amount of silence at the start
     silence_before_start: T = t.cast(T, 0)
 

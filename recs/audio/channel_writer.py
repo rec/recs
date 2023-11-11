@@ -115,7 +115,7 @@ class ChannelWriter(Runnable):
     def _close_file(self):
         if self._sf:
             self._sf.close()
-            if DETECT_SLEEP and self._sf.frames <= self.times.shortest_file_time:
+            if self._sf.frames <= self.times.shortest_file_time:
                 if (p := Path(self._sf.name)).exists():
                     p.unlink()
             self._sf = None
@@ -130,8 +130,7 @@ class ChannelWriter(Runnable):
 
     def _record(self, blocks: t.Iterable[Block]) -> None:
         for b in blocks:
-            # First check to see if this next block will overrun the file size
-            # or length
+            # Check if this block will overrun the file size or length
             remains: list[int] = []
 
             if self.longest_file_frames:
