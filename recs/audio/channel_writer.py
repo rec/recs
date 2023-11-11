@@ -84,15 +84,17 @@ class ChannelWriter(Runnable):
 
     def write(self, block: Block) -> None:
         last_time, self.last_time = self.last_time, time()
-        self.block_size = len(block)
-        self.frames_seen += self.block_size
+
+        block_size = len(block)
+
+        self.frames_seen += block_size
         self.blocks_seen += 1
 
         if self.dry_run or not (self.running or self._sf):
             return
 
         dt = self.last_time - last_time
-        expected_dt = self.block_size / self.track.device.samplerate
+        expected_dt = block_size / self.track.device.samplerate
 
         with self._lock:
             if DETECT_SLEEP and dt > expected_dt * BLOCK_FUZZ:
@@ -155,18 +157,24 @@ class ChannelWriter(Runnable):
         self._blocks.clear()
 
     def _write(self, b: Block) -> None:
-        if b:
-            if not self._sf:
-                self._sf = self.opener.create()
-                if self.largest_file_size:
-                    self._sf.flush()
-                    self.bytes_in_this_file = self._sf.tell()
-                self.files_written.append(Path(self._sf.name))
-                self.frames_in_this_file = 0
+        if not b:
+            return
 
-            self._sf.write(b.block)
-            self.blocks_written += 1
-            self.frames_in_this_file += len(b)
-            self.frames_written += len(b)
+        if not self._sf:
+            self._sf = self.opener.create()
+
             if self.largest_file_size:
-                self.bytes_in_this_file += len(b) * self.frame_size
+                self._sf.flush()
+                self.bytes_in_this_file = self._sf.tell()
+
+            self.files_written.append(Path(self._sf.name))
+            self.frames_in_this_file = 0
+
+        self._sf.write(b.block)
+
+        self.blocks_written += 1
+        self.frames_in_this_file += len(b)
+        self.frames_written += len(b)
+
+        if self.largest_file_size:
+            self.bytes_in_this_file += len(b) * self.frame_size
