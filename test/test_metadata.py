@@ -10,10 +10,8 @@ from recs.base import RecsError
 from recs.base.metadata import RECS_USES, UNUSABLE, USABLE, to_dict
 
 CHANGED = {'license', 'software'}
-
-
-def _get_metadata(fp):
-    return {k: v for k in sf._str_types if (v := getattr(fp, k, None))}
+WAV_FILE = 'metadata.wav'
+METADATA = {k: k.capitalize() for k in USABLE | RECS_USES}
 
 
 def test_unchanged():
@@ -21,18 +19,25 @@ def test_unchanged():
     assert not (CHANGED & USABLE)
 
 
+def write_metadata(
+    filename=WAV_FILE, metadata=METADATA, channels=2, samplerate=48_000, time=1
+):
+    fp = sf.SoundFile(
+        filename, mode='w', channels=channels, samplerate=samplerate, subtype='PCM_32'
+    )
+    for k, v in metadata.items():
+        assert k in sf._str_types
+        setattr(fp, k, v)
+
+    with fp:
+        fp.write(np.empty(shape=(time * samplerate, channels), dtype='int32'))
+
+
 @tdir
 def test_writing_metadata():
-    f = sf.SoundFile(
-        'meta.wav', mode='w', channels=2, samplerate=48_000, subtype='PCM_32'
-    )
-    for t in sf._str_types:
-        setattr(f, t, t.capitalize())
+    write_metadata()
 
-    with f:
-        f.write(np.empty(shape=(48_000, 2), dtype='int32'))
-
-    with sf.SoundFile('meta.wav') as fp:
+    with sf.SoundFile(WAV_FILE) as fp:
         full = {k: getattr(fp, k, None) for k in sf._str_types}
         actual = {k: v for k, v, in full.items() if k not in CHANGED}
         expected = {k: k.capitalize() for k in actual}
@@ -64,7 +69,9 @@ def main():
         print(a)
         try:
             with sf.SoundFile(a) as fp:
-                print(json.dumps(_get_metadata(fp), indent=4))
+                md = {k: v for k in sf._str_types if (v := getattr(fp, k, None))}
+                print(json.dumps(md, indent=4))
+
         except Exception as e:
             print('ERROR', e)
 
