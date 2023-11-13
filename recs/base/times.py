@@ -28,14 +28,14 @@ class Times(t.Generic[T]):
     #: Shortest amount of time per file
     shortest_file_time: T = t.cast(T, 0)
 
-    #: Amount of silence at the start
-    silence_before_start: T = t.cast(T, 0)
+    #: Amount of quiet at the start
+    quiet_before_start: T = t.cast(T, 0)
 
-    #: Amount of silence at the end
-    silence_after_end: T = t.cast(T, 0)
+    #: Amount of quiet at the end
+    quiet_after_end: T = t.cast(T, 0)
 
-    #: Amount of silence before stopping a recording
-    stop_after_silence: T = t.cast(T, 0)
+    #: Amount of quiet before stopping a recording
+    stop_after_quiet: T = t.cast(T, 0)
 
     # Time for moving averages for the meters
     moving_average_time: T = t.cast(T, 0)

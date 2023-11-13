@@ -20,12 +20,12 @@ CASES = (
 assert tdir
 
 
-@pytest.mark.parametrize('path, dry_run, quiet, subs', CASES)
+@pytest.mark.parametrize('path, dry_run, silent, subs', CASES)
 @tdir
-def test_end_to_end(path, dry_run, quiet, subs, mock_input_streams):
+def test_end_to_end(path, dry_run, silent, subs, mock_input_streams):
     Cfg(
         dry_run=dry_run,
-        quiet=quiet,
+        silent=silent,
         shortest_file_time='0',
         subdirectory=subs,
         total_run_time=0.1,

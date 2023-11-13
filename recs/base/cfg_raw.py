@@ -39,7 +39,7 @@ class CfgRaw:
     #
     # Console and UI settings
     #
-    quiet: bool = False
+    silent: bool = False
     retain: bool = True
     ui_refresh_rate: float = 23
     sleep_time: float = 0.013
@@ -51,7 +51,7 @@ class CfgRaw:
     moving_average_time: float = 1
     noise_floor: float = 70
     shortest_file_time: str = '1'  # In HH:MM:SS.SSSS
-    silence_after_end: float = 2
-    silence_before_start: float = 1
-    stop_after_silence: float = 20
+    quiet_after_end: float = 2
+    quiet_before_start: float = 1
+    stop_after_quiet: float = 20
     total_run_time: float = 0

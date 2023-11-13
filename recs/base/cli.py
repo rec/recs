@@ -101,8 +101,8 @@ def recs(
     #
     # Console and UI settings
     #
-    quiet: bool = Option(
-        RECS.quiet, '-q', '--quiet', help='If true, do not display live updates'
+    silent: bool = Option(
+        RECS.silent, '-q', '--silent', help='If true, do not display live updates'
     ),
     retain: bool = Option(
         RECS.retain, '-r', '--retain', help='Retain rich display on shutdown'
@@ -134,22 +134,22 @@ def recs(
     shortest_file_time: str = Option(
         RECS.shortest_file_time, help='Shortest amount of time per file'
     ),
-    silence_after_end: float = Option(
-        RECS.silence_after_end,
+    quiet_after_end: float = Option(
+        RECS.quiet_after_end,
         '-c',
-        '--silence-after-end',
-        help='Silence after the end, in seconds',
+        '--quiet-after-end',
+        help='Quiet after the end, in seconds',
     ),
-    silence_before_start: float = Option(
-        RECS.silence_before_start,
+    quiet_before_start: float = Option(
+        RECS.quiet_before_start,
         '-b',
-        '--silence-before-start',
-        help='Silence before the start, in seconds',
+        '--quiet-before-start',
+        help='Quiet before the start, in seconds',
     ),
-    stop_after_silence: float = Option(
-        RECS.stop_after_silence,
-        '--stop-after-silence',
-        help='Stop recs after silence',
+    stop_after_quiet: float = Option(
+        RECS.stop_after_quiet,
+        '--stop-after-quiet',
+        help='Stop recs after quiet',
     ),
     total_run_time: float = Option(
         RECS.total_run_time,

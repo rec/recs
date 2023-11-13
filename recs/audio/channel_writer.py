@@ -94,19 +94,19 @@ class ChannelWriter(Runnable):
 
         if block.volume >= self.times.noise_floor_amplitude:
             if not self._sf:
-                # Record a little silence before the first block
-                length = self.times.silence_before_start + len(self._blocks[-1])
+                # Record a little quiet before the first block
+                length = self.times.quiet_before_start + len(self._blocks[-1])
                 self._blocks.clip(length, from_start=True)
 
             self._write_blocks(self._blocks)
             self._blocks.clear()
 
-        if not self.running or self._blocks.duration > self.times.stop_after_silence:
+        if not self.running or self._blocks.duration > self.times.stop_after_quiet:
             self._write_and_close()
 
     def _write_and_close(self) -> None:
-        # Record a little silence after the last block
-        removed = self._blocks.clip(self.times.silence_after_end, from_start=False)
+        # Record a little quiet after the last block
+        removed = self._blocks.clip(self.times.quiet_after_end, from_start=False)
 
         if self._sf and removed:
             self._write_blocks(reversed(removed))

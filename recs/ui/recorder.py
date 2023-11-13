@@ -27,7 +27,7 @@ class Recorder(Runnable):
         self.start_time = time.time()
         self.live = live.Live(
             self.rows,
-            quiet=cfg.quiet,
+            silent=cfg.silent,
             retain=cfg.retain,
             ui_refresh_rate=cfg.ui_refresh_rate,
         )

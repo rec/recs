@@ -13,7 +13,7 @@ from recs.base.times import Times
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 
 SAMPLERATE = 44_100
-TIMES = {'silence_before_start': 30, 'silence_after_end': 40, 'stop_after_silence': 50}
+TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
 
 II = [np.array((1, -1, 1, -1), dtype=SDTYPE)]
 OO = [np.array((0, 0, 0, 0), dtype=SDTYPE)]

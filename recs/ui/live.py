@@ -20,13 +20,13 @@ CONSOLE = Console(color_system='truecolor')
 @dc.dataclass
 class Live:
     rows: RowsFunction
-    quiet: bool = True
+    silent: bool = True
     retain: bool = False
     ui_refresh_rate: float = 10
     _last_update_time: float = 0
 
     def update(self) -> None:
-        if not self.quiet:
+        if not self.silent:
             t = time.time()
             if (t - self._last_update_time) >= 1 / self.ui_refresh_rate:
                 self._last_update_time = t
@@ -45,11 +45,11 @@ class Live:
         return TABLE_FORMATTER(self.rows())
 
     # def context(self) -> t.Generator:
-    #    return contextlib.nullcontext() if self.quiet else self.live
+    #    return contextlib.nullcontext() if self.silent else self.live
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
-        if self.quiet:
+        if self.silent:
             yield
         else:
             with self.live:
