@@ -26,6 +26,7 @@ def test_end_to_end(path, dry_run, quiet, subs, mock_input_streams):
     Cfg(
         dry_run=dry_run,
         quiet=quiet,
+        shortest_file_time='0',
         subdirectory=subs,
         total_run_time=0.1,
     ).run()
