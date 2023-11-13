@@ -6,6 +6,7 @@ from recs import Cfg
 from recs.misc.recording_path import recording_path
 
 from ..base import to_time
+from .header_size import header_size
 from .track import Track
 
 URL = 'https://github.com/rec/recs'
@@ -35,10 +36,12 @@ class FileOpener:
 
         t = str(self.tracknumber)
         metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
+        metadata |= self.cfg.metadata
 
-        for k, v in (metadata | self.cfg.metadata).items():
+        for k, v in metadata.items():
             setattr(fp, k, v)
 
+        fp._recs_header_size = header_size(metadata, self.cfg.format)
         return fp
 
     def create(self) -> sf.SoundFile:
