@@ -28,7 +28,7 @@ def _writes(subtype):
 
     opener = FileOpener(subtype=subtype, **KWARGS)
     try:
-        with opener.open(Path(f'file.{Cfg().format}'), 'w') as fp:
+        with opener.open(Path(f'file.{Cfg().format}')) as fp:
             fp.write(BLOCK)
         return True
     except Exception:
