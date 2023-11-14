@@ -41,6 +41,7 @@ class ChannelWriter(Runnable):
     longest_file_frames: int = 0
 
     time: float = 0
+    tracknumber: int = 0
 
     _sf: SoundFile | None = None
 
@@ -143,7 +144,8 @@ class ChannelWriter(Runnable):
 
     def _write_one(self, b: Block) -> None:
         if not self._sf:
-            self._sf = self.opener.create()
+            self.tracknumber += 1
+            self._sf = self.opener.create(self.tracknumber)
 
             self.files_written.append(Path(self._sf.name))
             self.frames_in_this_file = 0

@@ -15,10 +15,11 @@ class FileOpener:
     def __init__(self, cfg: Cfg, track: Track) -> None:
         self.cfg = cfg
         self.track = track
-        self.tracknumber = 0
 
-    def open(self, path: Path, overwrite: bool = False) -> sf.SoundFile:
-        path = path.with_suffix('.' + self.cfg.format)
+    def open(
+        self, path: Path | str, tracknumber: int, overwrite: bool = False
+    ) -> sf.SoundFile:
+        path = Path(path).with_suffix('.' + self.cfg.format)
         if not overwrite and path.exists():
             raise FileExistsError(str(path))
 
@@ -31,9 +32,7 @@ class FileOpener:
             subtype=self.cfg.subtype,
         )
 
-        self.tracknumber += 1
-
-        t = str(self.tracknumber)
+        t = str(tracknumber)
         metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
         metadata |= self.cfg.metadata
 
@@ -42,7 +41,7 @@ class FileOpener:
 
         return fp
 
-    def create(self) -> sf.SoundFile:
+    def create(self, tracknumber: int) -> sf.SoundFile:
         index = 0
         suffix = ''
         path, name = recording_path(self.track, self.cfg.alias, self.cfg.subdirectory)
@@ -51,7 +50,7 @@ class FileOpener:
             p = self.cfg.path / path / (name + suffix)
             p.parent.mkdir(exist_ok=True, parents=True)
             try:
-                return self.open(p)
+                return self.open(p, tracknumber)
             except FileExistsError:
                 index += 1
                 suffix = f'_{index}'
