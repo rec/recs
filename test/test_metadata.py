@@ -7,7 +7,7 @@ import soundfile as sf
 import tdir
 
 from recs.base import RecsError
-from recs.base.metadata import RECS_USES, UNUSABLE, USABLE, to_dict
+from recs.base.metadata import RECS_USES, UNUSABLE, USABLE, get_metadata, to_dict
 
 CHANGED = {'license', 'software'}
 WAV_FILE = 'metadata.wav'
@@ -31,6 +31,7 @@ def write_metadata(
 
     with fp:
         fp.write(np.empty(shape=(time * samplerate, channels), dtype='int32'))
+        return get_metadata(fp)
 
 
 @tdir

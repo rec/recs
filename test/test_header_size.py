@@ -86,14 +86,16 @@ CASES = (
 )
 SAMPLERATE = 44100
 
+_CASES = tuple((*i, channel) for channel in (1, 2) for i in CASES)
 
-@pytest.mark.parametrize('filename, metadata, size', CASES)
+
+@pytest.mark.parametrize('filename, metadata, size, channels', _CASES)
 @tdir
-def test_header_size(filename, metadata, size):
-    write_metadata(filename, metadata, samplerate=SAMPLERATE)
+def test_header_size(filename, metadata, size, channels):
+    write_metadata(filename, metadata, samplerate=SAMPLERATE, channels=channels)
 
     file_size = os.path.getsize(filename)
-    base_size = SAMPLERATE * 4 * 2
+    base_size = SAMPLERATE * 4 * channels
     actual_size = file_size - base_size
     assert size == actual_size
 

@@ -9,15 +9,20 @@ from recs.base.cfg import Cfg
 from recs.base.types import SDTYPE, Format, SdType
 from recs.misc import file_list
 
-from ..base import times
+from recs.base import times, to_time
 from .block import Block, Blocks
 from .file_opener import FileOpener
+from .header_size import header_size
 from .track import Track
 
+URL = 'https://github.com/rec/recs'
+
+BUFFER = 128
 FORMAT_TO_SIZE_LIMIT = {
     Format.aiff: 0x8000_0000,
     Format.wav: 0x1_0000_0000,
 }
+
 ITEMSIZE = {
     SdType.float32: 4,
     SdType.int16: 2,
@@ -53,6 +58,8 @@ class ChannelWriter(Runnable):
         super().__init__()
 
         self.dry_run = cfg.dry_run
+        self.format = cfg.format
+        self.metadata = cfg.metadata
         self.times = times
         self.track = track
 
@@ -65,7 +72,8 @@ class ChannelWriter(Runnable):
         self.opener = FileOpener(cfg, track)
 
         if not cfg.infinite_length:
-            self.largest_file_size = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
+            largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
+            self.largest_file_size = max(largest - BUFFER, 0)
 
     def stop(self) -> None:
         with self._lock:
@@ -131,8 +139,8 @@ class ChannelWriter(Runnable):
                 remains.append(self.longest_file_frames - self.frames_in_this_file)
 
             if self.largest_file_size and self._sf:
-                file_frames = self.largest_file_size // self.frame_size
-                remains.append(file_frames - self._sf.frames)
+                file_bytes = self.largest_file_size - self.bytes_in_this_file
+                remains.append(file_bytes // self.frame_size)
 
             if remains and (r := min(remains)) <= len(b):
                 self._write_one(b[:r])
@@ -145,7 +153,10 @@ class ChannelWriter(Runnable):
     def _write_one(self, b: Block) -> None:
         if not self._sf:
             self.tracknumber += 1
-            self._sf = self.opener.create(self.tracknumber)
+            t = str(self.tracknumber)
+            metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
+            self._sf = self.opener.create(metadata | self.metadata)
+            self.bytes_in_this_file = header_size(metadata, self.format)
 
             self.files_written.append(Path(self._sf.name))
             self.frames_in_this_file = 0
@@ -156,5 +167,4 @@ class ChannelWriter(Runnable):
         self.frames_in_this_file += len(b)
         self.frames_written += len(b)
 
-        if self.largest_file_size:
-            self.bytes_in_this_file += len(b) * self.frame_size
+        self.bytes_in_this_file += len(b) * self.frame_size

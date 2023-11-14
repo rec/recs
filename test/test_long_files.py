@@ -66,11 +66,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
 
     print(hex(sizes[0]), hex(diff), hex(diff2))
 
-    assert diff == 0
-    if format == Format.wav:
-        assert diff2 == 0xB0
-    else:
-        assert diff2 == 0xD0
+    assert 0 <= diff <= 0x80
 
 
 @tdir
@@ -81,5 +77,5 @@ def test_file_header(mock_devices):
         sdtype=SdType.int32,
     )
     fo = FileOpener(cfg, Track('Flo', '1'))
-    with fo.open('file.wav', 'w', True) as fp:
+    with fo.open('file.wav', {}, True) as fp:
         fp.write(np.zeros((8, 1), 'int32'))

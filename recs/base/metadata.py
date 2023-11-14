@@ -1,5 +1,7 @@
 import typing as t
 
+import soundfile as sf
+
 from . import RecsError
 
 RECS_USES = {'date', 'software', 'tracknumber'}
@@ -30,3 +32,7 @@ def to_dict(metadata: t.Sequence[str]) -> dict[str, str]:
         raise RecsError('Metadata: ' + msg)
 
     return result
+
+
+def get_metadata(fp: sf.SoundFile) -> dict[str, str]:
+    return {k: v for k in ALL if (v := getattr(fp, k))}
