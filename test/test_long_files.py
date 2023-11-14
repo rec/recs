@@ -6,20 +6,24 @@ import pytest
 import tdir
 
 from recs import Cfg
+from recs.audio import channel_writer
 from recs.audio.block import Block
-from recs.audio.channel_writer import ChannelWriter
+from recs.audio.file_opener import FileOpener
 from recs.audio.track import Track
 from recs.base.times import Times
 from recs.base.types import Format, SdType
 
-RECS_INTEGRATION_TEST = 'RECS_INTEGRATION_TEST' in os.environ
 SAMPLERATE = 44_100
+SHRINK = 256
+FORMAT_TO_SIZE_LIMIT = {
+    k: v // SHRINK for k, v in channel_writer.FORMAT_TO_SIZE_LIMIT.items()
+}
 
 
 @pytest.mark.parametrize('format', (Format.aiff, Format.wav))
-@pytest.mark.skipif(not RECS_INTEGRATION_TEST, reason='Very long test')
 @tdir
-def test_long_file(mock_input_streams, format):
+def test_long_file(mock_input_streams, format, monkeypatch):
+    monkeypatch.setattr(channel_writer, 'FORMAT_TO_SIZE_LIMIT', FORMAT_TO_SIZE_LIMIT)
     print(f'\ntest_long: {format}')
     cfg = Cfg(
         format=format,
@@ -27,7 +31,7 @@ def test_long_file(mock_input_streams, format):
         sdtype=SdType.float32,
     )
 
-    SIZE = 0x1_0000_0000 if format == Format.wav else 0x8000_0000
+    SIZE = FORMAT_TO_SIZE_LIMIT[format]
     TOTAL_SIZE = SIZE + 0x8_0000
     COUNT = 4
 
@@ -46,7 +50,7 @@ def test_long_file(mock_input_streams, format):
     times = Times[int](**TIMES)
 
     time = 0
-    with ChannelWriter(cfg=cfg, times=times, track=track) as writer:
+    with channel_writer.ChannelWriter(cfg=cfg, times=times, track=track) as writer:
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
             writer.write(block, time)
@@ -67,3 +71,15 @@ def test_long_file(mock_input_streams, format):
         assert diff2 == 0xB0
     else:
         assert diff2 == 0xD0
+
+
+@tdir
+def test_file_header(mock_devices):
+    cfg = Cfg(
+        format=Format.wav,
+        metadata=['title=' + 30 * 'a very long title '],
+        sdtype=SdType.int32,
+    )
+    fo = FileOpener(cfg, Track('Flo', '1'))
+    with fo.open('file.wav', 'w', True) as fp:
+        fp.write(np.zeros((8, 1), 'int32'))
