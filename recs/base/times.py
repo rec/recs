@@ -1,13 +1,14 @@
 import dataclasses as dc
 import math
+import time as _time
 import typing as t
-from datetime import datetime
 from functools import cached_property
 
 T = t.TypeVar('T', float, int)
 NO_SCALE = ('noise_floor',)
 
-now = datetime.now
+sleep = _time.sleep
+time = _time.time
 
 
 def db_to_amplitude(db: float) -> float:

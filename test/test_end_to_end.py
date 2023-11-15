@@ -22,7 +22,7 @@ assert tdir
 
 @pytest.mark.parametrize('path, dry_run, silent, subs', CASES)
 @tdir
-def test_end_to_end(path, dry_run, silent, subs, mock_input_streams):
+def test_end_to_end(path, dry_run, silent, subs, mock_input_streams, mock_time):
     Cfg(
         dry_run=dry_run,
         silent=silent,

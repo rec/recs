@@ -1,5 +1,4 @@
 import sys
-import time
 import traceback
 import typing as t
 from functools import cache
@@ -7,6 +6,7 @@ from functools import cache
 import numpy as np
 import sounddevice as sd
 
+from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import SdType
 
@@ -47,7 +47,7 @@ class InputDevice(hash_cmp.HashCmp):
 
             try:
                 # `indata` is always the same variable!
-                callback(indata.copy(), time.time())
+                callback(indata.copy(), times.time())
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()

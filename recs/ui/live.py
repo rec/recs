@@ -1,6 +1,5 @@
 import contextlib
 import dataclasses as dc
-import time
 import typing as t
 from functools import cached_property
 
@@ -9,7 +8,8 @@ from rich import live
 from rich.console import Console
 from rich.table import Table
 
-from ..base import times
+from recs.base import times
+
 from .table import TableFormatter, _to_str
 
 RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
@@ -27,7 +27,7 @@ class Live:
 
     def update(self) -> None:
         if not self.silent:
-            t = time.time()
+            t = times.time()
             if (t - self._last_update_time) >= 1 / self.ui_refresh_rate:
                 self._last_update_time = t
                 self.live.update(self.table())

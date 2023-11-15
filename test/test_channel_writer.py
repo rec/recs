@@ -12,6 +12,8 @@ from recs.base.cfg import Cfg
 from recs.base.times import TimeSettings
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 
+from . import conftest
+
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
 
@@ -65,7 +67,7 @@ TEST_CASES = (
 
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
-def test_channel_writer(case, mock_devices, mock_now):
+def test_channel_writer(case, mock_devices):
     track = Track('Ext', '2')
     times = TimeSettings[int](
         longest_file_time=case.longest_file_time,
@@ -74,12 +76,12 @@ def test_channel_writer(case, mock_devices, mock_now):
     )
 
     cfg = Cfg(format=case.format, sdtype=case.sdtype)
-    time = 0
+    timestamp = conftest.TIMESTAMP
     with ChannelWriter(cfg, times=times, track=track) as writer:
         for a in case.arrays:
             b = Block(a)
-            writer.write(b, time)
-            time += len(b) / SAMPLERATE
+            writer.write(b, timestamp)
+            timestamp += len(b) / SAMPLERATE
 
     files = sorted(writer.files_written)
     suffix = '.' + case.format
@@ -102,7 +104,7 @@ def test_channel_writer(case, mock_devices, mock_now):
             assert fp.date == '2023'
             assert fp.software == ''
         else:
-            assert fp.date == '2023-10-15T16:49:21.000502'
+            assert fp.date.startswith('2023-10-15T16:49:21')
             assert fp.software.startswith('https://github.com/rec/recs')
 
 

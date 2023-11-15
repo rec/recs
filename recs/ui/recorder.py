@@ -1,12 +1,11 @@
 import contextlib
-import time
 import typing as t
 
 from rich.table import Table
 from threa import Runnable
 
 from recs.audio import device
-from recs.base import RecsError
+from recs.base import RecsError, times
 from recs.base.cfg import Cfg
 from recs.ui.device_tracks import device_tracks
 
@@ -24,7 +23,7 @@ class Recorder(Runnable):
         self.cfg = cfg
 
         self.device_tracks = device_tracks(cfg.alias, cfg.exclude, cfg.include)
-        self.start_time = time.time()
+        self.start_time = times.time()
         self.live = live.Live(
             self.rows,
             silent=cfg.silent,
@@ -45,12 +44,12 @@ class Recorder(Runnable):
         self.start()
         with self.context():
             while self.running:
-                time.sleep(self.cfg.sleep_time)
+                times.sleep(self.cfg.sleep_time)
                 self.live.update()
 
     @property
     def elapsed_time(self) -> float:
-        return time.time() - self.start_time
+        return times.time() - self.start_time
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {

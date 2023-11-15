@@ -1,7 +1,6 @@
 import copy
 import json
 import random
-import time
 from datetime import datetime, timedelta
 from functools import cached_property
 from pathlib import Path
@@ -20,18 +19,13 @@ DEVICES = json.loads(DEVICES_FILE.read_text())
 BLOCK_SIZE = 0x80
 SLEEP_TIME = 0.00001
 
-BASE_TIME = datetime(2023, 10, 15, 16, 49, 21, 502)
-TIME = BASE_TIME
+TIME = datetime(2023, 10, 15, 16, 49, 21, 502)
 TIMESTAMP = TIME.timestamp()
 DELTA = timedelta(seconds=1)
 
 
-def now():
-    global TIME
-
-    if True:
-        return TIME
-    return (TIME := TIME + DELTA)
+def time():
+    return TIMESTAMP
 
 
 class InputStream(sd.InputStream):
@@ -77,7 +71,7 @@ class InputStream(sd.InputStream):
 
     def __callback(self) -> None:
         self.callback(self.__array, self.BLOCK_SIZE, 0, 0)
-        time.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
+        times.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
 
 
 class BigInputStream(InputStream):
@@ -95,10 +89,10 @@ def mock_devices(monkeypatch):
 
 
 @pytest.fixture
-def mock_now(monkeypatch, mock_devices):
-    monkeypatch.setattr(times, 'now', now)
+def mock_input_streams(monkeypatch, mock_devices):
+    monkeypatch.setattr(sd, 'InputStream', InputStream)
 
 
 @pytest.fixture
-def mock_input_streams(monkeypatch, mock_devices, mock_now):
-    monkeypatch.setattr(sd, 'InputStream', InputStream)
+def mock_time(monkeypatch):
+    monkeypatch.setattr(times, 'time', time)

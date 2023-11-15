@@ -1,4 +1,5 @@
 import typing as t
+from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
@@ -45,7 +46,7 @@ class ChannelWriter(Runnable):
     largest_file_size: int = 0
     longest_file_frames: int = 0
 
-    time: float = 0
+    timestamp: float = 0
     tracknumber: int = 0
 
     _sf: SoundFile | None = None
@@ -81,13 +82,13 @@ class ChannelWriter(Runnable):
             self._write_and_close()
             self.stopped.set()
 
-    def write(self, block: Block, time: float) -> None:
+    def write(self, block: Block, timestamp: float) -> None:
         self.frames_seen += len(block)
         self.blocks_seen += 1
 
         if not self.dry_run and (self.running or self._sf):
-            dt = self.time - time
-            self.time = time
+            dt = self.timestamp - timestamp
+            self.timestamp = timestamp
 
             with self._lock:
                 self._write(block, dt)
@@ -154,14 +155,15 @@ class ChannelWriter(Runnable):
         if not self._sf:
             self.tracknumber += 1
             t = str(self.tracknumber)
-            now = times.now()
-            metadata = dict(date=now.isoformat(), software=URL, tracknumber=t)
-            # metadata |= self.metadata
+            # TODO: the timestamp might be a bit late for this block
+            # because self.timestamp is the time of the last block
+            # in the list!
+            ts = datetime.fromtimestamp(self.timestamp)
+            metadata = dict(date=ts.isoformat(), software=URL, tracknumber=t)
+            metadata |= self.metadata
 
-            self._sf = self.opener.create(
-                metadata | self.metadata, timestamp=now.timestamp()
-            )
-            self.bytes_in_this_file = header_size(metadata, self.format)  # wrong!
+            self._sf = self.opener.create(metadata, timestamp=self.timestamp)
+            self.bytes_in_this_file = header_size(metadata, self.format)
 
             self.files_written.append(Path(self._sf.name))
             self.frames_in_this_file = 0
