@@ -12,7 +12,7 @@ import sounddevice as sd
 from overrides import override
 from threa import HasThread
 
-from recs.base import to_time
+from recs.base import times
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -95,7 +95,7 @@ def mock_devices(monkeypatch):
 
 @pytest.fixture
 def mock_now(monkeypatch, mock_devices):
-    monkeypatch.setattr(to_time, 'now', now)
+    monkeypatch.setattr(times, 'now', now)
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from rich import live
 from rich.console import Console
 from rich.table import Table
 
-from ..base import to_time
+from ..base import times
 from .table import TableFormatter, _to_str
 
 RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
@@ -89,7 +89,7 @@ def _volume(x) -> str:
 def _time_to_str(x) -> str:
     if not x:
         return ''
-    s = to_time.to_str(x)
+    s = times.to_str(x)
     return f'{s:>11}'
 
 

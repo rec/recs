@@ -5,7 +5,7 @@ from recs.audio.track import Track
 from recs.base.aliases import Aliases
 from recs.base.cfg import Subdirectories
 
-from ..base import to_time
+from ..base import times
 from .legal_filename import legal_filename
 
 NAME_JOINER = ' + '
@@ -18,7 +18,7 @@ def recording_path(
         s = aliases.display_name(x)
         return legal_filename(s)
 
-    ts = to_time.now()
+    ts = times.now()
     time = ts.strftime('%Y/%m/%d')
     hms = ts.strftime('%H%M%S')
 

@@ -9,7 +9,7 @@ from recs.base.cfg import Cfg
 from recs.base.types import SDTYPE, Format, SdType
 from recs.misc import file_list
 
-from recs.base import times, to_time
+from recs.base import times, times
 from .block import Block, Blocks
 from .file_opener import FileOpener
 from .header_size import header_size
@@ -154,7 +154,7 @@ class ChannelWriter(Runnable):
         if not self._sf:
             self.tracknumber += 1
             t = str(self.tracknumber)
-            metadata = dict(date=to_time.now().isoformat(), software=URL, tracknumber=t)
+            metadata = dict(date=times.now().isoformat(), software=URL, tracknumber=t)
             self._sf = self.opener.create(metadata | self.metadata)
             self.bytes_in_this_file = header_size(metadata, self.format)
 

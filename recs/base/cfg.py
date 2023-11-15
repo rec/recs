@@ -13,7 +13,7 @@ from . import RecsError, metadata, times
 from .aliases import Aliases
 from .cfg_raw import CfgRaw
 from .prefix_dict import PrefixDict
-from .to_time import to_time
+from .times import to_time
 from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
 from .types import SDTYPE, Format, SdType, Subtype
 
@@ -90,11 +90,11 @@ class Cfg:
         d = {k: getattr(self, k) for k in fields}
 
         try:
-            d['longest_file_time'] = to_time(t := d['longest_file_time'])
+            d['longest_file_time'] = times.to_time(t := d['longest_file_time'])
         except (ValueError, TypeError):
             raise RecsError(f'Do not understand --longest-file-time={t}')
         try:
-            d['shortest_file_time'] = to_time(t := d['shortest_file_time'])
+            d['shortest_file_time'] = times.to_time(t := d['shortest_file_time'])
         except (ValueError, TypeError):
             raise RecsError(f'Do not understand --shortest-file-time={t}')
 
