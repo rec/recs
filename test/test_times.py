@@ -11,8 +11,8 @@ def test_db_to_amplitude(db):
     assert times.amplitude_to_db(amp) == pytest.approx(db)
 
 
-@pytest.mark.parametrize('field', dc.fields(times.Times))
+@pytest.mark.parametrize('field', dc.fields(times.TimeSettings))
 def test_negative_times(field):
-    times.Times(**{field.name: 1})
+    times.TimeSettings(**{field.name: 1})
     with pytest.raises(ValueError):
-        times.Times(**{field.name: -1})
+        times.TimeSettings(**{field.name: -1})

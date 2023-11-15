@@ -85,8 +85,8 @@ class Cfg:
 
         return res
 
-    def _times(self) -> times.Times:
-        fields = (f.name for f in dc.fields(times.Times))
+    def _times(self) -> times.TimeSettings:
+        fields = (f.name for f in dc.fields(times.TimeSettings))
         d = {k: getattr(self, k) for k in fields}
 
         try:
@@ -98,7 +98,7 @@ class Cfg:
         except (ValueError, TypeError):
             raise RecsError(f'Do not understand --shortest-file-time={t}')
 
-        return times.Times(**d)
+        return times.TimeSettings(**d)
 
     def run(self) -> None:
         from recs.ui.recorder import Recorder

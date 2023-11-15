@@ -17,7 +17,7 @@ def amplitude_to_db(amp: float) -> float:
 
 
 @dc.dataclass(frozen=True)
-class Times(t.Generic[T]):
+class TimeSettings(t.Generic[T]):
     """Amounts of time are specified as seconds in the input but converted
     to samples when we find out the sample rate
     """
@@ -52,9 +52,9 @@ class Times(t.Generic[T]):
 
     def __post_init__(self):
         if negative_fields := [k for k, v in dc.asdict(self).items() if v < 0]:
-            raise ValueError(f'Times cannot be negative: {negative_fields=}')
+            raise ValueError(f'TimeSettings cannot be negative: {negative_fields=}')
 
-    def scale(self, samplerate: float | int) -> 'Times[int]':
+    def scale(self, samplerate: float | int) -> 'TimeSettings[int]':
         it = dc.asdict(self).items()
         d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
-        return Times[int](**d)
+        return TimeSettings[int](**d)

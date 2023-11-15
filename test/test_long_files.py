@@ -10,7 +10,7 @@ from recs.audio import channel_writer
 from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
 from recs.audio.track import Track
-from recs.base.times import Times
+from recs.base.times import TimeSettings
 from recs.base.types import Format, SdType
 
 SAMPLERATE = 44_100
@@ -47,7 +47,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
 
     block = Block(a)
     track = Track('Ext', '1-2')
-    times = Times[int](**TIMES)
+    times = TimeSettings[int](**TIMES)
 
     time = 0
     with channel_writer.ChannelWriter(cfg=cfg, times=times, track=track) as writer:

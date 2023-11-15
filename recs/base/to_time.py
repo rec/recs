@@ -10,7 +10,7 @@ def to_time(t: str) -> float:
 
     s = float(parts.pop())
     if s < 0:
-        raise ValueError('Times cannot be negative')
+        raise ValueError('TimeSettings cannot be negative')
 
     if not parts:
         return s

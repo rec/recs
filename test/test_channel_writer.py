@@ -9,7 +9,7 @@ from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.track import Track
 from recs.base.cfg import Cfg
-from recs.base.times import Times
+from recs.base.times import TimeSettings
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 
 SAMPLERATE = 44_100
@@ -67,7 +67,7 @@ TEST_CASES = (
 @tdir
 def test_channel_writer(case, mock_devices, mock_now):
     track = Track('Ext', '2')
-    times = Times[int](
+    times = TimeSettings[int](
         longest_file_time=case.longest_file_time,
         shortest_file_time=case.shortest_file_time,
         **TIMES,

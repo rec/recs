@@ -54,7 +54,7 @@ class ChannelWriter(Runnable):
     def active(self) -> bool:
         return bool(self._sf)
 
-    def __init__(self, cfg: Cfg, times: times.Times[int], track: Track) -> None:
+    def __init__(self, cfg: Cfg, times: times.TimeSettings[int], track: Track) -> None:
         super().__init__()
 
         self.dry_run = cfg.dry_run

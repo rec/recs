@@ -12,7 +12,7 @@ class ChannelRecorder:
     block_count: int = 0
     block_size: int = 0
 
-    def __init__(self, cfg: Cfg, times: times.Times[int], track: track.Track) -> None:
+    def __init__(self, cfg: Cfg, times: times.TimeSettings[int], track: track.Track) -> None:
         self.track = track
         self.writer = channel_writer.ChannelWriter(cfg, times, track)
         self.volume = counter.MovingBlock(times.moving_average_time)
