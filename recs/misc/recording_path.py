@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from recs.audio.device import InputDevice
@@ -5,20 +6,19 @@ from recs.audio.track import Track
 from recs.base.aliases import Aliases
 from recs.base.cfg import Subdirectories
 
-from ..base import times
 from .legal_filename import legal_filename
 
 NAME_JOINER = ' + '
 
 
 def recording_path(
-    track: Track, aliases: Aliases, subdirectories: Subdirectories
+    track: Track, aliases: Aliases, subdirectories: Subdirectories, timestamp: float
 ) -> tuple[Path, str]:
     def display_name(x: Track | InputDevice) -> str:
         s = aliases.display_name(x)
         return legal_filename(s)
 
-    ts = times.now()
+    ts = datetime.fromtimestamp(timestamp)
     time = ts.strftime('%Y/%m/%d')
     hms = ts.strftime('%H%M%S')
 

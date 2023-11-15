@@ -22,6 +22,7 @@ SLEEP_TIME = 0.00001
 
 BASE_TIME = datetime(2023, 10, 15, 16, 49, 21, 502)
 TIME = BASE_TIME
+TIMESTAMP = TIME.timestamp()
 DELTA = timedelta(seconds=1)
 
 

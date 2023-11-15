@@ -34,10 +34,12 @@ class FileOpener:
 
         return fp
 
-    def create(self, metadata: dict[str, str]) -> sf.SoundFile:
+    def create(self, metadata: dict[str, str], timestamp: float) -> sf.SoundFile:
         index = 0
         suffix = ''
-        path, name = recording_path(self.track, self.cfg.alias, self.cfg.subdirectory)
+        path, name = recording_path(
+            self.track, self.cfg.alias, self.cfg.subdirectory, timestamp
+        )
 
         while True:
             p = self.cfg.path / path / (name + suffix)

@@ -13,7 +13,6 @@ from . import RecsError, metadata, times
 from .aliases import Aliases
 from .cfg_raw import CfgRaw
 from .prefix_dict import PrefixDict
-from .times import to_time
 from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
 from .types import SDTYPE, Format, SdType, Subtype
 

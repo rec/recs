@@ -5,11 +5,11 @@ from threading import Lock
 from soundfile import SoundFile
 from threa import Runnable
 
+from recs.base import times
 from recs.base.cfg import Cfg
 from recs.base.types import SDTYPE, Format, SdType
 from recs.misc import file_list
 
-from recs.base import times, times
 from .block import Block, Blocks
 from .file_opener import FileOpener
 from .header_size import header_size
@@ -154,9 +154,14 @@ class ChannelWriter(Runnable):
         if not self._sf:
             self.tracknumber += 1
             t = str(self.tracknumber)
-            metadata = dict(date=times.now().isoformat(), software=URL, tracknumber=t)
-            self._sf = self.opener.create(metadata | self.metadata)
-            self.bytes_in_this_file = header_size(metadata, self.format)
+            now = times.now()
+            metadata = dict(date=now.isoformat(), software=URL, tracknumber=t)
+            # metadata |= self.metadata
+
+            self._sf = self.opener.create(
+                metadata | self.metadata, timestamp=now.timestamp()
+            )
+            self.bytes_in_this_file = header_size(metadata, self.format)  # wrong!
 
             self.files_written.append(Path(self._sf.name))
             self.frames_in_this_file = 0

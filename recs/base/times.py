@@ -1,8 +1,8 @@
 import dataclasses as dc
 import math
 import typing as t
-from functools import cached_property
 from datetime import datetime
+from functools import cached_property
 
 T = t.TypeVar('T', float, int)
 NO_SCALE = ('noise_floor',)

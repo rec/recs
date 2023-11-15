@@ -5,6 +5,8 @@ from recs.base.aliases import Aliases
 from recs.base.cfg import Subdirectory
 from recs.misc.recording_path import recording_path
 
+from . import conftest
+
 _channel, _device, _time = Subdirectory.channel, Subdirectory.device, Subdirectory.time
 
 CHOICES: tuple[tuple[Subdirectory, ...]] = (
@@ -31,7 +33,7 @@ CHOICES: tuple[tuple[Subdirectory, ...]] = (
 
 
 @pytest.mark.parametrize('subs, expected', CHOICES)
-def test_recording_path(subs, expected, mock_devices, mock_now):
-    path, filename = recording_path(Track('e', '3'), Aliases(), subs)
-    actual = str(path / filename)
+def test_recording_path(subs, expected, mock_devices):
+    p, f = recording_path(Track('e', '3'), Aliases(), subs, conftest.TIMESTAMP)
+    actual = str(p / f)
     assert actual == expected
