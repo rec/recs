@@ -61,7 +61,7 @@ class MovingBlock:
             maxlen = int(0.5 + self.moving_average_time / len(b))
             self._deque = deque((), maxlen)
 
-        self._deque.append(b.amplitude)
+        self._deque.append(b.volume)
 
     def mean(self) -> Num:
         if not self._deque:
