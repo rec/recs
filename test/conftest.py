@@ -40,7 +40,7 @@ class InputStream(sd.InputStream):
 
         self.__count = 0
 
-        seed = int.from_bytes(self.device.encode())
+        seed = int.from_bytes(self.device.encode(), byteorder='big')
         self.__rng = np.random.default_rng(seed)
         self.__random = random.Random(seed)
         self.__thread = HasThread(
