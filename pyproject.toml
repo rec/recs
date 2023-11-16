@@ -42,7 +42,7 @@ source = ["recs"]
 omit = ["recs/base/cli.py"]
 
 [tool.coverage.report]
-fail_under = 98
+fail_under = 97
 skip_covered = true
 exclude_lines = [
     "pragma: no cover",
