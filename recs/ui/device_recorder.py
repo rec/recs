@@ -9,8 +9,11 @@ from threa import Runnable
 
 from recs import Cfg
 from recs.audio.track import Track
-from recs.base.types import SDTYPE, Format
+from recs.base import times
+from recs.base.types import SDTYPE, Active, Format
 from recs.misc.counter import Accumulator, Counter
+
+OFFLINE_TIME = 1
 
 
 class DeviceRecorder(Runnable):
@@ -29,8 +32,11 @@ class DeviceRecorder(Runnable):
 
         make = partial(ChannelRecorder, cfg=cfg, times=self.times)
         self.channel_recorders = tuple(make(track=t) for t in tracks)
+        self.timestamp = times.time()
 
     def callback(self, array: np.ndarray, time: float) -> None:
+        self.timestamp = time
+
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
@@ -48,9 +54,17 @@ class DeviceRecorder(Runnable):
             c.callback(array, time)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
+        dt = self.timestamp and times.time() - self.timestamp
+        active = Active.offline if dt > OFFLINE_TIME else Active.active
+
+        yield {'on': active}
         yield {'device': self.name}
         for v in self.channel_recorders:
-            yield from v.rows()
+            for r in v.rows():
+                if active == Active.offline:
+                    yield r | {'on': active}
+                else:
+                    yield r
 
     def stop(self) -> None:
         self.running.clear()

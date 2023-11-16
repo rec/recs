@@ -3,6 +3,12 @@ from enum import auto
 from strenum import StrEnum
 
 
+class Active(StrEnum):
+    active = auto()
+    inactive = auto()
+    offline = auto()
+
+
 class SdType(StrEnum):
     float32 = auto()
     int16 = auto()

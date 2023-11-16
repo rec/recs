@@ -8,7 +8,7 @@ from threa import Runnable
 
 from recs.base import times
 from recs.base.cfg import Cfg
-from recs.base.types import SDTYPE, Format, SdType
+from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.misc import file_list
 
 from .block import Block, Blocks
@@ -30,6 +30,7 @@ ITEMSIZE = {
     SdType.int24: 3,
     SdType.int32: 4,
 }
+
 BLOCK_FUZZ = 2
 
 
@@ -52,8 +53,8 @@ class ChannelWriter(Runnable):
     _sf: SoundFile | None = None
 
     @property
-    def active(self) -> bool:
-        return bool(self._sf)
+    def active(self) -> Active:
+        return Active.active if self._sf else Active.inactive
 
     def __init__(self, cfg: Cfg, times: times.TimeSettings[int], track: Track) -> None:
         super().__init__()
@@ -155,7 +156,7 @@ class ChannelWriter(Runnable):
         if not self._sf:
             self.tracknumber += 1
             t = str(self.tracknumber)
-            # TODO: the timestamp might be a bit late for this block
+            # TODO: the timestamp will be a bit late for this block
             # because self.timestamp is the time of the last block
             # in the list!
             ts = datetime.fromtimestamp(self.timestamp)

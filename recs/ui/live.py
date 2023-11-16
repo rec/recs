@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from recs.base import times
+from recs.base.types import Active
 
 from .table import TableFormatter, _to_str
 
@@ -61,10 +62,13 @@ def _rgb(r=0, g=0, b=0) -> str:
     return f'[rgb({r},{g},{b})]'
 
 
-def _on(active: bool) -> str:
-    if active:
+def _on(active: Active) -> str:
+    if active == Active.active:
         return _rgb(g=0xFF) + '•'
-    return ''
+    elif active == Active.offline:
+        return _rgb(r=0xFF) + 'ˣ'
+    else:
+        return ''
 
 
 def _volume(x) -> str:

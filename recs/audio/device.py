@@ -36,6 +36,9 @@ class InputDevice(hash_cmp.HashCmp):
 
         def cb(indata: np.ndarray, frames: int, _time: float, status: int) -> None:
             # TODO: time is a _cffi_backend._CDataBase, not a float!
+
+            stream._recs_timestamp = times.time()
+
             if status:  # pragma: no cover
                 # This has not yet happened, probably because we never get behind
                 # the device callback cycle.
@@ -47,7 +50,7 @@ class InputDevice(hash_cmp.HashCmp):
 
             try:
                 # `indata` is always the same variable!
-                callback(indata.copy(), times.time())
+                callback(indata.copy(), stream._recs_timestamp)
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()
@@ -68,6 +71,7 @@ class InputDevice(hash_cmp.HashCmp):
             dtype=dtype,
             samplerate=self.samplerate,
         )
+        stream._recs_timestamp = times.time()
         return stream
 
 
