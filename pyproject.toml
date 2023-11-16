@@ -21,6 +21,7 @@ overrides = "*"
 coverage = "*"
 strenum = "^0.4.15"
 humanfriendly = "^10.0"
+tomli = "^2.0.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"
