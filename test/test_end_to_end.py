@@ -7,6 +7,7 @@ import soundfile as sf
 import tdir
 
 from recs import Cfg
+from recs.base import run
 
 from .conftest import DEVICES
 
@@ -23,13 +24,14 @@ assert tdir
 @pytest.mark.parametrize('path, dry_run, silent, subs', CASES)
 @tdir
 def test_end_to_end(path, dry_run, silent, subs, mock_input_streams, mock_time):
-    Cfg(
+    cfg = Cfg(
         dry_run=dry_run,
         silent=silent,
         shortest_file_time='0',
         subdirectory=subs,
         total_run_time=0.1,
-    ).run()
+    )
+    run.run(cfg)
 
     actual = sorted(Path().glob('**/*.flac'))
 
@@ -65,7 +67,7 @@ def test_end_to_end(path, dry_run, silent, subs, mock_input_streams, mock_time):
 
 
 def test_info(mock_input_streams, capsys):
-    Cfg(info=True).run()
+    run.run(Cfg(info=True))
     data = capsys.readouterr().out
 
     actual = json.loads(data)

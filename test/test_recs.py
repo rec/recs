@@ -2,13 +2,13 @@ import json
 
 import pytest
 
-from recs.base import RecsError
+from recs.base import RecsError, run
 from recs.base.cfg import Cfg
 from recs.base.types import Format, SdType, Subtype
 
 
 def test_list_types(capsys):
-    Cfg(list_types=True).run()
+    run.run(Cfg(list_types=True))
     data = capsys.readouterr().out
     json.loads(data)
 
