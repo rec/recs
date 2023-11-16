@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "recs"
 version = "0.1.0"
-description = "🎬 Record everything automatically 🎬"
+description = "🎙 Record everything forever 🎙"
 authors = ["Tom Ritchford <tom@swirly.com>"]
 license = "MIT"
 readme = "README.md"
