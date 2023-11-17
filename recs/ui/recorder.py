@@ -20,13 +20,8 @@ class Recorder(Runnable):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
         self.cfg = cfg
-        if cfg.devices:
-            self.devices = device.get_input_devices(cfg.devices)
-        else:
-            self.devices = device.input_devices()
-
         self.device_tracks = device_tracks(
-            cfg.alias, self.devices, cfg.exclude, cfg.include
+            cfg.aliases, cfg.devices, cfg.exclude, cfg.include
         )
         if not self.device_tracks:
             raise RecsError('No devices or channels selected')

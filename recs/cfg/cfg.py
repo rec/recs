@@ -15,15 +15,16 @@ from recs.base.type_conversions import (
     SUBTYPE_TO_SDTYPE,
     SUBTYPES,
 )
-from recs.base.types import SDTYPE, DeviceDict, Format, SdType, Subdirectory, Subtype
+from recs.base.types import SDTYPE, Format, SdType, Subdirectory, Subtype
 
+from . import device
 from .aliases import Aliases
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 class Cfg:
-    devices: list[DeviceDict]
+    devices: device.InputDevices
     format: Format
     sdtype: SdType | None = None
     subtype: Subtype | None = None
@@ -63,13 +64,14 @@ class Cfg:
         if cfg.devices.name:
             if not cfg.devices.exists():
                 raise RecsError(f'{cfg.devices} does not exist')
-            self.devices = json.loads(cfg.devices.read_text())
-            assert self.devices
+            devices = json.loads(cfg.devices.read_text())
+            assert devices
+            self.devices = device.get_input_devices(devices)
 
         else:
-            self.devices = []
+            self.devices = device.input_devices()
 
-        self.alias = Aliases(cfg.alias)
+        self.aliases = Aliases(cfg.alias)
         self.metadata = metadata.to_dict(cfg.metadata)
         self.subdirectory = self._subdirectory()
         self.times = self._times()

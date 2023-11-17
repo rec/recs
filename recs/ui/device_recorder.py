@@ -26,7 +26,7 @@ class DeviceRecorder(Runnable):
         self.block_size = Accumulator()
 
         self.device = d = tracks[0].device
-        self.name = self.cfg.alias.display_name(d)
+        self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
         make = partial(ChannelRecorder, cfg=cfg, times=self.times)

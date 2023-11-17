@@ -36,7 +36,7 @@ class FileOpener:
         index = 0
         suffix = ''
         path, name = recording_path(
-            self.track, self.cfg.alias, self.cfg.subdirectory, timestamp
+            self.track, self.cfg.aliases, self.cfg.subdirectory, timestamp
         )
 
         while True:
