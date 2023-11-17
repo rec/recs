@@ -1,7 +1,6 @@
 import sys
 import traceback
 import typing as t
-from functools import cache
 
 import numpy as np
 import sounddevice as sd
@@ -25,12 +24,19 @@ class InputDevice(hash_cmp.HashCmp):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def is_online(self) -> bool:
+        return any(self.name == i['name'] for i in sd.query_devices())
+
     def input_stream(
         self,
         callback: Callback,
         dtype: SdType,
         stop: t.Callable[[], None],
-    ) -> sd.InputStream:
+    ) -> sd.InputStream | None:
+        if not self.is_online:
+            return None
+
         stream: sd.InputStream
 
         def cb(indata: np.ndarray, frames: int, _time: float, status: int) -> None:
@@ -81,6 +87,5 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
 
 
-@cache
 def input_devices() -> InputDevices:
     return get_input_devices(sd.query_devices())

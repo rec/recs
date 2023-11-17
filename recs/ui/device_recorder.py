@@ -53,7 +53,7 @@ class DeviceRecorder(Runnable):
             c.callback(array, time)
 
     def active(self) -> Active:
-        dt = self.timestamp and times.time() - self.timestamp
+        dt = times.time() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
@@ -73,11 +73,12 @@ class DeviceRecorder(Runnable):
         self.stopped.set()
 
     def __enter__(self):
-        self.input_stream.__enter__()
+        if self.input_stream:
+            self.input_stream.__enter__()
 
     def __exit__(self, *a) -> None:
-        if 'input_stream' in self.__dict__:
-            return self.input_stream.__exit__(*a)
+        if input_stream := self.__dict__.get('input_stream'):
+            return input_stream.__exit__(*a)
 
     @property
     def file_count(self) -> int:
@@ -92,7 +93,7 @@ class DeviceRecorder(Runnable):
         return sum(c.recorded_time for c in self.channel_recorders)
 
     @cached_property
-    def input_stream(self) -> sd.InputStream:
+    def input_stream(self) -> sd.InputStream | None:
         return self.device.input_stream(
             callback=self.callback, dtype=self.cfg.sdtype or SDTYPE, stop=self.stop
         )
