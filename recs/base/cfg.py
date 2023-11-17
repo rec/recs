@@ -104,6 +104,7 @@ class Cfg:
 
         if self.info:
             info = sd.query_devices(kind=None)
+            info = [i for i in info if i['max_input_channels']]
             print(json.dumps(info, indent=4))
 
         elif self.list_types:
