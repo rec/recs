@@ -53,10 +53,12 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.callback(array, time)
 
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+    def active(self) -> Active:
         dt = self.timestamp and times.time() - self.timestamp
-        active = Active.offline if dt > OFFLINE_TIME else Active.active
+        return Active.offline if dt > OFFLINE_TIME else Active.active
 
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+        active = self.active()
         yield {'on': active}
         yield {'device': self.name}
         for v in self.channel_recorders:
