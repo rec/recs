@@ -45,9 +45,6 @@ class Live:
     def table(self) -> Table:
         return TABLE_FORMATTER(self.rows())
 
-    # def context(self) -> t.Generator:
-    #    return contextlib.nullcontext() if self.silent else self.live
-
     @contextlib.contextmanager
     def context(self) -> t.Generator:
         if self.silent:
