@@ -2,7 +2,7 @@ import pytest
 
 from recs.audio.track import Track
 from recs.base.aliases import Aliases
-from recs.base.cfg import Subdirectory
+from recs.base.types import Subdirectory
 from recs.misc.recording_path import recording_path
 
 from . import conftest

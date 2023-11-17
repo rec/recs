@@ -2,27 +2,17 @@ import dataclasses as dc
 import json
 import typing as t
 import warnings
-from enum import auto
 from functools import wraps
 
 import soundfile as sf
-from strenum import StrEnum
 
 from . import RecsError, metadata, times
 from .aliases import Aliases
 from .cfg_raw import CfgRaw
 from .prefix_dict import PrefixDict
 from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
-from .types import SDTYPE, DeviceDict, Format, SdType, Subtype
+from .types import SDTYPE, DeviceDict, Format, SdType, Subdirectory, Subtype
 
-
-class Subdirectory(StrEnum):
-    channel = auto()
-    device = auto()
-    time = auto()
-
-
-Subdirectories = t.Sequence[Subdirectory]
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
@@ -81,7 +71,7 @@ class Cfg:
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
 
-    def _subdirectory(self) -> Subdirectories:
+    def _subdirectory(self) -> t.Sequence[Subdirectory]:
         subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.cfg.subdirectory]
         res = tuple(t for s, t in subs if t is not None)
 

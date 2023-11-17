@@ -80,3 +80,9 @@ class Subtype(StrEnum):
     ulaw = auto()
     vorbis = auto()
     vox_adpcm = auto()
+
+
+class Subdirectory(StrEnum):
+    channel = auto()
+    device = auto()
+    time = auto()
