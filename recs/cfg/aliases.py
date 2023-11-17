@@ -1,8 +1,9 @@
 import typing as t
 
 from recs.base.prefix_dict import PrefixDict
-from recs.cfg.device import InputDevice
-from recs.cfg.track import Track
+
+from .device import InputDevice
+from .track import Track
 
 CHANNEL_SPLITTER = '+'
 

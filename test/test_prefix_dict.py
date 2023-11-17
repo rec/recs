@@ -1,7 +1,7 @@
 import pytest
 
 from recs.base.prefix_dict import PrefixDict
-from recs.cfg.device import InputDevice
+from recs.cfg import InputDevice
 
 InputDevices = PrefixDict[InputDevice]
 

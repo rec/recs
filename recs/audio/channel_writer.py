@@ -8,7 +8,7 @@ from threa import Runnable
 
 from recs.base import times
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg.track import Track
+from recs.cfg import Track
 from recs.misc import file_list
 
 from ..cfg.cfg import Cfg

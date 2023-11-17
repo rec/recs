@@ -1,8 +1,7 @@
 import pytest
 
 from recs.base.types import Subdirectory
-from recs.cfg.aliases import Aliases
-from recs.cfg.track import Track
+from recs.cfg import Aliases, Track
 from recs.misc.recording_path import recording_path
 
 from . import conftest

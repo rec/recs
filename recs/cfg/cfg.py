@@ -16,7 +16,8 @@ from recs.base.type_conversions import (
     SUBTYPES,
 )
 from recs.base.types import SDTYPE, DeviceDict, Format, SdType, Subdirectory, Subtype
-from recs.cfg.aliases import Aliases
+
+from .aliases import Aliases
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 

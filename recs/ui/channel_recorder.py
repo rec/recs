@@ -4,8 +4,7 @@ import numpy as np
 
 from recs.audio import block, channel_writer
 from recs.base import times
-from recs.cfg import track
-from recs.cfg.cfg import Cfg
+from recs.cfg import Cfg, Track
 from recs.misc import counter
 
 
@@ -13,9 +12,7 @@ class ChannelRecorder:
     block_count: int = 0
     block_size: int = 0
 
-    def __init__(
-        self, cfg: Cfg, times: times.TimeSettings[int], track: track.Track
-    ) -> None:
+    def __init__(self, cfg: Cfg, times: times.TimeSettings[int], track: Track) -> None:
         self.track = track
         self.writer = channel_writer.ChannelWriter(cfg, times, track)
         self.volume = counter.MovingBlock(times.moving_average_time)

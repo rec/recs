@@ -10,8 +10,7 @@ from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
 from recs.base.times import TimeSettings
 from recs.base.types import Format, SdType
-from recs.cfg.cfg import Cfg
-from recs.cfg.track import Track
+from recs.cfg import Cfg, Track
 
 SAMPLERATE = 44_100
 SHRINK = 256

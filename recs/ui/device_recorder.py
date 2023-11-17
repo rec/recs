@@ -9,8 +9,7 @@ from threa import Runnable
 
 from recs.base import times
 from recs.base.types import SDTYPE, Active, Format
-from recs.cfg.cfg import Cfg
-from recs.cfg.track import Track
+from recs.cfg import Cfg, Track
 from recs.misc.counter import Accumulator, Counter
 
 OFFLINE_TIME = 1

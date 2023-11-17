@@ -4,8 +4,7 @@ import pytest
 
 from recs.base import RecsError
 from recs.base.types import Format, SdType, Subtype
-from recs.cfg import run
-from recs.cfg.cfg import Cfg
+from recs.cfg import Cfg, run
 
 
 def test_list_types(capsys):

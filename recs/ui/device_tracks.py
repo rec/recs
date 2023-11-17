@@ -1,8 +1,6 @@
 import typing as t
 
-from recs.cfg.aliases import Aliases
-from recs.cfg.device import InputDevice, InputDevices
-from recs.cfg.track import Track
+from recs.cfg import Aliases, InputDevice, InputDevices, Track
 
 DeviceTracks = dict[InputDevice, t.Sequence[Track]]
 

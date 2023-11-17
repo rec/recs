@@ -1,6 +1,7 @@
 from recs.base import RecsError
-from recs.cfg import device
 from recs.misc import hash_cmp
+
+from . import device
 
 __all__ = ('Track',)
 

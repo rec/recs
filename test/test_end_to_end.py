@@ -6,8 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.cfg import run
-from recs.cfg.cfg import Cfg
+from recs.cfg import Cfg, run
 
 from .conftest import DEVICES
 

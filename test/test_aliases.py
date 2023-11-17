@@ -1,7 +1,6 @@
 import pytest
 
-from recs.cfg.aliases import Aliases
-from recs.cfg.track import Track
+from recs.cfg import Aliases, Track
 
 
 def test_empty_aliases(mock_devices):

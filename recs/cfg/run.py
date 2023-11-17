@@ -4,8 +4,9 @@ import sounddevice as sd
 import soundfile as sf
 
 from recs.base.types import Format, SdType
-from recs.cfg.cfg import Cfg
 from recs.ui.recorder import Recorder
+
+from . import Cfg
 
 
 def run(cfg: Cfg) -> None:

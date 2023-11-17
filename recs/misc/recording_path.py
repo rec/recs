@@ -3,8 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from recs.base import types
-from recs.cfg import aliases, device
-from recs.cfg.track import Track
+from recs.cfg import Aliases, InputDevice, Track
 
 from .legal_filename import legal_filename
 
@@ -13,11 +12,11 @@ NAME_JOINER = ' + '
 
 def recording_path(
     track: Track,
-    aliases: aliases.Aliases,
+    aliases: Aliases,
     subdirectories: t.Sequence[types.Subdirectory],
     timestamp: float,
 ) -> tuple[Path, str]:
-    def display_name(x: Track | device.InputDevice) -> str:
+    def display_name(x: InputDevice | Track) -> str:
         s = aliases.display_name(x)
         return legal_filename(s)
 
