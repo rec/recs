@@ -24,6 +24,7 @@ class CfgRaw:
     # Aliases for input devices or channels
     #
     alias: t.Sequence[str] = ()
+    devices: Path = Path()
     #
     # Exclude or include devices or channels
     #

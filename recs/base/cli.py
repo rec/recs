@@ -77,6 +77,7 @@ def recs(
     alias: list[str] = Option(
         RECS.alias, '-a', '--alias', help='Aliases for devices or channels'
     ),
+    devices: Path = Option(RECS.devices, help='A JSON file with device definitions'),
     #
     # Exclude or include devices or channels
     #

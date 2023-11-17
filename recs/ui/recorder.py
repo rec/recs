@@ -7,9 +7,10 @@ from threa import Runnable
 from recs.audio import device
 from recs.base import RecsError, times
 from recs.base.cfg import Cfg
-from recs.ui.device_tracks import device_tracks
 
 from . import live
+from .device_recorder import DeviceRecorder
+from .device_tracks import device_tracks
 
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
@@ -17,8 +18,6 @@ TableMaker = t.Callable[[], Table]
 
 class Recorder(Runnable):
     def __init__(self, cfg: Cfg) -> None:
-        from .device_recorder import DeviceRecorder
-
         super().__init__()
         self.cfg = cfg
 

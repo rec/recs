@@ -8,7 +8,7 @@ import sounddevice as sd
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
-from recs.base.types import SdType
+from recs.base.types import DeviceDict, SdType
 
 from ..misc import hash_cmp
 
@@ -16,7 +16,7 @@ Callback = t.Callable[[np.ndarray, float], None]
 
 
 class InputDevice(hash_cmp.HashCmp):
-    def __init__(self, info: dict[str, t.Any]) -> None:
+    def __init__(self, info: DeviceDict) -> None:
         self.info = info
         self.channels = t.cast(int, self.info['max_input_channels'])
         self.samplerate = int(self.info['default_samplerate'])
@@ -75,6 +75,10 @@ class InputDevice(hash_cmp.HashCmp):
         return stream
 
 
+def get_input_devices(devices: t.Sequence[DeviceDict]) -> PrefixDict[InputDevice]:
+    return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
+
+
 @cache
 def input_devices() -> PrefixDict[InputDevice]:
-    return PrefixDict({d.name: d for i in sd.query_devices() if (d := InputDevice(i))})
+    return get_input_devices(sd.query_devices())

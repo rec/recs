@@ -1,4 +1,5 @@
 import dataclasses as dc
+import json
 import typing as t
 import warnings
 from enum import auto
@@ -12,7 +13,7 @@ from .aliases import Aliases
 from .cfg_raw import CfgRaw
 from .prefix_dict import PrefixDict
 from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
-from .types import SDTYPE, Format, SdType, Subtype
+from .types import SDTYPE, DeviceDict, Format, SdType, Subtype
 
 
 class Subdirectory(StrEnum):
@@ -29,6 +30,7 @@ class Cfg:
     format: Format
     sdtype: SdType | None = None
     subtype: Subtype | None = None
+    devices: list[DeviceDict]
 
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
@@ -61,6 +63,15 @@ class Cfg:
             else:
                 msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
+
+        if cfg.devices.name:
+            if not cfg.devices.exists():
+                raise RecsError(f'{cfg.devices} does not exist')
+            self.devices = json.loads(cfg.devices.read_text())
+            assert self.devices
+
+        else:
+            self.devices = []
 
         self.alias = Aliases(cfg.alias)
         self.metadata = metadata.to_dict(cfg.metadata)
