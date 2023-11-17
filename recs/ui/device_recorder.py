@@ -58,8 +58,7 @@ class DeviceRecorder(Runnable):
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         active = self.active()
-        yield {'on': active}
-        yield {'device': self.name}
+        yield {'device': self.name, 'on': active}
         for v in self.channel_recorders:
             for r in v.rows():
                 if active == Active.offline:
