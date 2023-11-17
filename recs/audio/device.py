@@ -9,8 +9,7 @@ import sounddevice as sd
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import DeviceDict, SdType
-
-from ..misc import hash_cmp
+from recs.misc import hash_cmp
 
 Callback = t.Callable[[np.ndarray, float], None]
 

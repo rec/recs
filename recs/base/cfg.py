@@ -17,10 +17,10 @@ SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 class Cfg:
+    devices: list[DeviceDict]
     format: Format
     sdtype: SdType | None = None
     subtype: Subtype | None = None
-    devices: list[DeviceDict]
 
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
