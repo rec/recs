@@ -1,4 +1,3 @@
-import contextlib
 import dataclasses as dc
 import typing as t
 from functools import cached_property
@@ -45,13 +44,13 @@ class Live:
     def table(self) -> Table:
         return TABLE_FORMATTER(self.rows())
 
-    @contextlib.contextmanager
-    def context(self) -> t.Generator:
-        if self.cfg.silent:
-            yield
-        else:
-            with self.live:
-                yield
+    def __enter__(self) -> None:
+        if not self.cfg.silent:
+            self.live.__enter__()
+
+    def __exit__(self, *a) -> None:
+        if not self.cfg.silent:
+            self.live.__exit__(*a)
 
 
 def _rgb(r=0, g=0, b=0) -> str:

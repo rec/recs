@@ -36,10 +36,17 @@ class Recorder(Runnable):
 
     def run(self) -> None:
         self.start()
-        with self.context():
-            while self.running:
-                times.sleep(self.cfg.sleep_time)
-                self.live.update()
+        try:
+            with contextlib.ExitStack() as stack:
+                for d in self.device_recorders:
+                    stack.enter_context(d)
+                stack.enter_context(self.live)
+
+                while self.running:
+                    times.sleep(self.cfg.sleep_time)
+                    self.live.update()
+        finally:
+            self.stop()
 
     @property
     def elapsed_time(self) -> float:
@@ -66,17 +73,6 @@ class Recorder(Runnable):
     @property
     def recorded_time(self) -> float:
         return sum(d.recorded_time for d in self.device_recorders)
-
-    @contextlib.contextmanager
-    def context(self) -> t.Generator:
-        try:
-            with contextlib.ExitStack() as stack:
-                for d in self.device_recorders:
-                    stack.enter_context(d.input_stream)
-                stack.enter_context(self.live.context())
-                yield
-        finally:
-            self.stop()
 
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):

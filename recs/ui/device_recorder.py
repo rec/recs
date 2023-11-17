@@ -73,6 +73,13 @@ class DeviceRecorder(Runnable):
             c.stop()
         self.stopped.set()
 
+    def __enter__(self):
+        self.input_stream.__enter__()
+
+    def __exit__(self, *a) -> None:
+        if 'input_stream' in self.__dict__:
+            return self.input_stream.__exit__(*a)
+
     @property
     def file_count(self) -> int:
         return sum(c.file_count for c in self.channel_recorders)
