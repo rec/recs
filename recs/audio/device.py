@@ -75,10 +75,13 @@ class InputDevice(hash_cmp.HashCmp):
         return stream
 
 
-def get_input_devices(devices: t.Sequence[DeviceDict]) -> PrefixDict[InputDevice]:
+InputDevices = PrefixDict[InputDevice]
+
+
+def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
 
 
 @cache
-def input_devices() -> PrefixDict[InputDevice]:
+def input_devices() -> InputDevices:
     return get_input_devices(sd.query_devices())

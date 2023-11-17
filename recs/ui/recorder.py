@@ -20,8 +20,17 @@ class Recorder(Runnable):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
         self.cfg = cfg
+        if cfg.devices:
+            self.devices = device.get_input_devices(cfg.devices)
+        else:
+            self.devices = device.input_devices()
 
-        self.device_tracks = device_tracks(cfg.alias, cfg.exclude, cfg.include)
+        self.device_tracks = device_tracks(
+            cfg.alias, self.devices, cfg.exclude, cfg.include
+        )
+        if not self.device_tracks:
+            raise RecsError('No devices or channels selected')
+
         self.start_time = times.time()
         self.live = live.Live(
             self.rows,
@@ -30,11 +39,8 @@ class Recorder(Runnable):
             ui_refresh_rate=cfg.ui_refresh_rate,
         )
 
-        dts = device_tracks(cfg.alias, cfg.exclude, cfg.include).values()
-        self.device_recorders = tuple(DeviceRecorder(cfg, tracks) for tracks in dts)
-
-        if not self.device_recorders:
-            raise RecsError('No devices or channels selected')
+        tracks = self.device_tracks.values()
+        self.device_recorders = tuple(DeviceRecorder(cfg, t) for t in tracks)
 
         for d in self.device_recorders:
             d.stopped.on_set.append(self.on_stopped)

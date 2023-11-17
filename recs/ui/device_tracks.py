@@ -8,13 +8,16 @@ DeviceTracks = dict[device.InputDevice, t.Sequence[Track]]
 
 
 def device_tracks(
-    aliases: Aliases, exclude: t.Sequence[str] = (), include: t.Sequence[str] = ()
+    aliases: Aliases,
+    devices: device.InputDevices,
+    exclude: t.Sequence[str] = (),
+    include: t.Sequence[str] = (),
 ) -> DeviceTracks:
     exc = aliases.split_all(exclude)
     inc = aliases.split_all(include)
 
-    devices = device.input_devices().values()
-    return {d: ld for d in devices if (ld := list(device_track(d, exc, inc)))}
+    it = ((d, list(device_track(d, exc, inc))) for d in devices.values())
+    return {d: v for d, v in it if v}
 
 
 def device_track(

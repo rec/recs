@@ -1,10 +1,11 @@
+from recs.audio import device
 from recs.audio.track import Track
 from recs.base.aliases import Aliases
 from recs.ui.device_tracks import device_track, device_tracks
 
 
 def _device_tracks(*a, **ka):
-    d = device_tracks(*a, **ka)
+    d = device_tracks(*a, **ka, devices=device.input_devices())
     return {k.name.split()[0].lower(): v for k, v in d.items()}
 
 
