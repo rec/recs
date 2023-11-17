@@ -1,5 +1,5 @@
-from recs.audio import device
 from recs.base import RecsError
+from recs.cfg import device
 from recs.misc import hash_cmp
 
 __all__ = ('Track',)

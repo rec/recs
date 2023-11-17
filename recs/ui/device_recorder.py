@@ -7,10 +7,10 @@ import numpy as np
 import sounddevice as sd
 from threa import Runnable
 
-from recs import Cfg
-from recs.audio.track import Track
 from recs.base import times
 from recs.base.types import SDTYPE, Active, Format
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 from recs.misc.counter import Accumulator, Counter
 
 OFFLINE_TIME = 1

@@ -7,10 +7,10 @@ import tdir
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.audio.track import Track
-from recs.base.cfg import Cfg
 from recs.base.times import TimeSettings
 from recs.base.types import SDTYPE, Format, SdType, Subtype
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 
 from . import conftest
 

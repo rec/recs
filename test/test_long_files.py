@@ -5,13 +5,13 @@ import numpy as np
 import pytest
 import tdir
 
-from recs import Cfg
 from recs.audio import channel_writer
 from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
-from recs.audio.track import Track
 from recs.base.times import TimeSettings
 from recs.base.types import Format, SdType
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 
 SAMPLERATE = 44_100
 SHRINK = 256

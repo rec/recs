@@ -1,6 +1,6 @@
-from recs.audio import device
-from recs.audio.track import Track
-from recs.base.aliases import Aliases
+from recs.cfg import device
+from recs.cfg.aliases import Aliases
+from recs.cfg.track import Track
 from recs.ui.device_tracks import device_track, device_tracks
 
 

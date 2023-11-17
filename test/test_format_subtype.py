@@ -7,9 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
-from recs import Cfg
 from recs.audio.file_opener import FileOpener
 from recs.base.types import SDTYPE, Format, SdType, Subtype
+from recs.cfg.cfg import Cfg
 
 EXCLUSIONS = {(Format.aiff, 'alaw')}
 BLOCK = np.empty(shape=(4096, 2), dtype=SDTYPE)

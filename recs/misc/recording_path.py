@@ -2,10 +2,9 @@ import typing as t
 from datetime import datetime
 from pathlib import Path
 
-from recs.audio.device import InputDevice
-from recs.audio.track import Track
-from recs.base.aliases import Aliases
-from recs.base.types import Subdirectory
+from recs.base import types
+from recs.cfg import aliases, device
+from recs.cfg.track import Track
 
 from .legal_filename import legal_filename
 
@@ -14,11 +13,11 @@ NAME_JOINER = ' + '
 
 def recording_path(
     track: Track,
-    aliases: Aliases,
-    subdirectories: t.Sequence[Subdirectory],
+    aliases: aliases.Aliases,
+    subdirectories: t.Sequence[types.Subdirectory],
     timestamp: float,
 ) -> tuple[Path, str]:
-    def display_name(x: Track | InputDevice) -> str:
+    def display_name(x: Track | device.InputDevice) -> str:
         s = aliases.display_name(x)
         return legal_filename(s)
 

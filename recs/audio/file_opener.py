@@ -2,10 +2,9 @@ from pathlib import Path
 
 import soundfile as sf
 
-from recs import Cfg
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 from recs.misc.recording_path import recording_path
-
-from .track import Track
 
 
 class FileOpener:

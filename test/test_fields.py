@@ -4,8 +4,8 @@ import typing as t
 import dtyper
 
 import recs.base.cfg_raw
-from recs.base import cli
 from recs.base.types import SdType, Subtype
+from recs.cfg import cli
 
 
 def test_fields():

@@ -4,10 +4,10 @@ import typing as t
 from rich.table import Table
 from threa import Runnable
 
-from recs.audio import device
 from recs.base import RecsError, times
-from recs.base.cfg import Cfg
+from recs.cfg import device
 
+from ..cfg.cfg import Cfg
 from . import live
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks

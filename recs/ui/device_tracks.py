@@ -1,15 +1,15 @@
 import typing as t
 
-from recs.audio import device
-from recs.audio.track import Track
-from recs.base.aliases import Aliases
+from recs.cfg.aliases import Aliases
+from recs.cfg.device import InputDevice, InputDevices
+from recs.cfg.track import Track
 
-DeviceTracks = dict[device.InputDevice, t.Sequence[Track]]
+DeviceTracks = dict[InputDevice, t.Sequence[Track]]
 
 
 def device_tracks(
     aliases: Aliases,
-    devices: device.InputDevices,
+    devices: InputDevices,
     exclude: t.Sequence[str] = (),
     include: t.Sequence[str] = (),
 ) -> DeviceTracks:
@@ -21,7 +21,7 @@ def device_tracks(
 
 
 def device_track(
-    d: device.InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
+    d: InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
 ) -> t.Iterator[Track]:
     if Track(d) in exc:
         return

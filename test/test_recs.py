@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from recs.base import RecsError, run
-from recs.base.cfg import Cfg
+from recs.base import RecsError
 from recs.base.types import Format, SdType, Subtype
+from recs.cfg import run
+from recs.cfg.cfg import Cfg
 
 
 def test_list_types(capsys):

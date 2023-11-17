@@ -7,14 +7,14 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base import times
-from recs.base.cfg import Cfg
 from recs.base.types import SDTYPE, Active, Format, SdType
+from recs.cfg.track import Track
 from recs.misc import file_list
 
+from ..cfg.cfg import Cfg
 from .block import Block, Blocks
 from .file_opener import FileOpener
 from .header_size import header_size
-from .track import Track
 
 URL = 'https://github.com/rec/recs'
 

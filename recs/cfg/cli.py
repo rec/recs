@@ -6,9 +6,10 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from . import RecsError, pyproject
+from recs.base import RecsError, pyproject
+from recs.base.cfg_raw import CfgRaw
+
 from .cfg import Cfg
-from .cfg_raw import CfgRaw
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 INTRO = f"""

@@ -6,12 +6,17 @@ from functools import wraps
 
 import soundfile as sf
 
-from . import RecsError, metadata, times
-from .aliases import Aliases
-from .cfg_raw import CfgRaw
-from .prefix_dict import PrefixDict
-from .type_conversions import FORMATS, SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE, SUBTYPES
-from .types import SDTYPE, DeviceDict, Format, SdType, Subdirectory, Subtype
+from recs.base import RecsError, metadata, times
+from recs.base.cfg_raw import CfgRaw
+from recs.base.prefix_dict import PrefixDict
+from recs.base.type_conversions import (
+    FORMATS,
+    SDTYPE_TO_SUBTYPE,
+    SUBTYPE_TO_SDTYPE,
+    SUBTYPES,
+)
+from recs.base.types import SDTYPE, DeviceDict, Format, SdType, Subdirectory, Subtype
+from recs.cfg.aliases import Aliases
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 

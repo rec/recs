@@ -1,4 +1,4 @@
-from recs.audio import device
+from recs.cfg import device
 
 
 def test_input_devices():

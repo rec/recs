@@ -2,9 +2,10 @@ import typing as t
 
 import numpy as np
 
-from recs import Cfg
-from recs.audio import block, channel_writer, track
+from recs.audio import block, channel_writer
 from recs.base import times
+from recs.cfg import track
+from recs.cfg.cfg import Cfg
 from recs.misc import counter
 
 
