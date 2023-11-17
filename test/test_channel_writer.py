@@ -9,7 +9,7 @@ from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.base.times import TimeSettings
 from recs.base.types import SDTYPE, Format, SdType, Subtype
-from recs.cfg import Cfg, Track
+from recs.cfg import Cfg
 
 from . import conftest
 
@@ -67,14 +67,14 @@ TEST_CASES = (
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
 def test_channel_writer(case, mock_devices):
-    track = Track('Ext', '2')
+    cfg = Cfg(format=case.format, sdtype=case.sdtype)
+    track = cfg.aliases.to_track('Ext+2')
     times = TimeSettings[int](
         longest_file_time=case.longest_file_time,
         shortest_file_time=case.shortest_file_time,
         **TIMES,
     )
 
-    cfg = Cfg(format=case.format, sdtype=case.sdtype)
     timestamp = conftest.TIMESTAMP
     with ChannelWriter(cfg, times=times, track=track) as writer:
         for a in case.arrays:

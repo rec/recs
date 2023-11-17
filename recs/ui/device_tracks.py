@@ -6,8 +6,8 @@ DeviceTracks = dict[InputDevice, t.Sequence[Track]]
 
 
 def device_tracks(cfg: Cfg) -> DeviceTracks:
-    exc = cfg.aliases.split_all(cfg.exclude)
-    inc = cfg.aliases.split_all(cfg.include)
+    exc = cfg.aliases.to_tracks(cfg.exclude)
+    inc = cfg.aliases.to_tracks(cfg.include)
 
     it = ((d, list(device_track(d, exc, inc))) for d in cfg.devices.values())
     return {d: v for d, v in it if v}

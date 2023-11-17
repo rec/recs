@@ -10,7 +10,7 @@ from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
 from recs.base.times import TimeSettings
 from recs.base.types import Format, SdType
-from recs.cfg import Cfg, Track
+from recs.cfg import Cfg
 
 SAMPLERATE = 44_100
 SHRINK = 256
@@ -45,7 +45,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
     a = a.astype('float32')
 
     block = Block(a)
-    track = Track('Ext', '1-2')
+    track = cfg.aliases.to_track('Ext + 1-2')
     times = TimeSettings[int](**TIMES)
 
     time = 0
@@ -75,6 +75,6 @@ def test_file_header(mock_devices):
         metadata=['title=' + 30 * 'a very long title '],
         sdtype=SdType.int32,
     )
-    fo = FileOpener(cfg, Track('Flo', '1'))
+    fo = FileOpener(cfg, cfg.aliases.to_track('Flo + 1'))
     with fo.open('file.wav', {}, True) as fp:
         fp.write(np.zeros((8, 1), 'int32'))

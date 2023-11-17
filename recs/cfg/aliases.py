@@ -27,7 +27,7 @@ class Aliases(PrefixDict[Track]):
         if len(set(names)) < len(names):
             raise ValueError(f'Duplicate aliases: {aliases}')
 
-        self.update(sorted(zip(names, self.split_all(values))))
+        self.update(sorted(zip(names, self.to_tracks(values))))
 
         inv: dict[Track, list[str]] = {}
         for k, v in self.items():
@@ -38,13 +38,13 @@ class Aliases(PrefixDict[Track]):
 
         self.inv = {k: v[0] for k, v in sorted(inv.items())}
 
-    def split_all(self, names: t.Iterable[str]) -> t.Sequence[Track]:
+    def to_tracks(self, names: t.Iterable[str]) -> t.Sequence[Track]:
         bad_track_names = []
         result: list[Track] = []
 
         for name in names:
             try:
-                result.append(self._to_track(name))
+                result.append(self.to_track(name))
             except Exception:
                 bad_track_names.append(name)
 
@@ -60,20 +60,22 @@ class Aliases(PrefixDict[Track]):
         else:
             return self.inv.get(x, x.channels_name)
 
-    def _to_track(self, s: str) -> Track:
+    def to_track(self, track_name: str) -> Track:
         try:
-            return self[s]
+            return self[track_name]
         except KeyError:
             pass
 
-        name, _, channels = (i.strip() for i in s.partition(CHANNEL_SPLITTER))
+        name, _, channels = (i.strip() for i in track_name.partition(CHANNEL_SPLITTER))
         try:
             track = self[name]
         except KeyError:
             device = self.devices[name]
         else:
             if track.channels:
-                raise KeyError(f'Alias {name} is a device alias: "{s}" is not legal')
+                raise KeyError(
+                    f'Alias {name} is a device alias: "{track_name}" is not legal'
+                )
             device = track.device
 
         return Track(device, channels)

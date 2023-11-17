@@ -1,19 +1,14 @@
 from recs.base import RecsError
 from recs.misc import hash_cmp
 
-from . import device
+from .device import InputDevice
 
 __all__ = ('Track',)
 
 
 class Track(hash_cmp.HashCmp):
-    def __init__(
-        self, d: str | device.InputDevice, channel: str | tuple[int, ...] = ()
-    ) -> None:
-        if isinstance(d, str):
-            self.device = d = device.input_devices()[d]
-        else:
-            self.device = d
+    def __init__(self, d: InputDevice, channel: str | tuple[int, ...] = ()) -> None:
+        self.device = d
 
         channels = channel or ()
         if isinstance(channels, str):
