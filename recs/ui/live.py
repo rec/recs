@@ -11,7 +11,7 @@ from recs.base import times
 from recs.base.types import Active
 from recs.cfg import Cfg
 
-from .table import TableFormatter, _to_str
+from .table import TableFormatter, to_str
 
 RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
 
@@ -83,7 +83,7 @@ def _volume(x) -> str:
         r = (3 * s - 1) / 2
         g = 1 - r
 
-    return _rgb(r * 256, g * 256) + _to_str(x)
+    return _rgb(r * 256, g * 256) + to_str(x)
 
 
 def _time_to_str(x) -> str:

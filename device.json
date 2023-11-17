@@ -1,0 +1,50 @@
+[
+    {
+        "name": "FLOW 8 (Recording)",
+        "index": 1,
+        "hostapi": 0,
+        "max_input_channels": 10,
+        "max_output_channels": 4,
+        "default_low_input_latency": 0.01,
+        "default_low_output_latency": 0.004354166666666667,
+        "default_high_input_latency": 0.1,
+        "default_high_output_latency": 0.0136875,
+        "default_samplerate": 48000.0
+    },
+    {
+        "name": "USB PnP Sound Device",
+        "index": 2,
+        "hostapi": 0,
+        "max_input_channels": 1,
+        "max_output_channels": 2,
+        "default_low_input_latency": 0.01,
+        "default_low_output_latency": 0.0038541666666666668,
+        "default_high_input_latency": 0.1,
+        "default_high_output_latency": 0.0131875,
+        "default_samplerate": 48000.0
+    },
+    {
+        "name": "MacBook Pro Microphone",
+        "index": 3,
+        "hostapi": 0,
+        "max_input_channels": 1,
+        "max_output_channels": 0,
+        "default_low_input_latency": 0.033242630385487526,
+        "default_low_output_latency": 0.01,
+        "default_high_input_latency": 0.043401360544217685,
+        "default_high_output_latency": 0.1,
+        "default_samplerate": 44100.0
+    },
+    {
+        "name": "ZoomAudioDevice",
+        "index": 5,
+        "hostapi": 0,
+        "max_input_channels": 2,
+        "max_output_channels": 2,
+        "default_low_input_latency": 0.01,
+        "default_low_output_latency": 0.03333333333333333,
+        "default_high_input_latency": 0.1,
+        "default_high_output_latency": 0.042666666666666665,
+        "default_samplerate": 48000.0
+    }
+]
