@@ -2,15 +2,19 @@ import typing as t
 
 from recs.base.prefix_dict import PrefixDict
 
-from .device import InputDevice
+from .device import InputDevice, InputDevices
 from .track import Track
 
 CHANNEL_SPLITTER = '+'
 
 
 class Aliases(PrefixDict[Track]):
-    def __init__(self, aliases: t.Sequence[str] = ()) -> None:
+    def __init__(self, aliases: t.Sequence[str], devices: InputDevices) -> None:
         super().__init__()
+
+        assert devices
+        self.devices = devices
+
         if not aliases:
             self.inv = {}
             return
@@ -66,10 +70,10 @@ class Aliases(PrefixDict[Track]):
         try:
             track = self[name]
         except KeyError:
-            pass
+            device = self.devices[name]
         else:
             if track.channels:
                 raise KeyError(f'Alias {name} is a device alias: "{s}" is not legal')
-            name = track.device.name
+            device = track.device
 
-        return Track(name, channels)
+        return Track(device, channels)

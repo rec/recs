@@ -1,16 +1,20 @@
 import pytest
 
-from recs.cfg import Aliases, Track
+from recs.cfg import Cfg, Track
+
+
+def _Aliases(*aliases):
+    return Cfg(alias=aliases).aliases
 
 
 def test_empty_aliases(mock_devices):
-    aliases = Aliases(())
+    aliases = _Aliases()
     assert not aliases
     assert not aliases.inv
 
 
 def test_aliases(mock_devices):
-    aliases = Aliases(('e', 'Main = fl + 7-8', 'mai=Mic'))
+    aliases = _Aliases('e', 'Main = fl + 7-8', 'mai=Mic')
     assert aliases
     assert aliases.inv
     assert sorted(aliases.inv) == sorted(aliases.values())
@@ -26,16 +30,16 @@ def test_aliases(mock_devices):
 
 def test_errors(mock_devices):
     with pytest.raises(ValueError) as e:
-        Aliases(('e', 'e = fl + 7-8', 'mai=M'))
+        _Aliases('e', 'e = fl + 7-8', 'mai=M')
     assert 'Duplicate aliases:' in e.value.args[0]
 
     with pytest.raises(ValueError) as e:
-        Aliases(('e', 'Main = fl + 7-8', 'mai=fl + 7-8'))
+        _Aliases('e', 'Main = fl + 7-8', 'mai=fl + 7-8')
     assert 'Duplicate alias values:' in e.value.args[0]
 
 
 def test_split_all(mock_devices):
-    split_all = Aliases(()).split_all
+    split_all = _Aliases().split_all
 
     assert list(split_all([])) == []
     assert list(split_all(['flow'])) == [Track('Flower 8')]
@@ -52,7 +56,7 @@ def test_split_all(mock_devices):
 
 
 def test_error(mock_devices):
-    aliases = Aliases(('e', 'Main = fl + 7-8', 'mai=Mic'))
+    aliases = _Aliases('e', 'Main = fl + 7-8', 'mai=Mic')
     aliases._to_track('Main')
     with pytest.raises(KeyError) as e:
         aliases._to_track('Main + 3')
@@ -60,5 +64,5 @@ def test_error(mock_devices):
 
 
 def test_to_track(mock_devices):
-    aliases = Aliases(('e', 'Main = fl + 1', 'mai=Mic'))
+    aliases = _Aliases('e', 'Main = fl + 1', 'mai=Mic')
     aliases._to_track('e + 2-3')

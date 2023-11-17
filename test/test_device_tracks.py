@@ -1,4 +1,4 @@
-from recs.cfg import Aliases, Cfg, Track
+from recs.cfg import Cfg, Track
 from recs.ui.device_tracks import device_track, device_tracks
 
 
@@ -76,8 +76,8 @@ def test_device_tracks_inc_exc2(mock_devices):
 
 
 def test_device_track_inc(mock_devices):
-    aliases = Aliases(('x = e', 'Main = fl + 1', 'mai=Mic'))
-    exc = aliases.split_all(('x', 'Main'))
+    cfg = Cfg(alias=('x = e', 'Main = fl + 1', 'mai=Mic'))
+    exc = cfg.aliases.split_all(('x', 'Main'))
 
     track = Track('mic', '1')
     actual = list(device_track(track.device, exc=exc))

@@ -71,7 +71,7 @@ class Cfg:
         else:
             self.devices = device.input_devices()
 
-        self.aliases = Aliases(cfg.alias)
+        self.aliases = Aliases(cfg.alias, self.devices)
         self.metadata = metadata.to_dict(cfg.metadata)
         self.subdirectory = self._subdirectory()
         self.times = self._times()

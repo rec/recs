@@ -1,7 +1,7 @@
 import pytest
 
 from recs.base.types import Subdirectory
-from recs.cfg import Aliases, Track
+from recs.cfg import Cfg, Track
 from recs.misc.recording_path import recording_path
 
 from . import conftest
@@ -33,6 +33,7 @@ CHOICES: tuple[tuple[Subdirectory, ...]] = (
 
 @pytest.mark.parametrize('subs, expected', CHOICES)
 def test_recording_path(subs, expected, mock_devices):
-    p, f = recording_path(Track('e', '3'), Aliases(), subs, conftest.TIMESTAMP)
+    cfg = Cfg()
+    p, f = recording_path(Track('e', '3'), cfg.aliases, subs, conftest.TIMESTAMP)
     actual = str(p / f)
     assert actual == expected
