@@ -10,6 +10,7 @@ from rich.table import Table
 
 from recs.base import times
 from recs.base.types import Active
+from recs.cfg import Cfg
 
 from .table import TableFormatter, _to_str
 
@@ -21,15 +22,14 @@ CONSOLE = Console(color_system='truecolor')
 @dc.dataclass
 class Live:
     rows: RowsFunction
-    silent: bool = True
-    retain: bool = False
-    ui_refresh_rate: float = 10
+    cfg: Cfg
+
     _last_update_time: float = 0
 
     def update(self) -> None:
-        if not self.silent:
+        if not self.cfg.silent:
             t = times.time()
-            if (t - self._last_update_time) >= 1 / self.ui_refresh_rate:
+            if (t - self._last_update_time) >= 1 / self.cfg.ui_refresh_rate:
                 self._last_update_time = t
                 self.live.update(self.table())
 
@@ -38,8 +38,8 @@ class Live:
         return live.Live(
             self.table(),
             console=CONSOLE,
-            refresh_per_second=self.ui_refresh_rate,
-            transient=not self.retain,
+            refresh_per_second=self.cfg.ui_refresh_rate,
+            transient=not self.cfg.retain,
         )
 
     def table(self) -> Table:
@@ -47,7 +47,7 @@ class Live:
 
     @contextlib.contextmanager
     def context(self) -> t.Generator:
-        if self.silent:
+        if self.cfg.silent:
             yield
         else:
             with self.live:

@@ -7,7 +7,7 @@ from threa import Runnable
 from recs.base import RecsError, times
 from recs.cfg import device
 
-from ..cfg.cfg import Cfg
+from ..cfg import Cfg
 from . import live
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
@@ -19,20 +19,14 @@ TableMaker = t.Callable[[], Table]
 class Recorder(Runnable):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
-        self.cfg = cfg
-        self.device_tracks = device_tracks(
-            cfg.aliases, cfg.devices, cfg.exclude, cfg.include
-        )
+
+        self.device_tracks = device_tracks(cfg)
         if not self.device_tracks:
             raise RecsError('No devices or channels selected')
 
+        self.cfg = cfg
+        self.live = live.Live(self.rows, cfg)
         self.start_time = times.time()
-        self.live = live.Live(
-            self.rows,
-            silent=cfg.silent,
-            retain=cfg.retain,
-            ui_refresh_rate=cfg.ui_refresh_rate,
-        )
 
         tracks = self.device_tracks.values()
         self.device_recorders = tuple(DeviceRecorder(cfg, t) for t in tracks)

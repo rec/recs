@@ -1,20 +1,15 @@
 import typing as t
 
-from recs.cfg import Aliases, InputDevice, InputDevices, Track
+from recs.cfg import Cfg, InputDevice, Track
 
 DeviceTracks = dict[InputDevice, t.Sequence[Track]]
 
 
-def device_tracks(
-    aliases: Aliases,
-    devices: InputDevices,
-    exclude: t.Sequence[str] = (),
-    include: t.Sequence[str] = (),
-) -> DeviceTracks:
-    exc = aliases.split_all(exclude)
-    inc = aliases.split_all(include)
+def device_tracks(cfg: Cfg) -> DeviceTracks:
+    exc = cfg.aliases.split_all(cfg.exclude)
+    inc = cfg.aliases.split_all(cfg.include)
 
-    it = ((d, list(device_track(d, exc, inc))) for d in devices.values())
+    it = ((d, list(device_track(d, exc, inc))) for d in cfg.devices.values())
     return {d: v for d, v in it if v}
 
 
