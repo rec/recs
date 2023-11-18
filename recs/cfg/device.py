@@ -3,7 +3,6 @@ import traceback
 import typing as t
 
 import numpy as np
-import sounddevice as sd
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
@@ -26,6 +25,10 @@ class InputDevice(hash_cmp.HashCmp):
 
     @property
     def is_online(self) -> bool:
+        # TODO: this is wrong!
+        # https://github.com/spatialaudio/python-sounddevice/issues/382
+        import sounddevice as sd
+
         return any(self.name == i['name'] for i in sd.query_devices())
 
     def input_stream(
@@ -33,7 +36,9 @@ class InputDevice(hash_cmp.HashCmp):
         callback: Callback,
         dtype: SdType,
         stop: t.Callable[[], None],
-    ) -> sd.InputStream | None:
+    ) -> t.Iterator[None] | None:
+        import sounddevice as sd
+
         if not self.is_online:
             return None
 
@@ -88,4 +93,6 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
 
 
 def input_devices() -> InputDevices:
+    import sounddevice as sd
+
     return get_input_devices(sd.query_devices())

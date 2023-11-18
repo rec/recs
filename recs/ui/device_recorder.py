@@ -4,7 +4,6 @@ import typing as t
 from functools import cached_property, partial
 
 import numpy as np
-import sounddevice as sd
 from threa import Runnable
 
 from recs.base import times
@@ -93,7 +92,7 @@ class DeviceRecorder(Runnable):
         return sum(c.recorded_time for c in self.channel_recorders)
 
     @cached_property
-    def input_stream(self) -> sd.InputStream | None:
+    def input_stream(self) -> t.Iterator[None] | None:
         return self.device.input_stream(
             callback=self.callback, dtype=self.cfg.sdtype or SDTYPE, stop=self.stop
         )
