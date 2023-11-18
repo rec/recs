@@ -10,6 +10,7 @@ import pytest
 from threa import HasThread
 
 from recs.base import times
+from recs.cfg import device
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -33,9 +34,7 @@ def query_devices(kind=None):
 
 @pytest.fixture
 def mock_devices(monkeypatch):
-    import sounddevice as sd
-
-    monkeypatch.setattr(sd, 'query_devices', query_devices)
+    monkeypatch.setattr(device, 'query_devices', query_devices)
 
 
 @pytest.fixture

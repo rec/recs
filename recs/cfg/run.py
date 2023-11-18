@@ -6,6 +6,7 @@ import time
 import soundfile as sf
 
 from recs.base.types import Format, SdType
+from recs.cfg import device
 from recs.ui.recorder import Recorder
 
 from . import Cfg
@@ -29,9 +30,7 @@ def run(cfg: Cfg) -> None:
 
 
 def _info():
-    import sounddevice as sd
-
-    info = sd.query_devices(kind=None)
+    info = device.query_devices()
     info = [i for i in info if i['max_input_channels']]
     print(json.dumps(info, indent=4))
 

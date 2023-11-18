@@ -1,3 +1,5 @@
+import json
+import subprocess as sp
 import sys
 import traceback
 import typing as t
@@ -27,9 +29,8 @@ class InputDevice(hash_cmp.HashCmp):
     def is_online(self) -> bool:
         # TODO: this is wrong!
         # https://github.com/spatialaudio/python-sounddevice/issues/382
-        import sounddevice as sd
-
-        return any(self.name == i['name'] for i in sd.query_devices())
+        # return any(self.name == i['name'] for i in sd.query_devices())
+        return True
 
     def input_stream(
         self,
@@ -92,7 +93,13 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
 
 
-def input_devices() -> InputDevices:
-    import sounddevice as sd
+P = 'import json, sounddevice; print(json.dumps(sounddevice.query_devices(), indent=4))'
 
-    return get_input_devices(sd.query_devices())
+
+def query_devices() -> t.Sequence[DeviceDict]:
+    r = sp.run(('python', '-c', P), text=True, check=True, stdout=sp.PIPE)
+    return json.loads(r.stdout)
+
+
+def input_devices() -> InputDevices:
+    return get_input_devices(query_devices())
