@@ -2,7 +2,7 @@ import contextlib
 import typing as t
 
 from rich.table import Table
-from threa import Runnable
+from threa import HasThread, Runnable
 
 from recs.base import RecsError, times
 from recs.cfg import device
@@ -34,8 +34,11 @@ class Recorder(Runnable):
         for d in self.device_recorders:
             d.stopped.on_set.append(self.on_stopped)
 
+        self.device_monitor = HasThread(self._monitor_devices, looping=True)
+
     def run(self) -> None:
         self.start()
+        self.device_monitor.start()
         try:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
@@ -80,6 +83,18 @@ class Recorder(Runnable):
 
     def stop(self) -> None:
         self.running.clear()
+        self.device_monitor.stop()
         for d in self.device_recorders:
             d.stop()
         self.stopped.set()
+
+    def _monitor_devices(self):
+        times.sleep(3)
+        if False:
+            for d in self.device_recorders:
+                # print(d.device, bool(d.input_stream), bool(d.device.is_online))
+                if bool(d.input_stream) != bool(d.device.is_online):
+                    if d.input_stream:
+                        d.input_stream.__exit__()
+                    del d.input_stream
+                    d.input_stream
