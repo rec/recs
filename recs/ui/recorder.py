@@ -34,11 +34,11 @@ class Recorder(Runnable):
         for d in self.device_recorders:
             d.stopped.on_set.append(self.on_stopped)
 
-        self.device_monitor = HasThread(self._monitor_devices, looping=True)
+        self.live_thread = HasThread(self._live_thread)
 
     def run(self) -> None:
         self.start()
-        self.device_monitor.start()
+        self.live_thread.start()
         try:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
@@ -47,7 +47,6 @@ class Recorder(Runnable):
 
                 while self.running:
                     times.sleep(self.cfg.sleep_time)
-                    self.live.update()
         finally:
             self.stop()
 
@@ -83,18 +82,12 @@ class Recorder(Runnable):
 
     def stop(self) -> None:
         self.running.clear()
-        self.device_monitor.stop()
+        self.live_thread.stop()
         for d in self.device_recorders:
             d.stop()
         self.stopped.set()
 
-    def _monitor_devices(self):
-        times.sleep(3)
-        if False:
-            for d in self.device_recorders:
-                # print(d.device, bool(d.input_stream), bool(d.device.is_online))
-                if bool(d.input_stream) != bool(d.device.is_online):
-                    if d.input_stream:
-                        d.input_stream.__exit__()
-                    del d.input_stream
-                    d.input_stream
+    def _live_thread(self):
+        while self.running:
+            times.sleep(self.cfg.sleep_time)
+            self.live.update()
