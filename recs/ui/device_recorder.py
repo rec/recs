@@ -52,6 +52,7 @@ class DeviceRecorder(Runnable):
             c.callback(array, time)
 
     def active(self) -> Active:
+        # TODO: this does work but we should probably bypass this
         dt = times.time() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
 
