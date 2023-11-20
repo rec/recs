@@ -32,6 +32,7 @@ app = dtyper.Typer(
     add_completion=False,
     context_settings={'help_option_names': ['--help', '-h']},
 )
+
 _SINGLES: set[str] = set()
 
 RECS = CfgRaw()
@@ -175,7 +176,7 @@ assert _UNUSED_SINGLES == 'ghjklpwxyz', _UNUSED_SINGLES
 
 def run() -> int:
     try:
-        app(standalone_mode=False)
+        app(prog_name='recs', standalone_mode=False)
         return 0
 
     except RecsError as e:
