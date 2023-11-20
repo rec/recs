@@ -17,7 +17,7 @@ from recs.base.type_conversions import (
 )
 from recs.base.types import SDTYPE, Format, SdType, Subdirectory, Subtype
 
-from . import device
+from . import device, time_settings
 from .aliases import Aliases
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
@@ -91,8 +91,8 @@ class Cfg:
 
         return res
 
-    def _times(self) -> times.TimeSettings:
-        fields = (f.name for f in dc.fields(times.TimeSettings))
+    def _times(self) -> time_settings.TimeSettings:
+        fields = (f.name for f in dc.fields(time_settings.TimeSettings))
         d = {k: getattr(self, k) for k in fields}
 
         try:
@@ -104,4 +104,4 @@ class Cfg:
         except (ValueError, TypeError):
             raise RecsError(f'Do not understand --shortest-file-time={t}')
 
-        return times.TimeSettings(**d)
+        return time_settings.TimeSettings(**d)

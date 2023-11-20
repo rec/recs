@@ -8,9 +8,9 @@ import tdir
 from recs.audio import channel_writer
 from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
-from recs.base.times import TimeSettings
 from recs.base.types import Format, SdType
 from recs.cfg import Cfg
+from recs.cfg.time_settings import TimeSettings
 
 SAMPLERATE = 44_100
 SHRINK = 256

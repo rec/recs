@@ -6,9 +6,8 @@ from threading import Lock
 from soundfile import SoundFile
 from threa import Runnable
 
-from recs.base import times
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Track
+from recs.cfg import Track, time_settings
 from recs.misc import file_list
 
 from ..cfg.cfg import Cfg
@@ -56,7 +55,9 @@ class ChannelWriter(Runnable):
     def active(self) -> Active:
         return Active.active if self._sf else Active.inactive
 
-    def __init__(self, cfg: Cfg, times: times.TimeSettings[int], track: Track) -> None:
+    def __init__(
+        self, cfg: Cfg, times: time_settings.TimeSettings[int], track: Track
+    ) -> None:
         super().__init__()
 
         self.dry_run = cfg.dry_run
