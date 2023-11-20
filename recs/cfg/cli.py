@@ -68,7 +68,7 @@ def recs(
         RECS.info, '--info', help='Do not run, display device info instead'
     ),
     list_types: bool = Option(
-        RECS.list_types, help='List all subtypes for each format'
+        RECS.list_types, '--list-types', help='List all subtypes for each format'
     ),
     verbose: bool = Option(
         RECS.verbose, '-v', '--verbose', help='Print full stack traces'
@@ -122,6 +122,7 @@ def recs(
     #
     infinite_length: bool = Option(
         RECS.infinite_length,
+        '--infinite-length',
         help='If true, ignore file size limits (4G on .wav, 2G on .aiff)',
     ),
     longest_file_time: str = Option(
