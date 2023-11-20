@@ -3,8 +3,7 @@ import typing as t
 
 import dtyper
 
-import recs.base.cfg_raw
-from recs.base.types import SdType, Subtype
+from recs.base import cfg_raw, types
 from recs.cfg import cli
 
 
@@ -13,16 +12,16 @@ def test_fields():
     class Cfg:
         pass
 
-    hand, auto = dc.fields(recs.base.cfg_raw.CfgRaw), dc.fields(Cfg)
+    hand, auto = dc.fields(cfg_raw.CfgRaw), dc.fields(Cfg)
 
     assert [f.name for f in hand] == [f.name for f in auto]
     assert not [h.name for h, a in zip(hand, auto) if h.default != a.default]
 
-    types = [(h.type, a.type) for h, a in zip(hand, auto)]
+    actual = [(h.type, a.type) for h, a in zip(hand, auto)]
     ok = (
         (t.Sequence[str], list[str]),
-        (SdType | None, SdType),
-        (Subtype | None, Subtype),
+        (types.SdType | None, types.SdType),
+        (types.Subtype | None, types.Subtype),
     )
 
-    assert all((h, a) in ok for h, a in types if h != a)
+    assert all((h, a) in ok for h, a in actual if h != a)

@@ -7,7 +7,7 @@ import soundfile as sf
 import tdir
 
 from recs.base import RecsError
-from recs.base.metadata import RECS_USES, UNUSABLE, USABLE, get_metadata, to_dict
+from recs.cfg.metadata import RECS_USES, UNUSABLE, USABLE, get_metadata, to_dict
 
 CHANGED = {'license', 'software'}
 WAV_FILE = 'metadata.wav'

@@ -2,7 +2,7 @@ import typing as t
 
 import soundfile as sf
 
-from . import RecsError
+from recs.base import RecsError
 
 RECS_USES = {'date', 'software', 'tracknumber'}
 USABLE = {'album', 'artist', 'comment', 'copyright', 'genre', 'title'}

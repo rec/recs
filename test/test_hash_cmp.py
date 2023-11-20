@@ -1,6 +1,6 @@
 import pytest
 
-from recs.misc.hash_cmp import HashCmp
+from recs.cfg.hash_cmp import HashCmp
 
 
 class Cmp(HashCmp):

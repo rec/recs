@@ -1,6 +1,6 @@
 from recs.base import RecsError
-from recs.misc import hash_cmp
 
+from . import hash_cmp
 from .device import InputDevice
 
 __all__ = ('Track',)
