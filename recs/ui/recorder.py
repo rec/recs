@@ -5,9 +5,8 @@ from rich.table import Table
 from threa import HasThread, Runnable
 
 from recs.base import RecsError, times
-from recs.cfg import device
+from recs.cfg import device, Cfg
 
-from ..cfg import Cfg
 from . import live
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
@@ -17,6 +16,8 @@ TableMaker = t.Callable[[], Table]
 
 
 class Recorder(Runnable):
+    processes: dict[InputDevice, DeviceProcess | None]
+
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
 
@@ -29,12 +30,9 @@ class Recorder(Runnable):
         self.start_time = times.time()
 
         tracks = self.device_tracks.values()
-        self.device_recorders = tuple(DeviceRecorder(cfg, t) for t in tracks)
-
-        for d in self.device_recorders:
-            d.stopped.on_set.append(self.on_stopped)
 
         self.live_thread = HasThread(self._live_thread)
+        self.processes = {d: None for d in tracks}
 
     def run(self) -> None:
         self.start()
@@ -91,3 +89,8 @@ class Recorder(Runnable):
         while self.running:
             times.sleep(self.cfg.sleep_time)
             self.live.update()
+
+    def _process_thread(self):
+        t = times.time()
+        while self.running:
+            pass

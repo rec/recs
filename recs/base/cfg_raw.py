@@ -38,14 +38,15 @@ class CfgRaw:
     sdtype: str = ''
     subtype: str = ''
     #
-    # Console and UI settings
+    # Console, UI and multiprocessing settings
     #
     silent: bool = False
     retain: bool = True
     ui_refresh_rate: float = 23
     sleep_time: float = 0.013
+    device_poll_time: float = 1
     #
-    # Settings relating to times
+    # Audio settings relating to times
     #
     infinite_length: bool = False
     longest_file_time: str = '0'  # In HH:MM:SS.SSSS
