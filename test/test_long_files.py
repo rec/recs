@@ -31,7 +31,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
     )
 
     SIZE = FORMAT_TO_SIZE_LIMIT[format]
-    TOTAL_SIZE = SIZE + 0x8_0000
+    TOTAL_SIZE = SIZE - 0x1000
     COUNT = 4
 
     size = int(TOTAL_SIZE / COUNT / 4 / 2)
@@ -54,6 +54,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
             print('Writing', i + 1, 'of', COUNT)
             writer.write(block, time)
             time += len(block) / SAMPLERATE
+        writer.write(block[:0x1000], time)
 
     files = writer.files_written
     sizes = [os.path.getsize(f) for f in files]
@@ -65,7 +66,7 @@ def test_long_file(mock_input_streams, format, monkeypatch):
 
     print(hex(sizes[0]), hex(diff), hex(diff2))
 
-    assert 0 <= diff <= 0x80
+    assert 0 <= diff <= 0x10000
 
 
 @tdir

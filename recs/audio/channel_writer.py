@@ -144,13 +144,10 @@ class ChannelWriter(Runnable):
                 file_bytes = self.largest_file_size - self.bytes_in_this_file
                 remains.append(file_bytes // self.frame_size)
 
-            if remains and (r := min(remains)) <= len(b):
-                self._write_one(b[:r])
+            if remains and min(remains) <= len(b):
                 self._close()
-                b = b[r:]
 
-            if b:
-                self._write_one(b)
+            self._write_one(b)
 
     def _write_one(self, b: Block) -> None:
         if not self._sf:

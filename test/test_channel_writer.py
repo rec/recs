@@ -42,7 +42,7 @@ LONGEST_FILE_TIME = Case(
     name='longest_file_time',
     arrays=100 * II,
     longest_file_time=210,
-    result=[[0, 210], [0, 190]],
+    result=[[0, 208], [0, 192]],
 )
 
 
