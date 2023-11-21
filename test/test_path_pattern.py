@@ -1,3 +1,6 @@
+import pytest
+
+from recs.base import RecsError
 from recs.cfg import Cfg, PathPattern
 
 from .conftest import TIME, TIMESTAMP
@@ -74,3 +77,24 @@ def test_index(mock_devices):
     )
     expected = 'recording/Ext + 1/1'
     assert actual == expected
+
+
+def test_bad_field(mock_devices):
+    with pytest.raises(RecsError) as e:
+        PathPattern('recording/{truck}/{index}')
+
+    assert e.value.args == ('Unknown: truck',)
+
+
+def test_bad_month(mock_devices):
+    with pytest.raises(RecsError) as e:
+        PathPattern('{year}{day}')
+
+    assert e.value.args == ('Must specify year or day with month: {year}{day}',)
+
+
+def test_bad_minute(mock_devices):
+    with pytest.raises(RecsError) as e:
+        PathPattern('{minute}')
+
+    assert e.value.args == ('Must specify hour or second with minute: {minute}',)
