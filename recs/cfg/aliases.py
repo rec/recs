@@ -54,11 +54,12 @@ class Aliases(PrefixDict[Track]):
 
         return result
 
-    def display_name(self, x: InputDevice | Track) -> str:
+    def display_name(self, x: InputDevice | Track, short: bool = True) -> str:
         if isinstance(x, InputDevice):
             return self.inv.get(Track(x), x.name)
-        else:
-            return self.inv.get(x, x.channels_name)
+
+        default = x.channels_name if short else str(x)
+        return self.inv.get(x, default)
 
     def to_track(self, track_name: str) -> Track:
         try:
