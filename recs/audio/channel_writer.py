@@ -47,7 +47,6 @@ class ChannelWriter(Runnable):
     longest_file_frames: int = 0
 
     timestamp: float = 0
-    tracknumber: int = 0
 
     _sf: SoundFile | None = None
 
@@ -152,16 +151,12 @@ class ChannelWriter(Runnable):
 
     def _write_one(self, b: Block) -> None:
         if not self._sf:
-            self.tracknumber += 1
-            t = str(self.tracknumber)
-            # TODO: the timestamp will be a bit late for this block
-            # because self.timestamp is the time of the last block
-            # in the list!
+            index = 1 + len(self.files_written)
             ts = datetime.fromtimestamp(self.timestamp)
-            metadata = dict(date=ts.isoformat(), software=URL, tracknumber=t)
+            metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
             metadata |= self.metadata
 
-            self._sf = self.opener.create(metadata, timestamp=self.timestamp)
+            self._sf = self.opener.create(metadata, self.timestamp, index)
             self.bytes_in_this_file = header_size(metadata, self.format)
 
             self.files_written.append(Path(self._sf.name))

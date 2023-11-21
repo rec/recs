@@ -17,7 +17,7 @@ from recs.base.type_conversions import (
 )
 from recs.base.types import SDTYPE, Format, SdType, Subdirectory, Subtype
 
-from . import device, metadata, time_settings
+from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
 
 SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
@@ -32,6 +32,7 @@ class Cfg:
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
+        self.path = path_pattern.PathPattern(cfg.path)
 
         def get(d, key, flag):
             if not key:

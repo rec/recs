@@ -14,7 +14,6 @@ def parse_fields(s: str) -> list[str]:
 
 
 class Req(IntEnum):
-    # Order is significant
     device = auto()
     channel = auto()
     year = auto()
@@ -39,7 +38,6 @@ class PathPattern:
 
         used = set().union(*(FIELD_TO_REQUIRED[p] for p in parts))
         unused = set(Req) - used
-        self.unused = tuple(sorted(unused))
 
         def rep(r: Req) -> str:
             return (r in unused) * f'{{{r.name}}}'
@@ -56,8 +54,10 @@ class PathPattern:
 
         d, c = rep(Req.device), rep(Req.channel)
         dc = '{track}' if all((d, c)) else d + c
-        dt = f'{date}_{time}' if all((date, time)) else date + time
+
+        dt = f'{date}-{time}' if all((date, time)) else date + time
         p = f'{dc} + {dt}' if all((dc, dt)) else dc + dt
+
         self.path = f'{path}/{p}' if all((path, p)) else path + p
 
         str_parts = parse_fields(self.path)

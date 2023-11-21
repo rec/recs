@@ -11,7 +11,7 @@ class CfgRaw:
     #
     # Directory settings
     #
-    path: Path = Path()
+    path: str = ''
     subdirectory: t.Sequence[str] = ()
     #
     # General purpose settings

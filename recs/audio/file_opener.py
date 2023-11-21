@@ -1,9 +1,9 @@
+import itertools
 from pathlib import Path
 
 import soundfile as sf
 
 from recs.cfg import Cfg, Track
-from recs.misc.recording_path import recording_path
 
 
 class FileOpener:
@@ -32,18 +32,15 @@ class FileOpener:
 
         return fp
 
-    def create(self, metadata: dict[str, str], timestamp: float) -> sf.SoundFile:
-        index = 0
-        suffix = ''
-        path, name = recording_path(
-            self.track, self.cfg.aliases, self.cfg.subdirectory, timestamp
-        )
+    def create(
+        self, metadata: dict[str, str], timestamp: float, index: int
+    ) -> sf.SoundFile:
+        p = Path(self.cfg.path.evaluate(self.track, self.cfg.aliases, timestamp, index))
+        p.parent.mkdir(exist_ok=True, parents=True)
 
-        while True:
-            p = self.cfg.path / path / (name + suffix)
-            p.parent.mkdir(exist_ok=True, parents=True)
+        for i in itertools.count():
+            f = p.parent / (p.name + bool(i) * f'_{i}')
             try:
-                return self.open(p, metadata)
+                return self.open(f, metadata)
             except FileExistsError:
-                index += 1
-                suffix = f'_{index}'
+                pass

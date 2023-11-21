@@ -12,22 +12,22 @@ from .conftest import DEVICES
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 CASES = (
-    ('simple', False, False, ()),
-    ('simple', True, True, ()),
-    ('time', False, False, ('time',)),
-    ('device_channel', False, False, ('device', 'channel')),
+    ('simple', False, False, ''),
+    ('simple', True, True, ''),
+    ('time', False, False, '{sdate}'),
+    ('device_channel', False, False, '{device}/{channel}'),
 )
 assert tdir
 
 
-@pytest.mark.parametrize('path, dry_run, silent, subs', CASES)
+@pytest.mark.parametrize('name, dry_run, silent, path', CASES)
 @tdir
-def test_end_to_end(path, dry_run, silent, subs, mock_input_streams, mock_time):
+def test_end_to_end(name, dry_run, silent, path, mock_input_streams, mock_time):
     cfg = Cfg(
         dry_run=dry_run,
         silent=silent,
         shortest_file_time='0',
-        subdirectory=subs,
+        path=path,
         total_run_time=0.1,
     )
     run.run(cfg)
@@ -38,7 +38,7 @@ def test_end_to_end(path, dry_run, silent, subs, mock_input_streams, mock_time):
         assert not actual
         return
 
-    tdata = TESTDATA / path
+    tdata = TESTDATA / name
     expected = sorted(tdata.glob('**/*.flac'))
 
     if not expected:

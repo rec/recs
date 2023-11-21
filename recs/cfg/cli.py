@@ -49,8 +49,8 @@ def recs(
     #
     # Directory settings
     #
-    path: Path = Argument(
-        RECS.path, help='Path to the parent directory to create audio files in'
+    path: str = Argument(
+        RECS.path, help='Path or path pattern for recorded file locations'
     ),
     subdirectory: list[str] = Option(
         RECS.subdirectory,
