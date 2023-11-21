@@ -99,6 +99,3 @@ class Blocks:
 
     def __getitem__(self, i: int) -> Block:
         return self.blocks[i]
-
-    def __len__(self) -> int:
-        return len(self.blocks)
