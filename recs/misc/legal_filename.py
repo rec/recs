@@ -1,6 +1,6 @@
 import string
 
-PUNCTUATION = ' ()+,-.=[]_'
+PUNCTUATION = ' ()+,-.=[]_/'
 CHARS = set(string.ascii_letters + string.digits + PUNCTUATION)
 
 
