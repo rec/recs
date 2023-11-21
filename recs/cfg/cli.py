@@ -52,12 +52,6 @@ def recs(
     path: str = Argument(
         RECS.path, help='Path or path pattern for recorded file locations'
     ),
-    subdirectory: list[str] = Option(
-        RECS.subdirectory,
-        '-s',
-        '--subdirectory',
-        help='Organize files into subdirectories by channel, device or time.',
-    ),
     #
     # General purpose settings
     #
@@ -171,8 +165,8 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefimnoqrstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklpwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefimnoqrtuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklpswxyz', _UNUSED_SINGLES
 
 
 def run() -> int:

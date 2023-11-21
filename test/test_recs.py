@@ -19,18 +19,6 @@ def test_error_incompatible():
     assert e.value.args == ('flac and float are incompatible',)
 
 
-def test_error_subdirectory1():
-    with pytest.raises(RecsError) as e:
-        Cfg(subdirectory=['date', 'time', 'place'])
-    assert e.value.args == ("Bad arguments to --subdirectory: ['date', 'place']",)
-
-
-def test_error_subdirectory2():
-    with pytest.raises(RecsError) as e:
-        Cfg(subdirectory=['t', 'c', 'cha'])
-    assert e.value.args == ('Duplicates in --subdirectory',)
-
-
 def test_missing_subtype(capsys):
     r = Cfg(format=Format.flac, sdtype=SdType.int16)
     assert r.subtype == Subtype.pcm_16

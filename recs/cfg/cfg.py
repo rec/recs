@@ -8,19 +8,16 @@ import soundfile as sf
 
 from recs.base import RecsError, times
 from recs.base.cfg_raw import CfgRaw
-from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import (
     FORMATS,
     SDTYPE_TO_SUBTYPE,
     SUBTYPE_TO_SDTYPE,
     SUBTYPES,
 )
-from recs.base.types import SDTYPE, Format, SdType, Subdirectory, Subtype
+from recs.base.types import SDTYPE, Format, SdType, Subtype
 
 from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
-
-SUBDIRECTORY = PrefixDict({s: s for s in Subdirectory})
 
 
 class Cfg:
@@ -74,23 +71,10 @@ class Cfg:
 
         self.aliases = Aliases(cfg.alias, self.devices)
         self.metadata = metadata.to_dict(cfg.metadata)
-        self.subdirectory = self._subdirectory()
         self.times = self._times()
 
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
-
-    def _subdirectory(self) -> t.Sequence[Subdirectory]:
-        subs = [(s, SUBDIRECTORY.get_value(s)) for s in self.cfg.subdirectory]
-        res = tuple(t for s, t in subs if t is not None)
-
-        if bad_subdirectories := [s for s, t in subs if t is None]:
-            raise RecsError(f'Bad arguments to --subdirectory: {bad_subdirectories}')
-
-        if len(set(res)) < len(res):
-            raise RecsError('Duplicates in --subdirectory')
-
-        return res
 
     def _times(self) -> time_settings.TimeSettings:
         fields = (f.name for f in dc.fields(time_settings.TimeSettings))
