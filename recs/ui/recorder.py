@@ -39,6 +39,9 @@ class Recorder(Runnable):
     def run(self) -> None:
         self.start()
         self.live_thread.start()
+        for d in self.device_recorders:
+            d.start()
+
         try:
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:

@@ -6,12 +6,11 @@ import typing as t
 
 import numpy as np
 
-from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import DeviceDict, SdType, Stop
 from recs.cfg import hash_cmp
 
-Callback = t.Callable[[np.ndarray, float], None]
+Callback = t.Callable[[np.ndarray], None]
 
 
 class InputDevice(hash_cmp.HashCmp):
@@ -45,8 +44,6 @@ class InputDevice(hash_cmp.HashCmp):
         def cb(indata: np.ndarray, frames: int, _time: float, status: int) -> None:
             # TODO: time is a _cffi_backend._CDataBase, not a float!
 
-            stream._recs_timestamp = times.time()
-
             if status:  # pragma: no cover
                 # This has not yet happened, probably because we never get behind
                 # the device callback cycle.
@@ -58,7 +55,7 @@ class InputDevice(hash_cmp.HashCmp):
 
             try:
                 # `indata` is always the same variable!
-                callback(indata.copy(), stream._recs_timestamp)
+                callback(indata.copy())
 
             except Exception as e:  # pragma: no cover
                 # TODO: move this to the audio device_queue
@@ -78,7 +75,6 @@ class InputDevice(hash_cmp.HashCmp):
             dtype=str(dtype),
             samplerate=self.samplerate,
         )
-        stream._recs_timestamp = times.time()
         return stream
 
 

@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import typing as t
 from functools import cached_property, partial
 
 import numpy as np
-from threa import Runnable
+from threa import Runnable, ThreadQueue
 
 from recs.base import times
 from recs.base.types import Active, Format, Stop
@@ -32,9 +30,10 @@ class DeviceRecorder(Runnable):
         make = partial(ChannelRecorder, cfg=cfg, times=self.times)
         self.channel_recorders = tuple(make(track=t) for t in tracks)
         self.timestamp = times.time()
+        self.queue = ThreadQueue(callback=self.callback)
 
-    def callback(self, array: np.ndarray, time: float) -> None:
-        self.timestamp = time
+    def callback(self, array: np.ndarray) -> None:
+        self.timestamp = times.time()
 
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
@@ -50,7 +49,7 @@ class DeviceRecorder(Runnable):
             array = array[slice(extra), :]
 
         for c in self.channel_recorders:
-            c.callback(array, time)
+            c.callback(array, self.timestamp)
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this
@@ -67,8 +66,13 @@ class DeviceRecorder(Runnable):
                 else:
                     yield r
 
+    def start(self) -> None:
+        super().start()
+        self.queue.start()
+
     def stop(self) -> None:
         self.running.clear()
+        self.queue.stop()
         for c in self.channel_recorders:
             c.stop()
         self.stopped.set()
@@ -96,5 +100,5 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> t.Iterator[None] | None:
         return self.device.input_stream(
-            callback=self.callback, dtype=self.cfg.sdtype, stop_all=self.stop_all
+            callback=self.queue.queue.put, dtype=self.cfg.sdtype, stop_all=self.stop_all
         )
