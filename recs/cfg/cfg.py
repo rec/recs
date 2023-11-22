@@ -23,8 +23,8 @@ from .aliases import Aliases
 class Cfg:
     devices: device.InputDevices
     format: Format
-    sdtype: SdType | None = None
-    subtype: Subtype | None = None
+    sdtype: SdType
+    subtype: Subtype
 
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
@@ -51,13 +51,15 @@ class Cfg:
                 raise RecsError(f'{self.format} and {self.subtype} are incompatible')
 
         elif self.sdtype:
-            subtype = SDTYPE_TO_SUBTYPE.get(self.sdtype, None)
+            subtype = SDTYPE_TO_SUBTYPE[self.sdtype]
 
             if sf.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
                 msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
+        else:
+            self.sdtype = SDTYPE
 
         if cfg.devices.name:
             if not cfg.devices.exists():

@@ -31,7 +31,7 @@ def test_error_subtype():
 
 
 def test_default_dtype1():
-    assert Cfg().sdtype is None
+    assert Cfg().sdtype == 'float32'
 
 
 def test_default_dtype2():

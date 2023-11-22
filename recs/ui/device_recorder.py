@@ -7,7 +7,7 @@ import numpy as np
 from threa import Runnable
 
 from recs.base import times
-from recs.base.types import SDTYPE, Active, Format
+from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
 from recs.misc.counter import Accumulator, Counter
 
@@ -95,5 +95,5 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> t.Iterator[None] | None:
         return self.device.input_stream(
-            callback=self.callback, dtype=self.cfg.sdtype or SDTYPE, stop=self.stop
+            callback=self.callback, dtype=self.cfg.sdtype, stop=self.stop
         )

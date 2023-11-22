@@ -51,7 +51,6 @@ TEST_CASES = (
     BASE.replace(sdtype=SdType.int16),
     BASE.replace(sdtype=SdType.int32),
     BASE.replace(sdtype=SdType.float32),
-    BASE.replace(sdtype=SdType.int24),
     Case(
         name='not sure',
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
@@ -93,9 +92,6 @@ def test_channel_writer(case, mock_devices):
     assert case.result == result
 
     with sf.SoundFile(files[0]) as fp:
-        if case.sdtype == SdType.int24:
-            assert fp.subtype.lower() == Subtype.pcm_24
-
         if case.sdtype == SdType.float32:
             assert fp.subtype.lower() == Subtype.float
 

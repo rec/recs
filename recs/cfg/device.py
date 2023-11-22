@@ -79,7 +79,7 @@ class InputDevice(hash_cmp.HashCmp):
             callback=cb,
             channels=self.channels,
             device=self.name,
-            dtype=dtype,
+            dtype=str(dtype),
             samplerate=self.samplerate,
         )
         stream._recs_timestamp = times.time()
