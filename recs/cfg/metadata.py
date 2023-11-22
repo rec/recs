@@ -3,6 +3,7 @@ import typing as t
 import soundfile as sf
 
 from recs.base import RecsError
+from recs.base.types import Format
 
 RECS_USES = {'date', 'software', 'tracknumber'}
 USABLE = {'album', 'artist', 'comment', 'copyright', 'genre', 'title'}
@@ -36,3 +37,15 @@ def to_dict(metadata: t.Sequence[str]) -> dict[str, str]:
 
 def get_metadata(fp: sf.SoundFile) -> dict[str, str]:
     return {k: v for k in ALL if (v := getattr(fp, k))}
+
+
+ALLOWS_METADATA = {
+    Format.aiff,
+    Format.caf,
+    Format.flac,
+    Format.mp3,
+    Format.ogg,
+    Format.rf64,
+    Format.wav,
+    Format.wavex,
+}

@@ -4,6 +4,7 @@ from pathlib import Path
 import soundfile as sf
 
 from recs.cfg import Cfg, Track
+from recs.cfg.metadata import ALLOWS_METADATA
 
 
 class FileOpener:
@@ -27,8 +28,9 @@ class FileOpener:
             subtype=self.cfg.subtype,
         )
 
-        for k, v in metadata.items():
-            setattr(fp, k, v)
+        if self.cfg.format in ALLOWS_METADATA:
+            for k, v in metadata.items():
+                setattr(fp, k, v)
 
         return fp
 

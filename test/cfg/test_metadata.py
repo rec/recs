@@ -7,7 +7,15 @@ import soundfile as sf
 import tdir
 
 from recs.base import RecsError
-from recs.cfg.metadata import RECS_USES, UNUSABLE, USABLE, get_metadata, to_dict
+from recs.base.types import Format
+from recs.cfg.metadata import (
+    ALLOWS_METADATA,
+    RECS_USES,
+    UNUSABLE,
+    USABLE,
+    get_metadata,
+    to_dict,
+)
 
 CHANGED = {'license', 'software'}
 WAV_FILE = 'metadata.wav'
@@ -20,30 +28,49 @@ def test_unchanged():
 
 
 def write_metadata(
-    filename=WAV_FILE, metadata=METADATA, channels=2, samplerate=48_000, time=1
+    filename=WAV_FILE,
+    metadata=METADATA,
+    channels=2,
+    samplerate=48_000,
+    subtype='PCM_32',
+    dtype='int32',
 ):
     fp = sf.SoundFile(
-        filename, mode='w', channels=channels, samplerate=samplerate, subtype='PCM_32'
+        filename, mode='w', channels=channels, samplerate=samplerate, subtype=subtype
     )
     for k, v in metadata.items():
         assert k in sf._str_types
         setattr(fp, k, v)
 
     with fp:
-        fp.write(np.empty(shape=(time * samplerate, channels), dtype='int32'))
+        fp.write(np.empty(shape=(samplerate, channels), dtype=dtype))
         return get_metadata(fp)
 
 
+@pytest.mark.parametrize('format', Format)
 @tdir
-def test_writing_metadata():
-    write_metadata()
+def test_writing_metadata(format: Format):
+    if format not in ALLOWS_METADATA:
+        return
 
-    with sf.SoundFile(WAV_FILE) as fp:
+    filename = f'metadata.{format:s}'
+    write_metadata(filename, subtype=None, dtype='int16')
+
+    with sf.SoundFile(filename) as fp:
         full = {k: getattr(fp, k, None) for k in sf._str_types}
+        print(full)
         actual = {k: v for k, v, in full.items() if k not in CHANGED}
         expected = {k: k.capitalize() for k in actual}
+        if format == Format.mp3:
+            to_clear = ['copyright']
+        elif format == Format.aiff:
+            to_clear = ['album', 'date', 'genre', 'tracknumber']
+        else:
+            to_clear = []
+        expected.update({i: '' for i in to_clear})
         assert actual == expected
-        assert full['software'].startswith('Software')
+        if format != Format.mp3:
+            assert full['software'].startswith('Software')
         full['license']  # It's '' but no need to assert that
 
 
