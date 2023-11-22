@@ -49,6 +49,7 @@ def test_end_to_end(name, dry_run, silent, path, mock_input_streams, mock_time):
         return
 
     assert [p.name for p in actual] == [p.name for p in expected]
+    assert actual == [p.relative_to(tdata) for p in expected]
 
     ae = list(zip(actual, expected))
     nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
