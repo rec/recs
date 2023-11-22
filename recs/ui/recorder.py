@@ -29,7 +29,7 @@ class Recorder(Runnable):
         self.start_time = times.time()
 
         tracks = self.device_tracks.values()
-        self.device_recorders = tuple(DeviceRecorder(cfg, t) for t in tracks)
+        self.device_recorders = tuple(DeviceRecorder(cfg, t, self.stop) for t in tracks)
 
         for d in self.device_recorders:
             d.stopped.on_set.append(self.on_stopped)

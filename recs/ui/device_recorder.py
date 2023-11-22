@@ -7,7 +7,7 @@ import numpy as np
 from threa import Runnable
 
 from recs.base import times
-from recs.base.types import Active, Format
+from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
 from recs.misc.counter import Accumulator, Counter
 
@@ -15,11 +15,12 @@ OFFLINE_TIME = 1
 
 
 class DeviceRecorder(Runnable):
-    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
+    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track], stop_all: Stop) -> None:
         from recs.ui.channel_recorder import ChannelRecorder
 
         super().__init__()
         self.cfg = cfg
+        self.stop_all = stop_all
 
         self.block_count = Counter()
         self.block_size = Accumulator()
@@ -95,5 +96,5 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> t.Iterator[None] | None:
         return self.device.input_stream(
-            callback=self.callback, dtype=self.cfg.sdtype, stop=self.stop
+            callback=self.callback, dtype=self.cfg.sdtype, stop_all=self.stop_all
         )

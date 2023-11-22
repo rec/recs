@@ -8,7 +8,7 @@ import numpy as np
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
-from recs.base.types import DeviceDict, SdType
+from recs.base.types import DeviceDict, SdType, Stop
 from recs.cfg import hash_cmp
 
 Callback = t.Callable[[np.ndarray, float], None]
@@ -33,10 +33,7 @@ class InputDevice(hash_cmp.HashCmp):
         return True
 
     def input_stream(
-        self,
-        callback: Callback,
-        dtype: SdType,
-        stop: t.Callable[[], None],
+        self, callback: Callback, dtype: SdType, stop_all: Stop
     ) -> t.Iterator[None] | None:
         import sounddevice as sd
 
@@ -63,18 +60,17 @@ class InputDevice(hash_cmp.HashCmp):
                 # `indata` is always the same variable!
                 callback(indata.copy(), stream._recs_timestamp)
 
-            except Exception:  # pragma: no cover
-                traceback.print_exc()
-                try:
-                    stream.stop()
-                except Exception:
+            except Exception as e:  # pragma: no cover
+                # TODO: move this to the audio device_queue
+                if False:
                     traceback.print_exc()
+                else:
+                    print(e)
                 try:
-                    stop()
+                    stop_all()
                 except Exception:
                     traceback.print_exc()
 
-        assert dtype is not None  # If sdtype is None, then the whole system blocks
         stream = sd.InputStream(
             callback=cb,
             channels=self.channels,

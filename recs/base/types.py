@@ -1,8 +1,10 @@
+import typing as t
 from enum import auto
 
 from strenum import StrEnum
 
 DeviceDict = dict[str, float | int | str]
+Stop = t.Callable[[], None]
 
 
 class Active(StrEnum):
