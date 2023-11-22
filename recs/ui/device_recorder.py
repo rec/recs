@@ -9,13 +9,13 @@ from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
 from recs.misc.counter import Accumulator, Counter
 
+from .channel_recorder import ChannelRecorder
+
 OFFLINE_TIME = 1
 
 
 class DeviceRecorder(Runnable):
     def __init__(self, cfg: Cfg, tracks: t.Sequence[Track], stop_all: Stop) -> None:
-        from recs.ui.channel_recorder import ChannelRecorder
-
         super().__init__()
         self.cfg = cfg
         self.stop_all = stop_all
