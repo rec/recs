@@ -1,5 +1,5 @@
 import os
-from test.test_channel_writer import TIMES
+from test.audio.test_channel_writer import TIMES
 
 import numpy as np
 import pytest

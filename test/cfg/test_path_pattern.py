@@ -1,9 +1,9 @@
+from test.conftest import TIME, TIMESTAMP
+
 import pytest
 
 from recs.base import RecsError
 from recs.cfg import Cfg, PathPattern
-
-from .conftest import TIME, TIMESTAMP
 
 
 def test_empty(mock_devices):

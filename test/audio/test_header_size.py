@@ -1,12 +1,11 @@
 import os
+from test.cfg.test_metadata import METADATA, WAV_FILE, write_metadata
 
 import pytest
 import tdir
 
 from recs.audio.header_size import header_size
 from recs.base.types import Format
-
-from .test_metadata import METADATA, WAV_FILE, write_metadata
 
 AIF_FILE = 'metadata.aiff'
 

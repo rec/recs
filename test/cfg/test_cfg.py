@@ -1,11 +1,10 @@
 from pathlib import Path
+from test.conftest import DEVICES_FILE
 
 import pytest
 
 from recs.base import RecsError
 from recs.cfg import Cfg
-
-from .conftest import DEVICES_FILE
 
 
 def test_sdtype(mock_devices):

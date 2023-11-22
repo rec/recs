@@ -1,4 +1,5 @@
 import dataclasses as dc
+from test import conftest
 
 import numpy as np
 import pytest
@@ -10,8 +11,6 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
-
-from . import conftest
 
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
