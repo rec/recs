@@ -86,33 +86,32 @@ class ChannelWriter(Runnable):
         self.frames_seen += len(block)
         self.blocks_seen += 1
 
-        if not self.dry_run and (self.running or self._sf):
-            dt = self.timestamp - timestamp
-            self.timestamp = timestamp
+        dt = self.timestamp - timestamp
+        self.timestamp = timestamp
 
-            with self._lock:
-                self._write(block, dt)
+        if self.dry_run or not (self.running or self._sf):
+            return
 
-    def _write(self, block: Block, dt: float):
-        expected_dt = len(block) / self.track.device.samplerate
+        with self._lock:
+            expected_dt = len(block) / self.track.device.samplerate
 
-        if dt > expected_dt * BLOCK_FUZZ:
-            # We were asleep, or otherwise lost time.
-            self._write_and_close()
+            if dt > expected_dt * BLOCK_FUZZ:
+                # We were asleep, or otherwise lost time.
+                self._write_and_close()
 
-        self._blocks.append(block)
+            self._blocks.append(block)
 
-        if block.volume >= self.times.noise_floor_amplitude:
-            if not self._sf:
-                # Record a little quiet before the first block
-                length = self.times.quiet_before_start + len(self._blocks[-1])
-                self._blocks.clip(length, from_start=True)
+            if block.volume >= self.times.noise_floor_amplitude:
+                if not self._sf:
+                    # Record a little quiet before the first block
+                    length = self.times.quiet_before_start + len(self._blocks[-1])
+                    self._blocks.clip(length, from_start=True)
 
-            self._write_blocks(self._blocks)
-            self._blocks.clear()
+                self._write_blocks(self._blocks)
+                self._blocks.clear()
 
-        if not self.running or self._blocks.duration > self.times.stop_after_quiet:
-            self._write_and_close()
+            if not self.running or self._blocks.duration > self.times.stop_after_quiet:
+                self._write_and_close()
 
     def _write_and_close(self) -> None:
         # Record a little quiet after the last block
@@ -131,7 +130,13 @@ class ChannelWriter(Runnable):
                     p.unlink()
             self._sf = None
 
-    def _write_blocks(self, blocks: t.Iterable[Block]) -> None:
+    def _write_blocks(self, blox: t.Iterable[Block]) -> None:
+        blocks = list(blox)
+
+        # The last block in the list ends at self.timestamp so
+        # we keep track of the sample offset before that
+        offset = -sum(len(b) for b in blocks)
+
         for b in blocks:
             # Check if this block will overrun the file size or length
             remains: list[int] = []
@@ -139,32 +144,32 @@ class ChannelWriter(Runnable):
             if self.longest_file_frames:
                 remains.append(self.longest_file_frames - self.frames_in_this_file)
 
-            if self.largest_file_size and self._sf:
+            if self._sf and self.largest_file_size:
                 file_bytes = self.largest_file_size - self.bytes_in_this_file
                 remains.append(file_bytes // self.frame_size)
 
             if remains and min(remains) <= len(b):
                 self._close()
 
-            self._write_one(b)
+            self._sf = self._sf or self._open(offset)
+            self._sf.write(b.block)
+            offset += len(b)
 
-    def _write_one(self, b: Block) -> None:
-        if not self._sf:
-            index = 1 + len(self.files_written)
-            ts = datetime.fromtimestamp(self.timestamp)
-            metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
-            metadata |= self.metadata
+            self.blocks_written += 1
+            self.frames_in_this_file += len(b)
+            self.frames_written += len(b)
+            self.bytes_in_this_file += len(b) * self.frame_size
 
-            self._sf = self.opener.create(metadata, self.timestamp, index)
-            self.bytes_in_this_file = header_size(metadata, self.format)
+    def _open(self, offset: int) -> SoundFile:
+        timestamp = self.timestamp - offset / self.track.device.samplerate
+        index = 1 + len(self.files_written)
+        ts = datetime.fromtimestamp(timestamp)
+        metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
+        metadata |= self.metadata
 
-            self.files_written.append(Path(self._sf.name))
-            self.frames_in_this_file = 0
+        self.bytes_in_this_file = header_size(metadata, self.format)
+        self.frames_in_this_file = 0
 
-        self._sf.write(b.block)
-
-        self.blocks_written += 1
-        self.frames_in_this_file += len(b)
-        self.frames_written += len(b)
-
-        self.bytes_in_this_file += len(b) * self.frame_size
+        sf = self.opener.create(metadata, timestamp, index)
+        self.files_written.append(Path(sf.name))
+        return sf
