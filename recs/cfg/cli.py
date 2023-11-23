@@ -181,9 +181,6 @@ def run() -> int:
         print(f'{e.__class__.__name__}: {e.message}', file=sys.stderr)
 
     except click.Abort:
-        print('Aborted', file=sys.stderr)
-
-    except KeyboardInterrupt:
         print('Interrupted', file=sys.stderr)
 
     return -1
