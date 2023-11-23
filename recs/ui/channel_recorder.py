@@ -8,9 +8,6 @@ from recs.misc import counter
 
 
 class ChannelRecorder:
-    block_count: int = 0
-    block_size: int = 0
-
     def __init__(
         self, cfg: Cfg, times: time_settings.TimeSettings[int], track: Track
     ) -> None:
@@ -24,9 +21,6 @@ class ChannelRecorder:
     def callback(self, array: np.ndarray, time: float) -> None:
         b = block.Block(array[:, self.track.slice])
         self.writer.write(b, time)
-
-        self.block_size = len(b)
-        self.block_count += 1
         self.volume(b)
 
     @property

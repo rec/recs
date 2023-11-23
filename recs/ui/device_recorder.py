@@ -7,7 +7,7 @@ from threa import Runnable, ThreadQueue
 from recs.base import times
 from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
-from recs.misc.counter import Accumulator, Counter
+from recs.misc.counter import Accumulator
 
 from .channel_recorder import ChannelRecorder
 
@@ -20,7 +20,6 @@ class DeviceRecorder(Runnable):
         self.cfg = cfg
         self.stop_all = stop_all
 
-        self.block_count = Counter()
         self.block_size = Accumulator()
 
         self.device = d = tracks[0].device
@@ -39,7 +38,6 @@ class DeviceRecorder(Runnable):
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        self.block_count()
         self.block_size(array.shape[0])
 
         if (t := self.times.total_run_time) and (extra := self.block_size.sum - t) >= 0:
