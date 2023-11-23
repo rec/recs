@@ -7,7 +7,6 @@ from threa import Runnable, ThreadQueue
 from recs.base import times
 from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
-from recs.misc.counter import Accumulator
 
 from .channel_recorder import ChannelRecorder
 
@@ -15,12 +14,12 @@ OFFLINE_TIME = 1
 
 
 class DeviceRecorder(Runnable):
+    elapsed_time: int = 0
+
     def __init__(self, cfg: Cfg, tracks: t.Sequence[Track], stop_all: Stop) -> None:
         super().__init__()
         self.cfg = cfg
         self.stop_all = stop_all
-
-        self.block_size = Accumulator()
 
         self.device = d = tracks[0].device
         self.name = self.cfg.aliases.display_name(d)
@@ -38,16 +37,12 @@ class DeviceRecorder(Runnable):
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        self.block_size(array.shape[0])
-
-        if (t := self.times.total_run_time) and (extra := self.block_size.sum - t) >= 0:
-            self.stop()
-            if array.shape[0] <= extra:
-                return
-            array = array[slice(extra), :]
-
         for c in self.channel_recorders:
             c.callback(array, self.timestamp)
+
+        self.elapsed_time += len(array)
+        if self.times.total_run_time and self.elapsed_time >= self.times.total_run_time:
+            self.stop()
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this
