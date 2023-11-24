@@ -33,14 +33,10 @@ BLOCK_FUZZ = 2
 
 
 class ChannelWriter(Runnable):
-    blocks_seen: int = 0
-    blocks_written: int = 0
     bytes_in_this_file: int = 0
 
     frames_in_this_file: int = 0
-    frames_seen: int = 0
-    frame_size: int = 0
-    frames_written: int = 0
+    frames_written: int = 0  # Used elsewhere
 
     largest_file_size: int = 0
     longest_file_frames: int = 0
@@ -83,9 +79,6 @@ class ChannelWriter(Runnable):
             self.stopped.set()
 
     def write(self, block: Block, timestamp: float) -> None:
-        self.frames_seen += len(block)
-        self.blocks_seen += 1
-
         dt = self.timestamp - timestamp
         self.timestamp = timestamp
 
@@ -103,7 +96,7 @@ class ChannelWriter(Runnable):
 
             if block.volume >= self.times.noise_floor_amplitude:
                 if not self._sf:
-                    # Record a little quiet before the first block
+                    # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)
 
@@ -123,8 +116,10 @@ class ChannelWriter(Runnable):
 
     def _open(self, offset: int) -> SoundFile:
         timestamp = self.timestamp - offset / self.track.device.samplerate
-        index = 1 + len(self.files_written)
         ts = datetime.fromtimestamp(timestamp)
+
+        index = 1 + len(self.files_written)
+
         metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
         metadata |= self.metadata
 
@@ -136,7 +131,7 @@ class ChannelWriter(Runnable):
         return sf
 
     def _write_and_close(self) -> None:
-        # Record a little quiet after the last block
+        # Record some quiet after the last block
         removed = self._blocks.clip(self.times.quiet_after_end, from_start=False)
 
         if self._sf and removed:
@@ -169,7 +164,6 @@ class ChannelWriter(Runnable):
             self._sf.write(b.block)
             offset += len(b)
 
-            self.blocks_written += 1
             self.frames_in_this_file += len(b)
             self.frames_written += len(b)
             self.bytes_in_this_file += len(b) * self.frame_size
