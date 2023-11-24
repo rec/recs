@@ -113,6 +113,28 @@ class ChannelWriter(Runnable):
             if not self.running or self._blocks.duration > self.times.stop_after_quiet:
                 self._write_and_close()
 
+    def _close(self) -> None:
+        if self._sf:
+            self._sf.close()
+            if self._sf.frames <= self.times.shortest_file_time:
+                if (p := Path(self._sf.name)).exists():
+                    p.unlink()
+            self._sf = None
+
+    def _open(self, offset: int) -> SoundFile:
+        timestamp = self.timestamp - offset / self.track.device.samplerate
+        index = 1 + len(self.files_written)
+        ts = datetime.fromtimestamp(timestamp)
+        metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
+        metadata |= self.metadata
+
+        self.bytes_in_this_file = header_size(metadata, self.format)
+        self.frames_in_this_file = 0
+
+        sf = self.opener.create(metadata, timestamp, index)
+        self.files_written.append(Path(sf.name))
+        return sf
+
     def _write_and_close(self) -> None:
         # Record a little quiet after the last block
         removed = self._blocks.clip(self.times.quiet_after_end, from_start=False)
@@ -121,14 +143,6 @@ class ChannelWriter(Runnable):
             self._write_blocks(reversed(removed))
 
         self._close()
-
-    def _close(self) -> None:
-        if self._sf:
-            self._sf.close()
-            if self._sf.frames <= self.times.shortest_file_time:
-                if (p := Path(self._sf.name)).exists():
-                    p.unlink()
-            self._sf = None
 
     def _write_blocks(self, blox: t.Iterable[Block]) -> None:
         blocks = list(blox)
@@ -159,17 +173,3 @@ class ChannelWriter(Runnable):
             self.frames_in_this_file += len(b)
             self.frames_written += len(b)
             self.bytes_in_this_file += len(b) * self.frame_size
-
-    def _open(self, offset: int) -> SoundFile:
-        timestamp = self.timestamp - offset / self.track.device.samplerate
-        index = 1 + len(self.files_written)
-        ts = datetime.fromtimestamp(timestamp)
-        metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
-        metadata |= self.metadata
-
-        self.bytes_in_this_file = header_size(metadata, self.format)
-        self.frames_in_this_file = 0
-
-        sf = self.opener.create(metadata, timestamp, index)
-        self.files_written.append(Path(sf.name))
-        return sf
