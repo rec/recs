@@ -14,7 +14,7 @@ OFFLINE_TIME = 1
 
 
 class DeviceRecorder(Runnable):
-    elapsed_time: int = 0
+    elapsed_samples: int = 0
 
     def __init__(self, cfg: Cfg, tracks: t.Sequence[Track], stop_all: Stop) -> None:
         super().__init__()
@@ -40,8 +40,8 @@ class DeviceRecorder(Runnable):
         for c in self.channel_recorders:
             c.callback(array, self.timestamp)
 
-        self.elapsed_time += len(array)
-        if self.times.total_run_time and self.elapsed_time >= self.times.total_run_time:
+        self.elapsed_samples += len(array)
+        if (t := self.times.total_run_time) and self.elapsed_samples >= t:
             self.stop()
 
     def active(self) -> Active:
