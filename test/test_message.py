@@ -1,4 +1,4 @@
-from recs.base.message import ChannelMessage as CM
+from recs.base.state import ChannelState as CM
 
 
 def test_message():

@@ -6,7 +6,7 @@ from threading import Lock
 from soundfile import SoundFile
 from threa import Runnable
 
-from recs.base.message import ChannelMessage
+from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter, file_list
@@ -73,8 +73,8 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-    def state(self) -> ChannelMessage:
-        return ChannelMessage(
+    def state(self) -> ChannelState:
+        return ChannelState(
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
             is_active=bool(self._sf),

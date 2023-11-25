@@ -3,7 +3,7 @@ import typing as t
 import numpy as np
 
 from recs.audio import block, channel_writer
-from recs.base.message import ChannelMessage
+from recs.base.state import ChannelState
 from recs.cfg import Cfg, Track, time_settings
 
 
@@ -17,7 +17,7 @@ class ChannelRecorder:
         self.writer.start()
         self.stop = self.writer.stop
 
-    def callback(self, array: np.ndarray, time: float) -> ChannelMessage:
+    def callback(self, array: np.ndarray, time: float) -> ChannelState:
         saved_state = self.writer.state()
 
         b = block.Block(array[:, self.track.slice])

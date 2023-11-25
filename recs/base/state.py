@@ -2,7 +2,7 @@ import dataclasses as dc
 
 
 @dc.dataclass(slots=True)
-class ChannelMessage:
+class ChannelState:
     file_count: int = 0
     file_size: int = 0
     is_active: bool = False
@@ -11,7 +11,7 @@ class ChannelMessage:
 
     replace = dc.replace
 
-    def __iadd__(self, m: 'ChannelMessage') -> 'ChannelMessage':
+    def __iadd__(self, m: 'ChannelState') -> 'ChannelState':
         self.file_count += m.file_count
         self.file_size += m.file_size
         self.recorded += m.recorded
@@ -22,23 +22,23 @@ class ChannelMessage:
 
         return self
 
-    def __isub__(self, m: 'ChannelMessage') -> 'ChannelMessage':
+    def __isub__(self, m: 'ChannelState') -> 'ChannelState':
         self.file_count -= m.file_count
         self.file_size -= m.file_size
         self.recorded -= m.recorded
 
         return self
 
-    def __add__(self, m: 'ChannelMessage') -> 'ChannelMessage':
+    def __add__(self, m: 'ChannelState') -> 'ChannelState':
         x = self.replace()
         x += m
         return x
 
-    def __sub__(self, m: 'ChannelMessage') -> 'ChannelMessage':
+    def __sub__(self, m: 'ChannelState') -> 'ChannelState':
         x = self.replace()
         x -= m
         return x
 
 
-DeviceMessages = dict[str, ChannelMessage]
-AllMessages = dict[str, DeviceMessages]
+DeviceState = dict[str, ChannelState]
+RecorderState = dict[str, DeviceState]
