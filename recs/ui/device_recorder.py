@@ -24,7 +24,7 @@ class DeviceRecorder(Runnable):
         cfg: Cfg,
         tracks: t.Sequence[Track],
         stop_all: Stop,
-        callback: t.Callable[[state.DeviceState], None],
+        callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         super().__init__()
         self.cfg = cfg
@@ -57,7 +57,7 @@ class DeviceRecorder(Runnable):
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:
             self.stop()
 
-        self.callback(msgs)
+        self.callback({self.device.name: msgs})
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this

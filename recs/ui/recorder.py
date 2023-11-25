@@ -37,6 +37,12 @@ class Recorder(Runnable):
         self.device_recorders = tuple(make_recorder(t) for t in tracks)
         self.live_thread = HasThread(self._live_thread)
 
+        def device_state(t) -> state.DeviceState:
+            return {i.channels_name: state.ChannelState() for i in t}
+
+        self.state = {d.name: device_state(t) for d, t in self.device_tracks.items()}
+        self.total_state = state.ChannelState()
+
     def run(self) -> None:
         self.start()
         self.live_thread.start()
@@ -54,8 +60,11 @@ class Recorder(Runnable):
         finally:
             self.stop()
 
-    def record_callback(self, messages: state.DeviceState) -> None:
-        pass
+    def record_callback(self, state: state.RecorderState) -> None:
+        for dname, d in state.items():
+            for cname, c in d.items():
+                self.state[dname][cname] += c
+                self.total_state += c
 
     @property
     def elapsed_time(self) -> float:
