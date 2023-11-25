@@ -9,7 +9,7 @@ from threa import Runnable
 from recs.base.message import ChannelMessage
 from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.cfg import Cfg, Track, time_settings
-from recs.misc import file_list
+from recs.misc import counter, file_list
 
 from .block import Block, Blocks
 from .file_opener import FileOpener
@@ -67,6 +67,7 @@ class ChannelWriter(Runnable):
         self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
         self.opener = FileOpener(cfg, track)
+        self._volume = counter.MovingBlock(times.moving_average_time)
 
         if not cfg.infinite_length:
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
@@ -78,6 +79,7 @@ class ChannelWriter(Runnable):
             file_size=self.files_written.total_size,
             is_active=bool(self._sf),
             recorded=self.frames_written / self.track.device.samplerate,
+            volume=tuple(self._volume.mean()),
         )
 
     def stop(self) -> None:
@@ -86,9 +88,15 @@ class ChannelWriter(Runnable):
             self._write_and_close()
             self.stopped.set()
 
+    @property
+    def volume(self) -> float:
+        m = self._volume.mean()
+        return len(m) and sum(m) / len(m)
+
     def write(self, block: Block, timestamp: float) -> None:
         dt = self.timestamp - timestamp
         self.timestamp = timestamp
+        self._volume(block)
 
         if self.dry_run or not (self.running or self._sf):
             return
