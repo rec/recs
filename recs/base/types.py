@@ -22,6 +22,14 @@ class SdType(StrEnum):
 SDTYPE = SdType.float32
 
 
+class RecordMessage(t.NamedTuple):
+    file_count: int = 0
+    file_size: int = 0
+    is_active: bool = False
+    recorded: float = 0
+    volume: tuple[float, ...] = ()
+
+
 class Format(StrEnum):
     aiff = auto()
     au = auto()

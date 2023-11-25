@@ -51,20 +51,21 @@ class Accumulator:
 
 
 class MovingBlock:
-    _deque: deque[Num] | None = None
+    _dq: deque[np.ndarray] | None = None
 
     def __init__(self, moving_average_time: int):
         self.moving_average_time = moving_average_time
 
     def __call__(self, b: Block) -> None:
-        if not self._deque:
+        if self._dq is None:
             maxlen = int(0.5 + self.moving_average_time / len(b))
-            self._deque = deque((), maxlen)
+            self._dq = deque((), maxlen)
 
-        self._deque.append(b.volume)
+        self._dq.append(b.amplitude)
 
-    def mean(self) -> Num:
-        if not self._deque:
-            return 0
+    def mean(self) -> np.ndarray:
+        if not self._dq:
+            return np.array([0])
 
-        return sum(self._deque) / len(self._deque)
+        it = (d for i, d in enumerate(self._dq) if i)
+        return sum(it, start=self._dq[0]) / len(self._dq)

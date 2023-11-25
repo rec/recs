@@ -37,7 +37,7 @@ class Block:
 
     @cached_property
     def volume(self) -> float:
-        return sum(self.amplitude) / len(self.amplitude) / self.scale
+        return sum(self.amplitude) / len(self.amplitude)
 
     @cached_property
     def channel_count(self) -> int:
@@ -45,7 +45,7 @@ class Block:
 
     @cached_property
     def amplitude(self) -> np.ndarray:
-        return (self.max - self.min) / 2
+        return (self.max - self.min) / (2 * self.scale)
 
     @cached_property
     def max(self) -> np.ndarray:

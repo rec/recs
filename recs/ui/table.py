@@ -8,7 +8,7 @@ def to_str(x: t.Any) -> str:
     if isinstance(x, str):
         return x
 
-    assert isinstance(x, numbers.Real)
+    assert isinstance(x, numbers.Real), str(x)
     return f'{x:6.1%}'
 
 

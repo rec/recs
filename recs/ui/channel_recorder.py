@@ -3,6 +3,7 @@ import typing as t
 import numpy as np
 
 from recs.audio import block, channel_writer
+from recs.base.types import RecordMessage
 from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter
 
@@ -18,10 +19,21 @@ class ChannelRecorder:
         self.writer.start()
         self.stop = self.writer.stop
 
-    def callback(self, array: np.ndarray, time: float) -> None:
+    def callback(self, array: np.ndarray, time: float) -> RecordMessage:
         b = block.Block(array[:, self.track.slice])
-        self.writer.write(b, time)
         self.volume(b)
+
+        s = self.writer.state()
+        self.writer.write(b, time)
+        t = self.writer.state()
+
+        return RecordMessage(
+            t.file_count - s.file_count,
+            t.file_size - s.file_size,
+            t.is_active,
+            t.recorded - s.recorded,
+            tuple(self.volume.mean()),
+        )
 
     @property
     def file_count(self) -> int:
@@ -36,11 +48,13 @@ class ChannelRecorder:
         return self.writer.frames_written / self.track.device.samplerate
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
+        m = self.volume.mean()
+        volume = len(m) and sum(m) / len(m)
         yield {
             'channel': self.track.channels_name,
             'on': self.writer.active,
             'recorded': self.recorded_time,
             'file_size': self.file_size,
             'file_count': self.file_count,
-            'volume': self.volume.mean(),
+            'volume': volume,
         }
