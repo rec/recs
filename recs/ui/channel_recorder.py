@@ -3,7 +3,7 @@ import typing as t
 import numpy as np
 
 from recs.audio import block, channel_writer
-from recs.base.types import RecordMessage
+from recs.base.types import ChannelMessage
 from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter
 
@@ -19,7 +19,7 @@ class ChannelRecorder:
         self.writer.start()
         self.stop = self.writer.stop
 
-    def callback(self, array: np.ndarray, time: float) -> RecordMessage:
+    def callback(self, array: np.ndarray, time: float) -> ChannelMessage:
         b = block.Block(array[:, self.track.slice])
         self.volume(b)
 
@@ -27,7 +27,7 @@ class ChannelRecorder:
         self.writer.write(b, time)
         t = self.writer.state()
 
-        return RecordMessage(
+        return ChannelMessage(
             t.file_count - s.file_count,
             t.file_size - s.file_size,
             t.is_active,

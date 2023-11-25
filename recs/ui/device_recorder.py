@@ -5,7 +5,7 @@ import numpy as np
 from threa import Runnable, ThreadQueue
 
 from recs.base import times
-from recs.base.types import Active, Format, RecordMessage, Stop
+from recs.base.types import Active, ChannelMessage, DeviceMessages, Format, Stop
 from recs.cfg import Cfg, Track
 
 from .channel_recorder import ChannelRecorder
@@ -19,37 +19,45 @@ class DeviceRecorder(Runnable):
     file_size: int = 0
     recorded_time: float = 0
 
-    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track], stop_all: Stop) -> None:
+    def __init__(
+        self,
+        cfg: Cfg,
+        tracks: t.Sequence[Track],
+        stop_all: Stop,
+        callback: t.Callable[[DeviceMessages], None],
+    ) -> None:
         super().__init__()
         self.cfg = cfg
         self.stop_all = stop_all
 
+        self.callback = callback
         self.device = d = tracks[0].device
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
         make = partial(ChannelRecorder, cfg=cfg, times=self.times)
+
         self.channel_recorders = tuple(make(track=t) for t in tracks)
         self.timestamp = times.time()
-        self.queue = ThreadQueue(callback=self.callback)
+        self.queue = ThreadQueue(callback=self.audio_callback)
 
-    def callback(self, array: np.ndarray) -> None:
-        self.receive(array)
-
-    def receive(self, array: np.ndarray) -> t.Sequence[RecordMessage]:
+    def audio_callback(self, array: np.ndarray) -> None:
         self.timestamp = times.time()
 
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        msgs = [c.callback(array, self.timestamp) for c in self.channel_recorders]
+        def msg(cr: ChannelRecorder) -> tuple[str, ChannelMessage]:
+            return cr.track.channels_name, cr.callback(array, self.timestamp)
+
+        msgs = dict(msg(c) for c in self.channel_recorders)
 
         self.elapsed_samples += len(array)
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:
             self.stop()
 
-        return msgs
+        self.callback(msgs)
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this
@@ -84,20 +92,6 @@ class DeviceRecorder(Runnable):
     def __exit__(self, *a) -> None:
         if input_stream := self.__dict__.get('input_stream'):
             return input_stream.__exit__(*a)
-
-    if False:
-
-        @property
-        def file_count(self) -> int:
-            return sum(c.file_count for c in self.channel_recorders)
-
-        @property
-        def file_size(self) -> int:
-            return sum(c.file_size for c in self.channel_recorders)
-
-        @property
-        def recorded_time(self) -> float:
-            return sum(c.recorded_time for c in self.channel_recorders)
 
     @cached_property
     def input_stream(self) -> t.Iterator[None] | None:

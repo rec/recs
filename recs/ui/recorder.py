@@ -5,6 +5,7 @@ from rich.table import Table
 from threa import HasThread, Runnable
 
 from recs.base import RecsError, times
+from recs.base.types import DeviceMessages
 from recs.cfg import device
 
 from ..cfg import Cfg
@@ -29,11 +30,13 @@ class Recorder(Runnable):
         self.start_time = times.time()
 
         tracks = self.device_tracks.values()
-        self.device_recorders = tuple(DeviceRecorder(cfg, t, self.stop) for t in tracks)
 
-        for d in self.device_recorders:
-            d.stopped.on_set.append(self.on_stopped)
+        def make_recorder(t) -> DeviceRecorder:
+            dr = DeviceRecorder(cfg, t, self.stop, self.record_callback)
+            dr.stopped.on_set.append(self.on_stopped)
+            return dr
 
+        self.device_recorders = tuple(make_recorder(t) for t in tracks)
         self.live_thread = HasThread(self._live_thread)
 
     def run(self) -> None:
@@ -52,6 +55,9 @@ class Recorder(Runnable):
                     times.sleep(self.cfg.sleep_time)
         finally:
             self.stop()
+
+    def record_callback(self, messages: DeviceMessages) -> None:
+        pass
 
     @property
     def elapsed_time(self) -> float:
