@@ -3,7 +3,7 @@ import typing as t
 import numpy as np
 
 from recs.audio import block, channel_writer
-from recs.base.types import ChannelMessage
+from recs.base.message import ChannelMessage
 from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter
 

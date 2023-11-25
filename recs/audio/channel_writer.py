@@ -6,11 +6,11 @@ from threading import Lock
 from soundfile import SoundFile
 from threa import Runnable
 
-from recs.base.types import SDTYPE, Active, ChannelMessage, Format, SdType
-from recs.cfg import Track, time_settings
+from recs.base.message import ChannelMessage
+from recs.base.types import SDTYPE, Active, Format, SdType
+from recs.cfg import Cfg, Track, time_settings
 from recs.misc import file_list
 
-from ..cfg.cfg import Cfg
 from .block import Block, Blocks
 from .file_opener import FileOpener
 from .header_size import header_size

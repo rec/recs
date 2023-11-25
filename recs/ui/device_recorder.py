@@ -4,8 +4,8 @@ from functools import cached_property, partial
 import numpy as np
 from threa import Runnable, ThreadQueue
 
-from recs.base import times
-from recs.base.types import Active, ChannelMessage, DeviceMessages, Format, Stop
+from recs.base import message, times
+from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
 
 from .channel_recorder import ChannelRecorder
@@ -24,7 +24,7 @@ class DeviceRecorder(Runnable):
         cfg: Cfg,
         tracks: t.Sequence[Track],
         stop_all: Stop,
-        callback: t.Callable[[DeviceMessages], None],
+        callback: t.Callable[[message.DeviceMessages], None],
     ) -> None:
         super().__init__()
         self.cfg = cfg
@@ -48,7 +48,7 @@ class DeviceRecorder(Runnable):
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        def msg(cr: ChannelRecorder) -> tuple[str, ChannelMessage]:
+        def msg(cr: ChannelRecorder) -> tuple[str, message.ChannelMessage]:
             return cr.track.channels_name, cr.callback(array, self.timestamp)
 
         msgs = dict(msg(c) for c in self.channel_recorders)

@@ -4,11 +4,9 @@ import typing as t
 from rich.table import Table
 from threa import HasThread, Runnable
 
-from recs.base import RecsError, times
-from recs.base.types import DeviceMessages
-from recs.cfg import device
+from recs.base import RecsError, message, times
+from recs.cfg import Cfg, device
 
-from ..cfg import Cfg
 from . import live
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
@@ -56,7 +54,7 @@ class Recorder(Runnable):
         finally:
             self.stop()
 
-    def record_callback(self, messages: DeviceMessages) -> None:
+    def record_callback(self, messages: message.DeviceMessages) -> None:
         pass
 
     @property
