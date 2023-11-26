@@ -78,7 +78,8 @@ class ChannelWriter(Runnable):
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
             is_active=bool(self._sf),
-            recorded=self.frames_written / self.track.device.samplerate,
+            recorded_time=self.frames_written / self.track.device.samplerate,
+            timestamp=self.timestamp,
             volume=tuple(self._volume.mean()),
         )
 

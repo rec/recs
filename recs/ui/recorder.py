@@ -73,7 +73,7 @@ class Recorder(Runnable):
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'time': self.elapsed_time,
-            'recorded': self.total_state.recorded,
+            'recorded': self.total_state.recorded_time,
             'file_size': self.total_state.file_size,
             'file_count': self.total_state.file_count,
         }
