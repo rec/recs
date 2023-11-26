@@ -73,24 +73,12 @@ class Recorder(Runnable):
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'time': self.elapsed_time,
-            'recorded': self.recorded_time,
-            'file_size': self.file_size,
-            'file_count': self.file_count,
+            'recorded': self.total_state.recorded,
+            'file_size': self.total_state.file_size,
+            'file_count': self.total_state.file_count,
         }
         for v in self.device_recorders:
             yield from v.rows()
-
-    @property
-    def file_count(self) -> int:
-        return sum(d.file_count for d in self.device_recorders)
-
-    @property
-    def file_size(self) -> int:
-        return sum(d.file_size for d in self.device_recorders)
-
-    @property
-    def recorded_time(self) -> float:
-        return sum(d.recorded_time for d in self.device_recorders)
 
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):

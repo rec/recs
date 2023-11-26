@@ -15,9 +15,6 @@ OFFLINE_TIME = 1
 
 class DeviceRecorder(Runnable):
     elapsed_samples: int = 0
-    file_count: int = 0
-    file_size: int = 0
-    recorded_time: float = 0
 
     def __init__(
         self,
