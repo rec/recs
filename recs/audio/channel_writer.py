@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
+import numpy as np
 from soundfile import SoundFile
 from threa import Runnable
 
@@ -72,6 +73,15 @@ class ChannelWriter(Runnable):
         if not cfg.infinite_length:
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
+
+        self.start()
+
+    def callback(self, array: np.ndarray, time: float) -> ChannelState:
+        b = Block(array[:, self.track.slice])
+
+        saved_state = self.state()
+        self.write(b, time)
+        return self.state() - saved_state
 
     def state(self) -> ChannelState:
         return ChannelState(

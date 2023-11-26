@@ -4,11 +4,10 @@ from functools import cached_property, partial
 import numpy as np
 from threa import Runnable, ThreadQueue
 
+from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format, Stop
 from recs.cfg import Cfg, Track
-
-from .channel_recorder import ChannelRecorder
 
 OFFLINE_TIME = 1
 
@@ -32,9 +31,9 @@ class DeviceRecorder(Runnable):
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
-        make = partial(ChannelRecorder, cfg=cfg, times=self.times)
+        make = partial(ChannelWriter, cfg=cfg, times=self.times)
 
-        self.channel_recorders = tuple(make(track=t) for t in tracks)
+        self.channel_writers = tuple(make(track=t) for t in tracks)
         self.timestamp = times.time()
         self.queue = ThreadQueue(callback=self.audio_callback)
 
@@ -45,10 +44,10 @@ class DeviceRecorder(Runnable):
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        def msg(cr: ChannelRecorder) -> tuple[str, state.ChannelState]:
+        def msg(cr: ChannelWriter) -> tuple[str, state.ChannelState]:
             return cr.track.channels_name, cr.callback(array, self.timestamp)
 
-        msgs = dict(msg(c) for c in self.channel_recorders)
+        msgs = dict(msg(c) for c in self.channel_writers)
 
         self.elapsed_samples += len(array)
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:
@@ -68,7 +67,7 @@ class DeviceRecorder(Runnable):
     def stop(self) -> None:
         self.running.clear()
         self.queue.stop()
-        for c in self.channel_recorders:
+        for c in self.channel_writers:
             c.stop()
         self.stopped.set()
 
