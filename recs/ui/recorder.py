@@ -5,12 +5,12 @@ from rich.table import Table
 from threa import HasThread, Runnable
 
 from recs.base import RecsError, state, times
-from recs.base.types import Active
 from recs.cfg import Cfg, device
 
 from . import live
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
+from .total_state import TotalState
 
 InputDevice = device.InputDevice
 TableMaker = t.Callable[[], Table]
@@ -26,7 +26,6 @@ class Recorder(Runnable):
 
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
-        self.start_time = times.time()
 
         tracks = self.device_tracks.values()
 
@@ -38,11 +37,7 @@ class Recorder(Runnable):
         self.device_recorders = tuple(make_recorder(t) for t in tracks)
         self.live_thread = HasThread(self._live_thread)
 
-        def device_state(t) -> state.DeviceState:
-            return {i.channels_name: state.ChannelState() for i in t}
-
-        self.state = {d.name: device_state(t) for d, t in self.device_tracks.items()}
-        self.total_state = state.ChannelState()
+        self.total_state = TotalState(self.device_tracks)
 
     def run(self) -> None:
         self.start()
@@ -62,37 +57,10 @@ class Recorder(Runnable):
             self.stop()
 
     def record_callback(self, state: state.RecorderState) -> None:
-        for device_name, device_state in state.items():
-            for channel_name, channel_state in device_state.items():
-                self.state[device_name][channel_name] += channel_state
-                self.total_state += channel_state
-
-    @property
-    def elapsed_time(self) -> float:
-        return times.time() - self.start_time
+        self.total_state.update(state)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'time': self.elapsed_time,
-            'recorded': self.total_state.recorded_time,
-            'file_size': self.total_state.file_size,
-            'file_count': self.total_state.file_count,
-        }
-
-        for device_name, device_state in self.state.items():
-            yield {
-                'device': device_name,  # TODO: use alias somewhere
-                'on': Active.active,  # TODO: fill this in
-            }
-            for c, s in device_state.items():
-                yield {
-                    'channel': c,
-                    'on': Active.active if s.is_active else Active.inactive,
-                    'recorded': s.recorded_time,
-                    'file_size': s.file_size,
-                    'file_count': s.file_count,
-                    'volume': len(s.volume) and sum(s.volume) / len(s.volume),
-                }
+        yield from self.total_state.rows()
 
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):

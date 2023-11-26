@@ -1,17 +1,22 @@
 import typing as t
 
-from recs.base import state
+from recs.base import state, times
 from recs.base.types import Active
-from recs.cfg import Track
+from recs.cfg import InputDevice, Track
 
 
-class DeviceState:
-    def __init__(self, tracks: dict[str, t.Sequence[Track]]) -> None:
+class TotalState:
+    def __init__(self, tracks: dict[InputDevice, t.Sequence[Track]]) -> None:
         def device_state(t) -> state.DeviceState:
             return {i.channels_name: state.ChannelState() for i in t}
 
-        self.state = {k: device_state(v) for k, v in tracks.items()}
+        self.state = {k.name: device_state(v) for k, v in tracks.items()}
         self.total_state = state.ChannelState()
+        self.start_time = times.time()
+
+    @property
+    def elapsed_time(self) -> float:
+        return times.time() - self.start_time
 
     def update(self, state: state.RecorderState) -> None:
         for device_name, device_state in state.items():
@@ -19,9 +24,9 @@ class DeviceState:
                 self.state[device_name][channel_name] += channel_state
                 self.total_state += channel_state
 
-    def rows(self, elapsed_time: float) -> t.Iterator[dict[str, t.Any]]:
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
-            'time': elapsed_time,
+            'time': self.elapsed_time,
             'recorded': self.total_state.recorded_time,
             'file_size': self.total_state.file_size,
             'file_count': self.total_state.file_count,

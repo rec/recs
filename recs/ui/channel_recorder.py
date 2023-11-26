@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from recs.audio import block, channel_writer
