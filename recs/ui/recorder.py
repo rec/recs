@@ -52,7 +52,7 @@ class Recorder(Runnable):
                 stack.enter_context(self.live)
 
                 while self.running:
-                    times.sleep(self.cfg.sleep_time)
+                    times.sleep(self.cfg.sleep_time_spin)
         finally:
             self.stop()
 
@@ -75,5 +75,5 @@ class Recorder(Runnable):
 
     def _live_thread(self):
         while self.running:
-            times.sleep(self.cfg.sleep_time)
+            times.sleep(self.cfg.sleep_time_live)
             self.live.update()

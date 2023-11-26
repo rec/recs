@@ -108,8 +108,20 @@ def recs(
         '--ui-refresh-rate',
         help='How many UI refreshes per second',
     ),
-    sleep_time: float = Option(
-        RECS.sleep_time, '--sleep-time', help='How long to sleep between data refreshes'
+    sleep_time_device: float = Option(
+        RECS.sleep_time_device,
+        '--sleep-time-device',
+        help='How long to sleep between device polls',
+    ),
+    sleep_time_live: float = Option(
+        RECS.sleep_time_live,
+        '--sleep-time-live',
+        help='How long to sleep between UI refreshes',
+    ),
+    sleep_time_spin: float = Option(
+        RECS.sleep_time_spin,
+        '--sleep-time-spin',
+        help='How long to sleep on the main thread',
     ),
     #
     # Settings relating to times
