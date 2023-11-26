@@ -94,7 +94,19 @@ def _time_to_str(x) -> str:
 
 
 def _naturalsize(x: int) -> str:
-    return f'{format_size(x):>9}' if x else ''
+    if not x:
+        return ''
+
+    fs = format_size(x)
+
+    # Fix #97
+    value, _, unit = fs.partition(' ')
+    if unit != 'bytes':
+        integer, _, decimal = value.partition('.')
+        decimal = (decimal + '00')[:2]
+        fs = f'{integer}.{decimal} {unit}'
+
+    return f'{fs:>9}'
 
 
 def _channel(x: str) -> str:
