@@ -25,24 +25,12 @@ class ChannelRecorder:
 
         return self.writer.state() - saved_state
 
-    @property
-    def file_count(self) -> int:
-        return len(self.writer.files_written)
-
-    @property
-    def file_size(self) -> int:
-        return self.writer.files_written.total_size
-
-    @property
-    def recorded_time(self) -> float:
-        return self.writer.frames_written / self.track.device.samplerate
-
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'channel': self.track.channels_name,
             'on': self.writer.active,
-            'recorded': self.recorded_time,
-            'file_size': self.file_size,
-            'file_count': self.file_count,
+            'recorded': self.writer.frames_written / self.track.device.samplerate,
+            'file_size': self.writer.files_written.total_size,
+            'file_count': len(self.writer.files_written),
             'volume': self.writer.volume,
         }
