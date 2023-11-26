@@ -38,12 +38,12 @@ class TotalState:
         for device_name, device_state in self.state.items():
             active = Active.active if device_name in devices else Active.offline
             yield {
-                'device': device_name,  # TODO: use alias somewhere
+                'device': device_name,  # TODO: use alias here
                 'on': active,
             }
             for c, s in device_state.items():
                 yield {
-                    'channel': c,
+                    'channel': c,  # TODO: use alias here
                     'on': Active.active if s.is_active else Active.inactive,
                     'recorded': s.recorded_time,
                     'file_size': s.file_size,
