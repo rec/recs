@@ -8,7 +8,7 @@ from recs.cfg import InputDevice, Track
 class TotalState:
     def __init__(self, tracks: dict[InputDevice, t.Sequence[Track]]) -> None:
         def device_state(t) -> state.DeviceState:
-            return {i.channels_name: state.ChannelState() for i in t}
+            return {i.name: state.ChannelState() for i in t}
 
         self.state = {k.name: device_state(v) for k, v in tracks.items()}
         self.total_state = state.ChannelState()

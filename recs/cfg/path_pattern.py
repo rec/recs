@@ -77,7 +77,7 @@ class PathPattern:
         s = ts.strftime(self.path)
 
         return s.format(
-            channel=track.channels_name,
+            channel=track.name,
             device=aliases.display_name(track.device),
             index=str(index),
             track=aliases.display_name(track, short=False),

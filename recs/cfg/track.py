@@ -21,15 +21,15 @@ class Track(hash_cmp.HashCmp):
         if self.channels:
             a, b = self.channels[0], self.channels[-1]
             self.slice = slice(a - 1, b)
-            self.channels_name = f'{a}' if a == b else f'{a}-{b}'
+            self.name = f'{a}' if a == b else f'{a}-{b}'
 
         else:
             self.slice = slice(0)
-            self.channels_name = ''
+            self.name = ''
 
     def __str__(self) -> str:
         if self.channels:
-            return f'{self.device.name} + {self.channels_name}'
+            return f'{self.device.name} + {self.name}'
         return self.device.name
 
     def __repr__(self) -> str:

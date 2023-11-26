@@ -45,7 +45,7 @@ class DeviceRecorder(Runnable):
             array = array.astype(np.float64)
 
         def msg(cr: ChannelWriter) -> tuple[str, state.ChannelState]:
-            return cr.track.channels_name, cr.callback(array, self.timestamp)
+            return cr.track.name, cr.callback(array, self.timestamp)
 
         msgs = dict(msg(c) for c in self.channel_writers)
 
