@@ -93,5 +93,9 @@ def query_devices() -> t.Sequence[DeviceDict]:
     return json.loads(r.stdout)
 
 
+def input_names() -> t.Sequence[str]:
+    return sorted(str(i['name']) for i in query_devices())
+
+
 def input_devices() -> InputDevices:
     return get_input_devices(query_devices())

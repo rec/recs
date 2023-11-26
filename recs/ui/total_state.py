@@ -27,7 +27,7 @@ class TotalState:
                     # Hack to fix #96, stereo channels in total time
                     self.total.recorded_time += channel_state.recorded_time
 
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+    def rows(self, devices: t.Sequence[str]) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'time': self.elapsed_time,
             'recorded': self.total.recorded_time,
@@ -36,9 +36,10 @@ class TotalState:
         }
 
         for device_name, device_state in self.state.items():
+            active = Active.active if device_name in devices else Active.offline
             yield {
                 'device': device_name,  # TODO: use alias somewhere
-                'on': Active.active,  # TODO: fill this in
+                'on': active,
             }
             for c, s in device_state.items():
                 yield {
