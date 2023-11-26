@@ -1,4 +1,3 @@
-import typing as t
 
 import numpy as np
 
@@ -24,13 +23,3 @@ class ChannelRecorder:
         self.writer.write(b, time)
 
         return self.writer.state() - saved_state
-
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield {
-            'channel': self.track.channels_name,
-            'on': self.writer.active,
-            'recorded': self.writer.frames_written / self.track.device.samplerate,
-            'file_size': self.writer.files_written.total_size,
-            'file_count': len(self.writer.files_written),
-            'volume': self.writer.volume,
-        }

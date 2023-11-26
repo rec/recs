@@ -61,16 +61,6 @@ class DeviceRecorder(Runnable):
         dt = times.time() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
 
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        active = self.active()
-        yield {'device': self.name, 'on': active}
-        for v in self.channel_recorders:
-            for r in v.rows():
-                if active == Active.offline:
-                    yield r | {'on': active}
-                else:
-                    yield r
-
     def start(self) -> None:
         super().start()
         self.queue.start()
