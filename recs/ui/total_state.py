@@ -23,6 +23,9 @@ class TotalState:
             for channel_name, channel_state in device_state.items():
                 self.state[device_name][channel_name] += channel_state
                 self.total_state += channel_state
+                if '-' in channel_name:
+                    # Hack to fix #96, stereo channels in total time
+                    self.total_state.recorded_time += channel_state.recorded_time
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
