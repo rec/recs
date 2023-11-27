@@ -47,7 +47,6 @@ class Recorder(Runnable):
             with contextlib.ExitStack() as stack:
                 for d in self.device_recorders:
                     stack.enter_context(d)
-                stack.enter_context(self.live)
 
                 while self.running:
                     times.sleep(self.cfg.sleep_time_spin)
@@ -62,6 +61,7 @@ class Recorder(Runnable):
             self.stop()
 
     def start(self) -> None:
+        self.live.start()
         self.live_thread.start()
         self.device_thread.start()
         for d in self.device_recorders:
@@ -71,6 +71,7 @@ class Recorder(Runnable):
 
     def stop(self) -> None:
         self.running.clear()
+        self.live.stop()
         self.live_thread.stop()
         self.device_thread.stop()
         for d in self.device_recorders:

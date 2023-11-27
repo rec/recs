@@ -25,6 +25,14 @@ class Live:
 
     _last_update_time: float = 0
 
+    def start(self) -> None:
+        if not self.cfg.silent:
+            self.live.start(refresh=True)
+
+    def stop(self) -> None:
+        if not self.cfg.silent:
+            self.live.stop()
+
     def update(self) -> None:
         if not self.cfg.silent:
             t = times.time()
@@ -43,14 +51,6 @@ class Live:
 
     def table(self) -> Table:
         return TABLE_FORMATTER(self.rows())
-
-    def __enter__(self) -> None:
-        if not self.cfg.silent:
-            self.live.__enter__()
-
-    def __exit__(self, *a) -> None:
-        if not self.cfg.silent:
-            self.live.__exit__(*a)
 
 
 def _rgb(r=0, g=0, b=0) -> str:
