@@ -7,7 +7,7 @@ from threa import Runnable, ThreadQueue
 from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format, Stop
-from recs.cfg import Cfg, Track
+from recs.cfg import Cfg, InputStream, Track
 
 OFFLINE_TIME = 1
 
@@ -80,7 +80,7 @@ class DeviceRecorder(Runnable):
             return input_stream.__exit__(*a)
 
     @cached_property
-    def input_stream(self) -> t.Iterator[None] | None:
+    def input_stream(self) -> InputStream:
         return self.device.input_stream(
             callback=self.queue.queue.put, dtype=self.cfg.sdtype, stop_all=self.stop_all
         )

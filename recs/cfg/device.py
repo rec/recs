@@ -13,6 +13,17 @@ from recs.cfg import hash_cmp
 Callback = t.Callable[[np.ndarray], None]
 
 
+class InputStream(t.Protocol):
+    def close(self, ignore_errors=True) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def stop(self, ignore_errors=True) -> None:
+        pass
+
+
 class InputDevice(hash_cmp.HashCmp):
     def __init__(self, info: DeviceDict) -> None:
         self.info = info
@@ -33,11 +44,8 @@ class InputDevice(hash_cmp.HashCmp):
 
     def input_stream(
         self, callback: Callback, dtype: SdType, stop_all: Stop
-    ) -> t.Iterator[None] | None:
+    ) -> InputStream:
         import sounddevice as sd
-
-        if not self.is_online:
-            return None
 
         stream: sd.InputStream
 
