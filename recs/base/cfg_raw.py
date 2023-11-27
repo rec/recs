@@ -57,3 +57,5 @@ class CfgRaw:
     quiet_before_start: float = 1
     stop_after_quiet: float = 20
     total_run_time: float = 0
+
+    asdict = dc.asdict
