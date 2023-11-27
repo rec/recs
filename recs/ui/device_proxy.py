@@ -4,8 +4,7 @@ from multiprocessing.connection import Connection as Conn
 
 from threa import HasThread, Runnable
 
-from recs.base import cfg_raw, state
-from recs.base.types import Stop
+from recs.base import cfg_raw, state, types
 from recs.cfg import Cfg, Track
 
 POLL_TIMEOUT = 0.1
@@ -21,7 +20,7 @@ class DeviceProxy(Runnable):
         self,
         cfg: Cfg,
         tracks: t.Sequence[Track],
-        stop_all: Stop,
+        stop_all: types.Stop,
         callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         super().__init__()

@@ -23,6 +23,7 @@ class DeviceRecorder(Runnable):
         callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         super().__init__()
+
         self.cfg = cfg
         self.stop_all = stop_all
 
@@ -63,21 +64,16 @@ class DeviceRecorder(Runnable):
     def start(self) -> None:
         super().start()
         self.queue.start()
+        self.input_stream.start()
 
     def stop(self) -> None:
         self.running.clear()
+        self.input_stream.stop()
+        self.input_stream.close()
         self.queue.stop()
         for c in self.channel_writers:
             c.stop()
         self.stopped.set()
-
-    def __enter__(self):
-        if self.input_stream:
-            self.input_stream.__enter__()
-
-    def __exit__(self, *a) -> None:
-        if input_stream := self.__dict__.get('input_stream'):
-            return input_stream.__exit__(*a)
 
     @cached_property
     def input_stream(self) -> InputStream:

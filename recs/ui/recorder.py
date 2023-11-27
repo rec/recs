@@ -42,16 +42,19 @@ class Recorder(Runnable):
         self.live_thread = HasThread(self.update_live, looping=True)
 
     def run(self) -> None:
-        self.start()
-        try:
-            with contextlib.ExitStack() as stack:
-                for d in self.device_recorders:
-                    stack.enter_context(d)
+        ctx: list[t.ContextManager] = [
+            self,
+            self.live,
+            self.live_thread,
+            self.device_thread,
+            *self.device_recorders,
+        ]
+        with contextlib.ExitStack() as stack:
+            for c in ctx:
+                stack.enter_context(c)
 
-                while self.running:
-                    times.sleep(self.cfg.sleep_time_spin)
-        finally:
-            self.stop()
+            while self.running:
+                times.sleep(self.cfg.sleep_time_spin)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.total_state.rows(self.devices)
@@ -59,24 +62,6 @@ class Recorder(Runnable):
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):
             self.stop()
-
-    def start(self) -> None:
-        self.live.start()
-        self.live_thread.start()
-        self.device_thread.start()
-        for d in self.device_recorders:
-            d.start()
-
-        self.running.set()
-
-    def stop(self) -> None:
-        self.running.clear()
-        self.live.stop()
-        self.live_thread.stop()
-        self.device_thread.stop()
-        for d in self.device_recorders:
-            d.stop()
-        self.stopped.set()
 
     def check_devices(self):
         times.sleep(self.cfg.sleep_time_device)

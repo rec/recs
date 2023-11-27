@@ -23,6 +23,12 @@ class InputStream(t.Protocol):
     def stop(self, ignore_errors=True) -> None:
         pass
 
+    def __enter__(self) -> t.Any:
+        pass
+
+    def __exit__(self, type, val, exc_tb) -> None:
+        pass
+
 
 class InputDevice(hash_cmp.HashCmp):
     def __init__(self, info: DeviceDict) -> None:
