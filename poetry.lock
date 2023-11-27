@@ -742,13 +742,13 @@ xmod = "*"
 
 [[package]]
 name = "threa"
-version = "1.1.0"
+version = "1.2.2"
 description = "🧵 Better threads 🧵"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "threa-1.1.0-py3-none-any.whl", hash = "sha256:0324a255d80f8b8d303db6ede454b7f729576677eb5a23483d3aa902b45306bf"},
-    {file = "threa-1.1.0.tar.gz", hash = "sha256:f9ef47b90f950eeccd0b81b0aa757ca8ee9244a32263355e3d0316392db7c3a0"},
+    {file = "threa-1.2.2-py3-none-any.whl", hash = "sha256:3ca881d0fe83db973458d8524a094f34b9e5a19335864efe60a31a9a51dc7fc1"},
+    {file = "threa-1.2.2.tar.gz", hash = "sha256:db083e37541a6e950f396818b5757239011c6452b87ad09b729b555bd0af2a20"},
 ]
 
 [package.dependencies]
