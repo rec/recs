@@ -55,6 +55,9 @@ def recs(
     #
     # General purpose settings
     #
+    calibrate: bool = Option(
+        RECS.calibrate, '--calibrate', help='Detect silence levels'
+    ),
     dry_run: bool = Option(
         RECS.dry_run, '-n', '--dry-run', help='Display levels only, do not record'
     ),

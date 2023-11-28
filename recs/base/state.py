@@ -1,6 +1,10 @@
 import dataclasses as dc
 import time
 
+from recs.cfg.time_settings import amplitude_to_db
+
+INF = float('inf')
+
 
 @dc.dataclass(slots=True)
 class ChannelState:
@@ -11,14 +15,24 @@ class ChannelState:
 
     is_active: bool = False
 
-    max_amp: float = 0
-    min_amp: float = float('inf')
+    max_amp: float = -INF
+    min_amp: float = INF
 
     recorded_time: float = 0
     timestamp: float = dc.field(default_factory=time.time)
     volume: tuple[float, ...] = ()
 
     replace = dc.replace
+
+    @property
+    def amp(self) -> float:
+        if self.max_amp == -INF or self.min_amp == INF:
+            return 0
+        return (self.max_amp - self.min_amp) / 2
+
+    @property
+    def db_range(self) -> float:
+        return amplitude_to_db(self.amp)
 
     def __iadd__(self, m: 'ChannelState') -> 'ChannelState':
         self.file_count += m.file_count

@@ -11,22 +11,33 @@ from . import Cfg
 
 def run(cfg: Cfg) -> None:
     if cfg.info:
-        _info()
+        return _info()
 
-    elif cfg.list_types:
-        avail = sf.available_formats()
-        fmts = [f.upper() for f in Format]
-        formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
-        sdtypes = [str(s) for s in SdType]
-        d = {'formats': formats, 'sdtypes': sdtypes}
+    if cfg.list_types:
+        return _list_types()
 
-        print(json.dumps(d, indent=4))
+    rec = Recorder(cfg)
+    try:
+        rec.run()
+    finally:
+        if cfg.calibrate:
+            states = rec.total_state.state.items()
+            d = {j: {k: v.db_range for k, v in u.items()} for j, u in states}
+            d2 = {'(all)': rec.total_state.total.db_range}
+            print(json.dumps(d | d2, indent=2))
 
-    else:
-        Recorder(cfg).run()
+
+def _list_types() -> None:
+    avail = sf.available_formats()
+    fmts = [f.upper() for f in Format]
+    formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
+    sdtypes = [str(s) for s in SdType]
+    d = {'formats': formats, 'sdtypes': sdtypes}
+
+    print(json.dumps(d, indent=4))
 
 
-def _info():
+def _info() -> None:
     info = device.query_devices()
-    info = [i for i in info if i['max_input_channels']]
-    print(json.dumps(info, indent=4))
+    info2 = [i for i in info if i['max_input_channels']]
+    print(json.dumps(info2, indent=4))

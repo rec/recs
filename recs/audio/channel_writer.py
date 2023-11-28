@@ -55,7 +55,7 @@ class ChannelWriter(Runnable):
     ) -> None:
         super().__init__()
 
-        self.dry_run = cfg.dry_run
+        self.do_not_record = cfg.dry_run or cfg.calibrate
         self.format = cfg.format
         self.metadata = cfg.metadata
         self.times = times
@@ -81,7 +81,11 @@ class ChannelWriter(Runnable):
 
         saved_state = self.state()
         self.write(b, time)
-        return self.state() - saved_state
+        state = self.state() - saved_state
+        return state.replace(
+            max_amp=max(b.max) / b.scale,
+            min_amp=min(b.min) / b.scale,
+        )
 
     def state(self) -> ChannelState:
         return ChannelState(
@@ -109,7 +113,7 @@ class ChannelWriter(Runnable):
         self.timestamp = timestamp
         self._volume(block)
 
-        if self.dry_run or not (self.running or self._sf):
+        if self.do_not_record or not (self.running or self._sf):
             return
 
         with self._lock:

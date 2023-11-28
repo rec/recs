@@ -12,7 +12,9 @@ def db_to_amplitude(db: float) -> float:
 
 
 def amplitude_to_db(amp: float) -> float:
-    return -20 * math.log10(amp)
+    if amp > 0:
+        return -20 * math.log10(amp)
+    return float('inf')
 
 
 @dc.dataclass(frozen=True)

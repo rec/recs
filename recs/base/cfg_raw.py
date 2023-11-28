@@ -15,6 +15,7 @@ class CfgRaw:
     #
     # General purpose settings
     #
+    calibrate: bool = False
     dry_run: bool = False
     info: bool = False
     list_types: bool = False
