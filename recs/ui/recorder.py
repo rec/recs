@@ -1,4 +1,3 @@
-import contextlib
 import typing as t
 
 from rich.table import Table
@@ -8,6 +7,7 @@ from recs.base import RecsError, times
 from recs.cfg import Cfg, device
 
 from . import live
+from .contexts import contexts
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
 from .total_state import TotalState
@@ -42,17 +42,8 @@ class Recorder(Runnable):
         self.live_thread = HasThread(self.update_live, looping=True)
 
     def run(self) -> None:
-        ctx: list[t.ContextManager] = [
-            self,
-            self.live,
-            self.live_thread,
-            self.device_thread,
-            *self.device_recorders,
-        ]
-        with contextlib.ExitStack() as stack:
-            for c in ctx:
-                stack.enter_context(c)
-
+        dv = self.device_recorders
+        with contexts(self, self.live, self.live_thread, self.device_thread, *dv):
             while self.running:
                 times.sleep(self.cfg.sleep_time_spin)
 
