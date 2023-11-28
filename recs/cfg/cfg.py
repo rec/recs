@@ -2,7 +2,7 @@ import dataclasses as dc
 import json
 import typing as t
 import warnings
-from functools import wraps
+from functools import cached_property, wraps
 
 import soundfile as sf
 
@@ -73,12 +73,12 @@ class Cfg:
 
         self.aliases = Aliases(cfg.alias, self.devices)
         self.metadata = metadata.to_dict(cfg.metadata)
-        self.times = self._times()
 
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
 
-    def _times(self) -> time_settings.TimeSettings:
+    @cached_property
+    def times(self) -> time_settings.TimeSettings:
         fields = (f.name for f in dc.fields(time_settings.TimeSettings))
         d = {k: getattr(self, k) for k in fields}
 
