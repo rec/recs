@@ -1,6 +1,5 @@
 import typing as t
 
-from rich.table import Table
 from threa import HasThread, Runnable
 
 from recs.base import RecsError, times
@@ -11,9 +10,6 @@ from .contexts import contexts
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
 from .total_state import TotalState
-
-InputDevice = device.InputDevice
-TableMaker = t.Callable[[], Table]
 
 
 class Recorder(Runnable):
