@@ -11,6 +11,8 @@ def test_message():
     assert cm() - cm() == cm()
     assert cm() + cm() == cm()
 
-    a, b, c = cm(1, 2, False, 10), cm(10, 15, True, 2.5), cm(11, 17, True, 12.5)
+    a = cm(1, 2, False, 0.5, -0.4, 10)
+    b = cm(10, 15, True, 0.4, -0.6, 2.5)
+    c = cm(11, 17, True, 0.5, -0.6, 12.5)
     assert a + b == c
-    assert c - a == b
+    assert c - a == b.replace(max_amp=0.5)
