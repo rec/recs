@@ -1,3 +1,4 @@
+import os
 import typing as t
 
 from threa import HasThread, Runnable
@@ -7,9 +8,13 @@ from recs.cfg import Cfg, device
 
 from . import live
 from .contexts import contexts
+from .device_proxy import DeviceProxy
 from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
 from .total_state import TotalState
+
+USE_PROXY = 'RECS_USE_PROXY' in os.environ
+Device = DeviceProxy if USE_PROXY else DeviceRecorder
 
 
 class Recorder(Runnable):
@@ -27,8 +32,8 @@ class Recorder(Runnable):
 
         self.total_state = TotalState(self.device_tracks)
 
-        def make_recorder(t) -> DeviceRecorder:
-            dr = DeviceRecorder(cfg, t, self.stop, self.total_state.update)
+        def make_recorder(t) -> Runnable:
+            dr = Device(cfg, t, self.stop, self.total_state.update)
             dr.stopped.on_set.append(self.on_stopped)
             return dr
 

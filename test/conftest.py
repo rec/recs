@@ -1,5 +1,6 @@
 import copy
 import json
+import multiprocessing.dummy
 import random
 from datetime import datetime, timedelta
 from functools import cached_property
@@ -11,6 +12,7 @@ from threa import HasThread
 
 from recs.base import times
 from recs.cfg import device
+from recs.ui import device_proxy
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -84,6 +86,7 @@ def mock_input_streams(monkeypatch, mock_devices):
             times.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
 
     monkeypatch.setattr(sd, 'InputStream', InputStream)
+    monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)
 
 
 @pytest.fixture

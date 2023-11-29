@@ -1,6 +1,6 @@
 import multiprocessing as mp
 import typing as t
-from multiprocessing.connection import Connection as Conn
+from multiprocessing.connection import Connection
 
 from threa import HasThread, Runnable
 
@@ -11,7 +11,7 @@ POLL_TIMEOUT = 0.1
 STOP = 'stop'
 
 
-def _poll(conn: Conn) -> t.Any:
+def _poll(conn: Connection) -> t.Any:
     return conn.poll(POLL_TIMEOUT) and conn.recv()
 
 
@@ -27,7 +27,7 @@ class DeviceProxy(Runnable):
 
         self.callback = callback
 
-        self.from_process, self.to_process = pipe = mp.Pipe()
+        self.to_process, self.from_process = pipe = mp.Pipe()
         self.process = mp.Process(target=device_process, args=(cfg.cfg, tracks, *pipe))
         self.pipe_thread = HasThread(self._read_pipe, looping=True)
         self.process_stopped = False
@@ -49,6 +49,8 @@ class DeviceProxy(Runnable):
 
     def _read_pipe(self) -> None:
         message = _poll(self.from_process)
+        if message:
+            print(message)
         if message == STOP:
             self.process_stopped = True
             self.stop_all()
@@ -61,8 +63,8 @@ class DeviceProxy(Runnable):
 def device_process(
     cfg: cfg_raw.CfgRaw,
     tracks: t.Sequence[Track],
-    from_process: Conn,
-    to_process: Conn,
+    from_process: Connection,
+    to_process: Connection,
 ) -> None:
     from .device_recorder import DeviceRecorder
 
@@ -70,4 +72,5 @@ def device_process(
         from_process.send(STOP)
 
     recorder = DeviceRecorder(Cfg(**cfg.asdict()), tracks, stop_all, from_process.send)
+    from_process.send('hello')
     recorder.start()
