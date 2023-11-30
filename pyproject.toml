@@ -67,7 +67,7 @@ warn_unused_ignores = true
 
 [tool.black]
 skip-string-normalization = true
-target-version = ["py311"]
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"
