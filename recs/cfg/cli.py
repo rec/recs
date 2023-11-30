@@ -6,32 +6,14 @@ import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs.base import RecsError, pyproject
+from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
 
+from .app import HELP, app
 from .cfg import Cfg
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
-INTRO = f"""
-  {pyproject.message()}
-
-============================================="""
-LINES = (
-    INTRO,
-    'Why should there be a record button at all?',
-    'I wanted to digitize a huge number of cassettes and LPs, so I wanted a '
-    + 'program that ran in the background and recorded everything except quiet.',
-    'Nothing like that existed so I wrote it.  Free, open-source, configurable.',
-    'Full documentation here: https://github.com/rec/recs',
-    '',
-)
-HELP = '\n\n\n\n'.join(LINES)
 # Three blank lines seems to force Typer to format correctly
-
-app = dtyper.Typer(
-    add_completion=False,
-    context_settings={'help_option_names': ['--help', '-h']},
-)
 
 _SINGLES: set[str] = set()
 
