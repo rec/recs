@@ -39,7 +39,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.coverage.run]
 branch = true
 source = ["recs"]
-omit = ["recs/cfg/cli.py"]
+omit = ["recs/__main__.py", "recs/cfg/cli.py"]
 
 [tool.coverage.report]
 fail_under = 95

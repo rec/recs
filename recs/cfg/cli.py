@@ -1,12 +1,9 @@
 import string
-import sys
 from pathlib import Path
 
-import click
 import dtyper
 from typer import Argument, rich_utils
 
-from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
 
 from .app import HELP, app
@@ -252,20 +249,3 @@ _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
 assert _USED_SINGLES == 'abcdefimnorstuv', _USED_SINGLES
 assert _UNUSED_SINGLES == 'ghjklpqwxyz', _UNUSED_SINGLES
-
-
-def run() -> int:
-    try:
-        app(prog_name='recs', standalone_mode=False)
-        return 0
-
-    except RecsError as e:
-        print('ERROR:', *e.args, file=sys.stderr)
-
-    except click.ClickException as e:
-        print(f'{e.__class__.__name__}: {e.message}', file=sys.stderr)
-
-    except click.Abort:
-        print('Interrupted', file=sys.stderr)
-
-    return -1
