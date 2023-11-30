@@ -44,7 +44,8 @@ def Option(default, *a, **ka) -> dtyper.Option:
     return dtyper.Option(default, *a, **ka)
 
 
-GENERAL_PANEL = 'General Settings'
+GENERAL_PANEL = 'Options'  # 'General Settings'
+SUBCOMMANDS_PANEL = 'Subcommands'
 NAMES_PANEL = 'Selecting and Naming Devices and Channels'
 FILE_PANEL = 'Audio File Format Settings'
 CONSOLE_PANEL = 'Console and UI Settings'
@@ -60,10 +61,12 @@ def recs(
         RECS.path, help='Path or path pattern for recorded file locations'
     ),
     #
+    # General
+    #
     calibrate: bool = Option(
         RECS.calibrate,
         '--calibrate',
-        help='Detect silence levels',
+        help='Detect and print noise levels, do not record',
         rich_help_panel=GENERAL_PANEL,
     ),
     dry_run: bool = Option(
@@ -73,43 +76,48 @@ def recs(
         help='Display levels only, do not record',
         rich_help_panel=GENERAL_PANEL,
     ),
-    info: bool = Option(
-        RECS.info,
-        '--info',
-        help='Do not run, display device info instead',
-        rich_help_panel=GENERAL_PANEL,
-    ),
-    list_types: bool = Option(
-        RECS.list_types,
-        '--list-types',
-        help='List all subtypes for each format',
-        rich_help_panel=GENERAL_PANEL,
-    ),
     verbose: bool = Option(
         RECS.verbose,
         '-v',
         '--verbose',
-        help='Print full stack traces',
+        help='Print more stuff - currently does nothing',
         rich_help_panel=GENERAL_PANEL,
     ),
+    #
+    # Subcommands
+    #
+    info: bool = Option(
+        RECS.info,
+        '--info',
+        help='Display device info as JSON',
+        rich_help_panel=SUBCOMMANDS_PANEL,
+    ),
+    list_types: bool = Option(
+        RECS.list_types,
+        '--list-types',
+        help='List all subtypes for each format as JSON',
+        rich_help_panel=SUBCOMMANDS_PANEL,
+    ),
+    #
+    # Names
     #
     alias: list[str] = Option(
         RECS.alias,
         '-a',
         '--alias',
-        help='Aliases for devices or channels',
+        help='Set aliases for devices or channels',
         rich_help_panel=NAMES_PANEL,
     ),
     devices: Path = Option(
         RECS.devices,
-        help='A JSON file with device definitions',
+        help='A path to a JSON file with device definitions',
         rich_help_panel=NAMES_PANEL,
     ),
     exclude: list[str] = Option(
         RECS.exclude,
         '-e',
         '--exclude',
-        help='Exclude these devices or channels',
+        help='Exclude devices or channels',
         rich_help_panel=NAMES_PANEL,
     ),
     include: list[str] = Option(
@@ -120,11 +128,13 @@ def recs(
         rich_help_panel=NAMES_PANEL,
     ),
     #
+    # File
+    #
     format: str = Option(
         RECS.format,
         '-f',
         '--format',
-        help='Audio format',
+        help='Audio file format',
         rich_help_panel=FILE_PANEL,
     ),
     metadata: list[str] = Option(
@@ -138,43 +148,37 @@ def recs(
         RECS.sdtype,
         '-d',
         '--sdtype',
-        help='Type of sounddevice numbers',
+        help='Integer or float number type for recording',
         rich_help_panel=FILE_PANEL,
     ),
     subtype: str = Option(
         RECS.subtype,
         '-u',
         '--subtype',
-        help='File subtype',
+        help='Audio file subtype',
         rich_help_panel=FILE_PANEL,
     ),
     #
-    # Console and UI settings
+    # Console
     #
+    clear: bool = Option(
+        RECS.clear,
+        '-r',
+        '--clear',
+        help='Clear display on shutdown',
+        rich_help_panel=CONSOLE_PANEL,
+    ),
     silent: bool = Option(
         RECS.silent,
         '-s',
         '--silent',
-        help='If true, do not display live updates',
-        rich_help_panel=CONSOLE_PANEL,
-    ),
-    retain: bool = Option(
-        RECS.retain,
-        '-r',
-        '--retain',
-        help='Retain rich display on shutdown',
-        rich_help_panel=CONSOLE_PANEL,
-    ),
-    ui_refresh_rate: float = Option(
-        RECS.ui_refresh_rate,
-        '--ui-refresh-rate',
-        help='How many UI refreshes per second',
+        help='Do not display live updates',
         rich_help_panel=CONSOLE_PANEL,
     ),
     sleep_time_device: float = Option(
         RECS.sleep_time_device,
         '--sleep-time-device',
-        help='How long to sleep between device polls',
+        help='How long to sleep between checking device',
         rich_help_panel=CONSOLE_PANEL,
     ),
     sleep_time_live: float = Option(
@@ -189,13 +193,19 @@ def recs(
         help='How long to sleep on the main thread',
         rich_help_panel=CONSOLE_PANEL,
     ),
+    ui_refresh_rate: float = Option(
+        RECS.ui_refresh_rate,
+        '--ui-refresh-rate',
+        help='How many UI refreshes per second',
+        rich_help_panel=CONSOLE_PANEL,
+    ),
     #
-    # Settings relating to times
+    # Record
     #
     infinite_length: bool = Option(
         RECS.infinite_length,
         '--infinite-length',
-        help='If true, ignore file size limits (4G on .wav, 2G on .aiff)',
+        help='Ignore file size limits (4G on .wav, 2G on .aiff)',
         rich_help_panel=RECORD_PANEL,
     ),
     longest_file_time: str = Option(
@@ -224,20 +234,20 @@ def recs(
         RECS.quiet_after_end,
         '-c',
         '--quiet-after-end',
-        help='Quiet after the end, in seconds',
+        help='How much quiet after the end',
         rich_help_panel=RECORD_PANEL,
     ),
     quiet_before_start: float = Option(
         RECS.quiet_before_start,
         '-b',
         '--quiet-before-start',
-        help='Quiet before the start, in seconds',
+        help='How much quiet before a recording',
         rich_help_panel=RECORD_PANEL,
     ),
     stop_after_quiet: float = Option(
         RECS.stop_after_quiet,
         '--stop-after-quiet',
-        help='Stop recs after quiet',
+        help='How much quiet before stopping a recording',
         rich_help_panel=RECORD_PANEL,
     ),
     total_run_time: float = Option(
@@ -247,7 +257,7 @@ def recs(
         help='How many seconds to record? 0 means forever',
         rich_help_panel=RECORD_PANEL,
     ),
-) -> None:  # pragma: no cover: This is tested in a subprocess.
+) -> None:
     cfg = Cfg(**locals())
 
     from . import run
