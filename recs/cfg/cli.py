@@ -6,7 +6,7 @@ from typer import Argument, rich_utils
 
 from recs.base.cfg_raw import CfgRaw
 
-from .app import HELP, app
+from .app import HELP, ClickTime, app
 from .cfg import Cfg
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
@@ -154,21 +154,24 @@ def recs(
         help='Do not display live updates',
         rich_help_panel=CONSOLE_PANEL,
     ),
-    sleep_time_device: float = Option(
+    sleep_time_device: str = Option(
         RECS.sleep_time_device,
         '--sleep-time-device',
+        click_type=ClickTime(),
         help='How long to sleep between checking device',
         rich_help_panel=CONSOLE_PANEL,
     ),
-    sleep_time_live: float = Option(
+    sleep_time_live: str = Option(
         RECS.sleep_time_live,
         '--sleep-time-live',
+        click_type=ClickTime(),
         help='How long to sleep between UI refreshes',
         rich_help_panel=CONSOLE_PANEL,
     ),
-    sleep_time_spin: float = Option(
+    sleep_time_spin: str = Option(
         RECS.sleep_time_spin,
         '--sleep-time-spin',
+        click_type=ClickTime(),
         help='How long to sleep on the main thread',
         rich_help_panel=CONSOLE_PANEL,
     ),
@@ -189,11 +192,13 @@ def recs(
     ),
     longest_file_time: str = Option(
         RECS.longest_file_time,
+        click_type=ClickTime(),
         help='Longest amount of time per file: 0 means infinite',
         rich_help_panel=RECORD_PANEL,
     ),
-    moving_average_time: float = Option(
+    moving_average_time: str = Option(
         RECS.moving_average_time,
+        click_type=ClickTime(),
         help='How long to average the volume display over',
         rich_help_panel=RECORD_PANEL,
     ),
@@ -206,33 +211,38 @@ def recs(
     ),
     shortest_file_time: str = Option(
         RECS.shortest_file_time,
+        click_type=ClickTime(),
         help='Shortest amount of time per file',
         rich_help_panel=RECORD_PANEL,
     ),
-    quiet_after_end: float = Option(
+    quiet_after_end: str = Option(
         RECS.quiet_after_end,
         '-c',
         '--quiet-after-end',
+        click_type=ClickTime(),
         help='How much quiet after the end',
         rich_help_panel=RECORD_PANEL,
     ),
-    quiet_before_start: float = Option(
+    quiet_before_start: str = Option(
         RECS.quiet_before_start,
         '-b',
         '--quiet-before-start',
+        click_type=ClickTime(),
         help='How much quiet before a recording',
         rich_help_panel=RECORD_PANEL,
     ),
-    stop_after_quiet: float = Option(
+    stop_after_quiet: str = Option(
         RECS.stop_after_quiet,
         '--stop-after-quiet',
+        click_type=ClickTime(),
         help='How much quiet before stopping a recording',
         rich_help_panel=RECORD_PANEL,
     ),
-    total_run_time: float = Option(
+    total_run_time: str = Option(
         RECS.total_run_time,
         '-t',
         '--total-run-time',
+        click_type=ClickTime(),
         help='How many seconds to record? 0 means forever',
         rich_help_panel=RECORD_PANEL,
     ),

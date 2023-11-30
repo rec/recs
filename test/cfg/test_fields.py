@@ -15,13 +15,15 @@ def test_fields():
     hand, auto = dc.fields(cfg_raw.CfgRaw), dc.fields(Cfg)
 
     assert [f.name for f in hand] == [f.name for f in auto]
-    assert not [h.name for h, a in zip(hand, auto) if h.default != a.default]
+    had = {h.name: (h.default, a.default) for h, a in zip(hand, auto)}
+    assert not {k: (h, a) for k, (h, a) in had.items() if h != a}
 
     actual = [(h.type, a.type) for h, a in zip(hand, auto)]
     ok = (
         (t.Sequence[str], list[str]),
         (types.SdType | None, types.SdType),
         (types.Subtype | None, types.Subtype),
+        (float, str),
     )
 
     assert all((h, a) in ok for h, a in actual if h != a)

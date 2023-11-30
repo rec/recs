@@ -2,11 +2,11 @@ import dataclasses as dc
 import json
 import typing as t
 import warnings
-from functools import cached_property, wraps
+from functools import wraps
 
 import soundfile as sf
 
-from recs.base import RecsError, times
+from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
 from recs.base.type_conversions import (
     FORMATS,
@@ -73,22 +73,12 @@ class Cfg:
 
         self.aliases = Aliases(cfg.alias, self.devices)
         self.metadata = metadata.to_dict(cfg.metadata)
+        self.times = self._times()
 
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
 
-    @cached_property
-    def times(self) -> time_settings.TimeSettings:
+    def _times(self) -> time_settings.TimeSettings:
         fields = (f.name for f in dc.fields(time_settings.TimeSettings))
         d = {k: getattr(self, k) for k in fields}
-
-        try:
-            d['longest_file_time'] = times.to_time(t := d['longest_file_time'])
-        except (ValueError, TypeError):
-            raise RecsError(f'Do not understand --longest-file-time={t}')
-        try:
-            d['shortest_file_time'] = times.to_time(t := d['shortest_file_time'])
-        except (ValueError, TypeError):
-            raise RecsError(f'Do not understand --shortest-file-time={t}')
-
         return time_settings.TimeSettings(**d)

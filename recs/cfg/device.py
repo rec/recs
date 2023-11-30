@@ -103,7 +103,7 @@ P = 'import json, sounddevice; print(json.dumps(sounddevice.query_devices(), ind
 
 
 def query_devices() -> t.Sequence[DeviceDict]:
-    r = sp.run(('python', '-c', P), text=True, check=True, stdout=sp.PIPE)
+    r = sp.run((sys.executable, '-c', P), text=True, check=True, stdout=sp.PIPE)
     return json.loads(r.stdout)
 
 

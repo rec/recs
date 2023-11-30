@@ -29,16 +29,3 @@ def test_bad_devices(mock_devices):
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
     assert cfg.devices
-
-
-def test_time_error(mock_devices):
-    with pytest.raises(RecsError) as e:
-        Cfg(longest_file_time='0:00:00:00').times
-    assert e.value.args == ('Do not understand --longest-file-time=0:00:00:00',)
-
-    Cfg(longest_file_time='0:00:00').times
-
-    with pytest.raises(RecsError) as e:
-        Cfg(shortest_file_time='0:60').times
-    assert e.value.args == ('Do not understand --shortest-file-time=0:60',)
-    Cfg(shortest_file_time='0:59').times

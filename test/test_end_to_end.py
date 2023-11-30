@@ -26,7 +26,7 @@ def test_end_to_end(name, dry_run, silent, path, mock_input_streams, mock_time):
     cfg = Cfg(
         dry_run=dry_run,
         silent=silent,
-        shortest_file_time='0',
+        shortest_file_time=0,
         path=path,
         total_run_time=0.1,
     )
