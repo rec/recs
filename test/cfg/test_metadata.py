@@ -86,7 +86,7 @@ def test_to_dict_error():
     print(*e.value.args)
 
     msg = (
-        "Metadata: unknown: ['albom=x'], malformed: ['album'], "
+        "unknown: ['albom=x'], malformed: ['album'], "
         "duplicate: ['title=tt'], not settable: ['license=Artistic']"
     )
     assert e.value.args == (msg,)

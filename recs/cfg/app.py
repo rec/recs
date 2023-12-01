@@ -1,8 +1,10 @@
 import click
 import dtyper
 
-from recs.base import pyproject, times
+from recs.base import RecsError, pyproject, times
 from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
+
+from . import metadata
 
 INTRO = f"""
   {pyproject.message()}
@@ -65,3 +67,21 @@ class SdTypeParam(DictParam):
 class SubtypeParam(DictParam):
     name = 'AUDIO SUBTYPE'
     prefix_dict = SUBTYPES
+
+
+class MetadataParam(click.ParamType):
+    name = 'METADATA'
+
+    def convert(self, value, p, ctx):
+        try:
+            metadata.to_dict([value])
+            return value
+        except RecsError as e:
+            self.fail(f'In {p.opts[0]}: "{e.args[0]}"')
+
+
+class AliasParam(click.ParamType):
+    name = 'ALIAS'
+
+    def convert(self, value, p, ctx):
+        return value
