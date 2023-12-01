@@ -8,12 +8,7 @@ import soundfile as sf
 
 from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
-from recs.base.type_conversions import (
-    FORMATS,
-    SDTYPE_TO_SUBTYPE,
-    SUBTYPE_TO_SDTYPE,
-    SUBTYPES,
-)
+from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 
 from . import device, metadata, path_pattern, time_settings
@@ -23,41 +18,37 @@ from .aliases import Aliases
 class Cfg:
     devices: device.InputDevices
     format: Format
+    subtype: Subtype | None
     sdtype: SdType
-    subtype: Subtype
 
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
         self.path = path_pattern.PathPattern(cfg.path)
 
-        def get(d, key, flag):
-            if not key:
-                return None
-            try:
-                return d[key]
-            except KeyError:
-                raise RecsError(f'Cannot understand --{flag}="{key}"') from None
+        self.format = t.cast(Format, cfg.format)
 
-        self.format = get(FORMATS, cfg.format, 'format')
-        self.sdtype = get(SdType, cfg.sdtype, 'sdtype')
-        self.subtype = get(SUBTYPES, cfg.subtype, 'subtype')
-
-        if self.subtype:
-            if not self.sdtype:
-                self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
-
-            if not sf.check_format(self.format, self.subtype):
-                raise RecsError(f'{self.format} and {self.subtype} are incompatible')
-
-        elif self.sdtype:
-            subtype = SDTYPE_TO_SUBTYPE[self.sdtype]
+        if cfg.subtype:
+            self.subtype = t.cast(Subtype, cfg.subtype)
+        elif not cfg.sdtype:
+            self.subtype = None
+        else:
+            subtype = SDTYPE_TO_SUBTYPE[t.cast(SdType, cfg.sdtype)]
 
             if sf.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
-                msg = f'format={self.format:s}, sdtype={self.sdtype:s}'
+                self.subtype = None
+                msg = f'format={self.format:s}, sdtype={cfg.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
+
+        if self.subtype and not sf.check_format(self.format, self.subtype):
+            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+
+        if cfg.sdtype:
+            self.sdtype = t.cast(SdType, cfg.sdtype)
+        elif self.subtype:
+            self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
         else:
             self.sdtype = SDTYPE
 

@@ -21,9 +21,11 @@ def test_fields():
     actual = [(h.type, a.type) for h, a in zip(hand, auto)]
     ok = (
         (t.Sequence[str], list[str]),
-        (types.SdType | None, types.SdType),
-        (types.Subtype | None, types.Subtype),
+        (str, types.Format),
+        (str, types.SdType | None),
+        (str, types.Subtype | None),
         (float, str),
     )
 
-    assert all((h, a) in ok for h, a in actual if h != a)
+    bad = [(h, a) for h, a in actual if h != a and (h, a) not in ok]
+    assert not bad

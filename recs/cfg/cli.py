@@ -4,10 +4,11 @@ from pathlib import Path
 import dtyper
 from typer import Argument, rich_utils
 
+from recs.base import types
 from recs.base.cfg_raw import CfgRaw
 
-from .app import HELP, ClickTime, app
-from .cfg import Cfg
+from . import cfg
+from .app import HELP, FormatParam, SdTypeParam, SubtypeParam, TimeParam, app
 
 rich_utils.STYLE_METAVAR = 'dim yellow'
 # Three blank lines seems to force Typer to format correctly
@@ -109,10 +110,11 @@ def recs(
     #
     # File
     #
-    format: str = Option(
+    format: types.Format = Option(
         RECS.format,
         '-f',
         '--format',
+        click_type=FormatParam(),
         help='Audio file format',
         rich_help_panel=FILE_PANEL,
     ),
@@ -123,17 +125,21 @@ def recs(
         help='Metadata fields to add to output files',
         rich_help_panel=FILE_PANEL,
     ),
-    sdtype: str = Option(
+    sdtype: types.SdType
+    | None = Option(
         RECS.sdtype,
         '-d',
         '--sdtype',
+        click_type=SdTypeParam(),
         help='Integer or float number type for recording',
         rich_help_panel=FILE_PANEL,
     ),
-    subtype: str = Option(
+    subtype: types.Subtype
+    | None = Option(
         RECS.subtype,
         '-u',
         '--subtype',
+        click_type=SubtypeParam(),
         help='Audio file subtype',
         rich_help_panel=FILE_PANEL,
     ),
@@ -157,21 +163,21 @@ def recs(
     sleep_time_device: str = Option(
         RECS.sleep_time_device,
         '--sleep-time-device',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How long to sleep between checking device',
         rich_help_panel=CONSOLE_PANEL,
     ),
     sleep_time_live: str = Option(
         RECS.sleep_time_live,
         '--sleep-time-live',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How long to sleep between UI refreshes',
         rich_help_panel=CONSOLE_PANEL,
     ),
     sleep_time_spin: str = Option(
         RECS.sleep_time_spin,
         '--sleep-time-spin',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How long to sleep on the main thread',
         rich_help_panel=CONSOLE_PANEL,
     ),
@@ -192,13 +198,13 @@ def recs(
     ),
     longest_file_time: str = Option(
         RECS.longest_file_time,
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='Longest amount of time per file: 0 means infinite',
         rich_help_panel=RECORD_PANEL,
     ),
     moving_average_time: str = Option(
         RECS.moving_average_time,
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How long to average the volume display over',
         rich_help_panel=RECORD_PANEL,
     ),
@@ -211,7 +217,7 @@ def recs(
     ),
     shortest_file_time: str = Option(
         RECS.shortest_file_time,
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='Shortest amount of time per file',
         rich_help_panel=RECORD_PANEL,
     ),
@@ -219,7 +225,7 @@ def recs(
         RECS.quiet_after_end,
         '-c',
         '--quiet-after-end',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How much quiet after the end',
         rich_help_panel=RECORD_PANEL,
     ),
@@ -227,14 +233,14 @@ def recs(
         RECS.quiet_before_start,
         '-b',
         '--quiet-before-start',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How much quiet before a recording',
         rich_help_panel=RECORD_PANEL,
     ),
     stop_after_quiet: str = Option(
         RECS.stop_after_quiet,
         '--stop-after-quiet',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How much quiet before stopping a recording',
         rich_help_panel=RECORD_PANEL,
     ),
@@ -242,16 +248,16 @@ def recs(
         RECS.total_run_time,
         '-t',
         '--total-run-time',
-        click_type=ClickTime(),
+        click_type=TimeParam(),
         help='How many seconds to record? 0 means forever',
         rich_help_panel=RECORD_PANEL,
     ),
 ) -> None:
-    cfg = Cfg(**locals())
+    c = cfg.Cfg(**locals())
 
     from . import run
 
-    run.run(cfg)
+    run.run(c)
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))

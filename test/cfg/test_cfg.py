@@ -11,14 +11,6 @@ def test_sdtype(mock_devices):
     Cfg(format='wav', subtype='pcm_16', sdtype='int32')
 
 
-def test_bad_format(mock_devices):
-    Cfg(format='wav')
-    with pytest.raises(RecsError) as e:
-        Cfg(format='wov')
-
-    assert e.value.args == ('Cannot understand --format="wov"',)
-
-
 def test_bad_devices(mock_devices):
     with pytest.raises(RecsError) as e:
         Cfg(devices=Path('unknown.json'))

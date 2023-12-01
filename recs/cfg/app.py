@@ -2,6 +2,7 @@ import click
 import dtyper
 
 from recs.base import pyproject, times
+from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
 
 INTRO = f"""
   {pyproject.message()}
@@ -24,13 +25,43 @@ app = dtyper.Typer(
 )
 
 
-class ClickTime(click.ParamType):
+class TimeParam(click.ParamType):
     name = 'TIME'
 
-    def convert(self, value, param, ctx) -> float:
+    def convert(self, value, p, ctx) -> float:
         if isinstance(value, (int, float)):
             return value
         try:
             return times.to_time(value)
         except ValueError as e:
-            self.fail(f'{value!r} is not a valid time: {e.args[0]}', param, ctx)
+            self.fail(f'{p.opts[0]}: {e.args[0]}', p, ctx)
+
+
+class DictParam(click.ParamType):
+    name = 'NONE'
+    prefix_dict: dict
+
+    def convert(self, value, p, ctx):
+        if not value:
+            return None
+        if not isinstance(value, str):
+            return value
+        try:
+            return self.prefix_dict[value]
+        except KeyError:
+            self.fail(f'Cannot understand {p.opts[0]}="{value}"')
+
+
+class FormatParam(DictParam):
+    name = 'AUDIO FORMAT'
+    prefix_dict = FORMATS
+
+
+class SdTypeParam(DictParam):
+    name = 'NUMERIC TYPE'
+    prefix_dict = SDTYPES
+
+
+class SubtypeParam(DictParam):
+    name = 'AUDIO SUBTYPE'
+    prefix_dict = SUBTYPES
