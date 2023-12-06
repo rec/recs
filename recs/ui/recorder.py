@@ -33,15 +33,17 @@ class Recorder(Runnable):
             return dr
 
         self.device_recorders = tuple(make_recorder(t) for t in tracks)
-        self.device_thread = HasThread(self.check_devices, looping=True)
-        self.devices = device.input_names()
-        self.live_thread = HasThread(self.update_live, looping=True)
+        self.set_devices()
+        self.device_thread = HasThread(
+            self.set_devices, looping=True, pre_delay=cfg.sleep_time_device
+        )
 
     def run(self) -> None:
         dv = self.device_recorders
-        with contexts(self, self.live, self.live_thread, self.device_thread, *dv):
+        with contexts(self, self.live, self.device_thread, *dv):
             while self.running:
-                times.sleep(self.cfg.sleep_time_spin)
+                times.sleep(self.cfg.sleep_time_live)
+                self.live.update()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.total_state.rows(self.devices)
@@ -50,10 +52,5 @@ class Recorder(Runnable):
         if self.running and all(d.stopped for d in self.device_recorders):
             self.stop()
 
-    def check_devices(self):
-        times.sleep(self.cfg.sleep_time_device)
+    def set_devices(self):
         self.devices = device.input_names()
-
-    def update_live(self):
-        times.sleep(self.cfg.sleep_time_live)
-        self.live.update()

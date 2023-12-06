@@ -175,13 +175,6 @@ def recs(
         help='How long to sleep between UI refreshes',
         rich_help_panel=CONSOLE_PANEL,
     ),
-    sleep_time_spin: str = Option(
-        RECS.sleep_time_spin,
-        '--sleep-time-spin',
-        click_type=app.TimeParam(),
-        help='How long to sleep on the main thread',
-        rich_help_panel=CONSOLE_PANEL,
-    ),
     ui_refresh_rate: float = Option(
         RECS.ui_refresh_rate,
         '--ui-refresh-rate',
