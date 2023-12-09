@@ -23,12 +23,6 @@ class InputStream(t.Protocol):
     def stop(self, ignore_errors=True) -> None:
         pass
 
-    def __enter__(self) -> t.Any:
-        pass
-
-    def __exit__(self, type, val, exc_tb) -> None:
-        pass
-
 
 class InputDevice(hash_cmp.HashCmp):
     def __init__(self, info: DeviceDict) -> None:
@@ -41,42 +35,22 @@ class InputDevice(hash_cmp.HashCmp):
     def __str__(self) -> str:
         return self.name
 
-    @property
-    def is_online(self) -> bool:
-        # TODO: this is wrong!
-        # https://github.com/spatialaudio/python-sounddevice/issues/382
-        # return any(self.name == i['name'] for i in sd.query_devices())
-        return True
-
     def input_stream(
-        self, callback: Callback, dtype: SdType, stop_all: Stop
+        self, callback: Callback, sdtype: SdType, stop_all: Stop
     ) -> InputStream:
         import sounddevice as sd
 
         stream: sd.InputStream
 
-        def cb(indata: np.ndarray, frames: int, _time: float, status: int) -> None:
-            # TODO: time is a _cffi_backend._CDataBase, not a float!
-
+        def cb(indata: np.ndarray, frames: int, _time: t.Any, status: int) -> None:
             if status:  # pragma: no cover
-                # This has not yet happened, probably because we never get behind
-                # the device callback cycle.
                 print('Status', self, status, file=sys.stderr)
 
-            if not indata.size:  # pragma: no cover
-                print('Empty block', self, file=sys.stderr)
-                return
-
             try:
-                # `indata` is always the same variable!
                 callback(indata.copy())
 
-            except Exception as e:  # pragma: no cover
-                # TODO: move this to the audio device_queue
-                if False:
-                    traceback.print_exc()
-                else:
-                    print(e)
+            except Exception:  # pragma: no cover
+                traceback.print_exc()
                 try:
                     stop_all()
                 except Exception:
@@ -86,7 +60,7 @@ class InputDevice(hash_cmp.HashCmp):
             callback=cb,
             channels=self.channels,
             device=self.name,
-            dtype=str(dtype),
+            dtype=sdtype,
             samplerate=self.samplerate,
         )
         return stream

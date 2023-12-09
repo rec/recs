@@ -78,5 +78,7 @@ class DeviceRecorder(Runnable):
     @cached_property
     def input_stream(self) -> InputStream:
         return self.device.input_stream(
-            callback=self.queue.queue.put, dtype=self.cfg.sdtype, stop_all=self.stop_all
+            callback=self.queue.queue.put,
+            sdtype=self.cfg.sdtype,
+            stop_all=self.stop_all,
         )
