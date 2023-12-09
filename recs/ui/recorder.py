@@ -13,8 +13,8 @@ from .device_recorder import DeviceRecorder
 from .device_tracks import device_tracks
 from .total_state import TotalState
 
-USE_PROXY = 'RECS_USE_PROXY' in os.environ
-Device = DeviceProxy if USE_PROXY else DeviceRecorder
+USE_THREADS = 'RECS_USE_THREADS' in os.environ
+Device = DeviceRecorder if USE_THREADS else DeviceProxy
 
 
 class Recorder(Runnable):
@@ -31,13 +31,7 @@ class Recorder(Runnable):
         tracks = self.device_tracks.values()
 
         self.total_state = TotalState(self.device_tracks)
-
-        def make_recorder(t) -> Runnable:
-            dr = Device(cfg, t, self.stop, self.total_state.update)
-            dr.stopped.on_set.append(self.on_stopped)
-            return dr
-
-        self.device_recorders = tuple(make_recorder(t) for t in tracks)
+        self.device_recorders = tuple(self._device_recorder(t) for t in tracks)
         self.set_devices()
         self.device_thread = HasThread(
             self.set_devices, looping=True, pre_delay=cfg.sleep_time_device
@@ -56,6 +50,12 @@ class Recorder(Runnable):
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):
             self.stop()
+
+    def _device_recorder(self, t) -> Runnable:
+        dr = Device(self.cfg, t, self.stop, self.total_state.update)
+        if USE_THREADS:
+            dr.stopped.on_set.append(self.on_stopped)
+        return dr
 
     def set_devices(self):
         self.devices = device.input_names()
