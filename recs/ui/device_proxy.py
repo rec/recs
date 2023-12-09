@@ -48,16 +48,17 @@ class DeviceProxy(Runnable):
         super().stop()
 
     def _read_pipe(self) -> None:
-        message = _poll(self.from_process)
-        if message:
-            print(message)
-        if message == STOP:
-            self.process_stopped = True
-            self.stop_all()
-        elif message:
-            assert isinstance(list, message)
-            assert all(isinstance(dict, i) for i in message)
-            self.callback(message)
+        try:
+            message = _poll(self.from_process)
+            if message == STOP:
+                self.process_stopped = True
+                self.stop_all()
+            elif message:
+                self.callback(message)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            self.stop()
 
 
 def device_process(
