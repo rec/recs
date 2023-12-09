@@ -27,10 +27,7 @@ class Live:
 
     def update(self) -> None:
         if not self.cfg.silent:
-            t = times.time()
-            if (t - self._last_update_time) >= 1 / self.cfg.ui_refresh_rate:
-                self._last_update_time = t
-                self.live.update(self.table())
+            self.live.update(self.table())
 
     @cached_property
     def live(self) -> live.Live:

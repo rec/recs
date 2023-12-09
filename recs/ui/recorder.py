@@ -42,7 +42,7 @@ class Recorder(Runnable):
         dv = self.device_recorders
         with contexts(self, self.live, self.device_thread, *dv):
             while self.running:
-                times.sleep(self.cfg.sleep_time_live)
+                times.sleep(1 / self.cfg.ui_refresh_rate)
                 self.live.update()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:

@@ -168,13 +168,6 @@ def recs(
         help='How long to sleep between checking device',
         rich_help_panel=CONSOLE_PANEL,
     ),
-    sleep_time_live: str = Option(
-        RECS.sleep_time_live,
-        '--sleep-time-live',
-        click_type=app.TimeParam(),
-        help='How long to sleep between UI refreshes',
-        rich_help_panel=CONSOLE_PANEL,
-    ),
     ui_refresh_rate: float = Option(
         RECS.ui_refresh_rate,
         '--ui-refresh-rate',

@@ -43,7 +43,6 @@ class CfgRaw:
     clear: bool = False
     silent: bool = False
     sleep_time_device: float = 0.1
-    sleep_time_live: float = 0.013
     ui_refresh_rate: float = 23.0
     #
     # Settings relating to times
