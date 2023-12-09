@@ -73,6 +73,7 @@ class DeviceRecorder(Runnable):
         self.queue.stop()
         for c in self.channel_writers:
             c.stop()
+        self.stop_all()
         self.stopped.set()
 
     @cached_property

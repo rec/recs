@@ -73,5 +73,4 @@ def device_process(
         from_process.send(STOP)
 
     recorder = DeviceRecorder(Cfg(**cfg.asdict()), tracks, stop_all, from_process.send)
-    from_process.send('hello')
     recorder.start()
