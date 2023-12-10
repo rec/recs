@@ -9,7 +9,7 @@ from . import live
 from .contexts import contexts
 from .device_proxy import DeviceProxy
 from .device_tracks import device_tracks
-from .total_state import TotalState
+from .state import State
 
 
 class Recorder(Runnable):
@@ -25,7 +25,7 @@ class Recorder(Runnable):
 
         tracks = self.device_tracks.values()
 
-        self.total_state = TotalState(self.device_tracks)
+        self.state = State(self.device_tracks)
         self.device_recorders = tuple(self._device_recorder(t) for t in tracks)
         self.set_devices()
         self.device_thread = HasThread(
@@ -40,14 +40,14 @@ class Recorder(Runnable):
                 self.live.update()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield from self.total_state.rows(self.devices)
+        yield from self.state.rows(self.devices)
 
     def on_stopped(self) -> None:
         if self.running and all(d.stopped for d in self.device_recorders):
             self.stop()
 
     def _device_recorder(self, t) -> DeviceProxy:
-        return DeviceProxy(self.cfg, t, self.stop, self.total_state.update)
+        return DeviceProxy(self.cfg, t, self.stop, self.state.update)
 
     def set_devices(self):
         self.devices = device.input_names()

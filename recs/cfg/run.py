@@ -21,9 +21,9 @@ def run(cfg: Cfg) -> None:
         rec.run()
     finally:
         if cfg.calibrate:
-            states = rec.total_state.state.items()
+            states = rec.state.state.items()
             d = {j: {k: v.db_range for k, v in u.items()} for j, u in states}
-            d2 = {'(all)': rec.total_state.total.db_range}
+            d2 = {'(all)': rec.state.total.db_range}
             print(json.dumps(d | d2, indent=2))
 
 

@@ -5,7 +5,7 @@ from recs.base.types import Active
 from recs.cfg import InputDevice, Track
 
 
-class TotalState:
+class State:
     def __init__(self, tracks: dict[InputDevice, t.Sequence[Track]]) -> None:
         def device_state(t) -> state.DeviceState:
             return {i.name: state.ChannelState() for i in t}
