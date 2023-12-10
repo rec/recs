@@ -76,6 +76,9 @@ class DeviceRecorder(Runnable):
         self.stop_all()
         self.stopped.set()
 
+    def join(self, timeout: float | None = None) -> None:
+        self.queue.join(timeout)
+
     @cached_property
     def input_stream(self) -> InputStream:
         return self.device.input_stream(

@@ -45,6 +45,7 @@ class Recorder(IsThread):
 
     @override
     def join(self, timeout: float | None = None) -> None:
+        print('!!!!!!! join!')
         super().join(timeout)
         for d in self.devices:
             d.join(timeout)
