@@ -44,5 +44,11 @@ class Recorder(IsThread):
         yield from self.state.rows(self.device_names)
 
     @override
+    def join(self, timeout: float | None = None) -> None:
+        super().join(timeout)
+        for d in self.devices:
+            d.join(timeout)
+
+    @override
     def callback(self) -> None:
         self.device_names = device.input_names()

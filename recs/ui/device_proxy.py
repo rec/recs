@@ -2,6 +2,7 @@ import multiprocessing as mp
 import typing as t
 from multiprocessing.connection import Connection
 
+from overrides import override
 from threa import IsThread
 
 from recs.base import cfg_raw, state, types
@@ -34,10 +35,12 @@ class DeviceProxy(IsThread):
         self.process_stopped = False
         self.stop_all = stop_all
 
+    @override
     def start(self) -> None:
         self.process.start()
         super().start()
 
+    @override
     def stop(self) -> None:
         if not self.process_stopped:
             self.process_stopped = True
@@ -46,6 +49,12 @@ class DeviceProxy(IsThread):
         self.stop_all()
         super().stop()
 
+    @override
+    def join(self, timeout: float | None = None) -> None:
+        super().join(timeout)
+        self.process.join(timeout)
+
+    @override
     def callback(self) -> None:
         try:
             message = _poll(self.from_process)
