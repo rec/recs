@@ -57,6 +57,7 @@ class DeviceProxy(Runnable):
                 self.callback(message)
         except Exception:
             import traceback
+
             traceback.print_exc()
             self.stop()
 
