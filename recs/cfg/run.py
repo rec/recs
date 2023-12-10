@@ -18,7 +18,7 @@ def run(cfg: Cfg) -> None:
 
     rec = Recorder(cfg)
     try:
-        rec.run()
+        rec.run_recorder()
     finally:
         if cfg.calibrate:
             states = rec.state.state.items()

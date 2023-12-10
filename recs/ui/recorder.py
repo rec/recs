@@ -1,6 +1,7 @@
 import typing as t
 
-from threa import HasThread, Runnable
+from overrides import override
+from threa import IsThread
 
 from recs.base import RecsError, times
 from recs.cfg import Cfg, device
@@ -12,9 +13,12 @@ from .device_tracks import device_tracks
 from .state import State
 
 
-class Recorder(Runnable):
+class Recorder(IsThread):
+    looping = True
+
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
+        self.pre_delay = cfg.sleep_time_device
 
         self.device_tracks = device_tracks(cfg)
         if not self.device_tracks:
@@ -22,32 +26,23 @@ class Recorder(Runnable):
 
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
+        self.state = State(self.device_tracks)
 
         tracks = self.device_tracks.values()
+        dp = (DeviceProxy(cfg, t, self.stop, self.state.update) for t in tracks)
+        self.devices = tuple(dp)
 
-        self.state = State(self.device_tracks)
-        self.device_recorders = tuple(self._device_recorder(t) for t in tracks)
-        self.set_devices()
-        self.device_thread = HasThread(
-            self.set_devices, looping=True, pre_delay=cfg.sleep_time_device
-        )
+        self.callback()
 
-    def run(self) -> None:
-        dv = self.device_recorders
-        with contexts(self, self.live, self.device_thread, *dv):
+    def run_recorder(self) -> None:
+        with contexts(self, self.live, *self.devices):
             while self.running:
                 times.sleep(1 / self.cfg.ui_refresh_rate)
                 self.live.update()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield from self.state.rows(self.devices)
+        yield from self.state.rows(self.device_names)
 
-    def on_stopped(self) -> None:
-        if self.running and all(d.stopped for d in self.device_recorders):
-            self.stop()
-
-    def _device_recorder(self, t) -> DeviceProxy:
-        return DeviceProxy(self.cfg, t, self.stop, self.state.update)
-
-    def set_devices(self):
-        self.devices = device.input_names()
+    @override
+    def callback(self) -> None:
+        self.device_names = device.input_names()

@@ -2,7 +2,7 @@ import multiprocessing as mp
 import typing as t
 from multiprocessing.connection import Connection
 
-from threa import HasThread, Runnable
+from threa import IsThread
 
 from recs.base import cfg_raw, state, types
 from recs.cfg import Cfg, Track
@@ -15,7 +15,9 @@ def _poll(conn: Connection) -> t.Any:
     return conn.poll(POLL_TIMEOUT) and conn.recv()
 
 
-class DeviceProxy(Runnable):
+class DeviceProxy(IsThread):
+    looping = True
+
     def __init__(
         self,
         cfg: Cfg,
@@ -25,17 +27,15 @@ class DeviceProxy(Runnable):
     ) -> None:
         super().__init__()
 
-        self.callback = callback
+        self._callback = callback
 
         self.to_process, self.from_process = pipe = mp.Pipe()
         self.process = mp.Process(target=device_process, args=(cfg.cfg, tracks, *pipe))
-        self.pipe_thread = HasThread(self._read_pipe, looping=True)
         self.process_stopped = False
         self.stop_all = stop_all
 
     def start(self) -> None:
         self.process.start()
-        self.pipe_thread.start()
         super().start()
 
     def stop(self) -> None:
@@ -43,18 +43,17 @@ class DeviceProxy(Runnable):
             self.process_stopped = True
             self.to_process.send(STOP)
 
-        self.pipe_thread.stop()
         self.stop_all()
         super().stop()
 
-    def _read_pipe(self) -> None:
+    def callback(self) -> None:
         try:
             message = _poll(self.from_process)
             if message == STOP:
                 self.process_stopped = True
                 self.stop_all()
             elif message:
-                self.callback(message)
+                self._callback(message)
         except Exception:
             import traceback
 
