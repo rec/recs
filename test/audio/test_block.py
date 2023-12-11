@@ -63,6 +63,5 @@ def test_rms2():
     i = 0x4000
     b = Block(np.array([[i, i], [0, 0], [-i, -i]], dtype='int16'))
     print(b, b.asfloat)
-    print('!!!!', b.rms)
     level = 1 / 6**0.5
     assert np.allclose(b.rms, [level, level])
