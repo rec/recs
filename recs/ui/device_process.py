@@ -17,17 +17,15 @@ class DeviceProcess(IsThread):
         self,
         raw_cfg: cfg_raw.CfgRaw,
         tracks: t.Sequence[Track],
-        from_process: Connection,
-        to_process: Connection,
+        connection: Connection,
     ) -> None:
         super().__init__()
 
-        self.from_process = from_process
-        self.to_process = to_process
+        self.connection = connection
 
         cfg = Cfg(**raw_cfg.asdict())
-        self.recorder = DeviceRecorder(cfg, tracks, self.stop_all, from_process.send)
+        self.recorder = DeviceRecorder(cfg, tracks, self.stop_all, connection.send)
         self.recorder.start()
 
     def stop_all(self) -> None:
-        self.from_process.send(STOP)
+        self.connection.send(STOP)

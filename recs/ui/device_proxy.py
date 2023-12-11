@@ -32,8 +32,8 @@ class DeviceProxy(IsThread):
 
         self._callback = callback
 
-        self.to_process, self.from_process = pipe = mp.Pipe()
-        self.process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, *pipe))
+        self.connection, child = mp.Pipe()
+        self.process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, child))
         self.process_stopped = False
         self.stop_all = stop_all
 
@@ -47,7 +47,7 @@ class DeviceProxy(IsThread):
         self.running.clear()
         if not self.process_stopped:
             self.process_stopped = True
-            self.to_process.send(STOP)
+            self.connection.send(STOP)
 
         self.stop_all()
         super().stop()
@@ -59,7 +59,7 @@ class DeviceProxy(IsThread):
 
     @override
     def callback(self) -> None:
-        message = poll_recv(self.from_process)
+        message = poll_recv(self.connection)
         if message == STOP:
             self.process_stopped = True
             self.stop_all()
