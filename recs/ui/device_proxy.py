@@ -1,13 +1,21 @@
-import multiprocessing as mp
 import traceback
 import typing as t
-from multiprocessing.connection import Connection
 
 from overrides import override
 from threa import IsThread
 
 from recs.base import cfg_raw, state, types
 from recs.cfg import Cfg, Track
+
+USE_DUMMY_MP = False
+if USE_DUMMY_MP:
+    import multiprocessing.dummy as mp
+
+else:
+    import multiprocessing as mp  # type: ignore[no-redef]
+    import multiprocessing.connection
+
+Connection = mp.connection.Connection
 
 POLL_TIMEOUT = 0.1
 STOP = 'stop'
