@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import traceback
 import typing as t
 from multiprocessing.connection import Connection
 
@@ -64,8 +65,6 @@ class DeviceProxy(IsThread):
             elif message:
                 self._callback(message)
         except Exception:
-            import traceback
-
             traceback.print_exc()
             self.stop()
 
