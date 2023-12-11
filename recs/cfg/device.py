@@ -73,12 +73,12 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
 
 
-P = 'import json, sounddevice; print(json.dumps(sounddevice.query_devices(), indent=4))'
+CMD = sys.executable, '-m', 'recs.base._query_device'
 
 
 def query_devices() -> t.Sequence[DeviceDict]:
     try:
-        r = sp.run((sys.executable, '-c', P), text=True, check=True, stdout=sp.PIPE)
+        r = sp.run(CMD, text=True, check=True, stdout=sp.PIPE)
     except sp.CalledProcessError:
         return []
     return json.loads(r.stdout)
