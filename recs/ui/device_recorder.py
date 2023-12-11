@@ -2,6 +2,7 @@ import typing as t
 from functools import cached_property, partial
 
 import numpy as np
+from overrides import override
 from threa import Runnable, ThreadQueue
 
 from recs.audio.channel_writer import ChannelWriter
@@ -61,11 +62,13 @@ class DeviceRecorder(Runnable):
         dt = times.time() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
 
+    @override
     def start(self) -> None:
         super().start()
         self.queue.start()
         self.input_stream.start()
 
+    @override
     def stop(self) -> None:
         self.running.clear()
         self.input_stream.stop()
@@ -76,6 +79,7 @@ class DeviceRecorder(Runnable):
         self.stop_all()
         self.stopped.set()
 
+    @override
     def join(self, timeout: float | None = None) -> None:
         self.queue.join(timeout)
 
