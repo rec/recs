@@ -4,7 +4,7 @@ import typing as t
 from overrides import override
 from threa import IsThread
 
-from recs.base import cfg_raw, state, types
+from recs.base import state, types
 from recs.cfg import Cfg, Track
 
 USE_DUMMY_MP = False
@@ -35,12 +35,14 @@ class DeviceProxy(IsThread):
         stop_all: types.Stop,
         callback: t.Callable[[state.RecorderState], None],
     ) -> None:
+        from .device_process import DeviceProcess
+
         super().__init__()
 
         self._callback = callback
 
         self.to_process, self.from_process = pipe = mp.Pipe()
-        self.process = mp.Process(target=device_process, args=(cfg.cfg, tracks, *pipe))
+        self.process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, *pipe))
         self.process_stopped = False
         self.stop_all = stop_all
 
@@ -51,6 +53,7 @@ class DeviceProxy(IsThread):
 
     @override
     def stop(self) -> None:
+        self.running.clear()
         if not self.process_stopped:
             self.process_stopped = True
             self.to_process.send(STOP)
@@ -75,18 +78,3 @@ class DeviceProxy(IsThread):
         except Exception:
             traceback.print_exc()
             self.stop()
-
-
-def device_process(
-    cfg: cfg_raw.CfgRaw,
-    tracks: t.Sequence[Track],
-    from_process: Connection,
-    to_process: Connection,
-) -> None:
-    from .device_recorder import DeviceRecorder
-
-    def stop_all() -> None:
-        from_process.send(STOP)
-
-    recorder = DeviceRecorder(Cfg(**cfg.asdict()), tracks, stop_all, from_process.send)
-    recorder.start()
