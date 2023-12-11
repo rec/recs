@@ -1,5 +1,6 @@
-import traceback
+import multiprocessing as mp
 import typing as t
+from multiprocessing.connection import Connection
 
 from overrides import override
 from threa import IsThread
@@ -7,21 +8,11 @@ from threa import IsThread
 from recs.base import state, types
 from recs.cfg import Cfg, Track
 
-USE_DUMMY_MP = False
-if USE_DUMMY_MP:
-    import multiprocessing.dummy as mp
-
-else:
-    import multiprocessing as mp  # type: ignore[no-redef]
-    import multiprocessing.connection
-
-Connection = mp.connection.Connection
-
 POLL_TIMEOUT = 0.1
 STOP = 'stop'
 
 
-def _poll(conn: Connection) -> t.Any:
+def poll_recv(conn: Connection) -> t.Any:
     return conn.poll(POLL_TIMEOUT) and conn.recv()
 
 
@@ -68,13 +59,9 @@ class DeviceProxy(IsThread):
 
     @override
     def callback(self) -> None:
-        try:
-            message = _poll(self.from_process)
-            if message == STOP:
-                self.process_stopped = True
-                self.stop_all()
-            elif message:
-                self._callback(message)
-        except Exception:
-            traceback.print_exc()
-            self.stop()
+        message = poll_recv(self.from_process)
+        if message == STOP:
+            self.process_stopped = True
+            self.stop_all()
+        elif message:
+            self._callback(message)
