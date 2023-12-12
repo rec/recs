@@ -5,9 +5,9 @@ from threa import IsThread
 
 from recs.base import RecsError, times
 from recs.cfg import Cfg, device
+from recs.misc.contexts import contexts
 
 from . import live
-from .contexts import contexts
 from .device_proxy import DeviceProxy
 from .device_tracks import device_tracks
 from .state import State
