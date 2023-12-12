@@ -10,6 +10,7 @@ from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Format, SdType, Subtype
+from recs.misc import log
 
 from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
@@ -24,6 +25,10 @@ class Cfg:
     @wraps(CfgRaw.__init__)
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
+
+        # This constructor has this single *global side-effect*, see log.py
+        log.VERBOSE = cfg.verbose
+
         self.path = path_pattern.PathPattern(cfg.path)
 
         self.format = t.cast(Format, cfg.format)
