@@ -41,6 +41,8 @@ def mock_devices(monkeypatch):
 
 @pytest.fixture
 def mock_input_streams(monkeypatch, mock_devices):
+    monkeypatch.setattr(times, 'time', time)
+
     import sounddevice as sd
 
     class InputStream(sd.InputStream):
@@ -87,8 +89,3 @@ def mock_input_streams(monkeypatch, mock_devices):
 
     monkeypatch.setattr(sd, 'InputStream', InputStream)
     monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)
-
-
-@pytest.fixture
-def mock_time(monkeypatch):
-    monkeypatch.setattr(times, 'time', time)
