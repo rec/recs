@@ -10,7 +10,7 @@ from recs.misc.contexts import contexts
 from . import live
 from .device_proxy import DeviceProxy
 from .device_tracks import device_tracks
-from .state import State
+from .full_state import FullState
 
 
 class Recorder(IsThread):
@@ -26,7 +26,7 @@ class Recorder(IsThread):
 
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
-        self.state = State(self.device_tracks)
+        self.state = FullState(self.device_tracks)
 
         tracks = self.device_tracks.values()
         dp = (DeviceProxy(cfg, t, self.stop, self.state.update) for t in tracks)
