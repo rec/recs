@@ -3,7 +3,7 @@ import typing as t
 from overrides import override
 from threa import IsThread
 
-from recs.base import RecsError, times
+from recs.base import RecsError, state, times
 from recs.cfg import Cfg, device
 from recs.misc.contexts import contexts
 
@@ -29,7 +29,7 @@ class Recorder(IsThread):
         self.state = FullState(self.device_tracks)
 
         tracks = self.device_tracks.values()
-        dp = (DeviceProxy(cfg, t, self.stop, self.state.update) for t in tracks)
+        dp = (DeviceProxy(cfg, t, self.stop, self._update) for t in tracks)
         self.devices = tuple(dp)
 
         self.callback()
@@ -44,11 +44,11 @@ class Recorder(IsThread):
         yield from self.state.rows(self.device_names)
 
     @override
-    def join(self, timeout: float | None = None) -> None:
-        super().join(timeout)
-        for d in self.devices:
-            d.join(timeout)
-
-    @override
     def callback(self) -> None:
         self.device_names = device.input_names()
+
+    def _update(self, state: state.RecorderState) -> None:
+        self.state.update(state)
+
+        if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:
+            self.stop()
