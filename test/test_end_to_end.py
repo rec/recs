@@ -42,8 +42,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
 
         def make_input_stream(self, **ka):
-            s = self.InputStream(**ka)
-            self.streams.append(s)
+            self.streams.append(s := self.InputStream(**ka))
             return s
 
         def events(self):
@@ -76,7 +75,8 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
                     self._time = TIMESTAMP + offset
                     stream._recs_callback()
 
-    test_case = ThreadTestCase(monkeypatch)
+    cls = ThreadTestCase if True else ReporterTestCase
+    test_case = cls(monkeypatch)
     test_case.run()
 
     actual = sorted(Path().glob('**/*.flac'))
