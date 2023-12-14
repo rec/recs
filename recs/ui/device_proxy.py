@@ -49,7 +49,6 @@ class DeviceProxy(IsThread):
             self.process_stopped = True
             self.connection.send(STOP)
 
-        self.stop_all()
         super().stop()
 
     @override
