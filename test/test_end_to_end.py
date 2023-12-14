@@ -21,7 +21,7 @@ CASES = (
     ('device_channel', {'path': '{device}/{channel}'}),
 )
 
-DEVICE_OFFSET = 0.0073
+DEVICE_OFFSET = 0.0007373
 
 
 @pytest.mark.parametrize('name, cfd', CASES)
@@ -69,15 +69,23 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
     class ReporterTestCase(TestCase):
         InputStream = InputStreamReporter
 
-        def run(self):
-            for offset, stream in sorted(self.events):
+        def _run(self):
+            assert sorted(self.events())
+            for offset, stream in sorted(self.events()):
                 if 'stop' not in stream._recs_report:
                     self._time = TIMESTAMP + offset
                     stream._recs_callback()
 
     cls = ThreadTestCase if True else ReporterTestCase
     test_case = cls(monkeypatch)
+
+    assert not sorted(test_case.events())
     test_case.run()
+
+    events = sorted(test_case.events())
+    events = [(int(o * 1_000_000), s.channels) for o, s in events]
+    assert events
+    assert len(events) == 218
 
     actual = sorted(Path().glob('**/*.flac'))
 
