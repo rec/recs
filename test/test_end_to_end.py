@@ -34,7 +34,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
     class TestCase:
         _time = TIMESTAMP
 
-        def __init__(self):
+        def __init__(self, monkeypatch):
             monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
             monkeypatch.setattr(times, 'time', self.time)
 
@@ -71,7 +71,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
                     self._time = TIMESTAMP + offset
                     stream._recs_callback()
 
-    test_case = ThreadTestCase()
+    test_case = ThreadTestCase(monkeypatch)
 
     with HasThread(lambda: run.run(test_case.cfg)):
         test_case.run()
