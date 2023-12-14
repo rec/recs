@@ -6,9 +6,10 @@ import pytest
 import soundfile as sf
 import tdir
 
+from recs.base import times
 from recs.cfg import Cfg, run
 
-from .conftest import DEVICES
+from .conftest import DEVICES, TIMESTAMP
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
@@ -20,9 +21,15 @@ CASES = (
 )
 
 
+def time():
+    return TIMESTAMP
+
+
 @pytest.mark.parametrize('name, dry_run, silent, path', CASES)
 @tdir
-def test_end_to_end(name, dry_run, silent, path, mock_input_streams):
+def test_end_to_end(name, dry_run, silent, path, mock_input_streams, monkeypatch):
+    monkeypatch.setattr(times, 'time', time)
+
     cfg = Cfg(
         dry_run=dry_run,
         silent=silent,

@@ -25,10 +25,6 @@ TIMESTAMP = TIME.timestamp()
 DELTA = timedelta(seconds=1)
 
 
-def time():
-    return TIMESTAMP
-
-
 def query_devices(kind=None):
     assert kind is None
     return copy.deepcopy(DEVICES)
@@ -41,8 +37,6 @@ def mock_devices(monkeypatch):
 
 @pytest.fixture
 def mock_input_streams(monkeypatch, mock_devices):
-    monkeypatch.setattr(times, 'time', time)
-
     import sounddevice as sd
 
     class InputStream(sd.InputStream):
