@@ -1,3 +1,6 @@
-def run_streams(has_time, streams, cfg):
+from .conftest import BLOCK_SIZE
+
+
+def run_streams(test_case):
     # Send data to the streams, setting time accordingly
-    pass
+    assert BLOCK_SIZE
