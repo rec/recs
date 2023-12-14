@@ -37,6 +37,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
             monkeypatch.setattr(times, 'time', self.time)
             self.streams = []
+            self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
 
         def make_input_stream(self, **ka):
             s = self.InputStream(**ka)
@@ -56,17 +57,16 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            run_streams.run_streams(self, self.streams, cfg)
+            run_streams.run_streams(self, self.streams, self.cfg)
 
     test_case = ThreadTestCase()
 
-    cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
-    with HasThread(lambda: run.run(cfg)):
+    with HasThread(lambda: run.run(test_case.cfg)):
         test_case.run()
 
     actual = sorted(Path().glob('**/*.flac'))
 
-    if cfg.dry_run:
+    if test_case.cfg.dry_run:
         assert not actual
         return
 
