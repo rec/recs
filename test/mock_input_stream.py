@@ -18,12 +18,12 @@ class InputStream(sd.InputStream):
             except AttributeError:
                 setattr(self, '_' + k, v)
 
-        self.__count = 0
+        self._recs_count = 0
 
         seed = int.from_bytes(self.device.encode(), byteorder='big')
-        self.__random = random.Random(seed)
-        self.__thread = HasThread(
-            self.__callback, looping=True, name=f'Thread-{self.device}'
+        self._recs_random = random.Random(seed)
+        self._recs_thread = HasThread(
+            self._recs_callback, looping=True, name=f'Thread-{self.device}'
         )
 
         shape = self.BLOCK_SIZE, self.channels
@@ -32,17 +32,17 @@ class InputStream(sd.InputStream):
         assert self.dtype == 'float32'
         assert array.dtype == np.double
 
-        self.__array = array.astype(self.dtype)
+        self._recs_array = array.astype(self.dtype)
 
     def start(self) -> None:
-        self.__thread.start()
+        self._recs_thread.start()
 
     def stop(self, ignore_errors: bool = True) -> None:
-        self.__thread.stop()
+        self._recs_thread.stop()
 
     def close(self, ignore_errors: bool = True) -> None:
         self.stop()
 
-    def __callback(self) -> None:
-        self.callback(self.__array, self.BLOCK_SIZE, 0, 0)
-        times.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
+    def _recs_callback(self) -> None:
+        self.callback(self._recs_array, self.BLOCK_SIZE, 0, 0)
+        times.sleep(SLEEP_TIME * self._recs_random.uniform(0.8, 1.2))
