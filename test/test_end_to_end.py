@@ -15,10 +15,10 @@ from .conftest import DEVICES, TIMESTAMP
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
 CASES = (
-    ('simple', False, False, ''),
-    ('simple', True, True, ''),
-    ('time', False, False, '{sdate}'),
-    ('device_channel', False, False, '{device}/{channel}'),
+    ('simple', {}),
+    ('simple', {'dry_run': True, 'silent': True}),
+    ('time', {'path': '{sdate}'}),
+    ('device_channel', {'path': '{device}/{channel}'}),
 )
 
 
@@ -26,9 +26,9 @@ def time():
     return TIMESTAMP
 
 
-@pytest.mark.parametrize('name, dry_run, silent, path', CASES)
+@pytest.mark.parametrize('name, cfd', CASES)
 @tdir
-def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypatch):
+def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
     import sounddevice as sd
 
     from .mock_input_stream import InputStreamReporter, ThreadInputStream
@@ -46,20 +46,13 @@ def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypa
     monkeypatch.setattr(sd, 'InputStream', make_input_stream1)
     monkeypatch.setattr(times, 'time', time)
 
-    cfg = Cfg(
-        dry_run=dry_run,
-        silent=silent,
-        shortest_file_time=0,
-        path=path,
-        total_run_time=0.1,
-    )
-
+    cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
     with HasThread(lambda: run.run(cfg)):
         pass
 
     actual = sorted(Path().glob('**/*.flac'))
 
-    if dry_run:
+    if cfg.dry_run:
         assert not actual
         return
 
