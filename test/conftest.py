@@ -34,7 +34,7 @@ def mock_devices(monkeypatch):
 def mock_input_streams(monkeypatch, mock_devices):
     import sounddevice as sd
 
-    from .mock_input_stream import InputStream
+    from .mock_input_stream import ThreadInputStream
 
-    monkeypatch.setattr(sd, 'InputStream', InputStream)
+    monkeypatch.setattr(sd, 'InputStream', ThreadInputStream)
     monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)

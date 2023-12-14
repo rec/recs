@@ -31,7 +31,7 @@ class InputStreamBase(sd.InputStream):
         self.callback(self._recs_array, self.BLOCK_SIZE, 0, 0)
 
 
-class InputStream(InputStreamBase):
+class ThreadInputStream(InputStreamBase):
     BLOCK_SIZE = 0x80
 
     def __init__(self, **ka):
