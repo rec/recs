@@ -46,10 +46,22 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             self.streams.append(s)
             return s
 
+        def events(self):
+            for i, stream in enumerate(self.streams):
+                dt = BLOCK_SIZE / stream.samplerate
+                offset = i * DEVICE_OFFSET
+                n = int(2 * self.cfg.total_run_time / dt)
+                for j in range(n):
+                    yield (offset + j * dt), stream
+
         def time(self):
             return self._time
 
         def run(self):
+            with HasThread(lambda: run.run(self.cfg)):
+                self._run()
+
+        def _run(self):
             pass
 
     class ThreadTestCase(TestCase):
@@ -59,22 +71,13 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            events = []
-            for i, stream in enumerate(self.streams):
-                dt = BLOCK_SIZE / stream.samplerate
-                offset = i * DEVICE_OFFSET
-                n = int(2 * self.cfg.total_run_time / dt)
-                events.extend((offset + j * dt, stream) for j in range(n))
-
-            for offset, stream in sorted(events):
+            for offset, stream in sorted(self.events):
                 if 'stop' not in stream._recs_report:
                     self._time = TIMESTAMP + offset
                     stream._recs_callback()
 
     test_case = ThreadTestCase(monkeypatch)
-
-    with HasThread(lambda: run.run(test_case.cfg)):
-        test_case.run()
+    test_case.run()
 
     actual = sorted(Path().glob('**/*.flac'))
 
