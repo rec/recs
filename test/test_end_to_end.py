@@ -45,6 +45,9 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         def time(self):
             return self.timestamp
 
+        def run(self, cfg, streams):
+            pass
+
     class ThreadTestCase(TestCase):
         InputStream = ThreadInputStream
 
@@ -56,7 +59,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
 
     cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
     with HasThread(lambda: run.run(cfg)):
-        pass
+        test_case.run(cfg, streams)
 
     actual = sorted(Path().glob('**/*.flac'))
 
