@@ -1,11 +1,9 @@
 import typing as t
 
-from overrides import override
-from threa import IsThread
+from threa import HasThread, Runnables
 
 from recs.base import RecsError, state, times
 from recs.cfg import Cfg, device
-from recs.misc.contexts import contexts
 
 from . import live
 from .device_proxy import DeviceProxy
@@ -13,13 +11,11 @@ from .device_tracks import device_tracks
 from .full_state import FullState
 
 
-class Recorder(IsThread):
+class Recorder(Runnables):
     looping = True
 
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
-        self.pre_delay = cfg.sleep_time_device
-
         self.device_tracks = device_tracks(cfg)
         if not self.device_tracks:
             raise RecsError('No devices or channels selected')
@@ -32,10 +28,15 @@ class Recorder(IsThread):
         dp = (DeviceProxy(cfg, t, self.stop, self._update) for t in tracks)
         self.devices = tuple(dp)
 
-        self.callback()
+        self.device_thread = HasThread(
+            self._update_device_names, looping=True, pre_delay=cfg.sleep_time_device
+        )
+
+        self._update_device_names()
+        self.runnables = self.live, self.device_thread, *self.devices
 
     def run_recorder(self) -> None:
-        with contexts(self, self.live, *self.devices):
+        with self:
             while self.running:
                 times.sleep(1 / self.cfg.ui_refresh_rate)
                 self.live.update()
@@ -43,8 +44,7 @@ class Recorder(IsThread):
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names)
 
-    @override
-    def callback(self) -> None:
+    def _update_device_names(self) -> None:
         self.device_names = device.input_names()
 
     def _update(self, state: state.RecorderState) -> None:

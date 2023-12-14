@@ -1,4 +1,3 @@
-import dataclasses as dc
 import typing as t
 from functools import cached_property
 
@@ -6,6 +5,7 @@ from humanfriendly import format_size
 from rich import live
 from rich.console import Console
 from rich.table import Table
+from threa import Runnable
 
 from recs.base import times
 from recs.base.types import Active
@@ -18,12 +18,13 @@ RowsFunction = t.Callable[[], t.Iterator[dict[str, t.Any]]]
 CONSOLE = Console(color_system='truecolor')
 
 
-@dc.dataclass
-class Live:
-    rows: RowsFunction
-    cfg: Cfg
-
+class Live(Runnable):
     _last_update_time: float = 0
+
+    def __init__(self, rows: RowsFunction, cfg: Cfg) -> None:
+        self.rows = rows
+        self.cfg = cfg
+        super().__init__()
 
     def update(self) -> None:
         if not self.cfg.silent:
@@ -41,13 +42,15 @@ class Live:
     def table(self) -> Table:
         return TABLE_FORMATTER(self.rows())
 
-    def __enter__(self) -> None:
+    def start(self) -> None:
+        super().start()
         if not self.cfg.silent:
-            self.live.__enter__()
+            self.live.start(refresh=True)
 
-    def __exit__(self, *a) -> None:
+    def stop(self) -> None:
         if not self.cfg.silent:
-            self.live.__exit__(*a)
+            self.live.stop()
+        super().stop()
 
 
 def _rgb(r=0, g=0, b=0) -> str:
