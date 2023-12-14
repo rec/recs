@@ -34,12 +34,15 @@ def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypa
 
     streams = []
 
-    def make_input_stream(*a, **ka):
-        cls = ThreadInputStream if True else InputStreamReporter
-        streams.append(s := cls(*a, **ka))
+    def make_input_stream1(**ka):
+        streams.append(s := ThreadInputStream(**ka))
         return s
 
-    monkeypatch.setattr(sd, 'InputStream', make_input_stream)
+    def make_input_stream2(**ka):
+        streams.append(s := InputStreamReporter(**ka))
+        return s
+
+    monkeypatch.setattr(sd, 'InputStream', make_input_stream1)
     monkeypatch.setattr(times, 'time', time)
 
     cfg = Cfg(

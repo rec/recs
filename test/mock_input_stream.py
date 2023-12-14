@@ -58,20 +58,19 @@ class ThreadInputStream(InputStreamBase):
 
 
 class InputStreamReporter(sd.InputStream):
-    def __init__(self, report, **ka):
+    def __init__(self, **ka):
         super().__init__(**ka)
-        self._recs_report = lambda label: report(self, label)
-        self._recs_report('init')
+        self._recs_report = []
 
     def start(self) -> None:
-        return self._recs_report('start')
+        return self._recs_report.append('start')
 
     def stop(self, ignore_errors: bool = True) -> None:
-        return self._recs_report('start')
+        return self._recs_report.append('start')
 
     def close(self, ignore_errors: bool = True) -> None:
-        return self._recs_report('start')
+        return self._recs_report.append('start')
 
     def _recs_callback(self) -> None:
         super()._recs_callback()
-        self._recs_report('callback')
+        self._recs_report.append('callback')
