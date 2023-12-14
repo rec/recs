@@ -22,10 +22,6 @@ CASES = (
 )
 
 
-def time():
-    return TIMESTAMP
-
-
 @pytest.mark.parametrize('name, cfd', CASES)
 @tdir
 def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
@@ -35,16 +31,26 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
 
     streams = []
 
-    def make_input_stream1(**ka):
-        streams.append(s := ThreadInputStream(**ka))
-        return s
+    class TestCase:
+        def make_input_stream(self, **ka):
+            streams.append(s := self.InputStream(**ka))
+            return s
 
-    def make_input_stream2(**ka):
-        streams.append(s := InputStreamReporter(**ka))
-        return s
+        def monkeypatch(self):
+            monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
+            monkeypatch.setattr(times, 'time', self.time)
 
-    monkeypatch.setattr(sd, 'InputStream', make_input_stream1)
-    monkeypatch.setattr(times, 'time', time)
+        def time(self):
+            return TIMESTAMP
+
+    class ThreadTestCase(TestCase):
+        InputStream = ThreadInputStream
+
+    class ReporterTestCase(TestCase):
+        InputStream = InputStreamReporter
+
+    test_case = ThreadTestCase()
+    test_case.monkeypatch()
 
     cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
     with HasThread(lambda: run.run(cfg)):
