@@ -10,6 +10,7 @@ from threa import HasThread
 from recs.base import times
 from recs.cfg import Cfg, run
 
+from . import run_streams
 from .conftest import DEVICES, TIMESTAMP
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
@@ -32,7 +33,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
     streams = []
 
     class TestCase:
-        timestamp = TIMESTAMP
+        _time = TIMESTAMP
 
         def make_input_stream(self, **ka):
             streams.append(s := self.InputStream(**ka))
@@ -43,7 +44,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             monkeypatch.setattr(times, 'time', self.time)
 
         def time(self):
-            return self.timestamp
+            return self._time
 
         def run(self):
             pass
@@ -55,7 +56,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            pass
+            run_streams.run_streams(self, streams, cfg)
 
     test_case = ThreadTestCase()
     test_case.monkeypatch()

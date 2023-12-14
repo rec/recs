@@ -1,5 +1,5 @@
 import random
-from test.conftest import SLEEP_TIME
+from test.conftest import BLOCK_SIZE, SLEEP_TIME
 
 import numpy as np
 import sounddevice as sd
@@ -11,8 +11,6 @@ AMPLITUDE = 1 / 16
 
 
 class InputStreamBase(sd.InputStream):
-    BLOCK_SIZE = 0x80
-
     def __init__(self, **ka):
         for k, v in ka.items():
             try:
@@ -23,18 +21,16 @@ class InputStreamBase(sd.InputStream):
         self.actions = []
         self.seed = int.from_bytes(self.device.encode(), byteorder='big')
 
-        shape = self.BLOCK_SIZE, self.channels
+        shape = BLOCK_SIZE, self.channels
         rng = np.random.default_rng(self.seed)
         array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
         self._recs_array = array.astype(self.dtype)
 
     def _recs_callback(self) -> None:
-        self.callback(self._recs_array, self.BLOCK_SIZE, 0, 0)
+        self.callback(self._recs_array, BLOCK_SIZE, 0, 0)
 
 
 class ThreadInputStream(InputStreamBase):
-    BLOCK_SIZE = 0x80
-
     def __init__(self, **ka):
         super().__init__(**ka)
 
