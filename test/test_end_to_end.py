@@ -10,8 +10,7 @@ from threa import HasThread
 from recs.base import times
 from recs.cfg import Cfg, run
 
-from . import run_streams
-from .conftest import DEVICES, TIMESTAMP
+from .conftest import BLOCK_SIZE, DEVICES, TIMESTAMP
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
@@ -21,6 +20,8 @@ CASES = (
     ('time', {'path': '{sdate}'}),
     ('device_channel', {'path': '{device}/{channel}'}),
 )
+
+DEVICE_OFFSET = 0.0073
 
 
 @pytest.mark.parametrize('name, cfd', CASES)
@@ -36,6 +37,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         def __init__(self):
             monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
             monkeypatch.setattr(times, 'time', self.time)
+
             self.streams = []
             self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
 
@@ -57,7 +59,17 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            run_streams.run_streams(self)
+            events = []
+            for i, stream in enumerate(self.streams):
+                dt = BLOCK_SIZE / stream.samplerate
+                offset = i * DEVICE_OFFSET
+                n = int(2 * self.cfg.total_run_time / dt)
+                events.extend((offset + j * dt, stream) for j in range(n))
+
+            for offset, stream in sorted(events):
+                if 'stop' not in stream._recs_report:
+                    self._time = TIMESTAMP + offset
+                    stream._recs_callback()
 
     test_case = ThreadTestCase()
 

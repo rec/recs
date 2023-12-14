@@ -62,10 +62,10 @@ class InputStreamReporter(sd.InputStream):
         return self._recs_report.append('start')
 
     def stop(self, ignore_errors: bool = True) -> None:
-        return self._recs_report.append('start')
+        return self._recs_report.append('stop')
 
     def close(self, ignore_errors: bool = True) -> None:
-        return self._recs_report.append('start')
+        return self._recs_report.append('close')
 
     def _recs_callback(self) -> None:
         super()._recs_callback()
