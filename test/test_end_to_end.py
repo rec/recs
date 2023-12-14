@@ -39,7 +39,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             streams.append(s := self.InputStream(**ka))
             return s
 
-        def monkeypatch(self):
+        def __init__(self):
             monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
             monkeypatch.setattr(times, 'time', self.time)
 
@@ -59,7 +59,6 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
             run_streams.run_streams(self, streams, cfg)
 
     test_case = ThreadTestCase()
-    test_case.monkeypatch()
 
     cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
     with HasThread(lambda: run.run(cfg)):
