@@ -11,13 +11,13 @@ from recs.cfg import Cfg, run
 from .conftest import DEVICES
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
+
 CASES = (
     ('simple', False, False, ''),
     ('simple', True, True, ''),
     ('time', False, False, '{sdate}'),
     ('device_channel', False, False, '{device}/{channel}'),
 )
-assert tdir
 
 
 @pytest.mark.parametrize('name, dry_run, silent, path', CASES)
@@ -48,8 +48,8 @@ def test_end_to_end(name, dry_run, silent, path, mock_input_streams):
             f.write_bytes(a.read_bytes())
         return
 
-    assert [p.name for p in actual] == [p.name for p in expected]
     assert actual == [p.relative_to(tdata) for p in expected]
+    assert [p.name for p in actual] == [p.name for p in expected]
 
     ae = list(zip(actual, expected))
     nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
