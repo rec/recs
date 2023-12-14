@@ -7,6 +7,8 @@ from threa import HasThread
 
 from recs.base import times
 
+AMPLITUDE = 1 / 16
+
 
 class InputStreamBase(sd.InputStream):
     BLOCK_SIZE = 0x80
@@ -22,10 +24,7 @@ class InputStreamBase(sd.InputStream):
 
         shape = self.BLOCK_SIZE, self.channels
         rng = np.random.default_rng(self.seed)
-        array = rng.uniform(-1 / 16, 1 / 16, size=shape)
-        assert self.dtype == 'float32'
-        assert array.dtype == np.double
-
+        array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
         self._recs_array = array.astype(self.dtype)
 
     def _recs_callback(self) -> None:
