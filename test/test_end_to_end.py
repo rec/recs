@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 import tdir
+from threa import HasThread
 
 from recs.base import times
 from recs.cfg import Cfg, run
@@ -52,7 +53,9 @@ def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypa
         path=path,
         total_run_time=0.1,
     )
-    run.run(cfg)
+
+    with HasThread(lambda: run.run(cfg)):
+        pass
 
     actual = sorted(Path().glob('**/*.flac'))
 
