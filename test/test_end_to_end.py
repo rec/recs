@@ -30,17 +30,17 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
 
     from .mock_input_stream import InputStreamReporter, ThreadInputStream
 
-    streams = []
-
     class TestCase:
         _time = TIMESTAMP
 
         def __init__(self):
             monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
             monkeypatch.setattr(times, 'time', self.time)
+            self.streams = []
 
         def make_input_stream(self, **ka):
-            streams.append(s := self.InputStream(**ka))
+            s = self.InputStream(**ka)
+            self.streams.append(s)
             return s
 
         def time(self):
@@ -56,7 +56,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            run_streams.run_streams(self, streams, cfg)
+            run_streams.run_streams(self, self.streams, cfg)
 
     test_case = ThreadTestCase()
 
