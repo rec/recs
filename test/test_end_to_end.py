@@ -27,7 +27,19 @@ def time():
 
 @pytest.mark.parametrize('name, dry_run, silent, path', CASES)
 @tdir
-def test_end_to_end(name, dry_run, silent, path, mock_input_streams, monkeypatch):
+def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypatch):
+    import sounddevice as sd
+
+    from .mock_input_stream import InputStream, ThreadInputStream
+
+    streams = []
+
+    def make_input_stream(*a, **ka):
+        cls = ThreadInputStream if True else InputStream
+        streams.append(s := cls(*a, **ka))
+        return s
+
+    monkeypatch.setattr(sd, 'InputStream', make_input_stream)
     monkeypatch.setattr(times, 'time', time)
 
     cfg = Cfg(
