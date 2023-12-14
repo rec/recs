@@ -10,7 +10,7 @@ from recs.base import times
 AMPLITUDE = 1 / 16
 
 
-class InputStream(sd.InputStream):
+class InputStreamBase(sd.InputStream):
     BLOCK_SIZE = 0x80
 
     def __init__(self, **ka):
@@ -28,20 +28,11 @@ class InputStream(sd.InputStream):
         array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
         self._recs_array = array.astype(self.dtype)
 
-    def start(self) -> None:
-        self.actions.append('start')
-
-    def stop(self, ignore_errors: bool = True) -> None:
-        self.actions.append('stop')
-
-    def close(self, ignore_errors: bool = True) -> None:
-        self.actions.append('close')
-
     def _recs_callback(self) -> None:
         self.callback(self._recs_array, self.BLOCK_SIZE, 0, 0)
 
 
-class ThreadInputStream(InputStream):
+class ThreadInputStream(InputStreamBase):
     BLOCK_SIZE = 0x80
 
     def __init__(self, **ka):
@@ -64,3 +55,23 @@ class ThreadInputStream(InputStream):
     def _recs_callback(self) -> None:
         super()._recs_callback()
         times.sleep(SLEEP_TIME * self._recs_random.uniform(0.8, 1.2))
+
+
+class InputStreamReporter(sd.InputStream):
+    def __init__(self, report, **ka):
+        super().__init__(**ka)
+        self._recs_report = lambda label: report(self, label)
+        self._recs_report('init')
+
+    def start(self) -> None:
+        return self._recs_report('start')
+
+    def stop(self, ignore_errors: bool = True) -> None:
+        return self._recs_report('start')
+
+    def close(self, ignore_errors: bool = True) -> None:
+        return self._recs_report('start')
+
+    def _recs_callback(self) -> None:
+        super()._recs_callback()
+        self._recs_report('callback')

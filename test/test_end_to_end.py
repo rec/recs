@@ -30,12 +30,12 @@ def time():
 def test_end_to_end(name, dry_run, silent, path, mock_mp, mock_devices, monkeypatch):
     import sounddevice as sd
 
-    from .mock_input_stream import InputStream, ThreadInputStream
+    from .mock_input_stream import InputStreamReporter, ThreadInputStream
 
     streams = []
 
     def make_input_stream(*a, **ka):
-        cls = ThreadInputStream if True else InputStream
+        cls = ThreadInputStream if True else InputStreamReporter
         streams.append(s := cls(*a, **ka))
         return s
 
