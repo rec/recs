@@ -57,7 +57,7 @@ def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
         InputStream = InputStreamReporter
 
         def run(self):
-            run_streams.run_streams(self, self.streams, self.cfg)
+            run_streams.run_streams(self)
 
     test_case = ThreadTestCase()
 
