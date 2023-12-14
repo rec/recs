@@ -10,7 +10,7 @@ from recs.base import times
 AMPLITUDE = 1 / 16
 
 
-class InputStreamBase(sd.InputStream):
+class InputStream(sd.InputStream):
     BLOCK_SIZE = 0x80
 
     def __init__(self, **ka):
@@ -20,6 +20,7 @@ class InputStreamBase(sd.InputStream):
             except AttributeError:
                 setattr(self, '_' + k, v)
 
+        self.actions = []
         self.seed = int.from_bytes(self.device.encode(), byteorder='big')
 
         shape = self.BLOCK_SIZE, self.channels
@@ -27,11 +28,20 @@ class InputStreamBase(sd.InputStream):
         array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
         self._recs_array = array.astype(self.dtype)
 
+    def start(self) -> None:
+        self.actions.append('start')
+
+    def stop(self, ignore_errors: bool = True) -> None:
+        self.actions.append('stop')
+
+    def close(self, ignore_errors: bool = True) -> None:
+        self.actions.append('close')
+
     def _recs_callback(self) -> None:
         self.callback(self._recs_array, self.BLOCK_SIZE, 0, 0)
 
 
-class ThreadInputStream(InputStreamBase):
+class ThreadInputStream(InputStream):
     BLOCK_SIZE = 0x80
 
     def __init__(self, **ka):
