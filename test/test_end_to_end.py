@@ -5,43 +5,93 @@ import numpy as np
 import pytest
 import soundfile as sf
 import tdir
+from threa import HasThread
 
 from recs.base import times
 from recs.cfg import Cfg, run
 
-from .conftest import DEVICES, TIMESTAMP
+from .conftest import BLOCK_SIZE, DEVICES, TIMESTAMP
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
 CASES = (
-    ('simple', False, False, ''),
-    ('simple', True, True, ''),
-    ('time', False, False, '{sdate}'),
-    ('device_channel', False, False, '{device}/{channel}'),
+    ('simple', {}),
+    ('simple', {'dry_run': True, 'silent': True}),
+    ('time', {'path': '{sdate}'}),
+    ('device_channel', {'path': '{device}/{channel}'}),
 )
 
+DEVICE_OFFSET = 0.0007373
+EVENT_COUNT = 218
 
-def time():
-    return TIMESTAMP
 
-
-@pytest.mark.parametrize('name, dry_run, silent, path', CASES)
+@pytest.mark.parametrize('name, cfd', CASES)
 @tdir
-def test_end_to_end(name, dry_run, silent, path, mock_input_streams, monkeypatch):
-    monkeypatch.setattr(times, 'time', time)
+def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
+    import sounddevice as sd
 
-    cfg = Cfg(
-        dry_run=dry_run,
-        silent=silent,
-        shortest_file_time=0,
-        path=path,
-        total_run_time=0.1,
-    )
-    run.run(cfg)
+    from .mock_input_stream import InputStreamReporter, ThreadInputStream
+
+    class TestCase:
+        _time = TIMESTAMP
+
+        def __init__(self, monkeypatch):
+            monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
+            monkeypatch.setattr(times, 'time', self.time)
+
+            self.streams = []
+            self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
+
+        def make_input_stream(self, **ka):
+            self.streams.append(s := self.InputStream(**ka))
+            return s
+
+        def events(self):
+            for i, stream in enumerate(self.streams):
+                dt = BLOCK_SIZE / stream.samplerate
+                offset = i * DEVICE_OFFSET
+                n = int(2 * self.cfg.total_run_time / dt)
+                for j in range(n):
+                    yield (offset + j * dt), stream
+
+        def time(self):
+            return self._time
+
+        def run(self):
+            with HasThread(lambda: run.run(self.cfg)):
+                self._run()
+
+        def _run(self):
+            pass
+
+    class ThreadTestCase(TestCase):
+        InputStream = ThreadInputStream
+
+    class ReporterTestCase(TestCase):
+        InputStream = InputStreamReporter
+
+        def _run(self):
+            while sum(1 for i in self.events()) < EVENT_COUNT:
+                times.sleep(0.001)
+
+            for offset, stream in sorted(self.events()):
+                if 'stop' not in stream._recs_report:
+                    self._time = TIMESTAMP + offset
+                    stream._recs_callback()
+
+    cls = ThreadTestCase if not True else ReporterTestCase
+    test_case = cls(monkeypatch)
+
+    assert not sorted(test_case.events())
+    test_case.run()
+
+    events = sorted(test_case.events())
+    events = [(int(o * 1_000_000), s.channels) for o, s in events]
+    assert len(events) == EVENT_COUNT
 
     actual = sorted(Path().glob('**/*.flac'))
 
-    if dry_run:
+    if test_case.cfg.dry_run:
         assert not actual
         return
 
@@ -69,8 +119,9 @@ def test_end_to_end(name, dry_run, silent, path, mock_input_streams, monkeypatch
     assert differs_contents == []
 
     # Exact equality!
-    contents = [e for a, e in ae if a.read_bytes() != e.read_bytes()]
-    assert not contents
+    contents = [(a, e) for a, e in ae if a.read_bytes() != e.read_bytes()]
+    if not contents:
+        return
 
 
 def test_info(mock_input_streams, capsys):

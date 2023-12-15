@@ -26,15 +26,19 @@ def query_devices(kind=None):
 
 
 @pytest.fixture
+def mock_mp(monkeypatch):
+    monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)
+
+
+@pytest.fixture
 def mock_devices(monkeypatch):
     monkeypatch.setattr(device, 'query_devices', query_devices)
 
 
 @pytest.fixture
-def mock_input_streams(monkeypatch, mock_devices):
+def mock_input_streams(monkeypatch, mock_devices, mock_mp):
     import sounddevice as sd
 
-    from .mock_input_stream import InputStream
+    from .mock_input_stream import ThreadInputStream
 
-    monkeypatch.setattr(sd, 'InputStream', InputStream)
-    monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)
+    monkeypatch.setattr(sd, 'InputStream', ThreadInputStream)

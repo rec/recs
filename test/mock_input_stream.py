@@ -1,6 +1,5 @@
 import random
-from functools import cached_property
-from test.conftest import SLEEP_TIME
+from test.conftest import BLOCK_SIZE, SLEEP_TIME
 
 import numpy as np
 import sounddevice as sd
@@ -8,10 +7,10 @@ from threa import HasThread
 
 from recs.base import times
 
+AMPLITUDE = 1 / 16
 
-class InputStream(sd.InputStream):
-    BLOCK_SIZE = 0x80
 
+class InputStreamBase(sd.InputStream):
     def __init__(self, **ka):
         for k, v in ka.items():
             try:
@@ -19,34 +18,55 @@ class InputStream(sd.InputStream):
             except AttributeError:
                 setattr(self, '_' + k, v)
 
-        self.__count = 0
+        self.actions = []
+        self.seed = int.from_bytes(self.device.encode(), byteorder='big')
 
-        seed = int.from_bytes(self.device.encode(), byteorder='big')
-        self.__rng = np.random.default_rng(seed)
-        self.__random = random.Random(seed)
-        self.__thread = HasThread(
-            self.__callback, looping=True, name=f'Thread-{self.device}'
+        shape = BLOCK_SIZE, self.channels
+        rng = np.random.default_rng(self.seed)
+        array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
+        self._recs_array = array.astype(self.dtype)
+
+    def _recs_callback(self) -> None:
+        self.callback(self._recs_array, BLOCK_SIZE, 0, 0)
+
+
+class ThreadInputStream(InputStreamBase):
+    def __init__(self, **ka):
+        super().__init__(**ka)
+
+        self._recs_random = random.Random(self.seed)
+        self._recs_thread = HasThread(
+            self._recs_callback, looping=True, name=f'Thread-{self.device}'
         )
 
     def start(self) -> None:
-        self.__thread.start()
+        self._recs_thread.start()
 
     def stop(self, ignore_errors: bool = True) -> None:
-        self.__thread.stop()
+        self._recs_thread.stop()
 
     def close(self, ignore_errors: bool = True) -> None:
         self.stop()
 
-    @cached_property
-    def __array(self) -> np.ndarray:
-        shape = self.BLOCK_SIZE, self.channels
+    def _recs_callback(self) -> None:
+        super()._recs_callback()
+        times.sleep(SLEEP_TIME * self._recs_random.uniform(0.8, 1.2))
 
-        array = self.__rng.uniform(-1 / 16, 1 / 16, size=shape)
-        assert self.dtype == 'float32'
-        assert array.dtype == np.double
 
-        return array.astype(self.dtype)
+class InputStreamReporter(InputStreamBase):
+    def __init__(self, **ka):
+        super().__init__(**ka)
+        self._recs_report = []
 
-    def __callback(self) -> None:
-        self.callback(self.__array, self.BLOCK_SIZE, 0, 0)
-        times.sleep(SLEEP_TIME * self.__random.uniform(0.8, 1.2))
+    def start(self) -> None:
+        return self._recs_report.append('start')
+
+    def stop(self, ignore_errors: bool = True) -> None:
+        return self._recs_report.append('stop')
+
+    def close(self, ignore_errors: bool = True) -> None:
+        return self._recs_report.append('close')
+
+    def _recs_callback(self) -> None:
+        super()._recs_callback()
+        self._recs_report.append('callback')
