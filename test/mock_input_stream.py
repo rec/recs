@@ -53,7 +53,7 @@ class ThreadInputStream(InputStreamBase):
         times.sleep(SLEEP_TIME * self._recs_random.uniform(0.8, 1.2))
 
 
-class InputStreamReporter(sd.InputStream):
+class InputStreamReporter(InputStreamBase):
     def __init__(self, **ka):
         super().__init__(**ka)
         self._recs_report = []
