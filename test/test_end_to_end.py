@@ -5,12 +5,11 @@ import numpy as np
 import pytest
 import soundfile as sf
 import tdir
-from threa import HasThread
 
-from recs.base import times
 from recs.cfg import Cfg, run
 
-from .conftest import BLOCK_SIZE, DEVICES, TIMESTAMP
+from .conftest import DEVICES
+from .recs_runner import EVENT_COUNT, RecsRunner
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
@@ -21,68 +20,11 @@ CASES = (
     ('device_channel', {'path': '{device}/{channel}'}),
 )
 
-DEVICE_OFFSET = 0.0007373
-EVENT_COUNT = 218
 
-
-@pytest.mark.parametrize('name, cfd', CASES)
+@pytest.mark.parametrize('name, cfg', CASES)
 @tdir
-def test_end_to_end(name, cfd, mock_mp, mock_devices, monkeypatch):
-    import sounddevice as sd
-
-    from .mock_input_stream import InputStreamReporter, ThreadInputStream
-
-    class TestCase:
-        _time = TIMESTAMP
-
-        def __init__(self, monkeypatch):
-            monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
-            monkeypatch.setattr(times, 'time', self.time)
-
-            self.streams = []
-            self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfd)
-
-        def make_input_stream(self, **ka):
-            self.streams.append(s := self.InputStream(**ka))
-            return s
-
-        def events(self):
-            for i, stream in enumerate(self.streams):
-                dt = BLOCK_SIZE / stream.samplerate
-                offset = i * DEVICE_OFFSET
-                n = int(2 * self.cfg.total_run_time / dt)
-                for j in range(n):
-                    yield (offset + j * dt), stream
-
-        def time(self):
-            return self._time
-
-        def run(self):
-            with HasThread(lambda: run.run(self.cfg)):
-                self._run()
-
-        def _run(self):
-            pass
-
-    class ThreadTestCase(TestCase):
-        InputStream = ThreadInputStream
-
-    class ReporterTestCase(TestCase):
-        InputStream = InputStreamReporter
-
-        def _run(self):
-            while sum(1 for i in self.events()) < EVENT_COUNT:
-                times.sleep(0.001)
-
-            for offset, stream in sorted(self.events()):
-                if 'stop' not in stream._recs_report:
-                    self._time = TIMESTAMP + offset
-                    stream._recs_callback()
-
-    cls = ThreadTestCase if not True else ReporterTestCase
-    test_case = cls(monkeypatch)
-
-    assert not sorted(test_case.events())
+def test_end_to_end(name, cfg, mock_mp, mock_devices, monkeypatch):
+    test_case = RecsRunner(cfg, monkeypatch)
     test_case.run()
 
     events = sorted(test_case.events())
