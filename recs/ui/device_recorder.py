@@ -35,9 +35,9 @@ class DeviceRecorder(Runnable):
 
         self.channel_writers = tuple(make(track=t) for t in tracks)
         self.timestamp = times.time()
-        self.queue = ThreadQueue(callback=self.audio_callback)
+        self.queue = ThreadQueue(callback=self.device_callback)
 
-    def audio_callback(self, array: np.ndarray) -> None:
+    def device_callback(self, array: np.ndarray) -> None:
         self.timestamp = times.time()
 
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
@@ -46,7 +46,7 @@ class DeviceRecorder(Runnable):
 
         msgs: dict[str, state.ChannelState] = {}
         for c in self.channel_writers:
-            msgs[c.track.name] = c.receive_chunk(array, self.timestamp)
+            msgs[c.track.name] = c.receive_array(array, self.timestamp)
 
         self.elapsed_samples += len(array)
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:
