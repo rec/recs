@@ -14,8 +14,8 @@ from .recs_runner import EVENT_COUNT, RecsRunner
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
 CASES = (
-    ('simple', {}),
-    ('simple', {'dry_run': True, 'silent': True}),
+    ('default', {}),
+    ('default', {'dry_run': True, 'silent': True}),
     ('time', {'path': '{sdate}'}),
     ('device_channel', {'path': '{device}/{channel}'}),
 )
