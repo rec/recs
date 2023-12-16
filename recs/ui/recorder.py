@@ -24,16 +24,17 @@ class Recorder(Runnables):
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(self.device_tracks)
 
-        tracks = self.device_tracks.values()
-        dp = (DeviceProxy(cfg, t, self.stop, self._update) for t in tracks)
-        self.devices = tuple(dp)
-
+        self._update_device_names()
         self.device_thread = HasThread(
-            self._update_device_names, looping=True, pre_delay=cfg.sleep_time_device
+            self._update_device_names,
+            daemon=True,
+            looping=True,
+            pre_delay=cfg.sleep_time_device,
         )
 
-        self._update_device_names()
-        self.runnables = self.live, self.device_thread, *self.devices
+        tracks = self.device_tracks.values()
+        devices = (DeviceProxy(cfg, t, self.stop, self._update) for t in tracks)
+        self.runnables = self.live, self.device_thread, *devices
 
     def run_recorder(self) -> None:
         with self:
