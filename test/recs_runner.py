@@ -6,7 +6,7 @@ from threa import HasThread
 from recs.base import times
 from recs.cfg import Cfg, run
 
-DEVICE_OFFSET = 0.0007373
+DEVICE_OFFSET = 0.000_0237
 
 
 class RecsRunner:
@@ -27,12 +27,12 @@ class RecsRunner:
         return s
 
     def events(self):
-        for i, stream in enumerate(self.streams):
-            dt = BLOCK_SIZE / stream.samplerate
-            offset = i * DEVICE_OFFSET
-            n = int(2 * self.cfg.total_run_time / dt)
-            for j in range(n):
-                yield (offset + j * dt), stream
+        for stream in self.streams:
+            offset = stream.channels * DEVICE_OFFSET
+            block_time = BLOCK_SIZE / stream.samplerate
+            blocks = int(2 * self.cfg.total_run_time / block_time)
+            for i in range(blocks):
+                yield (offset + i * block_time), stream
 
     def time(self):
         return self._time
