@@ -51,9 +51,8 @@ def test_end_to_end(name, cfg, mock_mp, mock_devices, monkeypatch):
     assert [p.name for p in actual] == [p.name for p in expected]
 
     ae = list(zip(actual, expected))
-    nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
 
-    [(n, a.shape, e.shape) for n, a, e in nae]
+    nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
     ds = [(n, a.shape, e.shape) for n, a, e in nae if a.shape != e.shape]
     assert ds == []
 
