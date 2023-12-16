@@ -36,7 +36,7 @@ class InputDevice(hash_cmp.HashCmp):
         return self.name
 
     def input_stream(
-        self, callback: Callback, sdtype: SdType, stop_all: Stop
+        self, callback: Callback, sdtype: SdType, on_error: Stop
     ) -> InputStream:
         import sounddevice as sd
 
@@ -52,7 +52,7 @@ class InputDevice(hash_cmp.HashCmp):
             except Exception:  # pragma: no cover
                 traceback.print_exc()
                 try:
-                    stop_all()
+                    on_error()
                 except Exception:
                     traceback.print_exc()
 

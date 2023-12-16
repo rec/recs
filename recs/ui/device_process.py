@@ -1,16 +1,16 @@
 import typing as t
 from multiprocessing.connection import Connection
 
-from threa import IsThread
+from threa import HasThread, Runnables
 
 from recs.base import cfg_raw
 from recs.cfg import Cfg, Track
 
-from .device_proxy import STOP
+from .device_proxy import STOP, poll_recv
 from .device_recorder import DeviceRecorder
 
 
-class DeviceProcess(IsThread):
+class DeviceProcess(Runnables):
     looping = True
 
     def __init__(
@@ -24,8 +24,13 @@ class DeviceProcess(IsThread):
         self.connection = connection
 
         cfg = Cfg(**raw_cfg.asdict())
-        self.recorder = DeviceRecorder(cfg, tracks, self.stop_all, connection.send)
-        self.recorder.start()
+        super().__init__(
+            DeviceRecorder(cfg, tracks, connection.send),
+            HasThread(self.callback, looping=True, daemon=True),
+        )
+        self.start()
 
-    def stop_all(self) -> None:
-        self.connection.send(STOP)
+    def callback(self) -> None:
+        if poll_recv(self.connection) == STOP:
+            if False:
+                self.stop()

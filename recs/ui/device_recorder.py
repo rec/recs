@@ -7,7 +7,7 @@ from threa import Runnable, ThreadQueue
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
-from recs.base.types import Active, Format, Stop
+from recs.base.types import Active, Format
 from recs.cfg import Cfg, InputStream, Track
 
 OFFLINE_TIME = 1
@@ -20,13 +20,11 @@ class DeviceRecorder(Runnable):
         self,
         cfg: Cfg,
         tracks: t.Sequence[Track],
-        stop_all: Stop,
         callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         super().__init__()
 
         self.cfg = cfg
-        self.stop_all = stop_all
 
         self.callback = callback
         self.device = d = tracks[0].device
@@ -76,7 +74,6 @@ class DeviceRecorder(Runnable):
         self.queue.stop()
         for c in self.channel_writers:
             c.stop()
-        self.stop_all()
         self.stopped.set()
 
     @override
@@ -88,5 +85,5 @@ class DeviceRecorder(Runnable):
         return self.device.input_stream(
             callback=self.queue.queue.put,
             sdtype=self.cfg.sdtype,
-            stop_all=self.stop_all,
+            on_error=self.stop,
         )
