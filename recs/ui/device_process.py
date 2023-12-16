@@ -7,7 +7,7 @@ from recs.base import cfg_raw
 from recs.cfg import Cfg, Track
 
 from .device_proxy import STOP, poll_recv
-from .device_recorder import DeviceRecorder
+from .device_recorder import NEW_CODE_FLAG, DeviceRecorder
 
 
 class DeviceProcess(Runnables):
@@ -32,5 +32,5 @@ class DeviceProcess(Runnables):
 
     def callback(self) -> None:
         if poll_recv(self.connection) == STOP:
-            if False:  # TODO: this happens too early
+            if NEW_CODE_FLAG:
                 self.stop()

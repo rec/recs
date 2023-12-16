@@ -9,7 +9,7 @@ from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
 
 OFFLINE_TIME = 1
-STOP_FOR_TOTAL_TIME = True
+NEW_CODE_FLAG = False
 
 
 class DeviceRecorder(Runnables):
@@ -51,7 +51,7 @@ class DeviceRecorder(Runnables):
             msgs[c.track.name] = c.receive_array(array, self.timestamp)
 
         self.elapsed_samples += len(array)
-        if STOP_FOR_TOTAL_TIME:
+        if not NEW_CODE_FLAG:
             if (t := self.times.total_run_time) and self.elapsed_samples >= t:
                 self.stop()
 
