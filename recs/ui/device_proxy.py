@@ -8,7 +8,7 @@ from threa import IsThread
 from recs.base import state, types
 from recs.cfg import Cfg, Track
 
-POLL_TIMEOUT = 0.1
+POLL_TIMEOUT = 0.05
 STOP = 'stop'
 
 
