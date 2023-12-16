@@ -52,9 +52,9 @@ def test_long_file(mock_input_streams, format, monkeypatch):
     with channel_writer.ChannelWriter(cfg=cfg, times=times, track=track) as writer:
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
-            writer.write(block, time)
+            writer._receive_block(block, time)
             time += len(block) / SAMPLERATE
-        writer.write(block[:0x1000], time)
+        writer._receive_block(block[:0x1000], time)
 
     files = writer.files_written
     sizes = [os.path.getsize(f) for f in files]

@@ -32,5 +32,5 @@ class DeviceProcess(Runnables):
 
     def callback(self) -> None:
         if poll_recv(self.connection) == STOP:
-            if False:
+            if False:  # TODO: this happens too early
                 self.stop()

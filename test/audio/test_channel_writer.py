@@ -77,7 +77,7 @@ def test_channel_writer(case, mock_devices):
     with ChannelWriter(cfg, times=times, track=track) as writer:
         for a in case.arrays:
             b = Block(a)
-            writer.write(b, timestamp)
+            writer._receive_block(b, timestamp)
             timestamp += len(b) / SAMPLERATE
 
     files = sorted(writer.files_written)

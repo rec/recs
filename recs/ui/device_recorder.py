@@ -44,10 +44,9 @@ class DeviceRecorder(Runnable):
             # mp3 and float32 crashes every time on my machine
             array = array.astype(np.float64)
 
-        def msg(cr: ChannelWriter) -> tuple[str, state.ChannelState]:
-            return cr.track.name, cr.callback(array, self.timestamp)
-
-        msgs = dict(msg(c) for c in self.channel_writers)
+        msgs: dict[str, state.ChannelState] = {}
+        for c in self.channel_writers:
+            msgs[c.track.name] = c.receive_chunk(array, self.timestamp)
 
         self.elapsed_samples += len(array)
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:

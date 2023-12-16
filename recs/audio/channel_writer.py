@@ -4,6 +4,7 @@ from pathlib import Path
 from threading import Lock
 
 import numpy as np
+from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
 
@@ -76,16 +77,9 @@ class ChannelWriter(Runnable):
 
         self.start()
 
-    def callback(self, array: np.ndarray, time: float) -> ChannelState:
-        b = Block(array[:, self.track.slice])
-
-        saved_state = self.state()
-        self.write(b, time)
-        state = self.state() - saved_state
-        return state.replace(
-            max_amp=max(b.max) / b.scale,
-            min_amp=min(b.min) / b.scale,
-        )
+    def receive_array(self, array: np.ndarray, timestamp: float) -> ChannelState:
+        with self._lock:
+            return self._receive_block(Block(array[:, self.track.slice]), timestamp)
 
     def state(self) -> ChannelState:
         return ChannelState(
@@ -97,6 +91,7 @@ class ChannelWriter(Runnable):
             volume=tuple(self._volume.mean()),
         )
 
+    @override
     def stop(self) -> None:
         with self._lock:
             self.running.clear()
@@ -107,35 +102,6 @@ class ChannelWriter(Runnable):
     def volume(self) -> float:
         m = self._volume.mean()
         return len(m) and sum(m) / len(m)
-
-    def write(self, block: Block, timestamp: float) -> None:
-        dt = self.timestamp - timestamp
-        self.timestamp = timestamp
-        self._volume(block)
-
-        if self.do_not_record or not (self.running or self._sf):
-            return
-
-        with self._lock:
-            expected_dt = len(block) / self.track.device.samplerate
-
-            if dt > expected_dt * BLOCK_FUZZ:
-                # We were asleep, or otherwise lost time.
-                self._write_and_close()
-
-            self._blocks.append(block)
-
-            if block.volume >= self.times.noise_floor_amplitude:
-                if not self._sf:
-                    # Record some quiet before the first block
-                    length = self.times.quiet_before_start + len(self._blocks[-1])
-                    self._blocks.clip(length, from_start=True)
-
-                self._write_blocks(self._blocks)
-                self._blocks.clear()
-
-            if not self.running or self._blocks.duration > self.times.stop_after_quiet:
-                self._write_and_close()
 
     def _close(self) -> None:
         if self._sf:
@@ -160,6 +126,38 @@ class ChannelWriter(Runnable):
         sf = self.opener.create(metadata, timestamp, index)
         self.files_written.append(Path(sf.name))
         return sf
+
+    def _receive_block(self, block: Block, timestamp: float) -> ChannelState:
+        saved_state = self.state()
+
+        dt = self.timestamp - timestamp
+        self.timestamp = timestamp
+        self._volume(block)
+
+        if not self.do_not_record and (self.running or self._sf):
+            expected_dt = len(block) / self.track.device.samplerate
+
+            if dt > expected_dt * BLOCK_FUZZ:  # We were asleep, or otherwise lost time
+                self._write_and_close()
+
+            self._blocks.append(block)
+
+            if block.volume >= self.times.noise_floor_amplitude:
+                if not self._sf:  # Record some quiet before the first block
+                    length = self.times.quiet_before_start + len(self._blocks[-1])
+                    self._blocks.clip(length, from_start=True)
+
+                self._write_blocks(self._blocks)
+                self._blocks.clear()
+
+            if not self.running or self._blocks.duration > self.times.stop_after_quiet:
+                self._write_and_close()
+
+        state = self.state() - saved_state
+        return state.replace(
+            max_amp=max(block.max) / block.scale,
+            min_amp=min(block.min) / block.scale,
+        )
 
     def _write_and_close(self) -> None:
         # Record some quiet after the last block
