@@ -1,19 +1,17 @@
 import typing as t
-from functools import cached_property, partial
 
 import numpy as np
-from overrides import override
-from threa import Runnable, ThreadQueue
+from threa import Runnables, ThreadQueue, Wrapper
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format
-from recs.cfg import Cfg, InputStream, Track
+from recs.cfg import Cfg, Track
 
 OFFLINE_TIME = 1
 
 
-class DeviceRecorder(Runnable):
+class DeviceRecorder(Runnables):
     elapsed_samples: int = 0
 
     def __init__(
@@ -22,8 +20,6 @@ class DeviceRecorder(Runnable):
         tracks: t.Sequence[Track],
         callback: t.Callable[[state.RecorderState], None],
     ) -> None:
-        super().__init__()
-
         self.cfg = cfg
 
         self.callback = callback
@@ -31,11 +27,16 @@ class DeviceRecorder(Runnable):
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
-        make = partial(ChannelWriter, cfg=cfg, times=self.times)
-
-        self.channel_writers = tuple(make(track=t) for t in tracks)
+        cw = (ChannelWriter(cfg=cfg, times=self.times, track=t) for t in tracks)
+        self.channel_writers = tuple(cw)
         self.timestamp = times.time()
         self.queue = ThreadQueue(callback=self.device_callback)
+        self.input_stream = self.device.input_stream(
+            callback=self.queue.queue.put,
+            sdtype=self.cfg.sdtype,
+            on_error=self.stop,
+        )
+        super().__init__(Wrapper(self.input_stream), self.queue, *self.channel_writers)
 
     def device_callback(self, array: np.ndarray) -> None:
         self.timestamp = times.time()
@@ -58,31 +59,3 @@ class DeviceRecorder(Runnable):
         # TODO: this does work but we should probably bypass this
         dt = times.time() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
-
-    @override
-    def start(self) -> None:
-        super().start()
-        self.queue.start()
-        self.input_stream.start()
-
-    @override
-    def stop(self) -> None:
-        self.running.clear()
-        self.input_stream.stop()
-        self.input_stream.close()
-        self.queue.stop()
-        for c in self.channel_writers:
-            c.stop()
-        self.stopped.set()
-
-    @override
-    def join(self, timeout: float | None = None) -> None:
-        self.queue.join(timeout)
-
-    @cached_property
-    def input_stream(self) -> InputStream:
-        return self.device.input_stream(
-            callback=self.queue.queue.put,
-            sdtype=self.cfg.sdtype,
-            on_error=self.stop,
-        )

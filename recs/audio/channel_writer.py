@@ -75,8 +75,6 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-        self.start()
-
     def receive_array(self, array: np.ndarray, timestamp: float) -> ChannelState:
         with self._lock:
             return self._receive_block(Block(array[:, self.track.slice]), timestamp)
