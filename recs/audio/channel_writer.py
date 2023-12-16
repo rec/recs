@@ -132,7 +132,7 @@ class ChannelWriter(Runnable):
         self.timestamp = timestamp
         self._volume(block)
 
-        if not self.do_not_record and (self.running or self._sf):
+        if not self.do_not_record and (self._sf or not self.stopped):
             expected_dt = len(block) / self.track.device.samplerate
 
             if dt > expected_dt * BLOCK_FUZZ:  # We were asleep, or otherwise lost time
@@ -148,7 +148,7 @@ class ChannelWriter(Runnable):
                 self._write_blocks(self._blocks)
                 self._blocks.clear()
 
-            if not self.running or self._blocks.duration > self.times.stop_after_quiet:
+            if self.stopped or self._blocks.duration > self.times.stop_after_quiet:
                 self._write_and_close()
 
         state = self.state() - saved_state
