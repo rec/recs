@@ -9,27 +9,32 @@ import tdir
 from recs.cfg import Cfg, run
 
 from .conftest import DEVICES
-from .recs_runner import EVENT_COUNT, RecsRunner
+from .recs_runner import RecsRunner
+
+EVENT_COUNT = 218
+EVENT_COUNT_SINGLE = 75
+
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 
 CASES = (
-    ('default', {}),
-    ('default', {'dry_run': True, 'silent': True}),
-    ('time', {'path': '{sdate}'}),
-    ('device_channel', {'path': '{device}/{channel}'}),
+    ('default', {}, EVENT_COUNT),
+    ('default', {'dry_run': True, 'silent': True}, EVENT_COUNT),
+    ('single', {'include': ['flow']}, EVENT_COUNT_SINGLE),
+    ('time', {'path': '{sdate}'}, EVENT_COUNT),
+    ('device_channel', {'path': '{device}/{channel}'}, EVENT_COUNT),
 )
 
 
-@pytest.mark.parametrize('name, cfg', CASES)
+@pytest.mark.parametrize('name, cfg, event_count', CASES)
 @tdir
-def test_end_to_end(name, cfg, mock_mp, mock_devices, monkeypatch):
-    test_case = RecsRunner(cfg, monkeypatch)
+def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
+    test_case = RecsRunner(cfg, monkeypatch, event_count)
     test_case.run()
 
     events = sorted(test_case.events())
     events = [(int(o * 1_000_000), s.channels) for o, s in events]
-    assert len(events) == EVENT_COUNT
+    assert len(events) == event_count
 
     actual = sorted(Path().glob('**/*.flac'))
 

@@ -7,13 +7,12 @@ from recs.base import times
 from recs.cfg import Cfg, run
 
 DEVICE_OFFSET = 0.0007373
-EVENT_COUNT = 218
 
 
 class RecsRunner:
     _time = TIMESTAMP
 
-    def __init__(self, cfg, monkeypatch):
+    def __init__(self, cfg, monkeypatch, event_count):
         import sounddevice as sd
 
         monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
@@ -21,6 +20,7 @@ class RecsRunner:
 
         self.streams = []
         self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfg)
+        self.event_count = event_count
 
     def make_input_stream(self, **ka):
         self.streams.append(s := InputStreamReporter(**ka))
@@ -39,7 +39,7 @@ class RecsRunner:
 
     def run(self):
         with HasThread(lambda: run.run(self.cfg)):
-            while sum(1 for i in self.events()) < EVENT_COUNT:
+            while sum(1 for i in self.events()) < self.event_count:
                 times.sleep(0.001)
 
             for offset, stream in sorted(self.events()):
