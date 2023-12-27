@@ -69,4 +69,4 @@ class InputStreamReporter(InputStreamBase):
 
     def _recs_callback(self) -> None:
         super()._recs_callback()
-        self._recs_report.append('callback')
+        self._recs_report.append('message_callback')

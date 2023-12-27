@@ -10,7 +10,7 @@ from recs.base.prefix_dict import PrefixDict
 from recs.base.types import DeviceDict, SdType, Stop
 from recs.cfg import hash_cmp
 
-Callback = t.Callable[[np.ndarray], None]
+DeviceCallback = t.Callable[[np.ndarray], None]
 
 NEW_CODE_FLAG = False
 
@@ -38,18 +38,18 @@ class InputDevice(hash_cmp.HashCmp):
         return self.name
 
     def input_stream(
-        self, callback: Callback, sdtype: SdType, on_error: Stop
+        self, device_callback: DeviceCallback, sdtype: SdType, on_error: Stop
     ) -> InputStream:
         import sounddevice as sd
 
         stream: sd.InputStream
 
-        def cb(indata: np.ndarray, frames: int, _time: t.Any, status: int) -> None:
+        def callback(indata: np.ndarray, frames: int, time: t.Any, status: int) -> None:
             if status:  # pragma: no cover
                 print('Status', self, status, file=sys.stderr)
 
             try:
-                callback(indata.copy())
+                device_callback(indata.copy())
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()
@@ -59,7 +59,7 @@ class InputDevice(hash_cmp.HashCmp):
                     traceback.print_exc()
 
         stream = sd.InputStream(
-            callback=cb,
+            callback=callback,
             channels=self.channels,
             device=self.name,
             dtype=sdtype,

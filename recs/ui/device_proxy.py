@@ -24,13 +24,13 @@ class DeviceProxy(IsThread):
         cfg: Cfg,
         tracks: t.Sequence[Track],
         stop_all: types.Stop,
-        callback: t.Callable[[state.RecorderState], None],
+        message_callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         from .device_process import DeviceProcess
 
         super().__init__()
 
-        self._callback = callback
+        self.message_callback = message_callback
 
         self.connection, child = mp.Pipe()
         self.process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, child))
@@ -63,4 +63,4 @@ class DeviceProxy(IsThread):
             self.process_stopped = True
             self.stop_all()
         elif message:
-            self._callback(message)
+            self.message_callback(message)

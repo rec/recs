@@ -19,11 +19,11 @@ class DeviceRecorder(Runnables):
         self,
         cfg: Cfg,
         tracks: t.Sequence[Track],
-        callback: t.Callable[[state.RecorderState], None],
+        state_callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         self.cfg = cfg
 
-        self.callback = callback
+        self.state_callback = state_callback
         self.device = d = tracks[0].device
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
@@ -31,9 +31,9 @@ class DeviceRecorder(Runnables):
         cw = (ChannelWriter(cfg=cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
         self.timestamp = times.time()
-        self.queue = ThreadQueue(callback=self.device_callback)
+        self.queue = ThreadQueue(self.device_callback)
         self.input_stream = self.device.input_stream(
-            callback=self.queue.queue.put,
+            device_callback=self.queue.queue.put,
             sdtype=self.cfg.sdtype,
             on_error=self.stop,
         )
@@ -55,7 +55,7 @@ class DeviceRecorder(Runnables):
             if (t := self.times.total_run_time) and self.elapsed_samples >= t:
                 self.stop()
 
-        self.callback({self.device.name: msgs})
+        self.state_callback({self.device.name: msgs})
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this

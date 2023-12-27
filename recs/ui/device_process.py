@@ -27,11 +27,11 @@ class DeviceProcess(Runnables):
         cfg = Cfg(**raw_cfg.asdict())
         super().__init__(
             DeviceRecorder(cfg, tracks, connection.send),
-            HasThread(self.callback, looping=True, daemon=True),
+            HasThread(self.poll_for_stop, looping=True, daemon=True),
         )
         self.start()
 
-    def callback(self) -> None:
+    def poll_for_stop(self) -> None:
         if poll_recv(self.connection) == STOP:
             if NEW_CODE_FLAG:
                 self.stop()
