@@ -24,16 +24,16 @@ class Recorder(Runnables):
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(self.device_tracks)
 
-        self._update_device_names()
+        self.update_device_names()
         self.device_thread = HasThread(
-            self._update_device_names,
+            self.update_device_names,
             daemon=True,
             looping=True,
             pre_delay=cfg.sleep_time_device,
         )
 
         tracks = self.device_tracks.values()
-        devices = (DeviceProxy(cfg, t, self.stop, self._update) for t in tracks)
+        devices = (DeviceProxy(cfg, t, self.stop, self.state_callback) for t in tracks)
         self.runnables = self.live, self.device_thread, *devices
 
     def run_recorder(self) -> None:
@@ -45,10 +45,10 @@ class Recorder(Runnables):
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names)
 
-    def _update_device_names(self) -> None:
+    def update_device_names(self) -> None:
         self.device_names = device.input_names()
 
-    def _update(self, state: state.RecorderState) -> None:
+    def state_callback(self, state: state.RecorderState) -> None:
         self.state.update(state)
 
         if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:

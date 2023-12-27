@@ -2,8 +2,8 @@ import multiprocessing as mp
 import typing as t
 from multiprocessing.connection import Connection
 
+import threa
 from overrides import override
-from threa import IsThread
 
 from recs.base import state, types
 from recs.cfg import Cfg, Track
@@ -16,31 +16,26 @@ def poll_recv(conn: Connection) -> t.Any:
     return conn.poll(POLL_TIMEOUT) and conn.recv()
 
 
-class DeviceProxy(IsThread):
-    looping = True
-
+class DeviceProxy(threa.Runnables):
     def __init__(
         self,
         cfg: Cfg,
         tracks: t.Sequence[Track],
         stop_all: types.Stop,
-        message_callback: t.Callable[[state.RecorderState], None],
+        state_callback: t.Callable[[state.RecorderState], None],
     ) -> None:
         from .device_process import DeviceProcess
 
-        super().__init__()
-
-        self.message_callback = message_callback
+        self.state_callback = state_callback
 
         self.connection, child = mp.Pipe()
-        self.process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, child))
         self.process_stopped = False
         self.stop_all = stop_all
 
-    @override
-    def start(self) -> None:
-        self.process.start()
-        super().start()
+        poll = threa.HasThread(self.poll_for_messages, looping=True)
+        process = mp.Process(target=DeviceProcess, args=(cfg.cfg, tracks, child))
+
+        super().__init__(poll, threa.Wrapper(process))
 
     @override
     def stop(self) -> None:
@@ -51,16 +46,10 @@ class DeviceProxy(IsThread):
 
         super().stop()
 
-    @override
-    def join(self, timeout: float | None = None) -> None:
-        super().join(timeout)
-        self.process.join(timeout)
-
-    @override
-    def callback(self) -> None:
+    def poll_for_messages(self) -> None:
         message = poll_recv(self.connection)
         if message == STOP:
             self.process_stopped = True
             self.stop_all()
         elif message:
-            self.message_callback(message)
+            self.state_callback(message)
