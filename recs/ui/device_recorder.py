@@ -7,9 +7,9 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
+from recs.cfg.device import NEW_CODE_FLAG
 
 OFFLINE_TIME = 1
-NEW_CODE_FLAG = False
 
 
 class DeviceRecorder(Runnables):

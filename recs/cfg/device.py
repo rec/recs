@@ -12,6 +12,8 @@ from recs.cfg import hash_cmp
 
 Callback = t.Callable[[np.ndarray], None]
 
+NEW_CODE_FLAG = False
+
 
 class InputStream(t.Protocol):
     def close(self, ignore_errors=True) -> None:

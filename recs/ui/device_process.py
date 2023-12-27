@@ -5,9 +5,10 @@ from threa import HasThread, Runnables
 
 from recs.base import cfg_raw
 from recs.cfg import Cfg, Track
+from recs.cfg.device import NEW_CODE_FLAG
 
 from .device_proxy import STOP, poll_recv
-from .device_recorder import NEW_CODE_FLAG, DeviceRecorder
+from .device_recorder import DeviceRecorder
 
 
 class DeviceProcess(Runnables):
