@@ -16,9 +16,9 @@ class DeviceProcess(Runnables):
 
     def __init__(
         self,
+        connection: Connection,
         raw_cfg: cfg_raw.CfgRaw,
         tracks: t.Sequence[Track],
-        connection: Connection,
     ) -> None:
         super().__init__()
 

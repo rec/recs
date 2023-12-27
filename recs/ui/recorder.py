@@ -32,9 +32,16 @@ class Recorder(Runnables):
             pre_delay=cfg.sleep_time_device,
         )
 
-        tracks = self.device_tracks.values()
-        devices = (DeviceProxy(cfg, t, self.stop, self.state_callback) for t in tracks)
-        self.runnables = self.live, self.device_thread, *devices
+        def proxy(tracks) -> DeviceProxy:
+            return DeviceProxy(
+                cfg=cfg,
+                state_callback=self.state_callback,
+                stop_all=self.stop,
+                tracks=tracks,
+            )
+
+        proxies = (proxy(t) for t in self.device_tracks.values())
+        self.runnables = self.live, self.device_thread, *proxies
 
     def run_recorder(self) -> None:
         with self:
