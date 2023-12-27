@@ -7,7 +7,7 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
-from recs.cfg.device import NEW_CODE_FLAG
+from recs.cfg.device import NEW_CODE_FLAG, Update
 
 OFFLINE_TIME = 1
 
@@ -39,7 +39,8 @@ class DeviceRecorder(Runnables):
         )
         super().__init__(Wrapper(self.input_stream), self.queue, *self.channel_writers)
 
-    def device_callback(self, array: np.ndarray) -> None:
+    def device_callback(self, update: Update) -> None:
+        array = update.array
         self.timestamp = times.time()
 
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:

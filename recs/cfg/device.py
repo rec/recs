@@ -6,13 +6,20 @@ import typing as t
 
 import numpy as np
 
+from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import DeviceDict, SdType, Stop
 from recs.cfg import hash_cmp
 
-DeviceCallback = t.Callable[[np.ndarray], None]
-
 NEW_CODE_FLAG = False
+
+
+class Update(t.NamedTuple):
+    array: np.ndarray
+    timestamp: float
+
+
+DeviceCallback = t.Callable[[Update], None]
 
 
 class InputStream(t.Protocol):
@@ -49,7 +56,7 @@ class InputDevice(hash_cmp.HashCmp):
                 print('Status', self, status, file=sys.stderr)
 
             try:
-                device_callback(indata.copy())
+                device_callback(Update(indata.copy(), times.time()))
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()
