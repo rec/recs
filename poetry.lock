@@ -743,13 +743,13 @@ xmod = "*"
 
 [[package]]
 name = "threa"
-version = "1.7.0"
+version = "1.8.1"
 description = "🧵 Better threads 🧵"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "threa-1.7.0-py3-none-any.whl", hash = "sha256:4ded35bf523f930fd36fd9625a9b2cff7d7aada6ed4dd3cceb8246f5ce5589d2"},
-    {file = "threa-1.7.0.tar.gz", hash = "sha256:6820de464de86e8cd97247f9f2b955a014b86b713b58bde68c62535847262303"},
+    {file = "threa-1.8.1-py3-none-any.whl", hash = "sha256:716a09d5aa5ac5aff26130c10d352247b95ee5579bd601b898ebb81714f35c76"},
+    {file = "threa-1.8.1.tar.gz", hash = "sha256:06dcbebc1a5fac193648a17569b4a02ae9afd67e1adba1732979c116b7b3cec3"},
 ]
 
 [package.dependencies]
@@ -815,4 +815,4 @@ dek = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10"
-content-hash = "b9f284a30421f7cd624d8cecaba6e82787bc4ff79dfb08cb9da61805b7f39f9d"
+content-hash = "d5ed886e8ba8b96cb465936747871af907546bea0aad0847acafdfb7ada62d6d"
