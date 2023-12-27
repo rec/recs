@@ -7,7 +7,7 @@ from recs.base import cfg_raw
 from recs.cfg import Cfg, Track
 from recs.cfg.device import NEW_CODE_FLAG
 
-from .device_proxy import STOP, poll_recv
+from .device_proxy import FINISH, poll_recv
 from .device_recorder import DeviceRecorder
 
 
@@ -32,6 +32,6 @@ class DeviceProcess(Runnables):
         self.start()
 
     def poll_for_stop(self) -> None:
-        if poll_recv(self.connection) == STOP:
+        if poll_recv(self.connection) == FINISH:
             if NEW_CODE_FLAG:
-                self.stop()
+                self.finish()

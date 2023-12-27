@@ -35,8 +35,8 @@ class Recorder(Runnables):
         def proxy(tracks) -> DeviceProxy:
             return DeviceProxy(
                 cfg=cfg,
+                on_finish_message=self.finish,
                 state_callback=self.state_callback,
-                stop_all=self.stop,
                 tracks=tracks,
             )
 
