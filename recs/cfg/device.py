@@ -56,7 +56,7 @@ class InputDevice(hash_cmp.HashCmp):
                 print('Status', self, status, file=sys.stderr)
 
             try:
-                device_callback(Update(indata.copy(), times.time()))
+                device_callback(Update(indata.copy(), times.timestamp()))
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()

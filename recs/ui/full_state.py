@@ -12,11 +12,11 @@ class FullState:
 
         self.state = {k.name: device_state(v) for k, v in tracks.items()}
         self.total = state.ChannelState()
-        self.start_time = times.time()
+        self.start_time = times.timestamp()
 
     @property
     def elapsed_time(self) -> float:
-        return times.time() - self.start_time
+        return times.timestamp() - self.start_time
 
     def update(self, state: state.RecorderState) -> None:
         for device_name, device_state in state.items():

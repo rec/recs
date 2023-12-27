@@ -1,7 +1,7 @@
-import time as _time
+import time
 
-sleep = _time.sleep
-time = _time.time
+sleep = time.sleep
+timestamp = time.time
 
 
 def to_time(t: str) -> float:

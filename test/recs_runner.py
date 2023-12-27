@@ -10,13 +10,13 @@ DEVICE_OFFSET = 0.000_0237
 
 
 class RecsRunner:
-    _time = TIMESTAMP
+    _timestamp = TIMESTAMP
 
     def __init__(self, cfg, monkeypatch, event_count):
         import sounddevice as sd
 
         monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
-        monkeypatch.setattr(times, 'time', self.time)
+        monkeypatch.setattr(times, 'timestamp', self.timestamp)
 
         self.streams = []
         self.cfg = Cfg(shortest_file_time=0, total_run_time=0.1, **cfg)
@@ -34,8 +34,8 @@ class RecsRunner:
             for i in range(blocks):
                 yield (offset + i * block_time), stream
 
-    def time(self):
-        return self._time
+    def timestamp(self):
+        return self._timestamp
 
     def run(self):
         with HasThread(lambda: run.run(self.cfg)):
@@ -44,5 +44,5 @@ class RecsRunner:
 
             for offset, stream in sorted(self.events()):
                 if 'stop' not in stream._recs_report:
-                    self._time = TIMESTAMP + offset
+                    self._timestamp = TIMESTAMP + offset
                     stream._recs_callback()

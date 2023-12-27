@@ -30,7 +30,7 @@ class DeviceRecorder(Runnables):
 
         cw = (ChannelWriter(cfg=cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
-        self.timestamp = times.time()
+        self.timestamp = times.timestamp()
         self.queue = ThreadQueue(self.device_callback)
         self.input_stream = self.device.input_stream(
             device_callback=self.queue.queue.put,
@@ -41,7 +41,7 @@ class DeviceRecorder(Runnables):
 
     def device_callback(self, update: Update) -> None:
         array = update.array
-        self.timestamp = times.time()
+        self.timestamp = times.timestamp()
 
         if self.cfg.format == Format.mp3 and array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
@@ -60,5 +60,5 @@ class DeviceRecorder(Runnables):
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this
-        dt = times.time() - self.timestamp
+        dt = times.timestamp() - self.timestamp
         return Active.offline if dt > OFFLINE_TIME else Active.active
