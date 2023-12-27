@@ -7,7 +7,7 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base import state, times
 from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
-from recs.cfg.device import NEW_CODE_FLAG, Update
+from recs.cfg.device import Update
 
 OFFLINE_TIME = 1
 
@@ -52,9 +52,8 @@ class DeviceRecorder(Runnables):
             msgs[c.track.name] = c.receive_array(array, self.timestamp)
 
         self.elapsed_samples += len(array)
-        if not NEW_CODE_FLAG:
-            if (t := self.times.total_run_time) and self.elapsed_samples >= t:
-                self.stop()
+        if (t := self.times.total_run_time) and self.elapsed_samples >= t:
+            self.finish()
 
         self.state_callback({self.device.name: msgs})
 

@@ -11,8 +11,6 @@ from recs.base.prefix_dict import PrefixDict
 from recs.base.types import DeviceDict, SdType, Stop
 from recs.cfg import hash_cmp
 
-NEW_CODE_FLAG = False
-
 
 class Update(t.NamedTuple):
     array: np.ndarray

@@ -1,3 +1,4 @@
+import os
 import typing as t
 from multiprocessing.connection import Connection
 
@@ -5,10 +6,11 @@ from threa import HasThread, Runnables
 
 from recs.base import cfg_raw
 from recs.cfg import Cfg, Track
-from recs.cfg.device import NEW_CODE_FLAG
 
 from .device_proxy import FINISH, poll_recv
 from .device_recorder import DeviceRecorder
+
+NEW_CODE_FLAG = 'RECS_NEW_CODE' in os.environ
 
 
 class DeviceProcess(Runnables):
