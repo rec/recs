@@ -20,9 +20,9 @@ TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 CASES = (
     ('default', {}, EVENT_COUNT),
     ('default', {'dry_run': True, 'silent': True}, EVENT_COUNT),
-    ('single', {'include': ['flow']}, EVENT_COUNT_SINGLE),
-    ('time', {'path': '{sdate}'}, EVENT_COUNT),
-    ('device_channel', {'path': '{device}/{channel}'}, EVENT_COUNT),
+    ('single', {'include': ['flow'], 'silent': True}, EVENT_COUNT_SINGLE),
+    ('time', {'path': '{sdate}', 'silent': True}, EVENT_COUNT),
+    ('device_channel', {'path': '{device}/{channel}', 'silent': True}, EVENT_COUNT),
 )
 
 
