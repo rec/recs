@@ -9,6 +9,7 @@ from recs.base import state, types
 from recs.cfg import Cfg, Track
 
 POLL_TIMEOUT = 0.05
+
 FINISH = 'finish'
 
 
@@ -30,9 +31,10 @@ class DeviceProxy(threa.Runnables):
 
         self.connection, child = mp.Pipe()
         self.process_stopped = False
-        self.on_finish_message = on_finish_message
+        self.on_finish_message = on_finish_message  # Never gets called
 
         poll = threa.HasThread(self.poll_for_messages, looping=True)
+
         kwargs = {'connection': child, 'raw_cfg': cfg.cfg, 'tracks': tracks}
         process = mp.Process(target=DeviceProcess, kwargs=kwargs)
 
@@ -48,9 +50,6 @@ class DeviceProxy(threa.Runnables):
         super().stop()
 
     def poll_for_messages(self) -> None:
-        message = poll_recv(self.connection)
-        if message == FINISH:
-            self.process_stopped = True
-            self.on_finish_message()
-        elif message:
-            self.state_callback(message)
+        while self.running:
+            if message := poll_recv(self.connection):
+                self.state_callback(message)
