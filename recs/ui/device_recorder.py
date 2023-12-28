@@ -23,11 +23,11 @@ class DeviceRecorder(Runnables):
 
     def __init__(
         self,
+        cfg: cfg_raw.CfgRaw,
         connection: Connection,
-        raw_cfg: cfg_raw.CfgRaw,
         tracks: t.Sequence[Track],
     ) -> None:
-        self.cfg = Cfg(**raw_cfg.asdict())
+        self.cfg = Cfg(**cfg.asdict())
         self.connection = connection
 
         self.device = d = tracks[0].device

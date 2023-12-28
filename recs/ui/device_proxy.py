@@ -30,7 +30,7 @@ class DeviceProxy(threa.Runnables):
         self.connection, child = mp.Pipe()
         poll = threa.HasThread(self.poll_for_messages, looping=True)
 
-        kwargs = {'raw_cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
+        kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
         process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
 
         super().__init__(poll, threa.Wrapper(process))
