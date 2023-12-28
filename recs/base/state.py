@@ -10,6 +10,8 @@ INF = float('inf')
 class ChannelState:
     """Represents the state of a single recording channel"""
 
+    condition: str = 'running'
+
     file_count: int = 0
     file_size: int = 0
 
@@ -40,6 +42,7 @@ class ChannelState:
         self.recorded_time += m.recorded_time
 
         # We copy these three when using +=, but not -=!
+        self.condition = m.condition
         self.is_active = m.is_active
         self.timestamp = m.timestamp
         self.volume = m.volume

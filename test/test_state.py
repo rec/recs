@@ -4,7 +4,7 @@ TIMESTAMP = 1_700_000_000
 
 
 def cm(*a, **ka):
-    return ChannelState(*a, **ka, timestamp=TIMESTAMP)
+    return ChannelState('running', *a, **ka, timestamp=TIMESTAMP)
 
 
 def test_message():
