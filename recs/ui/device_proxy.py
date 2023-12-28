@@ -5,7 +5,7 @@ from multiprocessing.connection import Connection
 import threa
 from overrides import override
 
-from recs.base import state, types
+from recs.base import state
 from recs.cfg import Cfg, Track
 
 POLL_TIMEOUT = 0.05
@@ -22,7 +22,6 @@ class DeviceProxy(threa.Runnables):
         self,
         cfg: Cfg,
         state_callback: t.Callable[[state.RecorderState], None],
-        on_finish_message: types.Stop,
         tracks: t.Sequence[Track],
     ) -> None:
         from .device_process import DeviceProcess
@@ -31,7 +30,6 @@ class DeviceProxy(threa.Runnables):
 
         self.connection, child = mp.Pipe()
         self.process_stopped = False
-        self.on_finish_message = on_finish_message  # Never gets called
 
         poll = threa.HasThread(self.poll_for_messages, looping=True)
 
