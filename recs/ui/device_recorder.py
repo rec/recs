@@ -1,13 +1,19 @@
+import os
 import typing as t
+from multiprocessing.connection import Connection
 
 import numpy as np
 from threa import Runnables, ThreadQueue, Wrapper
 
 from recs.audio.channel_writer import ChannelWriter
-from recs.base import state, times
+from recs.base import cfg_raw, state, times
 from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
 from recs.cfg.device import Update
+
+from .device_proxy import FINISH, poll_recv
+
+NEW_CODE_FLAG = 'RECS_NEW_CODE' in os.environ
 
 OFFLINE_TIME = 1
 
@@ -17,18 +23,18 @@ class DeviceRecorder(Runnables):
 
     def __init__(
         self,
-        cfg: Cfg,
+        connection: Connection,
+        raw_cfg: cfg_raw.CfgRaw,
         tracks: t.Sequence[Track],
-        state_callback: t.Callable[[state.RecorderState], None],
     ) -> None:
-        self.cfg = cfg
+        self.cfg = Cfg(**raw_cfg.asdict())
+        self.connection = connection
 
-        self.state_callback = state_callback
         self.device = d = tracks[0].device
         self.name = self.cfg.aliases.display_name(d)
         self.times = self.cfg.times.scale(d.samplerate)
 
-        cw = (ChannelWriter(cfg=cfg, times=self.times, track=t) for t in tracks)
+        cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
         self.timestamp = times.timestamp()
         self.queue = ThreadQueue(self.device_callback)
@@ -38,6 +44,11 @@ class DeviceRecorder(Runnables):
             on_error=self.stop,
         )
         super().__init__(Wrapper(self.input_stream), self.queue, *self.channel_writers)
+        self.start()
+
+        if poll_recv(self.connection) == FINISH:
+            if NEW_CODE_FLAG:
+                self.finish()
 
     def device_callback(self, update: Update) -> None:
         array = update.array
@@ -55,7 +66,7 @@ class DeviceRecorder(Runnables):
         if (t := self.times.total_run_time) and self.elapsed_samples >= t:
             self.finish()
 
-        self.state_callback({self.device.name: msgs})
+        self.connection.send({self.device.name: msgs})
 
     def active(self) -> Active:
         # TODO: this does work but we should probably bypass this

@@ -24,7 +24,7 @@ class DeviceProxy(threa.Runnables):
         state_callback: t.Callable[[state.RecorderState], None],
         tracks: t.Sequence[Track],
     ) -> None:
-        from .device_process import DeviceProcess
+        from .device_recorder import DeviceRecorder
 
         self.state_callback = state_callback
 
@@ -34,7 +34,7 @@ class DeviceProxy(threa.Runnables):
         poll = threa.HasThread(self.poll_for_messages, looping=True)
 
         kwargs = {'connection': child, 'raw_cfg': cfg.cfg, 'tracks': tracks}
-        process = mp.Process(target=DeviceProcess, kwargs=kwargs)
+        process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
 
         super().__init__(poll, threa.Wrapper(process))
 
