@@ -35,7 +35,7 @@ class Recorder(Runnables):
         def proxy(tracks) -> DeviceProxy:
             return DeviceProxy(
                 cfg=cfg,
-                state_callback=self.state_callback,
+                receive_message=self.receive_message,
                 tracks=tracks,
             )
 
@@ -54,7 +54,7 @@ class Recorder(Runnables):
     def update_device_names(self) -> None:
         self.device_names = device.input_names()
 
-    def state_callback(self, state: state.RecorderState) -> None:
+    def receive_message(self, state: state.RecorderState) -> None:
         self.state.update(state)
 
         if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:
