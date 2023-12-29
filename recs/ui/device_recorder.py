@@ -11,11 +11,10 @@ from recs.base.types import Active, Format
 from recs.cfg import Cfg, Track
 from recs.cfg.device import Update
 
-from .device_proxy import FINISH, poll_recv
-
 NEW_CODE_FLAG = 'RECS_NEW_CODE' in os.environ
-
+FINISH = 'finish'
 OFFLINE_TIME = 1
+POLL_TIMEOUT = 0.05
 
 
 class DeviceRecorder(Runnables):
@@ -39,16 +38,18 @@ class DeviceRecorder(Runnables):
         self.timestamp = times.timestamp()
         self.queue = ThreadQueue(self.device_callback)
         self.input_stream = self.device.input_stream(
-            device_callback=self.queue.queue.put,
+            device_callback=self.queue.put,
             sdtype=self.cfg.sdtype,
             on_error=self.stop,
         )
         super().__init__(Wrapper(self.input_stream), self.queue, *self.channel_writers)
         self.start()
 
-        if poll_recv(self.connection) == FINISH:
-            if NEW_CODE_FLAG:
-                self.finish()
+        while self.running:
+            if connection.poll(POLL_TIMEOUT):
+                msg = connection.recv()
+                if NEW_CODE_FLAG and msg == FINISH:
+                    self.finish()
 
     def device_callback(self, update: Update) -> None:
         array = update.array

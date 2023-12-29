@@ -2,12 +2,13 @@ import copy
 import json
 import multiprocessing.dummy
 from datetime import datetime, timedelta
+from multiprocessing import connection
 from pathlib import Path
 
 import pytest
 
 from recs.cfg import device
-from recs.ui import device_proxy
+from recs.ui import device_recorder, recorder
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -25,9 +26,14 @@ def query_devices(kind=None):
     return copy.deepcopy(DEVICES)
 
 
+def wait(connections, timeout=None):
+    return [c for c in connections if c.poll(device_recorder.POLL_TIMEOUT)]
+
+
 @pytest.fixture
 def mock_mp(monkeypatch):
-    monkeypatch.setattr(device_proxy, 'mp', multiprocessing.dummy)
+    monkeypatch.setattr(connection, 'wait', wait)
+    monkeypatch.setattr(recorder, 'mp', multiprocessing.dummy)
 
 
 @pytest.fixture
