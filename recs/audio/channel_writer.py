@@ -1,3 +1,4 @@
+import contextlib
 import typing as t
 from datetime import datetime
 from pathlib import Path
@@ -96,18 +97,15 @@ class ChannelWriter(Runnable):
             self._write_and_close()
             self.stopped.set()
 
-    @property
-    def volume(self) -> float:
-        m = self._volume.mean()
-        return len(m) and sum(m) / len(m)
-
     def _close(self) -> None:
-        if self._sf:
-            self._sf.close()
-            if self._sf.frames <= self.times.shortest_file_time:
-                if (p := Path(self._sf.name)).exists():
-                    p.unlink()
-            self._sf = None
+        sf, self._sf = self._sf, None
+        if sf and sf.frames and sf.frames >= self.times.shortest_file_time:
+            sf.close()
+        elif sf:
+            with contextlib.suppress(Exception):
+                sf.close()
+            with contextlib.suppress(Exception):
+                Path(sf.name).unlink()
 
     def _open(self, offset: int) -> SoundFile:
         timestamp = self.timestamp - offset / self.track.device.samplerate
@@ -115,7 +113,7 @@ class ChannelWriter(Runnable):
 
         index = 1 + len(self.files_written)
 
-        metadata = dict(date=ts.isoformat(), software=URL, tracknumber=str(index))
+        metadata = {'date': ts.isoformat(), 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
         self.bytes_in_this_file = header_size(metadata, self.format)
