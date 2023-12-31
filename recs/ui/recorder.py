@@ -6,7 +6,7 @@ import threa
 from overrides import override
 from threa import HasThread, Runnables
 
-from recs.base import RecsError, times
+from recs.base import RecsError
 from recs.cfg import Cfg, Track
 
 from . import live
@@ -30,16 +30,15 @@ class Recorder(Runnables):
 
         processes = tuple(Process(cfg, t) for t in tracks.values())
         self.connections = tuple(p.connection for p in processes)
-        receive = HasThread(self.receive, looping=True)
         ui_time = 1 / self.cfg.ui_refresh_rate
         live_thread = HasThread(self.live.update, looping=True, pre_delay=ui_time)
 
-        self.runnables = self.live, self.device_names, *processes, receive, live_thread
+        self.runnables = self.live, self.device_names, *processes, live_thread
 
     def run_recorder(self) -> None:
         with self:
             while self.running:
-                times.sleep(1 / self.cfg.ui_refresh_rate)
+                self.receive()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names.names)
