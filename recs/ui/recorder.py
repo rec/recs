@@ -3,10 +3,11 @@ import typing as t
 from multiprocessing import connection
 
 import threa
+from overrides import override
 from threa import HasThread, Runnables
 
 from recs.base import RecsError, times
-from recs.cfg import Cfg
+from recs.cfg import Cfg, Track
 
 from . import live
 from .device_names import DeviceNames
@@ -27,29 +28,42 @@ class Recorder(Runnables):
         self.state = FullState(tracks)
         self.device_names = DeviceNames(cfg.sleep_time_device)
 
-        def cp(tracks) -> tuple[connection.Connection, threa.Runnable]:
-            connection, child = mp.Pipe()
-            kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
-            process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
-            return connection, threa.Wrapper(process)
+        processes = tuple(Process(cfg, t) for t in tracks.values())
+        self.connections = tuple(p.connection for p in processes)
+        receive = HasThread(self.receive, looping=True)
+        ui_time = 1 / self.cfg.ui_refresh_rate
+        live_thread = HasThread(self.live.update, looping=True, pre_delay=ui_time)
 
-        self.connections, processes = zip(*(cp(t) for t in tracks.values()))
-        receive = HasThread(self.receive, daemon=True, looping=True)
-
-        self.runnables = self.live, self.device_names, *processes, receive
+        self.runnables = self.live, self.device_names, *processes, receive, live_thread
 
     def run_recorder(self) -> None:
         with self:
             while self.running:
                 times.sleep(1 / self.cfg.ui_refresh_rate)
-                self.live.update()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names.names)
 
     def receive(self):
         for c in connection.wait(self.connections, timeout=POLL_TIMEOUT):
-            self.state.update(c.recv())
+            msg = c.recv()
+            self.state.update(msg)
 
         if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:
             self.stop()
+
+
+class Process(threa.Wrapper):
+    status: str = 'ok'
+
+    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
+        self.connection, child = mp.Pipe()
+        kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
+        self.process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
+        super().__init__(self.process)
+
+    @override
+    def finish(self):
+        self.running.clear()
+        # self.connection.send(self.status)
+        super().finish()
