@@ -80,16 +80,6 @@ class ChannelWriter(Runnable):
         with self._lock:
             return self._receive_block(Block(array[:, self.track.slice]), timestamp)
 
-    def state(self) -> ChannelState:
-        return ChannelState(
-            file_count=len(self.files_written),
-            file_size=self.files_written.total_size,
-            is_active=bool(self._sf),
-            recorded_time=self.frames_written / self.track.device.samplerate,
-            timestamp=self.timestamp,
-            volume=tuple(self._volume.mean()),
-        )
-
     @override
     def stop(self) -> None:
         with self._lock:
@@ -124,7 +114,10 @@ class ChannelWriter(Runnable):
         return sf
 
     def _receive_block(self, block: Block, timestamp: float) -> ChannelState:
-        saved_state = self.state()
+        saved_state = self._state(
+            max_amp=max(block.max) / block.scale,
+            min_amp=min(block.min) / block.scale,
+        )
 
         dt = self.timestamp - timestamp
         self.timestamp = timestamp
@@ -149,10 +142,17 @@ class ChannelWriter(Runnable):
             if self.stopped or self._blocks.duration > self.times.stop_after_quiet:
                 self._write_and_close()
 
-        state = self.state() - saved_state
-        return state.replace(
-            max_amp=max(block.max) / block.scale,
-            min_amp=min(block.min) / block.scale,
+        return self._state() - saved_state
+
+    def _state(self, **kwargs) -> ChannelState:
+        return ChannelState(
+            file_count=len(self.files_written),
+            file_size=self.files_written.total_size,
+            is_active=bool(self._sf),
+            recorded_time=self.frames_written / self.track.device.samplerate,
+            timestamp=self.timestamp,
+            volume=tuple(self._volume.mean()),
+            **kwargs,
         )
 
     def _write_and_close(self) -> None:
