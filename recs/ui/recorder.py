@@ -64,6 +64,6 @@ class Process(threa.Wrapper):
 
     @override
     def finish(self):
-        self.running.clear()
+        self.running = False
         # self.connection.send(self.status)
         super().finish()

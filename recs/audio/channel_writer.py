@@ -83,9 +83,9 @@ class ChannelWriter(Runnable):
     @override
     def stop(self) -> None:
         with self._lock:
-            self.running.clear()
+            self.running = False
             self._write_and_close()
-            self.stopped.set()
+            self.stopped = True
 
     def _close(self) -> None:
         sf, self._sf = self._sf, None
