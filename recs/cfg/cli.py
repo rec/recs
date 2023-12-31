@@ -242,9 +242,9 @@ def recs(
 ) -> None:
     c = cfg.Cfg(**locals())
 
-    from . import run
+    from . import run_cli
 
-    run.run(c)
+    run_cli.run_cli(c)
 
 
 _USED_SINGLES = ''.join(sorted(_SINGLES))

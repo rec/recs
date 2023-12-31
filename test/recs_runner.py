@@ -4,7 +4,7 @@ from test.mock_input_stream import InputStreamReporter
 from threa import HasThread
 
 from recs.base import times
-from recs.cfg import Cfg, run
+from recs.cfg import Cfg, run_cli
 
 DEVICE_OFFSET = 0.000_0237
 
@@ -38,7 +38,7 @@ class RecsRunner:
         return self._timestamp
 
     def run(self):
-        with HasThread(lambda: run.run(self.cfg)):
+        with HasThread(lambda: run_cli.run_cli(self.cfg)):
             while sum(1 for i in self.events()) < self.event_count:
                 times.sleep(0.001)
 

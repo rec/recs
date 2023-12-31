@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
-from recs.cfg import Cfg, run
+from recs.cfg import Cfg, run_cli
 
 from .conftest import DEVICES
 from .recs_runner import RecsRunner
@@ -71,7 +71,7 @@ def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
 
 
 def test_info(mock_input_streams, capsys):
-    run.run(Cfg(info=True))
+    run_cli.run_cli(Cfg(info=True))
     data = capsys.readouterr().out
 
     actual = json.loads(data)

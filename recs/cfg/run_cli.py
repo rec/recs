@@ -9,7 +9,7 @@ from recs.ui.recorder import Recorder
 from . import Cfg
 
 
-def run(cfg: Cfg) -> None:
+def run_cli(cfg: Cfg) -> None:
     if cfg.info:
         return _info()
 
