@@ -1,4 +1,5 @@
 import os
+import traceback
 import typing as t
 from multiprocessing.connection import Connection
 
@@ -6,8 +7,8 @@ import numpy as np
 from threa import Runnables, ThreadQueue, Wrapper
 
 from recs.audio.channel_writer import ChannelWriter
-from recs.base import cfg_raw, state, times
-from recs.base.types import Active, Format
+from recs.base import cfg_raw
+from recs.base.types import Format
 from recs.cfg import Cfg, Track
 from recs.cfg.device import Update
 
@@ -18,7 +19,7 @@ POLL_TIMEOUT = 0.05
 
 
 class DeviceRecorder(Runnables):
-    elapsed_samples: int = 0
+    sample_count: int = 0
 
     def __init__(
         self,
@@ -35,7 +36,6 @@ class DeviceRecorder(Runnables):
 
         cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
-        self.timestamp = times.timestamp()
         self.queue = ThreadQueue(self.device_callback)
         self.input_stream = self.device.input_stream(
             device_callback=self.queue.put,
@@ -43,33 +43,33 @@ class DeviceRecorder(Runnables):
             on_error=self.stop,
         )
         super().__init__(Wrapper(self.input_stream), self.queue, *self.channel_writers)
-        self.start()
+        self.exit: dict[str, str | int] = {}
 
-        while self.running:
-            if connection.poll(POLL_TIMEOUT):
-                msg = connection.recv()
-                if NEW_CODE_FLAG and msg == FINISH:
-                    self.finish()
+        with self:
+            while not self.exit:
+                if connection.poll(POLL_TIMEOUT):
+                    if msg := connection.recv():
+                        self.exit = {'reason': msg}
+
+        self.connection.send({self.device.name: {'_exit': self.exit}})
 
     def device_callback(self, update: Update) -> None:
-        array = update.array
-        self.timestamp = times.timestamp()
+        if not self.exit:
+            try:
+                self._device_callback(update)
 
-        if self.cfg.format == Format.mp3 and array.dtype == np.float32:
+            except Exception as e:
+                self.exit = {'reason': str(e), 'traceback': traceback.format_exc()}
+
+    def _device_callback(self, u: Update) -> None:
+        if self.cfg.format == Format.mp3 and u.array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
-            array = array.astype(np.float64)
+            u = Update(u.array.astype(np.float64), u.timestamp)
 
-        msgs: dict[str, state.ChannelState] = {}
-        for c in self.channel_writers:
-            msgs[c.track.name] = c.receive_array(array, self.timestamp)
-
-        self.elapsed_samples += len(array)
-        if (t := self.times.total_run_time) and self.elapsed_samples >= t:
-            self.finish()
+        msgs = {c.track.name: c.update(u) for c in self.channel_writers}
 
         self.connection.send({self.device.name: msgs})
 
-    def active(self) -> Active:
-        # TODO: this does work but we should probably bypass this
-        dt = times.timestamp() - self.timestamp
-        return Active.offline if dt > OFFLINE_TIME else Active.active
+        self.sample_count += len(u.array)
+        if (t := self.times.total_run_time) and self.sample_count >= t:
+            self.exit = {'reason': 'total_run_time', 'samples': self.sample_count}

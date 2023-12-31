@@ -4,14 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
-import numpy as np
 from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, time_settings
+from recs.cfg import Cfg, Track, device, time_settings
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -76,9 +75,10 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-    def receive_array(self, array: np.ndarray, timestamp: float) -> ChannelState:
+    def update(self, update: device.Update) -> ChannelState:
+        block = Block(update.array[:, self.track.slice])
         with self._lock:
-            return self._receive_block(Block(array[:, self.track.slice]), timestamp)
+            return self._receive_block(block, update.timestamp)
 
     @override
     def stop(self) -> None:
