@@ -28,7 +28,7 @@ class DeviceProcess(Wrapper):
     @override
     def finish(self):
         self.running = False
-        if self.set_sent() and False:
+        if self.set_sent():
             self.connection.send(self.status)
 
         self.process.join()

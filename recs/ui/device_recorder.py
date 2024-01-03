@@ -47,17 +47,24 @@ class DeviceRecorder(Runnables):
 
         with self:
             while not self.exit:
-                if connection.poll(POLL_TIMEOUT):
-                    if msg := connection.recv():
-                        self.exit = {'reason': msg}
+                try:
+                    if connection.poll(POLL_TIMEOUT):
+                        if msg := connection.recv():
+                            self.queue.put({'reason': msg})
+                except KeyboardInterrupt:
+                    print('Aborted')
 
         self.connection.send({self.device.name: {'_exit': self.exit}})
 
-    def device_callback(self, update: Update) -> None:
-        if not self.exit:
+    def device_callback(self, update: Update | dict[str, t.Any]) -> None:
+        if self.exit:
+            return
+
+        if isinstance(update, dict):
+            self.exit = update
+        else:
             try:
                 self._device_callback(update)
-
             except Exception as e:
                 self.exit = {'reason': str(e), 'traceback': traceback.format_exc()}
 

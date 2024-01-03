@@ -45,8 +45,7 @@ class Recorder(Runnables):
         for c in connection.wait(list(self.connections), timeout=POLL_TIMEOUT):
             m = c.recv()
             for device_name, msg in m.items():
-                if exit := msg.get('_exit'):
-                    assert exit
+                if msg.get('_exit'):
                     self.connections[c].set_sent()
                     self.running = False
                 else:
