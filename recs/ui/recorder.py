@@ -1,17 +1,15 @@
-import multiprocessing as mp
 import typing as t
 from multiprocessing import connection
-from threading import Lock
 
-from overrides import override
-from threa import HasThread, Runnables, Wrapper
+from threa import HasThread, Runnables
 
 from recs.base import RecsError
-from recs.cfg import Cfg, Track
+from recs.cfg import Cfg
 
 from . import live
 from .device_names import DeviceNames
-from .device_recorder import POLL_TIMEOUT, DeviceRecorder
+from .device_process import DeviceProcess
+from .device_recorder import POLL_TIMEOUT
 from .device_tracks import device_tracks
 from .full_state import FullState
 
@@ -28,7 +26,7 @@ class Recorder(Runnables):
         self.state = FullState(tracks)
         self.device_names = DeviceNames(cfg.sleep_time_device)
 
-        processes = tuple(Process(cfg, t) for t in tracks.values())
+        processes = tuple(DeviceProcess(cfg, t) for t in tracks.values())
         self.connections = {p.connection: p for p in processes}
         ui_time = 1 / self.cfg.ui_refresh_rate
         live_thread = HasThread(self.live.update, looping=True, pre_delay=ui_time)
@@ -56,29 +54,3 @@ class Recorder(Runnables):
 
         if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:
             self.stop()
-
-
-class Process(Wrapper):
-    status: str = 'ok'
-    sent: bool = False
-
-    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
-        self.connection, child = mp.Pipe()
-        self._lock = Lock()
-        kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
-        self.process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
-        super().__init__(self.process)
-
-    def set_sent(self) -> bool:
-        with self._lock:
-            sent, self.sent = self.sent, True
-            return not sent
-
-    @override
-    def finish(self):
-        self.running = False
-        if self.set_sent() and False:
-            self.connection.send(self.status)
-
-        self.process.join()
-        self.finished = True
