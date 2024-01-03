@@ -7,7 +7,7 @@ from recs.cfg import InputDevice, Track
 
 class FullState:
     def __init__(self, tracks: dict[InputDevice, t.Sequence[Track]]) -> None:
-        def device_state(t) -> state.DeviceState:
+        def device_state(t) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in t}
 
         self.state = {k.name: device_state(v) for k, v in tracks.items()}
@@ -18,13 +18,13 @@ class FullState:
     def elapsed_time(self) -> float:
         return times.timestamp() - self.start_time
 
-    def update(self, state: state.RecorderState) -> None:
+    def update(self, state: dict[str, dict[str, state.ChannelState]]) -> None:
         for device_name, device_state in state.items():
             for channel_name, channel_state in device_state.items():
                 self.state[device_name][channel_name] += channel_state
                 self.total += channel_state
                 if '-' in channel_name:
-                    # Hack to fix #96, stereo channels in total time
+                    # This is a stereo channel, so count it again
                     self.total.recorded_time += channel_state.recorded_time
 
     def rows(self, devices: t.Sequence[str]) -> t.Iterator[dict[str, t.Any]]:
@@ -37,10 +37,8 @@ class FullState:
 
         for device_name, device_state in self.state.items():
             active = Active.active if device_name in devices else Active.offline
-            yield {
-                'device': device_name,  # TODO: use alias here
-                'on': active,
-            }
+            yield {'device': device_name, 'on': active}  # TODO: use alias here
+
             for c, s in device_state.items():
                 yield {
                     'channel': c,  # TODO: use alias here

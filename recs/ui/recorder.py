@@ -48,7 +48,7 @@ class Recorder(Runnables):
                 if exit := msg.get('_exit'):
                     assert exit
                     self.connections[c].set_sent()
-                    self.running.clear()
+                    self.running = False
                 else:
                     self.state.update({device_name: msg})
 

@@ -71,7 +71,3 @@ class ChannelState:
         x = self.replace()
         x -= m
         return x
-
-
-DeviceState = dict[str, ChannelState]
-RecorderState = dict[str, DeviceState]
