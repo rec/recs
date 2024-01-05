@@ -8,9 +8,11 @@ from .track import Track
 CHANNEL_SPLITTER = '+'
 
 
-class Aliases(PrefixDict[Track]):
+class Aliases:
+    tracks: PrefixDict[Track]
+
     def __init__(self, aliases: t.Sequence[str], devices: InputDevices) -> None:
-        super().__init__()
+        self.tracks = PrefixDict()
 
         assert devices
         self.devices = devices
@@ -27,10 +29,10 @@ class Aliases(PrefixDict[Track]):
         if len(set(names)) < len(names):
             raise ValueError(f'Duplicate aliases: {aliases}')
 
-        self.update(sorted(zip(names, self.to_tracks(values))))
+        self.tracks.update(sorted(zip(names, self.to_tracks(values))))
 
         inv: dict[Track, list[str]] = {}
-        for k, v in self.items():
+        for k, v in self.tracks.items():
             inv.setdefault(v, []).append(k)
 
         if duplicate_aliases := [(k, v) for k, v in inv.items() if len(v) > 1]:
@@ -63,13 +65,13 @@ class Aliases(PrefixDict[Track]):
 
     def to_track(self, track_name: str) -> Track:
         try:
-            return self[track_name]
+            return self.tracks[track_name]
         except KeyError:
             pass
 
         name, _, channels = (i.strip() for i in track_name.partition(CHANNEL_SPLITTER))
         try:
-            track = self[name]
+            track = self.tracks[name]
         except KeyError:
             device = self.devices[name]
         else:

@@ -9,7 +9,7 @@ def _Aliases(*aliases):
 
 def test_empty_aliases(mock_devices):
     aliases = _Aliases()
-    assert not aliases
+    assert not aliases.tracks
     assert not aliases.inv
 
 
@@ -19,16 +19,16 @@ def test_aliases(mock_devices):
 
     assert aliases
     assert aliases.inv
-    assert sorted(aliases.inv) == sorted(aliases.values())
+    assert sorted(aliases.inv) == sorted(aliases.tracks.values())
 
-    assert aliases['E'] == to_track('Ext')
-    assert aliases['Main'] == to_track('Flower 8 + 7-8')
-    assert aliases['mai'] == to_track('Mic')
-    assert aliases['Mai'] == to_track('Mic')
+    assert aliases.tracks['E'] == to_track('Ext')
+    assert aliases.tracks['Main'] == to_track('Flower 8 + 7-8')
+    assert aliases.tracks['mai'] == to_track('Mic')
+    assert aliases.tracks['Mai'] == to_track('Mic')
     with pytest.raises(KeyError):
-        aliases['X']
+        aliases.tracks['X']
     with pytest.raises(KeyError):
-        aliases['m']
+        aliases.tracks['m']
 
 
 def test_errors(mock_devices):
