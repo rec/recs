@@ -1,5 +1,6 @@
 import pytest
 
+from recs.base import RecsError
 from recs.cfg import Cfg
 
 
@@ -54,10 +55,10 @@ def test_to_tracks(mock_devices):
     expected = [to_track('Flower 8 + 1-2'), to_track('Flower 8 + 3'), to_track('Ext')]
     assert actual == expected
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(RecsError) as e:
         list(to_tracks((['flow + 1-2', 'flow + 3', 'ext', 'oxt'])))
 
-    assert e.value.args[0] == 'Bad device name: oxt'
+    assert e.value.args[0] == 'Unknown device name: oxt\nDevices: "Ext", "Flower 8", "Mic"'
 
 
 def test_error(mock_devices):
@@ -65,7 +66,7 @@ def test_error(mock_devices):
     aliases.to_track('Main')
     with pytest.raises(KeyError) as e:
         aliases.to_track('Main + 3')
-    assert e.value.args == ('Alias Main is a device alias: "Main + 3" is not legal',)
+    assert e.value.args == ('Main + 3', 'impossible')
 
 
 def test_to_track(mock_devices):

@@ -8,14 +8,19 @@ class PrefixDict(dict[str, T]):
         try:
             return super().__getitem__(key)
         except KeyError:
-            if not key:
-                raise
-            key = key.strip().lower()
+            pass
+
+        error = 'unknown'
+        if key := key.strip().lower():
             try:
                 return super().__getitem__(key)
             except KeyError:
                 pass
 
-            if 1 == len(m := [v for k, v in self.items() if k.lower().startswith(key)]):
-                return m[0]
-            raise
+            matches = [v for k, v in self.items() if k.lower().startswith(key)]
+            if len(matches) == 1:
+                return matches[0]
+            if matches:
+                error = 'ambiguous'
+
+        raise KeyError(key, error)
