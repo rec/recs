@@ -1,12 +1,11 @@
 import typing as t
 from multiprocessing import connection
 
-from threa import HasThread, Runnables
+from threa import HasThread, Runnables, IsThread
 
-from recs.cfg import Cfg
+from recs.cfg import Cfg, device
 
 from . import live
-from .device_names import DeviceNames
 from .device_process import DeviceProcess
 from .device_recorder import POLL_TIMEOUT
 from .device_tracks import device_tracks
@@ -54,3 +53,16 @@ class Recorder(Runnables):
 
         if (rt := self.cfg.total_run_time) and rt <= self.state.elapsed_time:
             self.stop()
+
+
+class DeviceNames(IsThread):
+    daemon = True
+    looping = False
+
+    def __init__(self, pre_delay: float) -> None:
+        self.pre_delay = pre_delay
+        super().__init__()
+        self.callback()
+
+    def callback(self) -> None:
+        self.names = device.input_names()
