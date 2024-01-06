@@ -29,7 +29,8 @@ class Cfg:
 
         # This constructor has this *global side-effect*, see log.py
         log.VERBOSE = cfg.verbose
-        logging.basicConfig(level=logging.DEBUG)
+        if cfg.verbose:
+            logging.basicConfig(level=logging.DEBUG)
 
         self.path = path_pattern.PathPattern(cfg.path)
 

@@ -29,12 +29,17 @@ class Recorder(Runnables):
             self.live.update, looping=True, name='LiveUpdate', pre_delay=ui_time
         )
 
-        self.runnables = self.live, self.device_names, *processes, live_thread
+        self.runnables = self.device_names, *processes, live_thread, self.live
 
     def run_recorder(self) -> None:
         with self:
             while self.running:
                 self.receive()
+
+    def finish(self) -> None:
+        for r in reversed(self.runnables):
+            r.finish()
+        self.stop()
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names.names)
@@ -44,6 +49,7 @@ class Recorder(Runnables):
             c = t.cast(connection.Connection, conn)
             for device_name, msg in c.recv().items():
                 if msg.get('_exit'):
+                    # Not called
                     device_process = self.connections[c]
                     device_process.set_sent()
                     print('Recorder _exit', device_process.device_name)
@@ -57,7 +63,7 @@ class Recorder(Runnables):
 
 class DeviceNames(IsThread):
     daemon = True
-    looping = False
+    looping = True
 
     def __init__(self, pre_delay: float) -> None:
         self.pre_delay = pre_delay

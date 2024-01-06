@@ -52,7 +52,8 @@ class DeviceRecorder(Runnables):
                         if msg := connection.recv():
                             self.queue.put({'reason': msg})
                 except KeyboardInterrupt:
-                    print('Aborted')
+                    # We should never get here!
+                    print('Aborted', d.name)
 
         self.connection.send({self.device.name: {'_exit': self.exit}})
 
