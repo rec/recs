@@ -77,7 +77,7 @@ InputDevices = PrefixDict[InputDevice]
 
 
 def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
-    return PrefixDict({d.name: d for i in devices if (d := InputDevice(i))})
+    return PrefixDict({d.name: d for i in devices if (d := InputDevice(i)).channels})
 
 
 CMD = sys.executable, '-m', 'recs.base._query_device'
