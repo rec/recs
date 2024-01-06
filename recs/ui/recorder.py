@@ -3,7 +3,6 @@ from multiprocessing import connection
 
 from threa import HasThread, Runnables
 
-from recs.base import RecsError
 from recs.cfg import Cfg
 
 from . import live
@@ -18,9 +17,7 @@ class Recorder(Runnables):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
 
-        if not (tracks := device_tracks(cfg)):
-            raise RecsError('No devices or channels selected')
-
+        tracks = device_tracks(cfg)
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(tracks)
@@ -41,15 +38,15 @@ class Recorder(Runnables):
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.device_names.names)
 
-    def receive(self):
-        for c in connection.wait(list(self.connections), timeout=POLL_TIMEOUT):
-            m = c.recv()
-            for device_name, msg in m.items():
+    def receive(self) -> None:
+        for conn in connection.wait(list(self.connections), timeout=POLL_TIMEOUT):
+            c = t.cast(connection.Connection, conn)
+            for device_name, msg in c.recv().items():
                 if msg.get('_exit'):
                     self.connections[c].set_sent()
                     self.running = False
                 else:
                     self.state.update({device_name: msg})
 
-        if (t := self.cfg.total_run_time) and t <= self.state.elapsed_time:
+        if (rt := self.cfg.total_run_time) and rt <= self.state.elapsed_time:
             self.stop()

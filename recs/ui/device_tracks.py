@@ -1,16 +1,24 @@
 import typing as t
 
+from recs.base import RecsError
 from recs.cfg import Cfg, InputDevice, Track
 
 DeviceTracks = dict[InputDevice, t.Sequence[Track]]
 
 
 def device_tracks(cfg: Cfg) -> DeviceTracks:
+    if not cfg.devices:
+        raise RecsError('No audio input devices were found')
+
     exc = cfg.aliases.to_tracks(cfg.exclude)
     inc = cfg.aliases.to_tracks(cfg.include)
 
     it = ((d, list(device_track(d, exc, inc))) for d in cfg.devices.values())
-    return {d: v for d, v in it if v}
+    ts: DeviceTracks = {d: v for d, v in it if v}
+    if ts:
+        return ts
+
+    raise RecsError('No channels selected')
 
 
 def device_track(
