@@ -26,7 +26,9 @@ class Recorder(Runnables):
         processes = tuple(DeviceProcess(cfg, t) for t in tracks.values())
         self.connections = {p.connection: p for p in processes}
         ui_time = 1 / self.cfg.ui_refresh_rate
-        live_thread = HasThread(self.live.update, looping=True, pre_delay=ui_time)
+        live_thread = HasThread(
+            self.live.update, looping=True, name='LiveUpdate', pre_delay=ui_time
+        )
 
         self.runnables = self.live, self.device_names, *processes, live_thread
 
@@ -43,7 +45,9 @@ class Recorder(Runnables):
             c = t.cast(connection.Connection, conn)
             for device_name, msg in c.recv().items():
                 if msg.get('_exit'):
-                    self.connections[c].set_sent()
+                    device_process = self.connections[c]
+                    device_process.set_sent()
+                    print('Recorder _exit', device_process.device_name)
                     self.running = False
                 else:
                     self.state.update({device_name: msg})

@@ -38,7 +38,7 @@ class RecsRunner:
         return self._timestamp
 
     def run(self):
-        with HasThread(lambda: run_cli.run_cli(self.cfg)):
+        with HasThread(lambda: run_cli.run_cli(self.cfg), name='RunCli'):
             while sum(1 for i in self.events()) < self.event_count:
                 times.sleep(0.001)
 

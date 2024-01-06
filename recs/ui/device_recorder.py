@@ -36,7 +36,7 @@ class DeviceRecorder(Runnables):
 
         cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
-        self.queue = ThreadQueue(self.device_callback)
+        self.queue = ThreadQueue(self.device_callback, name=f'ThreadQueue-{d.name}')
         self.input_stream = self.device.input_stream(
             device_callback=self.queue.put,
             sdtype=self.cfg.sdtype,

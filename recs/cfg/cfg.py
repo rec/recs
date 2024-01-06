@@ -1,5 +1,6 @@
 import dataclasses as dc
 import json
+import logging
 import typing as t
 import warnings
 from functools import wraps
@@ -26,8 +27,9 @@ class Cfg:
     def __init__(self, *a, **ka) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
 
-        # This constructor has this single *global side-effect*, see log.py
+        # This constructor has this *global side-effect*, see log.py
         log.VERBOSE = cfg.verbose
+        logging.basicConfig(level=logging.DEBUG)
 
         self.path = path_pattern.PathPattern(cfg.path)
 
