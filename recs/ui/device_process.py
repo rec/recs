@@ -10,9 +10,6 @@ from recs.ui.device_recorder import DeviceRecorder
 
 
 class DeviceProcess(Wrapper):
-    status: str = 'ok'
-    sent: bool = False
-
     def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
         self.connection, child = mp.Pipe()
         self._lock = Lock()
@@ -22,16 +19,9 @@ class DeviceProcess(Wrapper):
 
         self.device_name = tracks[0].device.name
 
-    def set_sent(self) -> bool:
-        with self._lock:
-            sent, self.sent = self.sent, True
-            return not sent
-
     @override
     def finish(self):
         self.running = False
-        if self.set_sent():
-            self.connection.send(self.status)
-
+        getattr(self.process, 'terminate', lambda: None)()
         self.process.join()
         self.finished = True

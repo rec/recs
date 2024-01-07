@@ -13,7 +13,7 @@ def query_devices() -> list[dict[str, t.Any]]:
         import sounddevice
 
         return sounddevice.query_devices()
-    except Exception:
+    except BaseException:
         return []
 
 

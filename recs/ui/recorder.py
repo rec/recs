@@ -49,16 +49,19 @@ class Recorder(Runnables):
             c = t.cast(connection.Connection, conn)
             for device_name, msg in c.recv().items():
                 if msg.get('_exit'):
-                    # Not called
-                    device_process = self.connections[c]
-                    device_process.set_sent()
-                    print('Recorder _exit', device_process.device_name)
+                    # Is not getting called?
+                    print('Recorder _exit', self.connections[c].device_name)
                     self.running = False
                 else:
                     self.state.update({device_name: msg})
 
         if (rt := self.cfg.total_run_time) and rt <= self.state.elapsed_time:
-            self.stop()
+            if True:
+                # TODO: it shouldn't make a difference, but this results in
+                # fewer tracebacks on control-c
+                self.stop()
+            else:
+                self.finish()
 
 
 class DeviceNames(IsThread):

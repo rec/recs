@@ -50,10 +50,10 @@ class DeviceRecorder(Runnables):
                 try:
                     if connection.poll(POLL_TIMEOUT):
                         if msg := connection.recv():
+                            print('exit request', self.device.name, msg)
                             self.queue.put({'reason': msg})
                 except KeyboardInterrupt:
-                    # We should never get here!
-                    print('Aborted', d.name)
+                    break
 
         self.connection.send({self.device.name: {'_exit': self.exit}})
 
