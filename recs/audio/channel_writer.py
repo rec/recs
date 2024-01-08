@@ -8,9 +8,10 @@ from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
 
+import recs.cfg.source
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, device, time_settings
+from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -75,7 +76,7 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-    def update(self, update: device.Update) -> ChannelState:
+    def update(self, update: recs.cfg.source.Update) -> ChannelState:
         block = Block(update.array[:, self.track.slice])
         with self._lock:
             return self._receive_block(block, update.timestamp)

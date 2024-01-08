@@ -11,7 +11,7 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base import cfg_raw
 from recs.base.types import Format
 from recs.cfg import Cfg, Track
-from recs.cfg.device import Update
+from recs.cfg.source import Update
 
 NEW_CODE_FLAG = 'RECS_NEW_CODE' in os.environ
 FINISH = 'finish'

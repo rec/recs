@@ -3,7 +3,6 @@ import subprocess as sp
 import sys
 import traceback
 import typing as t
-import abc
 
 from overrides import override
 from threa import Runnable, Wrapper
@@ -12,33 +11,9 @@ import numpy as np
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import SdType, Stop
-from recs.cfg import hash_cmp
+from .source import Source, Update
 
 DeviceDict = dict[str, float | int | str]
-
-
-class Update(t.NamedTuple):
-    array: np.ndarray
-    timestamp: float
-
-
-class Source(hash_cmp.HashCmp, abc.ABC):
-    def __init__(self, channels: int, name: str, samplerate: float) -> None:
-        self._key = self.name = name
-        self.channels = channels
-        self.samplerate = samplerate
-
-    def __str__(self) -> str:
-        return self.name
-
-    @abc.abstractmethod
-    def input_stream(
-        self,
-        on_error: Stop,
-        sdtype: SdType,
-        update_callback: t.Callable[[Update], None],
-    ) -> Runnable:
-        pass
 
 
 class InputDevice(Source):

@@ -3,8 +3,8 @@ import typing as t
 from recs.base.prefix_dict import PrefixDict
 from recs.base import prefix_dict, RecsError
 
-
-from .device import InputDevices, Source
+from .device import InputDevices
+from .source import Source
 from .track import Track
 
 CHANNEL_SPLITTER = '+'

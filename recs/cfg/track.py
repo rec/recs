@@ -1,12 +1,14 @@
 from recs.base import RecsError
 
 from . import hash_cmp
-from .device import Source
+from .source import Source
 
 __all__ = ('Track',)
 
 
 class Track(hash_cmp.HashCmp):
+    name: str
+
     def __init__(self, source: Source, channel: str | tuple[int, ...] = ()) -> None:
         self.source = source
 
