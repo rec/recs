@@ -3,7 +3,8 @@ from test.conftest import TIME, TIMESTAMP
 import pytest
 
 from recs.base import RecsError
-from recs.cfg import Cfg, PathPattern
+from recs.cfg import Cfg
+from recs.cfg.path_pattern import PathPattern
 
 
 def test_empty(mock_devices):
