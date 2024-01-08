@@ -1,7 +1,8 @@
+import typing as t
 from recs.base.types import Format
 
 
-def header_size(metadata: dict[str, str], format: Format) -> int:
+def header_size(metadata: t.Mapping[str, str], format: Format) -> int:
     tag = 9
     if format == Format.aiff:
         base, first, software = 54, 0, 22

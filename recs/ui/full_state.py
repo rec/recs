@@ -6,7 +6,7 @@ from recs.cfg import InputDevice, Track
 
 
 class FullState:
-    def __init__(self, tracks: dict[InputDevice, t.Sequence[Track]]) -> None:
+    def __init__(self, tracks: t.Mapping[InputDevice, t.Sequence[Track]]) -> None:
         def device_state(t) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in t}
 
@@ -18,7 +18,7 @@ class FullState:
     def elapsed_time(self) -> float:
         return times.timestamp() - self.start_time
 
-    def update(self, state: dict[str, dict[str, state.ChannelState]]) -> None:
+    def update(self, state: t.Mapping[str, t.Mapping[str, state.ChannelState]]) -> None:
         for device_name, device_state in state.items():
             for channel_name, channel_state in device_state.items():
                 self.state[device_name][channel_name] += channel_state

@@ -22,7 +22,7 @@ class TableFormatter:
             return _to_str(x)
         return ''
 
-    def __call__(self, rows: t.Iterator[dict[str, t.Any]]) -> Table:
+    def __call__(self, rows: t.Iterator[t.Mapping[str, t.Any]]) -> Table:
         t = Table(*self.kwargs)
         cols = set(self.kwargs)
         for r in rows:

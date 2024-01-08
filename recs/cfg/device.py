@@ -9,8 +9,10 @@ import numpy as np
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
-from recs.base.types import DeviceDict, SdType, Stop
+from recs.base.types import SdType, Stop
 from recs.cfg import hash_cmp
+
+DeviceDict = dict[str, float | int | str]
 
 
 class Update(t.NamedTuple):
