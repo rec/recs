@@ -4,7 +4,7 @@ from recs.base import RecsError
 from recs.cfg import Cfg, InputDevice, Track
 
 
-def device_tracks(cfg: Cfg) -> t.Mapping[InputDevice, t.Sequence[Track]]:
+def device_tracks(cfg: Cfg) -> t.Iterator[tuple[InputDevice, t.Sequence[Track]]]:
     if not cfg.devices:
         raise RecsError('No audio input devices were found')
 
@@ -12,10 +12,7 @@ def device_tracks(cfg: Cfg) -> t.Mapping[InputDevice, t.Sequence[Track]]:
     inc = cfg.aliases.to_tracks(cfg.include)
 
     it = ((d, list(device_track(d, exc, inc))) for d in cfg.devices.values())
-    if ts := {d: v for d, v in it if v}:
-        return ts
-
-    raise RecsError('No channels selected')
+    yield from ((d, v) for d, v in it if v)
 
 
 def device_track(

@@ -4,7 +4,7 @@ from recs.base.prefix_dict import PrefixDict
 from recs.base import prefix_dict, RecsError
 
 
-from .device import InputDevice, InputDevices
+from .device import InputDevices, Source
 from .track import Track
 
 CHANNEL_SPLITTER = '+'
@@ -66,8 +66,8 @@ class Aliases:
 
         raise RecsError('\n'.join([*errs, devices]))
 
-    def display_name(self, x: InputDevice | Track, short: bool = True) -> str:
-        if isinstance(x, InputDevice):
+    def display_name(self, x: Source | Track, short: bool = True) -> str:
+        if isinstance(x, Source):
             return self.inv.get(Track(x), x.name)
 
         default = x.name if short else str(x)
@@ -83,10 +83,8 @@ class Aliases:
         try:
             track = self.tracks[name]
         except KeyError:
-            device = self.devices[name]
-        else:
-            if track.channels:
-                raise KeyError(track_name, 'impossible')
-            device = track.device
+            return Track(self.devices[name], channels)
 
-        return Track(device, channels)
+        if track.channels:
+            raise KeyError(track_name, 'impossible')
+        return Track(track.device, channels)

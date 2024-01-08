@@ -2,15 +2,15 @@ import typing as t
 
 from recs.base import state, times
 from recs.base.types import Active
-from recs.cfg import InputDevice, Track
+from recs.cfg import Track, Source
 
 
 class FullState:
-    def __init__(self, tracks: t.Mapping[InputDevice, t.Sequence[Track]]) -> None:
+    def __init__(self, tracks: t.Sequence[tuple[Source, t.Sequence[Track]]]) -> None:
         def device_state(t) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in t}
 
-        self.state = {k.name: device_state(v) for k, v in tracks.items()}
+        self.state = {k.name: device_state(v) for k, v in tracks}
         self.total = state.ChannelState()
         self.start_time = times.timestamp()
 

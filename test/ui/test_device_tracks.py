@@ -5,7 +5,7 @@ from recs.ui.device_tracks import device_track, device_tracks
 def _device_tracks(alias=(), exclude=(), include=()):
     cfg = Cfg(alias=alias, exclude=exclude, include=include)
     d = device_tracks(cfg)
-    actual = {k.name.split()[0].lower(): v for k, v in d.items()}
+    actual = {k.name.split()[0].lower(): v for k, v in d}
     return actual, cfg.aliases.to_track
 
 

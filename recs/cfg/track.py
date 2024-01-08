@@ -1,22 +1,22 @@
 from recs.base import RecsError
 
 from . import hash_cmp
-from .device import InputDevice
+from .device import Source
 
 __all__ = ('Track',)
 
 
 class Track(hash_cmp.HashCmp):
-    def __init__(self, d: InputDevice, channel: str | tuple[int, ...] = ()) -> None:
-        self.device = d
+    def __init__(self, source: Source, channel: str | tuple[int, ...] = ()) -> None:
+        self.source = source
 
         channels = channel or ()
         if isinstance(channels, str):
-            self.channels = _channels(channels, d.name, d.channels)
+            self.channels = _channels(channels, source.name, source.channels)
         else:
             self.channels = channels
 
-        self._key = d.name, self.channels
+        self._key = source.name, self.channels
 
         if self.channels:
             a, b = self.channels[0], self.channels[-1]
@@ -27,10 +27,14 @@ class Track(hash_cmp.HashCmp):
             self.slice = slice(0)
             self.name = ''
 
+    @property
+    def device(self) -> Source:
+        return self.source
+
     def __str__(self) -> str:
         if self.channels:
-            return f'{self.device.name} + {self.name}'
-        return self.device.name
+            return f'{self.source.name} + {self.name}'
+        return self.source.name
 
     def __repr__(self) -> str:
         return f'Track(\'{self}\')'

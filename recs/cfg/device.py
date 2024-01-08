@@ -3,7 +3,9 @@ import subprocess as sp
 import sys
 import traceback
 import typing as t
+import abc
 
+from overrides import override
 from threa import Runnable, Wrapper
 import numpy as np
 
@@ -20,17 +22,35 @@ class Update(t.NamedTuple):
     timestamp: float
 
 
-class InputDevice(hash_cmp.HashCmp):
-    def __init__(self, info: DeviceDict) -> None:
-        self.info = info
-        self.channels = t.cast(int, self.info['max_input_channels'])
-        self.samplerate = int(self.info['default_samplerate'])
-        self.name = t.cast(str, self.info['name'])
-        self._key = self.name
+class Source(hash_cmp.HashCmp, abc.ABC):
+    def __init__(self, channels: int, name: str, samplerate: float) -> None:
+        self._key = self.name = name
+        self.channels = channels
+        self.samplerate = samplerate
 
     def __str__(self) -> str:
         return self.name
 
+    @abc.abstractmethod
+    def input_stream(
+        self,
+        on_error: Stop,
+        sdtype: SdType,
+        update_callback: t.Callable[[Update], None],
+    ) -> Runnable:
+        pass
+
+
+class InputDevice(Source):
+    def __init__(self, info: DeviceDict) -> None:
+        self.info = info
+        super().__init__(
+            channels = t.cast(int, self.info['max_input_channels']),
+            name=t.cast(str, self.info['name']),
+            samplerate = int(self.info['default_samplerate']),
+        )
+
+    @override
     def input_stream(
         self,
         on_error: Stop,

@@ -3,6 +3,7 @@ from multiprocessing import connection
 
 from threa import HasThread, Runnables, IsThread
 
+from recs.base import RecsError
 from recs.cfg import Cfg, device
 
 from . import live
@@ -16,13 +17,15 @@ class Recorder(Runnables):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
 
-        tracks = device_tracks(cfg)
+        if not (tracks := list(device_tracks(cfg))):
+            raise RecsError('No channels selected')
+
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(tracks)
         self.device_names = DeviceNames(cfg.sleep_time_device)
 
-        processes = tuple(DeviceProcess(cfg, t) for t in tracks.values())
+        processes = tuple(DeviceProcess(cfg, t) for d, t in tracks)
         self.connections = {p.connection: p for p in processes}
         ui_time = 1 / self.cfg.ui_refresh_rate
         live_thread = HasThread(
