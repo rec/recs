@@ -2,7 +2,7 @@ import string
 from pathlib import Path
 
 import dtyper
-from typer import Argument, rich_utils
+from typer import rich_utils
 
 from recs.base import types
 from recs.base.cfg_raw import CfgRaw
@@ -36,8 +36,11 @@ def recs(
     #
     # Directory settings
     #
-    path: str = Argument(
-        RECS.path, help='Path or path pattern for recorded file locations'
+    path: str = Option(
+        RECS.path,
+        '-p',
+        '--path',
+        help='Path or path pattern for recorded file locations',
     ),
     #
     # General
@@ -250,5 +253,5 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefimnorstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklpqwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefimnoprstuv', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklqwxyz', _UNUSED_SINGLES
