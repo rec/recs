@@ -82,6 +82,6 @@ def test_device_track_inc(mock_devices):
     exc = cfg.aliases.to_tracks(('x', 'Main'))
 
     track = cfg.aliases.to_track('mic + 1')
-    actual = list(device_track(track.device, exc=exc))
+    actual = list(device_track(track.source, exc=exc))
     expected = [track]
     assert actual == expected

@@ -87,4 +87,4 @@ class Aliases:
 
         if track.channels:
             raise KeyError(track_name, 'impossible')
-        return Track(track.device, channels)
+        return Track(track.source, channels)

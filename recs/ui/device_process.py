@@ -17,7 +17,7 @@ class DeviceProcess(Wrapper):
         self.process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
         super().__init__(self.process)
 
-        self.device_name = tracks[0].device.name
+        self.device_name = tracks[0].source.name
 
     @override
     def finish(self):

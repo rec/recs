@@ -29,10 +29,6 @@ class Track(hash_cmp.HashCmp):
             self.slice = slice(0)
             self.name = ''
 
-    @property
-    def device(self) -> Source:
-        return self.source
-
     def __str__(self) -> str:
         if self.channels:
             return f'{self.source.name} + {self.name}'

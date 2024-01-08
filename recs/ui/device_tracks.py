@@ -21,8 +21,8 @@ def device_track(
     if Track(d) in exc:
         return
 
-    excs = [i for i in exc if d.name == i.device.name]
-    incs = [i for i in inc if d.name == i.device.name]
+    excs = [i for i in exc if d.name == i.source.name]
+    incs = [i for i in inc if d.name == i.source.name]
     if inc and not incs:
         return
 

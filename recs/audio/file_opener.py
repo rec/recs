@@ -25,7 +25,7 @@ class FileOpener:
             file=path,
             format=self.cfg.format,
             mode='w',
-            samplerate=self.track.device.samplerate,
+            samplerate=self.track.source.samplerate,
             subtype=self.cfg.subtype,
         )
 

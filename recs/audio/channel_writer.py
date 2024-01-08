@@ -8,10 +8,9 @@ from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
 
-import recs.cfg.source
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, time_settings
+from recs.cfg import Cfg, Track, source, time_settings
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -76,7 +75,7 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-    def update(self, update: recs.cfg.source.Update) -> ChannelState:
+    def update(self, update: source.Update) -> ChannelState:
         block = Block(update.array[:, self.track.slice])
         with self._lock:
             return self._receive_block(block, update.timestamp)
@@ -99,7 +98,7 @@ class ChannelWriter(Runnable):
                 Path(sf.name).unlink()
 
     def _open(self, offset: int) -> SoundFile:
-        timestamp = self.timestamp - offset / self.track.device.samplerate
+        timestamp = self.timestamp - offset / self.track.source.samplerate
         ts = datetime.fromtimestamp(timestamp)
 
         index = 1 + len(self.files_written)
@@ -125,7 +124,7 @@ class ChannelWriter(Runnable):
         self._volume(block)
 
         if not self.do_not_record and (self._sf or not self.stopped):
-            expected_dt = len(block) / self.track.device.samplerate
+            expected_dt = len(block) / self.track.source.samplerate
 
             if dt > expected_dt * BLOCK_FUZZ:  # We were asleep, or otherwise lost time
                 self._write_and_close()
@@ -150,7 +149,7 @@ class ChannelWriter(Runnable):
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
             is_active=bool(self._sf),
-            recorded_time=self.frames_written / self.track.device.samplerate,
+            recorded_time=self.frames_written / self.track.source.samplerate,
             timestamp=self.timestamp,
             volume=tuple(self._volume.mean()),
             **kwargs,

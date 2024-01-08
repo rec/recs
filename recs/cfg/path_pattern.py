@@ -78,7 +78,7 @@ class PathPattern:
 
         return s.format(
             channel=track.name,
-            device=aliases.display_name(track.device),
+            device=aliases.display_name(track.source),
             index=str(index),
             track=aliases.display_name(track, short=False),
             **self.times(ts),

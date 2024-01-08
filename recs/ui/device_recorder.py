@@ -31,7 +31,7 @@ class DeviceRecorder(Runnables):
         self.cfg = Cfg(**cfg.asdict())
         self.connection = connection
 
-        self.device = d = tracks[0].device
+        self.device = d = tracks[0].source
         self.name = self.cfg.aliases.display_name(d)
         self.queue: Queue[Update] = Queue()
         self.times = self.cfg.times.scale(d.samplerate)
