@@ -33,9 +33,9 @@ class InputDevice(hash_cmp.HashCmp):
 
     def input_stream(
         self,
-        device_callback: t.Callable[[Update], None],
-        sdtype: SdType,
         on_error: Stop,
+        sdtype: SdType,
+        update_callback: t.Callable[[Update], None],
     ) -> Runnable:
         import sounddevice as sd
 
@@ -46,7 +46,7 @@ class InputDevice(hash_cmp.HashCmp):
                 print('Status', self, status, file=sys.stderr)
 
             try:
-                device_callback(Update(indata.copy(), times.timestamp()))
+                update_callback(Update(indata.copy(), times.timestamp()))
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()

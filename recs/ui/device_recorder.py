@@ -40,9 +40,9 @@ class DeviceRecorder(Runnables):
         self.channel_writers = tuple(cw)
 
         self.input_stream = self.device.input_stream(
-            device_callback=self.queue.put,
-            sdtype=self.cfg.sdtype,
             on_error=self.stop,
+            sdtype=self.cfg.sdtype,
+            update_callback=self.queue.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)
 
