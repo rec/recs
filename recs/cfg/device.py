@@ -4,6 +4,7 @@ import sys
 import traceback
 import typing as t
 
+from threa import Runnable, Wrapper
 import numpy as np
 
 from recs.base import times
@@ -15,20 +16,6 @@ from recs.cfg import hash_cmp
 class Update(t.NamedTuple):
     array: np.ndarray
     timestamp: float
-
-
-DeviceCallback = t.Callable[[Update], None]
-
-
-class InputStream(t.Protocol):
-    def close(self, ignore_errors=True) -> None:
-        pass
-
-    def start(self) -> None:
-        pass
-
-    def stop(self, ignore_errors=True) -> None:
-        pass
 
 
 class InputDevice(hash_cmp.HashCmp):
@@ -43,8 +30,11 @@ class InputDevice(hash_cmp.HashCmp):
         return self.name
 
     def input_stream(
-        self, device_callback: DeviceCallback, sdtype: SdType, on_error: Stop
-    ) -> InputStream:
+        self,
+        device_callback: t.Callable[[Update], None],
+        sdtype: SdType,
+        on_error: Stop,
+    ) -> Runnable:
         import sounddevice as sd
 
         stream: sd.InputStream
@@ -70,7 +60,7 @@ class InputDevice(hash_cmp.HashCmp):
             dtype=sdtype,
             samplerate=self.samplerate,
         )
-        return stream
+        return Wrapper(stream)
 
 
 InputDevices = PrefixDict[InputDevice]
