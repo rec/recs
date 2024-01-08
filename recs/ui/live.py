@@ -20,7 +20,9 @@ CONSOLE = Console(color_system='truecolor')
 class Live(Runnable):
     _last_update_time: float = 0
 
-    def __init__(self, rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]], cfg: Cfg) -> None:
+    def __init__(
+        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]], cfg: Cfg
+    ) -> None:
         self.rows = rows
         self.cfg = cfg
         super().__init__()

@@ -20,9 +20,9 @@ class InputDevice(Source):
     def __init__(self, info: DeviceDict) -> None:
         self.info = info
         super().__init__(
-            channels = t.cast(int, self.info['max_input_channels']),
+            channels=t.cast(int, self.info['max_input_channels']),
             name=t.cast(str, self.info['name']),
-            samplerate = int(self.info['default_samplerate']),
+            samplerate=int(self.info['default_samplerate']),
         )
 
     @override
