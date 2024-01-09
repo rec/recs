@@ -33,6 +33,9 @@ RECORD_PANEL = 'Record Settings'
 
 @app.app.command(help=app.HELP)
 def recs(
+    files: list[str] = dtyper.Argument(
+        None, help='One or more files to split for silence'
+    ),
     #
     # Directory settings
     #

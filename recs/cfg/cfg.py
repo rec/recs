@@ -1,6 +1,7 @@
 import dataclasses as dc
 import json
 import logging
+from pathlib import Path
 import typing as t
 import warnings
 from functools import wraps
@@ -33,6 +34,12 @@ class Cfg:
             logging.basicConfig(level=logging.DEBUG)
 
         self.path = path_pattern.PathPattern(cfg.path)
+
+        self.files = [Path(f) for f in cfg.files or ()]
+        if not_exist := [f for f in self.files if not f.exists()]:
+            s = 's' * (len(not_exist) != 1)
+            fname = ', '.join(str(f) for f in not_exist)
+            raise RecsError(f'Non-existent file{s}: {fname}')
 
         self.format = t.cast(Format, cfg.format)
 
