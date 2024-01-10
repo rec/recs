@@ -41,7 +41,7 @@ class Cfg:
             fname = ', '.join(str(f) for f in not_exist)
             raise RecsError(f'Non-existent file{s}: {fname}')
 
-        self.format = t.cast(Format, cfg.format or Format.flac)
+        self.format = t.cast(Format, cfg.format or Format._default)
 
         if cfg.subtype:
             self.subtype = t.cast(Subtype, cfg.subtype)

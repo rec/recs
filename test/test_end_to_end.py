@@ -6,6 +6,7 @@ import pytest
 import soundfile as sf
 import tdir
 
+from recs.base.types import Format
 from recs.cfg import Cfg, run_cli
 
 from .conftest import DEVICES
@@ -36,14 +37,14 @@ def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
     events = [(int(o * 1_000_000), s.channels) for o, s in events]
     assert len(events) == event_count
 
-    actual = sorted(Path().glob('**/*.flac'))
+    actual = sorted(Path().glob(f'**/*.{Format._default}'))
 
     if test_case.cfg.dry_run:
         assert not actual
         return
 
     tdata = TESTDATA / name
-    expected = sorted(tdata.glob('**/*.flac'))
+    expected = sorted(tdata.glob(f'**/*.{Format._default}'))
 
     if not expected:
         for a in actual:

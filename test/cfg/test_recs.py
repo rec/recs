@@ -20,7 +20,7 @@ def test_error_incompatible():
 
 
 def test_missing_subtype(capsys):
-    r = Cfg(format=Format.flac, sdtype=SdType.int16)
+    r = Cfg(format=Format._default, sdtype=SdType.int16)
     assert r.subtype == Subtype.pcm_16
 
 
