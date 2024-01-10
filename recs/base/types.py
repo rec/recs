@@ -44,7 +44,7 @@ class Format(StrEnum):
     wav = auto()
     wavex = auto()
 
-    _default = flac
+    _default = wav
 
 
 class Subtype(StrEnum):
