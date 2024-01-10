@@ -4,7 +4,7 @@ import typing as t
 import numpy as np
 from threa import Runnable
 
-from recs.base.types import Stop, SdType
+from recs.base.types import SdType, Stop
 from recs.cfg import hash_cmp
 
 
@@ -14,7 +14,7 @@ class Update(t.NamedTuple):
 
 
 class Source(hash_cmp.HashCmp, abc.ABC):
-    def __init__(self, channels: int, name: str, samplerate: float) -> None:
+    def __init__(self, channels: int, name: str, samplerate: int) -> None:
         self._key = self.name = name
         self.channels = channels
         self.samplerate = samplerate

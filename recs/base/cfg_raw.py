@@ -2,8 +2,6 @@ import dataclasses as dc
 import typing as t
 from pathlib import Path
 
-from .types import Format
-
 
 @dc.dataclass
 class CfgRaw:
@@ -34,7 +32,7 @@ class CfgRaw:
     #
     # Audio file format and subtype
     #
-    format: str = Format.flac
+    format: str = ''
     metadata: t.Sequence[str] = ()
     sdtype: str = ''
     subtype: str = ''

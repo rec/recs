@@ -56,6 +56,7 @@ class ChannelWriter(Runnable):
     ) -> None:
         super().__init__()
 
+        self.cfg = cfg
         self.do_not_record = cfg.dry_run or cfg.calibrate
         self.format = cfg.format
         self.metadata = cfg.metadata
@@ -68,7 +69,12 @@ class ChannelWriter(Runnable):
         self.files_written = file_list.FileList()
         self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
-        self.opener = FileOpener(cfg, track)
+        self.opener = FileOpener(
+            channels=len(track.channels),
+            format=cfg.format,
+            samplerate=track.source.samplerate,
+            subtype=cfg.subtype,
+        )
         self._volume = counter.MovingBlock(times.moving_average_time)
 
         if not cfg.infinite_length:
@@ -109,7 +115,8 @@ class ChannelWriter(Runnable):
         self.bytes_in_this_file = header_size(metadata, self.format)
         self.frames_in_this_file = 0
 
-        sf = self.opener.create(metadata, timestamp, index)
+        path = self.cfg.path.evaluate(self.track, self.cfg.aliases, timestamp, index)
+        sf = self.opener.create(metadata, path)
         self.files_written.append(Path(sf.name))
         return sf
 

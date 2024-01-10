@@ -1,10 +1,10 @@
 import dataclasses as dc
 import json
 import logging
-from pathlib import Path
 import typing as t
 import warnings
 from functools import wraps
+from pathlib import Path
 
 import soundfile as sf
 
@@ -41,7 +41,7 @@ class Cfg:
             fname = ', '.join(str(f) for f in not_exist)
             raise RecsError(f'Non-existent file{s}: {fname}')
 
-        self.format = t.cast(Format, cfg.format)
+        self.format = t.cast(Format, cfg.format or Format.flac)
 
         if cfg.subtype:
             self.subtype = t.cast(Subtype, cfg.subtype)

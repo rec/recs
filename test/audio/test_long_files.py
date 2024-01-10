@@ -71,11 +71,6 @@ def test_long_file(mock_input_streams, format, monkeypatch):
 
 @tdir
 def test_file_header(mock_devices):
-    cfg = Cfg(
-        format=Format.wav,
-        metadata=['title=' + 30 * 'a very long title '],
-        sdtype=SdType.int32,
-    )
-    fo = FileOpener(cfg, cfg.aliases.to_track('Flo + 1'))
+    fo = FileOpener(format=Format.wav)
     with fo.open('file.wav', {}, True) as fp:
         fp.write(np.zeros((8, 1), 'int32'))

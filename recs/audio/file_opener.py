@@ -1,48 +1,48 @@
+import dataclasses as dc
 import itertools
-from pathlib import Path
 import typing as t
+from pathlib import Path
 
 import soundfile as sf
 
-from recs.cfg import Cfg, Track
+from recs.base.types import Format, Subtype
 from recs.cfg.metadata import ALLOWS_METADATA
 
 
+@dc.dataclass
 class FileOpener:
-    def __init__(self, cfg: Cfg, track: Track) -> None:
-        self.cfg = cfg
-        self.track = track
+    format: Format
+    channels: int = 1
+    samplerate: int = 48_000
+    subtype: Subtype | None = None
 
     def open(
         self, path: Path | str, metadata: t.Mapping[str, str], overwrite: bool = False
     ) -> sf.SoundFile:
-        path = Path(path).with_suffix('.' + self.cfg.format)
+        path = Path(path).with_suffix('.' + self.format)
         if not overwrite and path.exists():
             raise FileExistsError(str(path))
 
         fp = sf.SoundFile(
-            channels=len(self.track.channels),
+            channels=self.channels,
             file=path,
-            format=self.cfg.format,
+            format=self.format,
             mode='w',
-            samplerate=self.track.source.samplerate,
-            subtype=self.cfg.subtype,
+            samplerate=self.samplerate,
+            subtype=self.subtype,
         )
 
-        if self.cfg.format in ALLOWS_METADATA:
+        if self.format in ALLOWS_METADATA:
             for k, v in metadata.items():
                 setattr(fp, k, v)
 
         return fp
 
-    def create(
-        self, metadata: t.Mapping[str, str], timestamp: float, index: int
-    ) -> sf.SoundFile:
-        p = Path(self.cfg.path.evaluate(self.track, self.cfg.aliases, timestamp, index))
-        p.parent.mkdir(exist_ok=True, parents=True)
+    def create(self, metadata: t.Mapping[str, str], path: Path) -> sf.SoundFile:
+        path.parent.mkdir(exist_ok=True, parents=True)
 
         for i in itertools.count():
-            f = p.parent / (p.name + bool(i) * f'_{i}')
+            f = path.parent / (path.name + bool(i) * f'_{i}')
             try:
                 return self.open(f, metadata)
             except FileExistsError:
