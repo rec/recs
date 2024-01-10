@@ -1,8 +1,8 @@
 import contextlib
 import os
 import typing as t
-from queue import Empty, Queue
 from multiprocessing.connection import Connection
+from queue import Empty, Queue
 
 import numpy as np
 from threa import Runnables

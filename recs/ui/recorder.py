@@ -1,7 +1,7 @@
 import typing as t
 from multiprocessing import connection
 
-from threa import HasThread, Runnables, IsThread
+from threa import HasThread, IsThread, Runnables
 
 from recs.base import RecsError
 from recs.cfg import Cfg, device

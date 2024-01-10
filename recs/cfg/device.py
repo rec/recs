@@ -4,13 +4,14 @@ import sys
 import traceback
 import typing as t
 
+import numpy as np
 from overrides import override
 from threa import Runnable, Wrapper
-import numpy as np
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import SdType, Stop
+
 from .source import Source, Update
 
 DeviceDict = dict[str, float | int | str]

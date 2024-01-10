@@ -13,7 +13,6 @@ from recs.cfg import Cfg
 
 from .table import TableFormatter, to_str
 
-
 CONSOLE = Console(color_system='truecolor')
 
 

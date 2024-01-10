@@ -1,7 +1,7 @@
 import typing as t
 
+from recs.base import RecsError, prefix_dict
 from recs.base.prefix_dict import PrefixDict
-from recs.base import prefix_dict, RecsError
 
 from .device import InputDevices
 from .source import Source

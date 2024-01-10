@@ -2,7 +2,7 @@ import typing as t
 
 from recs.base import state, times
 from recs.base.types import Active
-from recs.cfg import Track, Source
+from recs.cfg import Source, Track
 
 
 class FullState:
