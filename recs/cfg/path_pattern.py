@@ -2,6 +2,7 @@ import re
 import string
 from datetime import datetime
 from enum import IntEnum, auto
+from pathlib import Path
 
 from recs.base import RecsError
 from recs.cfg import aliases, track
@@ -72,16 +73,18 @@ class PathPattern:
         aliases: aliases.Aliases,
         timestamp: float,
         index: int,
-    ) -> str:
+    ) -> Path:
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)
 
-        return s.format(
-            channel=track.name,
-            device=aliases.display_name(track.source),
-            index=str(index),
-            track=aliases.display_name(track, short=False),
-            **self.times(ts),
+        return Path(
+            s.format(
+                channel=track.name,
+                device=aliases.display_name(track.source),
+                index=str(index),
+                track=aliases.display_name(track, short=False),
+                **self.times(ts),
+            )
         )
 
 
