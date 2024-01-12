@@ -51,12 +51,7 @@ class Recorder(Runnables):
         for conn in connection.wait(list(self.connections), timeout=POLL_TIMEOUT):
             c = t.cast(connection.Connection, conn)
             for device_name, msg in c.recv().items():
-                if msg.get('_exit'):
-                    # Is not getting called?
-                    print('Recorder _exit', self.connections[c].device_name)
-                    self.running = False
-                else:
-                    self.state.update({device_name: msg})
+                self.state.update({device_name: msg})
 
         if (rt := self.cfg.total_run_time) and rt <= self.state.elapsed_time:
             if True:

@@ -2,7 +2,6 @@ import multiprocessing as mp
 import typing as t
 from threading import Lock
 
-from overrides import override
 from threa import Wrapper
 
 from recs.cfg import Cfg, Track
@@ -18,10 +17,3 @@ class DeviceProcess(Wrapper):
         super().__init__(self.process)
 
         self.device_name = tracks[0].source.name
-
-    @override
-    def finish(self):
-        self.running = False
-        getattr(self.process, 'terminate', lambda: None)()
-        self.process.join()
-        self.finished = True
