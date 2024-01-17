@@ -30,8 +30,8 @@ def test_track_fails_value(desc, mock_devices):
 def test_track_display(mock_devices):
     t = Cfg().aliases.to_track('flow')
     assert str(t) == 'Flower 8'
-    assert repr(t) == 'Track(\'Flower 8\')'
+    assert repr(t) == "Track('Flower 8')"
 
     t = Cfg().aliases.to_track('flow + 2-3')
     assert str(t) == 'Flower 8 + 2-3'
-    assert repr(t) == 'Track(\'Flower 8 + 2-3\')'
+    assert repr(t) == "Track('Flower 8 + 2-3')"

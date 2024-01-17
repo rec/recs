@@ -132,8 +132,7 @@ def recs(
         help='Metadata fields to add to output files',
         rich_help_panel=FILE_PANEL,
     ),
-    sdtype: types.SdType
-    | None = Option(
+    sdtype: types.SdType | None = Option(
         RECS.sdtype,
         '-d',
         '--sdtype',
@@ -141,8 +140,7 @@ def recs(
         help='Integer or float number type for recording',
         rich_help_panel=FILE_PANEL,
     ),
-    subtype: types.Subtype
-    | None = Option(
+    subtype: types.Subtype | None = Option(
         RECS.subtype,
         '-u',
         '--subtype',

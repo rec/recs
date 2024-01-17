@@ -35,7 +35,7 @@ class Track(hash_cmp.HashCmp):
         return self.source.name
 
     def __repr__(self) -> str:
-        return f'Track(\'{self}\')'
+        return f"Track('{self}')"
 
 
 def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, ...]:

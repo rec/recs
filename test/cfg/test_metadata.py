@@ -59,7 +59,7 @@ def test_writing_metadata(format: Format):
     with sf.SoundFile(filename) as fp:
         full = {k: getattr(fp, k, None) for k in sf._str_types}
         print(full)
-        actual = {k: v for k, v, in full.items() if k not in CHANGED}
+        actual = {k: v for k, v in full.items() if k not in CHANGED}
         expected = {k: k.capitalize() for k in actual}
         if format == Format.mp3:
             to_clear = ['copyright']
