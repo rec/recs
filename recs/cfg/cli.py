@@ -65,7 +65,7 @@ def recs(
         RECS.verbose,
         '-v',
         '--verbose',
-        help='Print more stuff - currently does nothing',
+        help='Print more stuff',
         rich_help_panel=GENERAL_PANEL,
     ),
     #

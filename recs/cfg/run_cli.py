@@ -11,20 +11,11 @@ from . import Cfg
 
 def run_cli(cfg: Cfg) -> None:
     if cfg.info:
-        return _info()
-
-    if cfg.list_types:
-        return _list_types()
-
-    rec = Recorder(cfg)
-    try:
-        rec.run_recorder()
-    finally:
-        if cfg.calibrate:
-            states = rec.state.state.items()
-            d = {j: {k: v.db_range for k, v in u.items()} for j, u in states}
-            d2 = {'(all)': rec.state.total.db_range}
-            print(json.dumps(d | d2, indent=2))
+        _info()
+    elif cfg.list_types:
+        _list_types()
+    else:
+        Recorder(cfg).run()
 
 
 def _list_types() -> None:

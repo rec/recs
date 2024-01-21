@@ -48,3 +48,8 @@ class FullState:
                     'file_count': s.file_count,
                     'volume': len(s.volume) and sum(s.volume) / len(s.volume),
                 }
+
+    def db_ranges(self) -> dict[str, float]:
+        items = self.state.items()
+        d = {f'{k} - {k2}': v2.db_range for k, v in items for k2, v2 in v.items()}
+        return d | {'(all)': self.total.db_range}

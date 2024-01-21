@@ -1,3 +1,4 @@
+import json
 import multiprocessing as mp
 import typing as t
 from multiprocessing import connection
@@ -41,12 +42,19 @@ class Recorder(Runnables):
 
         self.runnables = *(Wrapper(p) for p in self.processes), live_thread, self.live
 
-    def run_recorder(self) -> None:
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+        yield from self.state.rows(self.names)
+
+    def run(self) -> None:
+        try:
+            self._run()
+        finally:
+            if self.cfg.calibrate or self.cfg.verbose:
+                print(json.dumps(self.state.db_ranges(), indent=2))
+
+    def _run(self) -> None:
         with self:
             while self.running and all(p.is_alive() for p in self.processes):
                 for c in connection.wait(self.connections, timeout=POLL_TIMEOUT):
                     conn = t.cast(connection.Connection, c)
                     self.state.update(conn.recv())
-
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield from self.state.rows(self.names)
