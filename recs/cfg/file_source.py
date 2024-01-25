@@ -14,14 +14,14 @@ BLOCKCOUNT = 0x1000
 
 
 class FileSource(Source):
-    def __init__(self, name: str) -> None:
-        self.path = Path(name)
+    def __init__(self, path: Path) -> None:
+        self.path = path
         assert self.path.exists()
 
         with self._stream() as fp:
             self.format = fp.format.lower()
             super().__init__(
-                channels=fp.channels, name=name, samplerate=int(fp.samplerate)
+                channels=fp.channels, name=str(path), samplerate=int(fp.samplerate)
             )
             self.subtype = fp.subtype
 

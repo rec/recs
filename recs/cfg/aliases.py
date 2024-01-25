@@ -15,11 +15,9 @@ class Aliases:
 
     def __init__(self, aliases: t.Sequence[str], devices: InputDevices) -> None:
         self.tracks = PrefixDict()
-
-        assert devices
         self.devices = devices
 
-        if not aliases:
+        if not (aliases and devices):
             self.inv = {}
             return
 

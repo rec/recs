@@ -18,24 +18,22 @@ class Recorder(Runnables):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
 
-        if not (tracks := list(device_tracks(cfg))):
+        if not (all_tracks := list(device_tracks(cfg))):
             raise RecsError('No channels selected')
 
         self.cfg = cfg
         self.live = live.Live(self.rows, cfg)
-        self.state = FullState(tracks)
+        self.state = FullState(all_tracks)
         self.names = device.input_names()
+        self.connections: list[connection.Connection] = []
+        self.processes: list[mp.Process] = []
 
-        def process(
-            tracks: t.Sequence[Track],
-        ) -> tuple[connection.Connection, mp.Process]:
+        for _, tracks in all_tracks:
             connection, child = mp.Pipe()
+            self.connections.append(connection)
             kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
             process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
-            return connection, process
-
-        c, p = zip(*(process(t) for _, t in tracks))
-        self.connections, self.processes = tuple(c), tuple(p)
+            self.processes.append(process)
 
         ui_time = 1 / self.cfg.ui_refresh_rate
         live_thread = HasThread(
