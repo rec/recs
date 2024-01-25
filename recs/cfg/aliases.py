@@ -56,7 +56,7 @@ class Aliases:
         if not errors:
             return result
 
-        def err(k, v) -> str:
+        def err(k: str, v: list[str]) -> str:
             s = 's' * (len(v) != 1)
             return f'{k.capitalize()} device name{s}: {", ".join(v)}'
 

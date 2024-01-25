@@ -8,7 +8,7 @@ import json
 import typing as t
 
 
-def query_devices() -> list[dict[str, t.Any]]:
+def _query_devices() -> t.Any:
     try:
         import sounddevice
 
@@ -18,4 +18,4 @@ def query_devices() -> list[dict[str, t.Any]]:
 
 
 if __name__ == '__main__':
-    print(json.dumps(query_devices(), indent=4))
+    print(json.dumps(_query_devices(), indent=4))

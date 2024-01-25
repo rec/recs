@@ -16,7 +16,7 @@ class TableFormatter:
     def __init__(self, **kwargs: t.Any):
         self.kwargs = kwargs
 
-    def _to_str(self, row, column) -> str:
+    def _to_str(self, row: t.Mapping[str, t.Any], column: str) -> str:
         _to_str = self.kwargs.get(column) or to_str
         if (x := row.get(column)) is not None:
             return _to_str(x)

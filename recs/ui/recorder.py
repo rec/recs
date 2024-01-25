@@ -26,7 +26,9 @@ class Recorder(Runnables):
         self.state = FullState(tracks)
         self.names = device.input_names()
 
-        def process(tracks: t.Sequence[Track]):
+        def process(
+            tracks: t.Sequence[Track],
+        ) -> tuple[connection.Connection, mp.Process]:
             connection, child = mp.Pipe()
             kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
             process = mp.Process(target=DeviceRecorder, kwargs=kwargs)

@@ -2,7 +2,7 @@ import os
 import typing as t
 from functools import cache, wraps
 
-C = t.TypeVar('C', bound=t.Callable)
+C = t.TypeVar('C', bound=t.Callable[..., t.Any])
 
 DISABLE = False
 
@@ -12,15 +12,15 @@ VERBOSE = not False
 
 
 @cache
-def _logger():
+def _logger() -> t.TextIO:
     return open(f'/tmp/log-{os.getpid()}.txt', 'w')
 
 
-def log(*a, **ka) -> None:
+def log(*a: t.Any, **ka: t.Any) -> None:
     print(*a, **ka, file=_logger())
 
 
-def verbose(*a, **ka) -> None:
+def verbose(*a: t.Any, **ka: t.Any) -> None:
     if VERBOSE:
         log(*a, **ka)
 
@@ -30,7 +30,7 @@ def logged(function: C) -> C:
         return function
 
     @wraps(function)
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: t.Any, **kwargs: t.Any) -> t.Any:
         verbose(function, 'before')
         try:
             return function(*args, **kwargs)

@@ -1,3 +1,5 @@
+import typing as t
+
 import click
 import dtyper
 
@@ -30,7 +32,7 @@ app = dtyper.Typer(
 class TimeParam(click.ParamType):
     name = 'TIME'
 
-    def convert(self, value, p, ctx) -> float:
+    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> float:
         if isinstance(value, (int, float)):
             return value
         try:
@@ -41,9 +43,9 @@ class TimeParam(click.ParamType):
 
 class DictParam(click.ParamType):
     name = 'NONE'
-    prefix_dict: dict
+    prefix_dict: dict[str, t.Any]
 
-    def convert(self, value, p, ctx):
+    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
         if not value:
             return None
         if not isinstance(value, str):
@@ -72,7 +74,7 @@ class SubtypeParam(DictParam):
 class MetadataParam(click.ParamType):
     name = 'METADATA'
 
-    def convert(self, value, p, ctx):
+    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
         try:
             metadata.to_dict([value])
             return value
@@ -83,5 +85,5 @@ class MetadataParam(click.ParamType):
 class AliasParam(click.ParamType):
     name = 'ALIAS'
 
-    def convert(self, value, p, ctx):
+    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
         return value

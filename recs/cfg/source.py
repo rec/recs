@@ -9,7 +9,7 @@ from recs.cfg import hash_cmp
 
 
 class Update(t.NamedTuple):
-    array: np.ndarray
+    array: np.ndarray  # type: ignore[type-arg]
     timestamp: float
 
 

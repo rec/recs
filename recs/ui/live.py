@@ -53,7 +53,7 @@ class Live(Runnable):
         super().stop()
 
 
-def _rgb(r=0, g=0, b=0) -> str:
+def _rgb(r: int = 0, g: int = 0, b: int = 0) -> str:
     r, g, b = (int(i) % 256 for i in (r, g, b))
     return f'[rgb({r},{g},{b})]'
 
@@ -67,9 +67,9 @@ def _on(active: Active) -> str:
         return ''
 
 
-def _volume(x) -> str:
+def _volume(x: t.Any) -> str:
     try:
-        s = sum(x) / len(x)
+        s: float = sum(x) / len(x)
     except Exception:
         s = x
 
@@ -78,15 +78,15 @@ def _volume(x) -> str:
 
     if s < 1 / 3:
         r = 0
-        g = 3 * s
+        g = round(3 * s)
     else:
-        r = (3 * s - 1) / 2
+        r = round((3 * s - 1) / 2)
         g = 1 - r
 
     return _rgb(r * 256, g * 256) + to_str(x)
 
 
-def _time_to_str(x) -> str:
+def _time_to_str(x: int) -> str:
     if not x:
         return ''
     s = times.to_str(x)

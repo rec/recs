@@ -1,4 +1,5 @@
 import string
+import typing as t
 from pathlib import Path
 
 import dtyper
@@ -18,7 +19,7 @@ RECS = CfgRaw()
 # Reading configs and environment variables would go here
 
 
-def Option(default, *a, **ka) -> dtyper.Option:
+def Option(default: t.Any, *a: t.Any, **ka: t.Any) -> t.Any:
     _SINGLES.update(i[1] for i in a if len(i) == 2)
     return dtyper.Option(default, *a, **ka)
 
@@ -31,7 +32,7 @@ CONSOLE_PANEL = 'Console and UI Settings'
 RECORD_PANEL = 'Record Settings'
 
 
-@app.app.command(help=app.HELP)
+@app.app.command(help=app.HELP)  # type: ignore[misc]
 def recs(
     files: list[str] = dtyper.Argument(
         None, help='One or more files to split for silence'
@@ -209,7 +210,7 @@ def recs(
     shortest_file_time: str = Option(
         RECS.shortest_file_time,
         click_type=app.TimeParam(),
-        help='Shortest amount of time per file',
+        help='Files shorter than this duration get deleted',
         rich_help_panel=RECORD_PANEL,
     ),
     quiet_after_end: str = Option(

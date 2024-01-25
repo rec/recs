@@ -7,8 +7,8 @@ from recs.cfg import Source, Track
 
 class FullState:
     def __init__(self, tracks: t.Sequence[tuple[Source, t.Sequence[Track]]]) -> None:
-        def device_state(t) -> dict[str, state.ChannelState]:
-            return {i.name: state.ChannelState() for i in t}
+        def device_state(tr: t.Sequence[Track]) -> dict[str, state.ChannelState]:
+            return {i.name: state.ChannelState() for i in tr}
 
         self.state = {k.name: device_state(v) for k, v in tracks}
         self.total = state.ChannelState()

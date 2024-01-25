@@ -24,7 +24,7 @@ class FileList(list[Path]):
         return self._total_size + _getsize(self[-1])
 
 
-def _getsize(p) -> int:
+def _getsize(p: Path) -> int:
     try:
         return os.path.getsize(p)
     except FileNotFoundError:

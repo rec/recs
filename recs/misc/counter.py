@@ -9,7 +9,9 @@ import numpy as np
 from recs.audio.block import Block
 
 # TODO: isn't there some type comprising these first four?
-Num: t.TypeAlias = int | float | numbers.Integral | numbers.Real | np.ndarray
+Num: t.TypeAlias = (
+    int | float | numbers.Integral | numbers.Real | np.ndarray  # type: ignore[type-arg]
+)
 
 
 @dc.dataclass
@@ -51,7 +53,7 @@ class Accumulator:
 
 
 class MovingBlock:
-    _dq: deque[np.ndarray] | None = None
+    _dq: deque[np.ndarray] | None = None  # type: ignore[type-arg]
 
     def __init__(self, moving_average_time: int):
         self.moving_average_time = moving_average_time
@@ -63,7 +65,7 @@ class MovingBlock:
 
         self._dq.append(b.amplitude)
 
-    def mean(self) -> np.ndarray:
+    def mean(self) -> np.ndarray:  # type: ignore[type-arg]
         if not self._dq:
             return np.array([0])
 

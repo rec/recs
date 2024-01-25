@@ -1,3 +1,5 @@
+# mypy: disable-error-code="no-any-return, type-arg"
+
 import dataclasses as dc
 import numbers
 import typing as t
@@ -26,7 +28,7 @@ class Block:
         return Block(self.block[index])
 
     @cached_property
-    def is_float(self):
+    def is_float(self) -> bool:
         return not issubclass(self.block.dtype.type, numbers.Integral)
 
     @cached_property

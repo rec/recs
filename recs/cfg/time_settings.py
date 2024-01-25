@@ -51,7 +51,7 @@ class TimeSettings(t.Generic[T]):
     def noise_floor_amplitude(self) -> float:
         return db_to_amplitude(self.noise_floor)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if negative_fields := [k for k, v in dc.asdict(self).items() if v < 0]:
             raise ValueError(f'TimeSettings cannot be negative: {negative_fields=}')
 

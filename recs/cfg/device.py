@@ -37,7 +37,12 @@ class InputDevice(Source):
 
         stream: sd.InputStream
 
-        def callback(indata: np.ndarray, frames: int, time: t.Any, status: int) -> None:
+        def callback(
+            indata: np.ndarray,  # type: ignore[type-arg]
+            frames: int,
+            time: t.Any,
+            status: int,
+        ) -> None:
             if status:  # pragma: no cover
                 print('Status', self, status, file=sys.stderr)
 
@@ -76,7 +81,7 @@ def query_devices() -> t.Sequence[DeviceDict]:
         r = sp.run(CMD, text=True, check=True, stdout=sp.PIPE)
     except sp.CalledProcessError:
         return []
-    return json.loads(r.stdout)
+    return t.cast(list[DeviceDict], json.loads(r.stdout))
 
 
 def input_names() -> t.Sequence[str]:

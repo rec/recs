@@ -58,7 +58,6 @@ class ChannelWriter(Runnable):
 
         self.cfg = cfg
         self.do_not_record = cfg.dry_run or cfg.calibrate
-        self.format = cfg.format
         self.metadata = cfg.metadata
         self.times = times
         self.track = track
@@ -112,7 +111,7 @@ class ChannelWriter(Runnable):
         metadata = {'date': ts.isoformat(), 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
-        self.bytes_in_this_file = header_size(metadata, self.format)
+        self.bytes_in_this_file = header_size(metadata, self.cfg.format)
         self.frames_in_this_file = 0
 
         path = self.cfg.path.evaluate(self.track, self.cfg.aliases, timestamp, index)
@@ -151,7 +150,7 @@ class ChannelWriter(Runnable):
 
         return self._state() - saved_state
 
-    def _state(self, **kwargs) -> ChannelState:
+    def _state(self, **kwargs: t.Any) -> ChannelState:
         return ChannelState(
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,

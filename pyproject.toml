@@ -68,6 +68,7 @@ warn_unused_ignores = true
 # disallow_untyped_calls = true
 # disallow_untyped_defs = true
 # warn_return_any = true
+strict = true
 
 [tool.ruff]
 line-length = 88

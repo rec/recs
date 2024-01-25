@@ -10,6 +10,7 @@ import soundfile as sf
 
 from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
+from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.misc import log
@@ -25,7 +26,7 @@ class Cfg:
     sdtype: SdType
 
     @wraps(CfgRaw.__init__)
-    def __init__(self, *a, **ka) -> None:
+    def __init__(self, *a: t.Any, **ka: t.Any) -> None:
         self.cfg = cfg = CfgRaw(*a, **ka)
 
         # This constructor has this *global side-effect*, see log.py
@@ -67,7 +68,10 @@ class Cfg:
         else:
             self.sdtype = SDTYPE
 
-        if cfg.devices.name:
+        if self.files:
+            self.devices = PrefixDict()
+
+        elif cfg.devices.name:
             if not cfg.devices.exists():
                 raise RecsError(f'{cfg.devices} does not exist')
             devices = json.loads(cfg.devices.read_text())
@@ -84,7 +88,7 @@ class Cfg:
     def __getattr__(self, k: str) -> t.Any:
         return getattr(self.cfg, k)
 
-    def _times(self) -> time_settings.TimeSettings:
+    def _times(self) -> time_settings.TimeSettings[float]:
         fields = (f.name for f in dc.fields(time_settings.TimeSettings))
         d = {k: getattr(self, k) for k in fields}
         return time_settings.TimeSettings(**d)
