@@ -5,7 +5,7 @@ import soundfile as sf
 from overrides import override
 from threa import HasThread, Runnable
 
-from recs.base.types import SdType, Stop
+from recs.base.types import Format, SdType, Stop, Subtype
 
 from .source import Source, Update
 
@@ -19,11 +19,15 @@ class FileSource(Source):
         assert self.path.exists()
 
         with self._stream() as fp:
-            self.format = fp.format.lower()
+            self.format = Format(fp.format.lower())
+            self.subtype = Subtype(fp.subtype.lower())
             super().__init__(
-                channels=fp.channels, name=str(path), samplerate=int(fp.samplerate)
+                channels=fp.channels,
+                format=self.format,
+                name=str(path),
+                samplerate=int(fp.samplerate),
+                subtype=self.subtype,
             )
-            self.subtype = fp.subtype
 
     def _stream(self) -> sf.SoundFile:
         return sf.SoundFile(file=self.path, mode='r')

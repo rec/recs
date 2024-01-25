@@ -9,6 +9,7 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base.state import ChannelState
+from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.cfg import Cfg, Track, source, time_settings
 from recs.misc import counter, file_list
@@ -65,14 +66,29 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks()
         self._lock = Lock()
 
+        if track.source.format is None or cfg.cfg.format:
+            self.format = cfg.format
+        else:
+            self.format = track.source.format
+
+        if track.source.subtype is None or cfg.cfg.subtype:
+            subtype = cfg.subtype
+        else:
+            subtype = track.source.subtype
+
+        if track.source.subtype is None or cfg.cfg.sdtype:
+            sdtype = cfg.sdtype
+        else:
+            sdtype = SUBTYPE_TO_SDTYPE[track.source.subtype]
+
         self.files_written = file_list.FileList()
         self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
         self.opener = FileOpener(
             channels=len(track.channels),
-            format=cfg.format,
+            format=self.format,
             samplerate=track.source.samplerate,
-            subtype=cfg.subtype,
+            subtype=subtype,
         )
         self._volume = counter.MovingBlock(times.moving_average_time)
 
