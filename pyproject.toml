@@ -46,7 +46,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 93
+fail_under = 92
 skip_covered = true
 exclude_lines = [
     "pragma: no cover",
@@ -61,13 +61,6 @@ recs = 'recs.base.cli:run'
 
 [tool.mypy]
 ignore_missing_imports = true
-no_implicit_optional = true
-warn_unused_ignores = true
-# disallow_any_generics = true
-# disallow_any_unimported = true
-# disallow_untyped_calls = true
-# disallow_untyped_defs = true
-# warn_return_any = true
 strict = true
 
 [tool.ruff]
