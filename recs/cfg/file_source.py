@@ -7,7 +7,7 @@ from threa import HasThread, Runnable
 
 from recs.base.types import Format, SdType, Stop, Subtype
 
-from .source import Source, Update
+from .source import Source, Update, to_matrix
 
 BLOCKSIZE = 0x1000
 BLOCKCOUNT = 0x1000
@@ -44,8 +44,9 @@ class FileSource(Source):
                 with self._stream() as fp:
                     timestamp = 0
                     for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT):
+                        block = to_matrix(block)
                         for i in range(BLOCKCOUNT):
-                            array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE, :]
+                            array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE]
                             update_callback(Update(array, timestamp / self.samplerate))
                             timestamp += BLOCKSIZE
 

@@ -7,6 +7,8 @@ from functools import cached_property
 
 import numpy as np
 
+from recs.cfg.source import to_matrix
+
 _EMPTY_SEEN = False
 
 
@@ -17,9 +19,7 @@ class Block:
     def __post_init__(self) -> None:
         if not self.block.size:
             raise ValueError('Empty block')
-
-        if len(self.block.shape) == 1:
-            self.__dict__['block'] = self.block.reshape(*self.block.shape, 1)
+        self.__dict__['block'] = to_matrix(self.block)
 
     def __len__(self) -> int:
         return self.block.shape[0]
