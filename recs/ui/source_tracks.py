@@ -4,7 +4,7 @@ from recs.base import RecsError
 from recs.cfg import Cfg, FileSource, InputDevice, Source, Track
 
 
-def device_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
+def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
     if not (cfg.devices or cfg.files):
         raise RecsError('No inputs were found')
 
@@ -19,11 +19,11 @@ def device_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
         exc = cfg.aliases.to_tracks(cfg.exclude)
         inc = cfg.aliases.to_tracks(cfg.include)
         for d in cfg.devices.values():
-            if tracks := list(device_track(d, exc, inc)):
+            if tracks := list(source_track(d, exc, inc)):
                 yield d, tracks
 
 
-def device_track(
+def source_track(
     d: InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
 ) -> t.Iterator[Track]:
     if Track(d) in exc:

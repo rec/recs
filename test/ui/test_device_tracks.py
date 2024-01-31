@@ -1,10 +1,10 @@
 from recs.cfg import Cfg
-from recs.ui.device_tracks import device_track, device_tracks
+from recs.ui.source_tracks import source_track, source_tracks
 
 
 def _device_tracks(alias=(), exclude=(), include=()):
     cfg = Cfg(alias=alias, exclude=exclude, include=include)
-    d = device_tracks(cfg)
+    d = source_tracks(cfg)
     actual = {k.name.split()[0].lower(): v for k, v in d}
     return actual, cfg.aliases.to_track
 
@@ -82,6 +82,6 @@ def test_device_track_inc(mock_devices):
     exc = cfg.aliases.to_tracks(('x', 'Main'))
 
     track = cfg.aliases.to_track('mic + 1')
-    actual = list(device_track(track.source, exc=exc))
+    actual = list(source_track(track.source, exc=exc))
     expected = [track]
     assert actual == expected

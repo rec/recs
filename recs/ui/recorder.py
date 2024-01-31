@@ -9,16 +9,16 @@ from recs.base import RecsError
 from recs.cfg import Cfg, Track, device
 
 from . import live
-from .device_tracks import device_tracks
 from .full_state import FullState
 from .source_recorder import POLL_TIMEOUT, SourceRecorder
+from .source_tracks import source_tracks
 
 
 class Recorder(Runnables):
     def __init__(self, cfg: Cfg) -> None:
         super().__init__()
 
-        if not (all_tracks := list(device_tracks(cfg))):
+        if not (all_tracks := list(source_tracks(cfg))):
             raise RecsError('No channels selected')
 
         self.cfg = cfg
