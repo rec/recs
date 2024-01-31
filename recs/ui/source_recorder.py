@@ -19,7 +19,7 @@ OFFLINE_TIME = 1
 POLL_TIMEOUT = 0.05
 
 
-class DeviceRecorder(Runnables):
+class SourceRecorder(Runnables):
     sample_count: int = 0
 
     def __init__(
@@ -31,15 +31,17 @@ class DeviceRecorder(Runnables):
         self.cfg = Cfg(**cfg.asdict())
         self.connection = connection
 
-        self.device = d = tracks[0].source
-        self.name = self.cfg.aliases.display_name(d)
+        self.source = tracks[0].source
+        assert all(t.source == self.source for t in tracks)
+
+        self.name = self.cfg.aliases.display_name(self.source)
         self.queue: Queue[Update] = Queue()
-        self.times = self.cfg.times.scale(d.samplerate)
+        self.times = self.cfg.times.scale(self.source.samplerate)
 
         cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
 
-        self.input_stream = self.device.input_stream(
+        self.input_stream = self.source.input_stream(
             on_error=self.stop,
             sdtype=self.cfg.sdtype,
             update_callback=self.queue.put,
@@ -61,7 +63,7 @@ class DeviceRecorder(Runnables):
             u = Update(u.array.astype(np.float64), u.timestamp)
 
         msgs = {c.track.name: c.update(u) for c in self.channel_writers}
-        self.connection.send({self.device.name: msgs})
+        self.connection.send({self.source.name: msgs})
 
         self.sample_count += len(u.array)
         if (t := self.times.total_run_time) and self.sample_count >= t:

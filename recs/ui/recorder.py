@@ -9,9 +9,9 @@ from recs.base import RecsError
 from recs.cfg import Cfg, Track, device
 
 from . import live
-from .device_recorder import POLL_TIMEOUT, DeviceRecorder
 from .device_tracks import device_tracks
 from .full_state import FullState
+from .source_recorder import POLL_TIMEOUT, SourceRecorder
 
 
 class Recorder(Runnables):
@@ -32,7 +32,7 @@ class Recorder(Runnables):
             connection, child = mp.Pipe()
             self.connections.append(connection)
             kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
-            process = mp.Process(target=DeviceRecorder, kwargs=kwargs)
+            process = mp.Process(target=SourceRecorder, kwargs=kwargs)
             self.processes.append(process)
 
         ui_time = 1 / self.cfg.ui_refresh_rate

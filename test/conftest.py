@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from recs.cfg import device
-from recs.ui import device_recorder, recorder
+from recs.ui import recorder, source_recorder
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -27,7 +27,7 @@ def query_devices(kind=None):
 
 
 def wait(connections, timeout=None):
-    return [c for c in connections if c.poll(device_recorder.POLL_TIMEOUT)]
+    return [c for c in connections if c.poll(source_recorder.POLL_TIMEOUT)]
 
 
 @pytest.fixture

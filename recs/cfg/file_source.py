@@ -39,6 +39,8 @@ class FileSource(Source):
         sdtype: SdType,
         update_callback: t.Callable[[Update], None],
     ) -> Runnable:
+        result: Runnable
+
         def input_stream() -> None:
             try:
                 with self._stream() as fp:
@@ -53,4 +55,6 @@ class FileSource(Source):
             except Exception:
                 on_error()
 
-        return HasThread(input_stream)
+            result.stop()
+
+        return (result := HasThread(input_stream))
