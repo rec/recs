@@ -32,7 +32,7 @@ CONSOLE_PANEL = 'Console and UI Settings'
 RECORD_PANEL = 'Record Settings'
 
 
-@app.app.command(help=app.HELP)  # type: ignore[misc]
+@app.app.command(help=app.HELP)
 def recs(
     files: list[str] = dtyper.Argument(
         None, help='One or more files to split for silence'
