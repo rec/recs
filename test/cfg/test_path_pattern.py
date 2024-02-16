@@ -21,7 +21,7 @@ def test_empty(mock_devices):
     assert pp.path == '{track} + {year}{month}{day}-{hour}{minute}{second}'
 
     cfg = Cfg()
-    actual = pp.evaluate(
+    actual = pp.make_path(
         track=cfg.aliases.to_track('Ext + 1'),
         aliases=cfg.aliases,
         timestamp=TIMESTAMP,
@@ -39,7 +39,7 @@ def test_simple(mock_devices):
     assert pp.path == '{time}/{date}/{track}'
 
     cfg = Cfg()
-    actual = pp.evaluate(
+    actual = pp.make_path(
         track=cfg.aliases.to_track('Ext + 1'),
         aliases=cfg.aliases,
         timestamp=TIMESTAMP,
@@ -57,7 +57,7 @@ def test_mix(mock_devices):
     assert pp.path == '{device}/%Y/%m/{channel} + {day}-{hour}{minute}{second}'
 
     cfg = Cfg()
-    actual = pp.evaluate(
+    actual = pp.make_path(
         track=cfg.aliases.to_track('Ext + 1'),
         aliases=cfg.aliases,
         timestamp=TIMESTAMP,
@@ -70,7 +70,7 @@ def test_mix(mock_devices):
 def test_index(mock_devices):
     pp = PathPattern('recording/{track}/{index}')
     cfg = Cfg()
-    actual = pp.evaluate(
+    actual = pp.make_path(
         track=cfg.aliases.to_track('Ext + 1'),
         aliases=cfg.aliases,
         timestamp=TIMESTAMP,

@@ -67,7 +67,7 @@ class PathPattern:
     def times(self, ts: datetime) -> dict[str, str]:
         return {k: ts.strftime(FIELD_TO_PSTRING[k]) for k in self.strf_parts}
 
-    def evaluate(
+    def make_path(
         self,
         track: track.Track,
         aliases: aliases.Aliases,
@@ -76,16 +76,14 @@ class PathPattern:
     ) -> Path:
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)
-
-        return Path(
-            s.format(
-                channel=track.name,
-                device=aliases.display_name(track.source),
-                index=str(index),
-                track=aliases.display_name(track, short=False),
-                **self.times(ts),
-            )
+        p = s.format(
+            channel=track.name,
+            device=aliases.display_name(track.source),
+            index=str(index),
+            track=aliases.display_name(track, short=False),
+            **self.times(ts),
         )
+        return Path(p)
 
 
 DATE = {Req.year, Req.month, Req.day}
