@@ -29,7 +29,7 @@ class InputDevice(Source):
     @override
     def input_stream(
         self,
-        on_error: Stop,
+        on_terminate: Stop,
         sdtype: SdType,
         update_callback: t.Callable[[Update], None],
     ) -> Runnable:
@@ -52,7 +52,7 @@ class InputDevice(Source):
             except Exception:  # pragma: no cover
                 traceback.print_exc()
                 try:
-                    on_error()
+                    on_terminate()
                 except Exception:
                     traceback.print_exc()
 

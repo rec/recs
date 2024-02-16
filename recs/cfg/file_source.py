@@ -35,7 +35,7 @@ class FileSource(Source):
     @override
     def input_stream(
         self,
-        on_error: Stop,
+        on_terminate: Stop,
         sdtype: SdType,
         update_callback: t.Callable[[Update], None],
     ) -> Runnable:
@@ -53,7 +53,7 @@ class FileSource(Source):
                             timestamp += BLOCKSIZE
 
             except Exception:
-                on_error()
+                on_terminate()
 
             result.stop()
 
