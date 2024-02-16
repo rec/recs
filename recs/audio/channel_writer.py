@@ -96,7 +96,7 @@ class ChannelWriter(Runnable):
             largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
-    def update(self, update: source.Update) -> ChannelState:
+    def receive_update(self, update: source.Update) -> ChannelState:
         block = Block(update.array[:, self.track.slice])
         with self._lock:
             return self._receive_block(block, update.timestamp)
