@@ -57,4 +57,9 @@ class Recorder(Runnables):
             while self.running and all(p.is_alive() for p in self.processes):
                 for c in connection.wait(self.connections, timeout=POLL_TIMEOUT):
                     conn = t.cast(connection.Connection, c)
-                    self.state.update(conn.recv())
+                    try:
+                        msg = conn.recv()
+                    except EOFError:
+                        pass
+                    else:
+                        self.state.update(msg)
