@@ -130,7 +130,9 @@ class ChannelWriter(Runnable):
         self.bytes_in_this_file = header_size(metadata, self.cfg.format)
         self.frames_in_this_file = 0
 
-        path = self.cfg.path.make_path(self.track, self.cfg.aliases, timestamp, index)
+        path = self.cfg.output_directory.make_path(
+            self.track, self.cfg.aliases, timestamp, index
+        )
         sf = self.opener.create(metadata, path)
         self.files_written.append(Path(sf.name))
         return sf

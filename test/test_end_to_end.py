@@ -22,8 +22,12 @@ CASES = (
     ('default', {}, EVENT_COUNT),
     ('default', {'dry_run': True, 'silent': True}, EVENT_COUNT),
     ('single', {'include': ['flow'], 'silent': True}, EVENT_COUNT_SINGLE),
-    ('time', {'path': '{sdate}', 'silent': True}, EVENT_COUNT),
-    ('device_channel', {'path': '{device}/{channel}', 'silent': True}, EVENT_COUNT),
+    ('time', {'output_directory': '{sdate}', 'silent': True}, EVENT_COUNT),
+    (
+        'device_channel',
+        {'output_directory': '{device}/{channel}', 'silent': True},
+        EVENT_COUNT,
+    ),
 )
 
 

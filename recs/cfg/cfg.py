@@ -34,7 +34,7 @@ class Cfg:
         if cfg.verbose:
             logging.basicConfig(level=logging.DEBUG)
 
-        self.path = path_pattern.PathPattern(cfg.path)
+        self.output_directory = path_pattern.PathPattern(cfg.output_directory)
 
         self.files = [Path(f) for f in cfg.files or ()]
         if not_exist := [f for f in self.files if not f.exists()]:

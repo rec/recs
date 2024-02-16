@@ -10,7 +10,7 @@ class CfgRaw:
     # Directory settings
     #
     files: list[str] = dc.field(default_factory=list)
-    path: str = ''
+    output_directory: str = ''
     #
     # General purpose settings
     #

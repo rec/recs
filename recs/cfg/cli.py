@@ -40,11 +40,11 @@ def recs(
     #
     # Directory settings
     #
-    path: str = Option(
-        RECS.path,
-        '-p',
-        '--path',
-        help='Path or path pattern for recorded file locations',
+    output_directory: str = Option(
+        RECS.output_directory,
+        '-o',
+        '--output-directory',
+        help='Path or output_directory pattern for recorded file locations',
     ),
     #
     # General
@@ -202,7 +202,7 @@ def recs(
     ),
     noise_floor: float = Option(
         RECS.noise_floor,
-        '-o',
+        '-z',
         '--noise-floor',
         help='The noise floor in decibels',
         rich_help_panel=RECORD_PANEL,
@@ -255,5 +255,5 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefimnoprstuv', _USED_SINGLES
-assert _UNUSED_SINGLES == 'ghjklqwxyz', _UNUSED_SINGLES
+assert _USED_SINGLES == 'abcdefimnorstuvz', _USED_SINGLES
+assert _UNUSED_SINGLES == 'ghjklpqwxy', _UNUSED_SINGLES
