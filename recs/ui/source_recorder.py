@@ -1,5 +1,7 @@
 import contextlib
 import os
+import sys
+import traceback
 import typing as t
 from multiprocessing.connection import Connection
 from queue import Empty, Queue
@@ -41,21 +43,28 @@ class SourceRecorder(Runnables):
         cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
         self.channel_writers = tuple(cw)
 
+        def put(u: Update) -> None:
+            self.queue.put(u)
+
         self.input_stream = self.source.input_stream(
-            on_terminate=self.stop,
-            sdtype=self.cfg.sdtype,
-            update_callback=self.queue.put,
+            sdtype=self.cfg.sdtype, update_callback=put
         )
         super().__init__(self.input_stream, *self.channel_writers)
 
+        def drain_queue() -> None:
+            with contextlib.suppress(Empty):
+                while True:
+                    self._receive_update(self.queue.get(block=False))
+
+        WORKS_ON_AUDIO = True
         with contextlib.suppress(KeyboardInterrupt), self:
-            while self.running:
+            while self.running and self.input_stream.running:
                 with contextlib.suppress(Empty):
                     self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
+            if not WORKS_ON_AUDIO:
+                drain_queue()
 
-        with contextlib.suppress(Empty):
-            while True:
-                self._receive_update(self.queue.get(block=False))
+        drain_queue()
 
     def _receive_update(self, u: Update) -> None:
         if self.cfg.format == Format.mp3 and u.array.dtype == np.float32:

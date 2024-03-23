@@ -1,3 +1,4 @@
+import traceback
 import typing as t
 from pathlib import Path
 
@@ -34,10 +35,7 @@ class FileSource(Source):
 
     @override
     def input_stream(
-        self,
-        on_terminate: Stop,
-        sdtype: SdType,
-        update_callback: t.Callable[[Update], None],
+        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
     ) -> Runnable:
         result: Runnable
 
@@ -49,12 +47,15 @@ class FileSource(Source):
                         block = to_matrix(block)
                         for i in range(BLOCKCOUNT):
                             array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE]
+                            if not array.size:
+                                break
                             update_callback(Update(array, timestamp / self.samplerate))
                             timestamp += BLOCKSIZE
 
             except Exception:
-                on_terminate()
+                traceback.print_exc()
 
-            result.stop()
+            finally:
+                result.stop()
 
         return (result := HasThread(input_stream))
