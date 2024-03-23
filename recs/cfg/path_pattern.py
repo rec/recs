@@ -27,6 +27,7 @@ class Req(IntEnum):
 
 class PathPattern:
     def __init__(self, path: str) -> None:
+        self.raw_path = path
         str_parts = parse_fields(path)
         time_parts = findall_strftime(path)
         parts = set(time_parts + str_parts)
@@ -74,6 +75,12 @@ class PathPattern:
         timestamp: float,
         index: int,
     ) -> Path:
+        if path := getattr(track.source, 'path', None):
+            # It's a file!
+            if not (parent_directory := Path(self.raw_path)).exists():
+                raise FileNotFoundError(f'{parent_directory=}')
+            return parent_directory / f'{path.stem}-{index}'
+
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)
         p = s.format(
