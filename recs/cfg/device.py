@@ -28,14 +28,12 @@ class InputDevice(Source):
 
     @override
     def input_stream(
-        self,
-        on_terminate: Stop,
-        sdtype: SdType,
-        update_callback: t.Callable[[Update], None],
+        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
     ) -> Runnable:
         import sounddevice as sd
 
         stream: sd.InputStream
+        result: Wrapper
 
         def callback(
             indata: np.ndarray,  # type: ignore[type-arg]
@@ -51,10 +49,7 @@ class InputDevice(Source):
 
             except Exception:  # pragma: no cover
                 traceback.print_exc()
-                try:
-                    on_terminate()
-                except Exception:
-                    traceback.print_exc()
+                result.stop()
 
         stream = sd.InputStream(
             callback=callback,
@@ -63,7 +58,7 @@ class InputDevice(Source):
             dtype=sdtype,
             samplerate=self.samplerate,
         )
-        return Wrapper(stream)
+        return (result := Wrapper(stream))
 
 
 InputDevices = PrefixDict[InputDevice]

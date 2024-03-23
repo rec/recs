@@ -37,9 +37,6 @@ class Source(hash_cmp.HashCmp, abc.ABC):
 
     @abc.abstractmethod
     def input_stream(
-        self,
-        on_terminate: Stop,
-        sdtype: SdType,
-        update_callback: t.Callable[[Update], None],
+        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
     ) -> Runnable:
         pass

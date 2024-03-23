@@ -42,7 +42,6 @@ class SourceRecorder(Runnables):
         self.channel_writers = tuple(cw)
 
         self.input_stream = self.source.input_stream(
-            on_terminate=self.stop,
             sdtype=self.cfg.sdtype,
             update_callback=self.queue.put,
         )
