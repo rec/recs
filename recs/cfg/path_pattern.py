@@ -92,6 +92,10 @@ class PathPattern:
         )
         return Path(p)
 
+    def unix_to_windows_path(self, unix_path: str) -> str:
+        """Converts a Unix-style file path to a Windows-style path"""
+        return unix_path.replace('/', '\\')
+
 
 DATE = {Req.year, Req.month, Req.day}
 TIME = {Req.hour, Req.minute, Req.second}
