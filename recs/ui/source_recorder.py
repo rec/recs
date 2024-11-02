@@ -1,5 +1,7 @@
 import contextlib
 import os
+import sys
+import traceback
 import typing as t
 from multiprocessing.connection import Connection
 from queue import Empty, Queue
@@ -42,19 +44,32 @@ class SourceRecorder(Runnables):
         self.channel_writers = tuple(cw)
 
         self.input_stream = self.source.input_stream(
-            sdtype=self.cfg.sdtype,
-            update_callback=self.queue.put,
+            sdtype=self.cfg.sdtype, update_callback=self.queue.put
         )
+
         super().__init__(self.input_stream, *self.channel_writers)
 
+        # If WORKS_ON_AUDIO is false, then the unit tests fail, but running the
+        # program on a static file succeeds.
+        #
+        # If WORKS_ON_AUDIO is True, the unit tests work and audio recording
+        # works but working on a file doesn't!
+        WORKS_ON_AUDIO = True
+
+        def drain_queue() -> None:
+            with contextlib.suppress(Empty):
+                while True:
+                    self._receive_update(self.queue.get(block=False))
+
         with contextlib.suppress(KeyboardInterrupt), self:
-            while self.running:
+            while self.running and self.input_stream.running:
                 with contextlib.suppress(Empty):
                     self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
+            if not WORKS_ON_AUDIO:
+                drain_queue()
 
-        with contextlib.suppress(Empty):
-            while True:
-                self._receive_update(self.queue.get(block=False))
+        if WORKS_ON_AUDIO:
+            drain_queue()
 
     def _receive_update(self, u: Update) -> None:
         if self.cfg.format == Format.mp3 and u.array.dtype == np.float32:
