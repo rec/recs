@@ -1,5 +1,6 @@
 from test.conftest import TIME, TIMESTAMP
 
+import os
 import pytest
 
 from recs.base import RecsError
@@ -46,7 +47,7 @@ def test_simple(mock_devices):
         index=1,
     )
     expected = '164921/20231015/Ext + 1'
-    assert str(actual) == pp.unix_to_windows_path(expected)
+    assert str(actual) == os.path.normpath(expected)
 
 
 def test_mix(mock_devices):
@@ -64,7 +65,8 @@ def test_mix(mock_devices):
         index=1,
     )
     expected = 'Ext/2023/10/1 + 15-164921'
-    assert str(actual) == pp.unix_to_windows_path(expected)
+
+    assert str(actual) == os.path.normpath(expected)
 
 
 def test_index(mock_devices):
@@ -77,7 +79,7 @@ def test_index(mock_devices):
         index=1,
     )
     expected = 'recording/Ext + 1/1'
-    assert str(actual) == pp.unix_to_windows_path(expected)
+    assert str(actual) == os.path.normpath(expected)
 
 
 def test_bad_field(mock_devices):
