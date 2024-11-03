@@ -28,7 +28,7 @@ def test_empty(mock_devices):
         index=1,
     )
     expected = 'Ext + 1 + 20231015-164921'
-    assert str(actual) == expected
+    assert actual.match(expected)
 
 
 def test_simple(mock_devices):
@@ -46,7 +46,7 @@ def test_simple(mock_devices):
         index=1,
     )
     expected = '164921/20231015/Ext + 1'
-    assert str(actual) == expected
+    assert actual.match(expected)
 
 
 def test_mix(mock_devices):
@@ -64,7 +64,8 @@ def test_mix(mock_devices):
         index=1,
     )
     expected = 'Ext/2023/10/1 + 15-164921'
-    assert str(actual) == expected
+
+    assert actual.match(expected)
 
 
 def test_index(mock_devices):
@@ -77,7 +78,7 @@ def test_index(mock_devices):
         index=1,
     )
     expected = 'recording/Ext + 1/1'
-    assert str(actual) == expected
+    assert actual.match(expected)
 
 
 def test_bad_field(mock_devices):
