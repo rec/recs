@@ -50,6 +50,7 @@ class CfgRaw:
     longest_file_time: float = 0.0
     moving_average_time: float = 1.0
     noise_floor: float = 70.0
+    record_everything: bool = False
     shortest_file_time: float = 1.0
     quiet_after_end: float = 2.0
     quiet_before_start: float = 1.0

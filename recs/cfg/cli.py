@@ -207,6 +207,13 @@ def recs(
         help='The noise floor in decibels',
         rich_help_panel=RECORD_PANEL,
     ),
+    record_everything: bool = Option(
+        RECS.record_everything,
+        '-R',
+        '--record-everything',
+        help='Start immediately, record everything until end',
+        rich_help_panel=RECORD_PANEL,
+    ),
     shortest_file_time: str = Option(
         RECS.shortest_file_time,
         click_type=app.TimeParam(),
@@ -255,5 +262,5 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'abcdefimnorstuvz', _USED_SINGLES
+assert _USED_SINGLES == 'Rabcdefimnorstuvz', _USED_SINGLES
 assert _UNUSED_SINGLES == 'ghjklpqwxy', _UNUSED_SINGLES

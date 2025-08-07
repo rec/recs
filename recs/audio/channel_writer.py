@@ -155,7 +155,10 @@ class ChannelWriter(Runnable):
 
             self._blocks.append(block)
 
-            if block.volume >= self.times.noise_floor_amplitude:
+            if (
+                self.times.record_everything
+                or block.volume >= self.times.noise_floor_amplitude
+            ):
                 if not self._sf:  # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)

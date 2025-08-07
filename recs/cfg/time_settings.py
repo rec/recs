@@ -44,6 +44,9 @@ class TimeSettings(t.Generic[T]):
     #: The noise floor in decibels
     noise_floor: float = 70
 
+    #: Ignore noise_floor, record everything immediately until the end
+    record_everything: bool = False
+
     #: Amount of total time to run.  0 or less means "run forever"
     total_run_time: T = t.cast(T, 0)
 
