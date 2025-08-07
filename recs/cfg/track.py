@@ -56,7 +56,8 @@ def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, .
             raise ValueError('Channels must be in order')
 
         if channels[-1] > max_channels:
-            raise ValueError(f'Device has only {max_channels} channels')
+            s = "" if max_channels == 1 else "s"
+            raise ValueError(f'Device has only {max_channels} channel{s}')
 
         return channels
 
