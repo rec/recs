@@ -46,11 +46,11 @@ class ChannelWriter(Runnable):
 
     timestamp: float = 0
 
-    _sf: SoundFile | None = None
+    _sfs: t.Sequence[SoundFile] = ()
 
     @property
     def active(self) -> Active:
-        return Active.active if self._sf else Active.inactive
+        return Active.active if self._sfs else Active.inactive
 
     def __init__(
         self, cfg: Cfg, times: time_settings.TimeSettings[int], track: Track
@@ -84,12 +84,15 @@ class ChannelWriter(Runnable):
         self.files_written = file_list.FileList()
         self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
-        self.opener = FileOpener(
-            channels=len(track.channels),
-            format=self.format,
-            samplerate=track.source.samplerate,
-            subtype=subtype,
-        )
+
+        self.openers = [
+            FileOpener(
+                channels=len(track.channels),
+                format=f,
+                samplerate=track.source.samplerate,
+                subtype=subtype,
+            ) for f in [self.format]
+        ]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
         if not cfg.infinite_length:
@@ -109,16 +112,17 @@ class ChannelWriter(Runnable):
             self.stopped = True
 
     def _close(self) -> None:
-        sf, self._sf = self._sf, None
-        if sf and sf.frames and sf.frames >= self.times.shortest_file_time:
-            sf.close()
-        elif sf:
-            with contextlib.suppress(Exception):
+        sfs, self._sfs = self._sfs, ()
+        for sf in sfs:
+            if sf.frames and sf.frames >= self.times.shortest_file_time:
                 sf.close()
-            with contextlib.suppress(Exception):
-                Path(sf.name).unlink()
+            else:
+                with contextlib.suppress(Exception):
+                    sf.close()
+                with contextlib.suppress(Exception):
+                    Path(sf.name).unlink()
 
-    def _open(self, offset: int) -> SoundFile:
+    def _open(self, offset: int) -> t.Sequence[SoundFile]:
         timestamp = self.timestamp - offset / self.track.source.samplerate
         ts = datetime.fromtimestamp(timestamp)
 
@@ -133,9 +137,9 @@ class ChannelWriter(Runnable):
         path = self.cfg.output_directory.make_path(
             self.track, self.cfg.aliases, timestamp, index
         )
-        sf = self.opener.create(metadata, path)
-        self.files_written.append(Path(sf.name))
-        return sf
+        sfs = [o.create(metadata, path) for o in self.openers]
+        self.files_written.extend(Path(sf.name) for sf in sfs)
+        return sfs
 
     def _receive_block(self, block: Block, timestamp: float) -> ChannelState:
         saved_state = self._state(
@@ -147,7 +151,7 @@ class ChannelWriter(Runnable):
         self.timestamp = timestamp
         self._volume(block)
 
-        if not self.do_not_record and (self._sf or not self.stopped):
+        if not self.do_not_record and (self._sfs or not self.stopped):
             expected_dt = len(block) / self.track.source.samplerate
 
             if dt > expected_dt * BLOCK_FUZZ:  # We were asleep, or otherwise lost time
@@ -159,7 +163,7 @@ class ChannelWriter(Runnable):
                 self.times.record_everything
                 or block.volume >= self.times.noise_floor_amplitude
             ):
-                if not self._sf:  # Record some quiet before the first block
+                if not self._sfs:  # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)
 
@@ -175,7 +179,7 @@ class ChannelWriter(Runnable):
         return ChannelState(
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
-            is_active=bool(self._sf),
+            is_active=bool(self._sfs),
             recorded_time=self.frames_written / self.track.source.samplerate,
             timestamp=self.timestamp,
             volume=tuple(self._volume.mean()),
@@ -186,7 +190,7 @@ class ChannelWriter(Runnable):
         # Record some quiet after the last block
         removed = self._blocks.clip(self.times.quiet_after_end, from_start=False)
 
-        if self._sf and removed:
+        if self._sfs and removed:
             self._write_blocks(reversed(removed))
 
         self._close()
@@ -205,15 +209,16 @@ class ChannelWriter(Runnable):
             if self.longest_file_frames:
                 remains.append(self.longest_file_frames - self.frames_in_this_file)
 
-            if self._sf and self.largest_file_size:
+            if self._sfs and self.largest_file_size:
                 file_bytes = self.largest_file_size - self.bytes_in_this_file
                 remains.append(file_bytes // self.frame_size)
 
             if remains and min(remains) <= len(b):
                 self._close()
 
-            self._sf = self._sf or self._open(offset)
-            self._sf.write(b.block)
+            self._sfs = self._sfs or self._open(offset)
+            for sf in self._sfs:
+                sf.write(b.block)
             offset += len(b)
 
             self.frames_in_this_file += len(b)
