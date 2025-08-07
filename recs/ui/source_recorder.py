@@ -37,9 +37,9 @@ class SourceRecorder(Runnables):
         self.name = self.cfg.aliases.display_name(self.source)
         self.queue: Queue[Update] = Queue()
         self.times = self.cfg.times.scale(self.source.samplerate)
-
-        cw = (ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks)
-        self.channel_writers = tuple(cw)
+        self.channel_writers = tuple(
+            ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
+        )
 
         self.input_stream = self.source.input_stream(
             sdtype=self.cfg.sdtype,
