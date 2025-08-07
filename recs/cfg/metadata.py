@@ -48,12 +48,9 @@ def get_metadata(fp: sf.SoundFile) -> dict[str, str]:
 
 
 ALLOWS_METADATA = {
-    Format.aiff,
-    Format.caf,
     Format.flac,
     Format.mp3,
     Format.ogg,
     Format.rf64,
     Format.wav,
-    Format.wavex,
 }

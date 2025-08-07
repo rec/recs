@@ -19,18 +19,17 @@ FORMAT_TO_SIZE_LIMIT = {
 }
 
 
-@pytest.mark.parametrize('format', (Format.aiff, Format.wav))
 @tdir
-def test_long_file(mock_input_streams, format, monkeypatch):
+def test_long_file(mock_input_streams, monkeypatch):
     monkeypatch.setattr(channel_writer, 'FORMAT_TO_SIZE_LIMIT', FORMAT_TO_SIZE_LIMIT)
-    print(f'\ntest_long: {format}')
+    print(f'\ntest_long: {Format.wav}')
     cfg = Cfg(
-        format=format,
+        format=Format.wav,
         metadata=[],
         sdtype=SdType.float32,
     )
 
-    SIZE = FORMAT_TO_SIZE_LIMIT[format]
+    SIZE = FORMAT_TO_SIZE_LIMIT[Format.wav]
     TOTAL_SIZE = SIZE - 0x1000
     COUNT = 4
 

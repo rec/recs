@@ -63,8 +63,6 @@ def test_writing_metadata(format: Format):
         expected = {k: k.capitalize() for k in actual}
         if format == Format.mp3:
             to_clear = ['copyright']
-        elif format == Format.aiff:
-            to_clear = ['album', 'date', 'genre', 'tracknumber']
         else:
             to_clear = []
         expected.update({i: '' for i in to_clear})

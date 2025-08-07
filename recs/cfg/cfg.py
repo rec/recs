@@ -19,6 +19,13 @@ from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
 
 
+@dc.dataclass
+class FormatSpec:
+    format: Format
+    subtype: Subtype | None
+    sdtype: SdType
+
+
 class Cfg:
     devices: device.InputDevices
     format: Format

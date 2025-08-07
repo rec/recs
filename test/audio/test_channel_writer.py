@@ -59,7 +59,6 @@ TEST_CASES = (
     LONGEST_FILE_TIME.replace(format=Format.flac),
     LONGEST_FILE_TIME.replace(format=Format.wav),
     LONGEST_FILE_TIME.replace(format=Format.mp3),
-    BASE.replace(format=Format.caf),
 )
 
 

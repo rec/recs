@@ -7,33 +7,9 @@ import tdir
 from recs.audio.header_size import header_size
 from recs.base.types import Format
 
-AIF_FILE = 'metadata.aiff'
-
 TCS = {'title': 'Title', 'copyright': 'Copyright', 'software': 'Software'}
 
 CASES = (
-    (AIF_FILE, {}, 54),
-    (AIF_FILE, (D := {'title': 'Title'}), 68),
-    (AIF_FILE, (D := D | {'copyright': 'Copyright'}), 86),
-    # Adding fields does not change the size!!!
-    (AIF_FILE, (D := D | {'software': 'Software'}), 126),
-    (AIF_FILE, (D := D | {'date': '1984'}), 126),
-    (AIF_FILE, (D := D | {'tracknumber': '10'}), 126),
-    (AIF_FILE, METADATA, 156),
-    #
-    (AIF_FILE, {'title': 'Title'}, 68),
-    (AIF_FILE, {'title': 'Title', 'copyright': 'Copyright'}, 86),
-    (
-        AIF_FILE,
-        {'title': 'Title', 'copyright': 'Copyright', 'software': 'Softwar'},
-        124,
-    ),
-    (AIF_FILE, {'software': 'Softwar'}, 92),
-    (AIF_FILE, {'software': 'Software'}, 94),
-    (AIF_FILE, TCS, 126),
-    #
-    (AIF_FILE, METADATA, 156),
-    #
     (WAV_FILE, {'title': 'Tit'}, 68),
     (WAV_FILE, {'title': 'Titl'}, 70),
     (WAV_FILE, {'title': 'Title'}, 70),
@@ -64,17 +40,6 @@ CASES = (
         140,
     ),
     (WAV_FILE, METADATA, 218),
-    #
-    (AIF_FILE, {}, 54),
-    (AIF_FILE, {'title': 't'}, 64),
-    (AIF_FILE, {'copyright': 'c'}, 64),
-    (AIF_FILE, {'copyright': 'c', 'title': 't'}, 74),
-    (AIF_FILE, {'copyright': 'c', 'title': 't', 'artist': 'a'}, 84),
-    (AIF_FILE, {'software': 't'}, 86),
-    #
-    (AIF_FILE, {'title': 'title'}, 68),
-    # (AIF_FILE, METADATA, 156),
-    #
     (WAV_FILE, {}, 44),
     (WAV_FILE, {'title': 't'}, 66),
     (WAV_FILE, {'title': 'ti'}, 68),
@@ -100,6 +65,3 @@ def test_header_size(filename, metadata, size, channels):
 
     if filename.endswith('wav'):
         assert size == header_size(metadata, Format.wav), str(metadata)
-    else:
-        # Something is restricting header sizes here, but it isn't an absolute cap
-        assert size <= header_size(metadata, Format.aiff), str(metadata)

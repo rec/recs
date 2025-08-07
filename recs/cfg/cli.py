@@ -185,7 +185,7 @@ def recs(
     infinite_length: bool = Option(
         RECS.infinite_length,
         '--infinite-length',
-        help='Ignore file size limits (4G on .wav, 2G on .aiff)',
+        help='Ignore file size limit: 4G on .wav',
         rich_help_panel=RECORD_PANEL,
     ),
     longest_file_time: str = Option(

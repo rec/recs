@@ -22,7 +22,6 @@ URL = 'https://github.com/rec/recs'
 
 BUFFER = 128
 FORMAT_TO_SIZE_LIMIT = {
-    Format.aiff: 0x8000_0000,
     Format.wav: 0x1_0000_0000,
 }
 
@@ -91,7 +90,8 @@ class ChannelWriter(Runnable):
                 format=f,
                 samplerate=track.source.samplerate,
                 subtype=subtype,
-            ) for f in [self.format]
+            )
+            for f in [self.format]
         ]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
