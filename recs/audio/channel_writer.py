@@ -46,7 +46,7 @@ class ChannelWriter(Runnable):
 
     timestamp: float = 0
 
-    _sfs: SoundFile | None = None
+    _sfs: t.Sequence[SoundFile] = ()
 
     @property
     def active(self) -> Active:
@@ -109,16 +109,17 @@ class ChannelWriter(Runnable):
             self.stopped = True
 
     def _close(self) -> None:
-        sf, self._sfs = self._sfs, None
-        if sf and sf.frames and sf.frames >= self.times.shortest_file_time:
-            sf.close()
-        elif sf:
-            with contextlib.suppress(Exception):
+        sfs, self._sfs = self._sfs, ()
+        for sf in sfs:
+            if sf.frames and sf.frames >= self.times.shortest_file_time:
                 sf.close()
-            with contextlib.suppress(Exception):
-                Path(sf.name).unlink()
+            else:
+                with contextlib.suppress(Exception):
+                    sf.close()
+                with contextlib.suppress(Exception):
+                    Path(sf.name).unlink()
 
-    def _open(self, offset: int) -> SoundFile:
+    def _open(self, offset: int) -> t.Sequence[SoundFile]:
         timestamp = self.timestamp - offset / self.track.source.samplerate
         ts = datetime.fromtimestamp(timestamp)
 
@@ -135,7 +136,7 @@ class ChannelWriter(Runnable):
         )
         sf = self.opener.create(metadata, path)
         self.files_written.append(Path(sf.name))
-        return sf
+        return [sf]
 
     def _receive_block(self, block: Block, timestamp: float) -> ChannelState:
         saved_state = self._state(
@@ -213,7 +214,8 @@ class ChannelWriter(Runnable):
                 self._close()
 
             self._sfs = self._sfs or self._open(offset)
-            self._sfs.write(b.block)
+            for sf in self._sfs:
+                sf.write(b.block)
             offset += len(b)
 
             self.frames_in_this_file += len(b)
