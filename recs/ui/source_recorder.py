@@ -57,7 +57,7 @@ class SourceRecorder(Runnables):
                 self._receive_update(self.queue.get(block=False))
 
     def _receive_update(self, u: Update) -> None:
-        if self.cfg.format == Format.mp3 and u.array.dtype == np.float32:
+        if self.cfg.formats == Format.mp3 and u.array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             u = Update(u.array.astype(np.float64), u.timestamp)
 

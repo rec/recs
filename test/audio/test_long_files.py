@@ -24,7 +24,7 @@ def test_long_file(mock_input_streams, monkeypatch):
     monkeypatch.setattr(channel_writer, 'FORMAT_TO_SIZE_LIMIT', FORMAT_TO_SIZE_LIMIT)
     print(f'\ntest_long: {Format.wav}')
     cfg = Cfg(
-        format=Format.wav,
+        formats=Format.wav,
         metadata=[],
         sdtype=SdType.float32,
     )

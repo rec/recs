@@ -65,10 +65,10 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks()
         self._lock = Lock()
 
-        if track.source.format is None or cfg.cfg.format:
-            self.format = cfg.format
+        if track.source.format is None or cfg.cfg.formats:
+            self.formats = cfg.formats
         else:
-            self.format = track.source.format
+            self.formats = track.source.format
 
         if track.source.subtype is None or cfg.cfg.subtype:
             subtype = cfg.subtype
@@ -91,12 +91,12 @@ class ChannelWriter(Runnable):
                 samplerate=track.source.samplerate,
                 subtype=subtype,
             )
-            for f in [self.format]
+            for f in [self.formats]
         ]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
         if not cfg.infinite_length:
-            largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
+            largest = FORMAT_TO_SIZE_LIMIT.get(cfg.formats, 0)
             self.largest_file_size = max(largest - BUFFER, 0)
 
     def receive_update(self, update: source.Update) -> ChannelState:
@@ -131,7 +131,7 @@ class ChannelWriter(Runnable):
         metadata = {'date': ts.isoformat(), 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
-        self.bytes_in_this_file = header_size(metadata, self.cfg.format)
+        self.bytes_in_this_file = header_size(metadata, self.cfg.formats)
         self.frames_in_this_file = 0
 
         path = self.cfg.output_directory.make_path(
