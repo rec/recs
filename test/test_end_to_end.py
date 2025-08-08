@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import soundfile as sf
+import soundfile
 import tdir
 
 from recs.base.types import Format
@@ -62,7 +62,7 @@ def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
 
     ae = list(zip(actual, expected))
 
-    nae = [(a.name, sf.read(a)[0], sf.read(e)[0]) for a, e in ae]
+    nae = [(a.name, soundfile.read(a)[0], soundfile.read(e)[0]) for a, e in ae]
     ds = [(n, a.shape, e.shape) for n, a, e in nae if a.shape != e.shape]
     assert ds == []
 

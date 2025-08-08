@@ -3,7 +3,7 @@ from test import conftest
 
 import numpy as np
 import pytest
-import soundfile as sf
+import soundfile
 import tdir
 
 from recs.audio.block import Block
@@ -84,13 +84,13 @@ def test_channel_writer(case, mock_devices):
     suffix = '.' + case.format
     assert all(f.suffix == suffix for f in files)
 
-    contents, samplerates = zip(*(sf.read(f) for f in files))
+    contents, samplerates = zip(*(soundfile.read(f) for f in files))
 
     assert all(s == SAMPLERATE for s in samplerates)
     result = [list(_on_and_off_segments(c)) for c in contents]
     assert case.result == result
 
-    with sf.SoundFile(files[0]) as fp:
+    with soundfile.SoundFile(files[0]) as fp:
         if case.sdtype == SdType.float32:
             assert fp.subtype.lower() == Subtype.float
 

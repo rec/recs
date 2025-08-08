@@ -1,4 +1,4 @@
-import soundfile as sf
+import soundfile
 
 from recs.base.types import Format, Subtype
 
@@ -44,12 +44,12 @@ REMOVED_SUBTYPE = [
 
 
 def test_format():
-    expected = sorted(k.lower() for k in sf._formats if k not in BAD_FORMATS)
+    expected = sorted(k.lower() for k in soundfile._formats if k not in BAD_FORMATS)
     actual = [k.lower() for k in Format if k]
     assert expected == sorted(actual + REMOVED_FORMAT)
 
 
 def test_subtype():
-    expected = sorted(k.lower() for k in sf._subtypes)
+    expected = sorted(k.lower() for k in soundfile._subtypes)
     actual = [k.lower() for k in Subtype if k]
     assert expected == sorted(actual + REMOVED_SUBTYPE)

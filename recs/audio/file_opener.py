@@ -3,7 +3,7 @@ import itertools
 import typing as t
 from pathlib import Path
 
-import soundfile as sf
+import soundfile
 
 from recs.base.types import Format, Subtype
 from recs.cfg.metadata import ALLOWS_METADATA
@@ -18,12 +18,12 @@ class FileOpener:
 
     def open(
         self, path: Path | str, metadata: t.Mapping[str, str], overwrite: bool = False
-    ) -> sf.SoundFile:
+    ) -> soundfile.SoundFile:
         path = Path(path).with_suffix('.' + self.format)
         if not overwrite and path.exists():
             raise FileExistsError(str(path))
 
-        fp = sf.SoundFile(
+        fp = soundfile.SoundFile(
             channels=self.channels,
             file=path,
             format=self.format,
@@ -38,7 +38,7 @@ class FileOpener:
 
         return fp
 
-    def create(self, metadata: t.Mapping[str, str], path: Path) -> sf.SoundFile:
+    def create(self, metadata: t.Mapping[str, str], path: Path) -> soundfile.SoundFile:
         path.parent.mkdir(exist_ok=True, parents=True)
 
         for i in itertools.count():

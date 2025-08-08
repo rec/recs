@@ -16,9 +16,9 @@ class RecsRunner:
     _timestamp = TIMESTAMP
 
     def __init__(self, cfg, monkeypatch, event_count):
-        import sounddevice as sd
+        import sounddevice
 
-        monkeypatch.setattr(sd, 'InputStream', self.make_input_stream)
+        monkeypatch.setattr(sounddevice, 'InputStream', self.make_input_stream)
         monkeypatch.setattr(times, 'timestamp', self.timestamp)
 
         self.streams = []

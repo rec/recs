@@ -6,7 +6,7 @@ import warnings
 from functools import wraps
 from pathlib import Path
 
-import soundfile as sf
+import soundfile
 
 from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
@@ -58,14 +58,14 @@ class Cfg:
         else:
             subtype = SDTYPE_TO_SUBTYPE[t.cast(SdType, cfg.sdtype)]
 
-            if sf.check_format(self.format, subtype):
+            if soundfile.check_format(self.format, subtype):
                 self.subtype = subtype
             else:
                 self.subtype = None
                 msg = f'format={self.format:s}, sdtype={cfg.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
 
-        if self.subtype and not sf.check_format(self.format, self.subtype):
+        if self.subtype and not soundfile.check_format(self.format, self.subtype):
             raise RecsError(f'{self.format} and {self.subtype} are incompatible')
 
         if cfg.sdtype:

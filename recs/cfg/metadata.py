@@ -1,6 +1,6 @@
 import typing as t
 
-import soundfile as sf
+import soundfile
 
 from recs.base import RecsError, prefix_dict
 from recs.base.types import Format
@@ -43,7 +43,7 @@ def to_dict(metadata: t.Sequence[str]) -> dict[str, str]:
     return result
 
 
-def get_metadata(fp: sf.SoundFile) -> dict[str, str]:
+def get_metadata(fp: soundfile.SoundFile) -> dict[str, str]:
     return {k: v for k in ALL if (v := getattr(fp, k))}
 
 

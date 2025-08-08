@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 import pytest
-import soundfile as sf
+import soundfile
 import tdir
 
 from recs.base import RecsError
@@ -23,7 +23,7 @@ METADATA = {k: k.capitalize() for k in USABLE | RECS_USES}
 
 
 def test_unchanged():
-    assert set(sf._str_types) == RECS_USES | USABLE | UNUSABLE
+    assert set(soundfile._str_types) == RECS_USES | USABLE | UNUSABLE
     assert not (CHANGED & USABLE)
 
 
@@ -35,11 +35,11 @@ def write_metadata(
     subtype='PCM_32',
     dtype='int32',
 ):
-    fp = sf.SoundFile(
+    fp = soundfile.SoundFile(
         filename, mode='w', channels=channels, samplerate=samplerate, subtype=subtype
     )
     for k, v in metadata.items():
-        assert k in sf._str_types
+        assert k in soundfile._str_types
         setattr(fp, k, v)
 
     with fp:
@@ -56,8 +56,8 @@ def test_writing_metadata(format: Format):
     filename = f'metadata.{format:s}'
     write_metadata(filename, subtype=None, dtype='int16')
 
-    with sf.SoundFile(filename) as fp:
-        full = {k: getattr(fp, k, None) for k in sf._str_types}
+    with soundfile.SoundFile(filename) as fp:
+        full = {k: getattr(fp, k, None) for k in soundfile._str_types}
         print(full)
         actual = {k: v for k, v in full.items() if k not in CHANGED}
         expected = {k: k.capitalize() for k in actual}
@@ -94,8 +94,8 @@ def main():
     for a in sys.argv[1:]:
         print(a)
         try:
-            with sf.SoundFile(a) as fp:
-                md = {k: v for k in sf._str_types if (v := getattr(fp, k, None))}
+            with soundfile.SoundFile(a) as fp:
+                md = {k: v for k in soundfile._str_types if (v := getattr(fp, k, None))}
                 print(json.dumps(md, indent=4))
 
         except Exception as e:

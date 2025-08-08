@@ -30,9 +30,9 @@ class InputDevice(Source):
     def input_stream(
         self, sdtype: SdType, update_callback: t.Callable[[Update], None]
     ) -> Runnable:
-        import sounddevice as sd
+        import sounddevice
 
-        stream: sd.InputStream
+        stream: sounddevice.InputStream
         result: Wrapper
 
         def callback(
@@ -51,7 +51,7 @@ class InputDevice(Source):
                 traceback.print_exc()
                 result.stop()
 
-        stream = sd.InputStream(
+        stream = sounddevice.InputStream(
             callback=callback,
             channels=self.channels,
             device=self.name,

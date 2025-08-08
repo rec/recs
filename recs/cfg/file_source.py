@@ -2,7 +2,7 @@ import traceback
 import typing as t
 from pathlib import Path
 
-import soundfile as sf
+import soundfile
 from overrides import override
 from threa import HasThread, Runnable
 
@@ -30,8 +30,8 @@ class FileSource(Source):
                 subtype=self.subtype,
             )
 
-    def _stream(self) -> sf.SoundFile:
-        return sf.SoundFile(file=self.path, mode='r')
+    def _stream(self) -> soundfile.SoundFile:
+        return soundfile.SoundFile(file=self.path, mode='r')
 
     @override
     def input_stream(

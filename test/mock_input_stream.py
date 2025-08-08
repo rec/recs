@@ -2,7 +2,7 @@ import random
 from test.conftest import BLOCK_SIZE, SLEEP_TIME
 
 import numpy as np
-import sounddevice as sd
+import sounddevice
 from threa import HasThread
 
 from recs.base import times
@@ -10,7 +10,7 @@ from recs.base import times
 AMPLITUDE = 1 / 16
 
 
-class InputStreamBase(sd.InputStream):
+class InputStreamBase(sounddevice.InputStream):
     def __init__(self, **ka):
         for k, v in ka.items():
             try:

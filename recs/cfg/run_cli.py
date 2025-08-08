@@ -1,6 +1,6 @@
 import json
 
-import soundfile as sf
+import soundfile
 
 from recs.base.types import Format, SdType
 from recs.cfg import device
@@ -19,9 +19,9 @@ def run_cli(cfg: Cfg) -> None:
 
 
 def _list_types() -> None:
-    avail = sf.available_formats()
+    avail = soundfile.available_formats()
     fmts = [f.upper() for f in Format]
-    formats = {f: [avail[f], sf.available_subtypes(f)] for f in fmts}
+    formats = {f: [avail[f], soundfile.available_subtypes(f)] for f in fmts}
     sdtypes = [str(s) for s in SdType]
     d = {'formats': formats, 'sdtypes': sdtypes}
 

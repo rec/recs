@@ -43,8 +43,8 @@ def mock_devices(monkeypatch):
 
 @pytest.fixture
 def mock_input_streams(monkeypatch, mock_devices, mock_mp):
-    import sounddevice as sd
+    import sounddevice
 
     from .mock_input_stream import ThreadInputStream
 
-    monkeypatch.setattr(sd, 'InputStream', ThreadInputStream)
+    monkeypatch.setattr(sounddevice, 'InputStream', ThreadInputStream)
