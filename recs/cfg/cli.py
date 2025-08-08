@@ -117,12 +117,12 @@ def recs(
     #
     # File
     #
-    format: types.Format = Option(
-        RECS.format,
+    formats: t.List[types.Format] = Option(
+        tuple(RECS.formats),
         '-f',
-        '--format',
+        '--formats',
         click_type=app.FormatParam(),
-        help='Audio file format',
+        help='Audio file formats',
         rich_help_panel=FILE_PANEL,
     ),
     metadata: list[str] = Option(

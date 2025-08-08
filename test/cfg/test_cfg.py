@@ -8,7 +8,7 @@ from recs.cfg import Cfg
 
 
 def test_sdtype(mock_devices):
-    Cfg(format='wav', subtype='pcm_16', sdtype='int32')
+    Cfg(formats=['wav'], subtype='pcm_16', sdtype='int32')
 
 
 def test_bad_devices(mock_devices):

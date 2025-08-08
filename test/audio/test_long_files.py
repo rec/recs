@@ -14,23 +14,20 @@ from recs.cfg.time_settings import TimeSettings
 
 SAMPLERATE = 44_100
 SHRINK = 256
-FORMAT_TO_SIZE_LIMIT = {
-    k: v // SHRINK for k, v in channel_writer.FORMAT_TO_SIZE_LIMIT.items()
-}
+MAX_WAV_SIZE = channel_writer.MAX_WAV_SIZE // SHRINK
 
 
 @tdir
-def test_long_file(mock_input_streams, monkeypatch):
-    monkeypatch.setattr(channel_writer, 'FORMAT_TO_SIZE_LIMIT', FORMAT_TO_SIZE_LIMIT)
+def test_one_long_file(mock_input_streams, monkeypatch):
+    monkeypatch.setattr(channel_writer, 'MAX_WAV_SIZE', MAX_WAV_SIZE)
     print(f'\ntest_long: {Format.wav}')
     cfg = Cfg(
-        format=Format.wav,
+        formats=[Format.wav],
         metadata=[],
         sdtype=SdType.float32,
     )
 
-    SIZE = FORMAT_TO_SIZE_LIMIT[Format.wav]
-    TOTAL_SIZE = SIZE - 0x1000
+    TOTAL_SIZE = MAX_WAV_SIZE - 0x1000
     COUNT = 4
 
     size = int(TOTAL_SIZE / COUNT / 4 / 2)
@@ -49,6 +46,7 @@ def test_long_file(mock_input_streams, monkeypatch):
 
     time = 0
     with channel_writer.ChannelWriter(cfg=cfg, times=times, track=track) as writer:
+        assert writer.largest_file_size == channel_writer.MAX_WAV_SIZE
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
             writer._receive_block(block, time)
@@ -56,11 +54,12 @@ def test_long_file(mock_input_streams, monkeypatch):
         writer._receive_block(block[:0x1000], time)
 
     files = writer.files_written
+    print(*files)
     sizes = [os.path.getsize(f) for f in files]
     print(*(hex(s) for s in sizes))
     assert len(files) == 2
 
-    diff = SIZE - sizes[0]
+    diff = channel_writer.MAX_WAV_SIZE - sizes[0]
     diff2 = sum(sizes) - TOTAL_SIZE
 
     print(hex(sizes[0]), hex(diff), hex(diff2))

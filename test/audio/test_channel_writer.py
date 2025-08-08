@@ -65,7 +65,7 @@ TEST_CASES = (
 @pytest.mark.parametrize('case', TEST_CASES)
 @tdir
 def test_channel_writer(case, mock_devices):
-    cfg = Cfg(format=case.format, sdtype=case.sdtype)
+    cfg = Cfg(formats=[case.format], sdtype=case.sdtype)
     track = cfg.aliases.to_track('Ext+2')
     times = TimeSettings[int](
         longest_file_time=case.longest_file_time,

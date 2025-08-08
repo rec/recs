@@ -20,10 +20,8 @@ from .header_size import header_size
 
 URL = 'https://github.com/rec/recs'
 
-BUFFER = 128
-FORMAT_TO_SIZE_LIMIT = {
-    Format.wav: 0x1_0000_0000,
-}
+BUFFER = 0x80
+MAX_WAV_SIZE = 0x1_0000_0000 - BUFFER
 
 ITEMSIZE = {
     SdType.float32: 4,
@@ -65,10 +63,10 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks()
         self._lock = Lock()
 
-        if track.source.format is None or cfg.cfg.format:
-            self.format = cfg.format
+        if track.source.format is None or cfg.cfg.formats:
+            self.formats = cfg.formats
         else:
-            self.format = track.source.format
+            self.formats = [track.source.format]
 
         if track.source.subtype is None or cfg.cfg.subtype:
             subtype = cfg.subtype
@@ -91,13 +89,16 @@ class ChannelWriter(Runnable):
                 samplerate=track.source.samplerate,
                 subtype=subtype,
             )
-            for f in [self.format]
+            for f in self.formats
         ]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
-        if not cfg.infinite_length:
-            largest = FORMAT_TO_SIZE_LIMIT.get(cfg.format, 0)
-            self.largest_file_size = max(largest - BUFFER, 0)
+        def size(f: str) -> int:
+            return (
+                MAX_WAV_SIZE if f == Format.wav and not self.cfg.infinite_length else 0
+            )
+
+        self.largest_file_size = max(0, *(size(f) for f in cfg.formats))
 
     def receive_update(self, update: source.Update) -> ChannelState:
         block = Block(update.array[:, self.track.slice])
@@ -131,7 +132,9 @@ class ChannelWriter(Runnable):
         metadata = {'date': ts.isoformat(), 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
-        self.bytes_in_this_file = header_size(metadata, self.cfg.format)
+        self.bytes_in_this_file = max(
+            header_size(metadata, f) for f in self.cfg.formats
+        )
         self.frames_in_this_file = 0
 
         path = self.cfg.output_directory.make_path(

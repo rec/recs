@@ -32,7 +32,7 @@ class CfgRaw:
     #
     # Audio file format and subtype
     #
-    format: str = ''
+    formats: t.Sequence[str] = ()
     metadata: t.Sequence[str] = ()
     sdtype: str = ''
     subtype: str = ''

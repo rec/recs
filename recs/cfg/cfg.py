@@ -19,16 +19,9 @@ from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
 
 
-@dc.dataclass
-class FormatSpec:
-    format: Format
-    subtype: Subtype | None
-    sdtype: SdType
-
-
 class Cfg:
     devices: device.InputDevices
-    format: Format
+    formats: t.Sequence[Format]
     subtype: Subtype | None
     sdtype: SdType
 
@@ -49,7 +42,8 @@ class Cfg:
             fname = ', '.join(str(f) for f in not_exist)
             raise RecsError(f'Non-existent file{s}: {fname}')
 
-        self.format = t.cast(Format, cfg.format or Format._default)
+        assert not isinstance(cfg.formats, str)
+        self.formats = [Format(f) for f in cfg.formats] or [Format._default]
 
         if cfg.subtype:
             self.subtype = t.cast(Subtype, cfg.subtype)
@@ -58,15 +52,15 @@ class Cfg:
         else:
             subtype = SDTYPE_TO_SUBTYPE[t.cast(SdType, cfg.sdtype)]
 
-            if soundfile.check_format(self.format, subtype):
+            if soundfile.check_format(self.formats[0], subtype):
                 self.subtype = subtype
             else:
                 self.subtype = None
-                msg = f'format={self.format:s}, sdtype={cfg.sdtype:s}'
+                msg = f'formats={self.formats[0]:s}, sdtype={cfg.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}")
 
-        if self.subtype and not soundfile.check_format(self.format, self.subtype):
-            raise RecsError(f'{self.format} and {self.subtype} are incompatible')
+        if self.subtype and not soundfile.check_format(self.formats[0], self.subtype):
+            raise RecsError(f'{self.formats[0]} and {self.subtype} are incompatible')
 
         if cfg.sdtype:
             self.sdtype = t.cast(SdType, cfg.sdtype)

@@ -15,19 +15,19 @@ def test_list_types(capsys):
 
 def test_error_incompatible():
     with pytest.raises(RecsError) as e:
-        Cfg(format='flac', subtype='float')
+        Cfg(formats=['flac'], subtype='float')
     assert e.value.args == ('flac and float are incompatible',)
 
 
 def test_missing_subtype(capsys):
-    r = Cfg(format=Format._default, sdtype=SdType.int16)
+    r = Cfg(formats=[Format._default], sdtype=SdType.int16)
     assert r.subtype == Subtype.pcm_16
 
 
 def test_error_subtype():
-    match = "Can't get subtype for format=mp3, sdtype=float32"
+    match = "Can't get subtype for formats=mp3, sdtype=float32"
     with pytest.warns(UserWarning, match=match):
-        Cfg(format=Format.mp3, sdtype=SdType.float32)
+        Cfg(formats=[Format.mp3], sdtype=SdType.float32)
 
 
 def test_default_dtype1():
@@ -35,10 +35,10 @@ def test_default_dtype1():
 
 
 def test_default_dtype2():
-    r = Cfg(format=Format.wav, subtype=Subtype.pcm_32)
+    r = Cfg(formats=[Format.wav], subtype=Subtype.pcm_32)
     assert r.sdtype == SdType.int32
 
 
 def test_default_subtype():
-    r = Cfg(format=Format.wav, sdtype=SdType.int32)
+    r = Cfg(formats=[Format.wav], sdtype=SdType.int32)
     assert r.subtype == Subtype.pcm_32
