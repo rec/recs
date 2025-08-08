@@ -29,6 +29,7 @@ def test_fields():
         (str, types.SdType | None),
         (str, types.Subtype | None),
         (float, str),
+        (t.Sequence[str], t.List[types.Format]),
     )
 
     bad = [(h, a) for h, a in actual if h != a and (h, a) not in ok]

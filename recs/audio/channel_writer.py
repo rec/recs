@@ -21,7 +21,7 @@ from .header_size import header_size
 URL = 'https://github.com/rec/recs'
 
 BUFFER = 128
-FORMAT_TO_SIZE_LIMIT = {
+FORMAT_TO_SIZE_LIMIT: dict[str, int] = {
     Format.wav: 0x1_0000_0000,
 }
 
@@ -95,9 +95,12 @@ class ChannelWriter(Runnable):
         ]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
-        if not cfg.infinite_length:
-            largest = FORMAT_TO_SIZE_LIMIT.get(cfg.formats, 0)
-            self.largest_file_size = max(largest - BUFFER, 0)
+        def size(f: str) -> int:
+            if cfg.infinite_length:
+                return 0
+            return FORMAT_TO_SIZE_LIMIT.get(f, 0) - BUFFER
+
+        self.largest_file_size = max(0, *(size(f) for f in cfg.formats))
 
     def receive_update(self, update: source.Update) -> ChannelState:
         block = Block(update.array[:, self.track.slice])

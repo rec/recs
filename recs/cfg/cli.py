@@ -117,8 +117,8 @@ def recs(
     #
     # File
     #
-    formats: types.Format = Option(
-        RECS.formats,
+    formats: t.List[types.Format] = Option(
+        tuple(RECS.formats),
         '-f',
         '--formats',
         click_type=app.FormatParam(),
