@@ -33,9 +33,9 @@ BLOCK_FUZZ = 2
 
 
 class ChannelWriter(Runnable):
-    bytes_in_this_file: int = 0
+    bytes_in_file: int = 0
 
-    frames_in_this_file: int = 0
+    frames_in_file: int = 0
     frames_written: int = 0  # Used elsewhere
 
     largest_file_size: int = 0
@@ -125,17 +125,13 @@ class ChannelWriter(Runnable):
 
     def _open(self, offset: int) -> t.Sequence[SoundFile]:
         timestamp = self.timestamp - offset / self.track.source.samplerate
-        ts = datetime.fromtimestamp(timestamp)
-
+        date = datetime.fromtimestamp(timestamp).isoformat()
         index = 1 + len(self.files_written)
-
-        metadata = {'date': ts.isoformat(), 'software': URL, 'tracknumber': str(index)}
+        metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
-        self.bytes_in_this_file = max(
-            header_size(metadata, f) for f in self.cfg.formats
-        )
-        self.frames_in_this_file = 0
+        self.bytes_in_file = max(header_size(metadata, f) for f in self.cfg.formats)
+        self.frames_in_file = 0
 
         path = self.cfg.output_directory.make_path(
             self.track, self.cfg.aliases, timestamp, index
@@ -210,10 +206,10 @@ class ChannelWriter(Runnable):
             remains: list[int] = []
 
             if self.longest_file_frames:
-                remains.append(self.longest_file_frames - self.frames_in_this_file)
+                remains.append(self.longest_file_frames - self.frames_in_file)
 
             if self._sfs and self.largest_file_size:
-                file_bytes = self.largest_file_size - self.bytes_in_this_file
+                file_bytes = self.largest_file_size - self.bytes_in_file
                 remains.append(file_bytes // self.frame_size)
 
             if remains and min(remains) <= len(b):
@@ -224,6 +220,6 @@ class ChannelWriter(Runnable):
                 sf.write(b.block)
             offset += len(b)
 
-            self.frames_in_this_file += len(b)
+            self.frames_in_file += len(b)
             self.frames_written += len(b)
-            self.bytes_in_this_file += len(b) * self.frame_size
+            self.bytes_in_file += len(b) * self.frame_size
