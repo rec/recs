@@ -46,6 +46,7 @@ class CfgRaw:
     #
     # Settings relating to times
     #
+    band_mode: bool = True
     infinite_length: bool = False
     longest_file_time: float = 0.0
     moving_average_time: float = 1.0

@@ -182,6 +182,13 @@ def recs(
     #
     # Record
     #
+    band_mode: bool = Option(
+        RECS.band_mode,
+        '--band-mode',
+        '-B',
+        help='Band mode: any track starting starts them all',
+        rich_help_panel=RECORD_PANEL,
+    ),
     infinite_length: bool = Option(
         RECS.infinite_length,
         '--infinite-length',
@@ -262,5 +269,5 @@ def recs(
 _USED_SINGLES = ''.join(sorted(_SINGLES))
 _UNUSED_SINGLES = ''.join(sorted(set(string.ascii_lowercase) - set(_SINGLES)))
 
-assert _USED_SINGLES == 'Rabcdefimnorstuvz', _USED_SINGLES
+assert _USED_SINGLES == 'BRabcdefimnorstuvz', _USED_SINGLES
 assert _UNUSED_SINGLES == 'ghjklpqwxy', _UNUSED_SINGLES
