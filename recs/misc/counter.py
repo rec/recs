@@ -19,10 +19,12 @@ class Counter:
     value: int = 0
     lock: Lock = dc.field(default_factory=Lock)
 
-    def __call__(self, i: int = 1) -> int:
+    def accumulate(self, i: int = 1) -> int:
         with self.lock:
             self.value += i
             return self.value
+
+    __call__ = accumulate  # deprecated
 
 
 class Accumulator:
@@ -31,7 +33,7 @@ class Accumulator:
     sum: Num
     square_sum: Num
 
-    def __call__(self, x: Num) -> None:
+    def accumulate(self, x: Num) -> None:
         self.value = x
         try:
             self.sum += x
@@ -41,6 +43,8 @@ class Accumulator:
         else:
             self.square_sum += x * x
         self.count += 1
+
+    __call__ = accumulate  # deprecated
 
     def mean(self) -> Num:
         return self.count and self.sum / self.count
@@ -58,12 +62,14 @@ class MovingBlock:
     def __init__(self, moving_average_time: int):
         self.moving_average_time = moving_average_time
 
-    def __call__(self, b: Block) -> None:
+    def accumulate(self, b: Block) -> None:
         if self._dq is None:
             maxlen = int(0.5 + self.moving_average_time / len(b))
             self._dq = deque((), maxlen)
 
         self._dq.append(b.amplitude)
+
+    __call__ = accumulate  # deprecated
 
     def mean(self) -> np.ndarray:  # type: ignore[type-arg]
         if not self._dq:
