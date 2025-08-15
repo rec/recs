@@ -61,7 +61,14 @@ class SourceRecorder(Runnables):
             # mp3 and float32 crashes every time on my machine
             u = Update(u.array.astype(np.float64), u.timestamp)
 
-        msgs = {c.track.name: c.receive_update(u) for c in self.channel_writers}
+        cb = {c: c.to_block(u.array) for c in self.channel_writers}
+        should_record = self.cfg.band_mode and any(
+            c.should_record(b) for c, b in cb.items()
+        )
+        msgs = {
+            c.track.name: c.receive_update(b, u.timestamp, should_record)
+            for c, b in cb.items()
+        }
         self.connection.send({self.source.name: msgs})
 
         self.sample_count += len(u.array)

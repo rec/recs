@@ -49,9 +49,9 @@ def test_one_long_file(mock_input_streams, monkeypatch):
         assert writer.largest_file_size == channel_writer.MAX_WAV_SIZE
         for i in range(COUNT):
             print('Writing', i + 1, 'of', COUNT)
-            writer._receive_block(block, time)
+            writer._receive_block(block, time, writer.should_record(block))
             time += len(block) / SAMPLERATE
-        writer._receive_block(block[:0x1000], time)
+        writer._receive_block(block[:0x1000], time, writer.should_record(block))
 
     files = writer.files_written
     print(*files)

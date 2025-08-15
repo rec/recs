@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
+from numpy.typing import NDArray
 from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
@@ -100,10 +101,21 @@ class ChannelWriter(Runnable):
 
         self.largest_file_size = max(0, *(size(f) for f in cfg.formats))
 
-    def receive_update(self, update: source.Update) -> ChannelState:
-        block = Block(update.array[:, self.track.slice])
+    def to_block(self, array: NDArray) -> Block:  # type: ignore[type-arg]
+        return Block(array[:, self.track.slice])
+
+    def receive_update(
+        self, block: Block, timestamp: float, should_record: bool = False
+    ) -> ChannelState:
         with self._lock:
-            return self._receive_block(block, update.timestamp)
+            should_record = should_record or self.should_record(block)
+            return self._receive_block(block, timestamp, should_record)
+
+    def should_record(self, block: Block) -> bool:
+        return (
+            self.times.record_everything
+            or block.volume >= self.times.noise_floor_amplitude
+        )
 
     @override
     def stop(self) -> None:
@@ -140,7 +152,9 @@ class ChannelWriter(Runnable):
         self.files_written.extend(Path(sf.name) for sf in sfs)
         return sfs
 
-    def _receive_block(self, block: Block, timestamp: float) -> ChannelState:
+    def _receive_block(
+        self, block: Block, timestamp: float, should_record: bool
+    ) -> ChannelState:
         saved_state = self._state(
             max_amp=max(block.max) / block.scale,
             min_amp=min(block.min) / block.scale,
@@ -158,10 +172,7 @@ class ChannelWriter(Runnable):
 
             self._blocks.append(block)
 
-            if (
-                self.times.record_everything
-                or block.volume >= self.times.noise_floor_amplitude
-            ):
+            if should_record:
                 if not self._sfs:  # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)
