@@ -88,7 +88,7 @@ recs
 `recs` will start recording all the active audio channels into your current directory
 and display the results in the terminal.
 
-What "active"means can be customized rather a lot, but by default when a channel becomes
+What "active" means can be customized rather a lot, but by default when a channel becomes
 too quiet for more than a short time, it stops recording, and will start a new recording
 automatically when the channel receives a signal.
 
