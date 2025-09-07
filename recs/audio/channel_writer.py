@@ -1,4 +1,5 @@
 import contextlib
+import sys
 import typing as t
 from datetime import datetime
 from pathlib import Path
@@ -128,6 +129,7 @@ class ChannelWriter(Runnable):
         sfs, self._sfs = self._sfs, ()
         for sf in sfs:
             if sf.frames and sf.frames >= self.times.shortest_file_time:
+                print(sf.name, file=sys.stderr)
                 sf.close()
             else:
                 with contextlib.suppress(Exception):
