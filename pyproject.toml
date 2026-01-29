@@ -1,40 +1,58 @@
-[tool.poetry]
+[project]
 name = "recs"
 version = "0.3.1"
 description = "🎙 recs: the Universal Recorder 🎙"
-authors = ["Tom Ritchford <tom@swirly.com>"]
-license = "MIT"
+authors = [{ name = "Tom Ritchford", email = "tom@swirly.com" }]
+requires-python = ">=3.10"
 readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "dtyper",
+    "numpy",
+    "pyaudio",
+    "rich",
+    "sounddevice",
+    "soundfile",
+    "threa>=1.9.0",
+    "typer",
+    "impall",
+    "overrides",
+    "coverage",
+    "strenum",
+    "humanfriendly",
+    "tomli",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-dtyper = "*"
-numpy = "*"
-pyaudio = "*"
-rich = "*"
-sounddevice = "*"
-soundfile = "*"
-threa = ">=1.9.0"
-typer = "*"
-impall = "*"
-overrides = "*"
-coverage = "*"
-strenum = "*"
-humanfriendly = "*"
-tomli = "*"
+[project.scripts]
+recs = "recs.base.cli:run"
 
-[tool.poetry.group.dev.dependencies]
-black = "*"
-flake8 = "*"
-isort = "*"
-mypy = "*"
-pytest = "*"
-ruff = "*"
-tdir = "*"
+[dependency-groups]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pytest",
+    "ruff",
+    "tdir",
+]
+
+[tool.uv]
+
+[tool.uv.build-backend]
+module-root = ""
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
 
 [tool.coverage.run]
 branch = true
@@ -55,9 +73,6 @@ exclude_lines = [
     "raise NotImplementedError",
     "if t.TYPE_CHECKING:",
 ]
-
-[tool.poetry.scripts]
-recs = 'recs.base.cli:run'
 
 [tool.mypy]
 ignore_missing_imports = true
