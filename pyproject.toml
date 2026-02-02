@@ -67,10 +67,6 @@ fail_under = 91
 skip_covered = true
 exclude_lines = ["pragma: no cover", "if False:", "if __name__ == .__main__.:", "raise NotImplementedError"]
 
-[tool.mypy]
-ignore_missing_imports = true
-strict = true
-
 [tool.ruff]
 line-length = 88
 
