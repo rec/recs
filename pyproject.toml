@@ -36,13 +36,12 @@ recs = "recs.base.cli:run"
 
 [dependency-groups]
 dev = [
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
+    "coverage>=7.4.1",
     "pytest",
+    "pyupgrade>=3.21.2",
     "ruff",
     "tdir",
+    "ty>=0.0.14",
 ]
 
 [tool.uv]
@@ -66,13 +65,7 @@ omit = [
 [tool.coverage.report]
 fail_under = 91
 skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "if False:",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "if t.TYPE_CHECKING:",
-]
+exclude_lines = ["pragma: no cover", "if False:", "if __name__ == .__main__.:", "raise NotImplementedError"]
 
 [tool.mypy]
 ignore_missing_imports = true
