@@ -51,7 +51,7 @@ class RecsRunner:
         self._error = ''
 
         with HasThread(self.run_cli, name='RunCli'):
-            for i in range(TRIES):
+            for _ in range(TRIES):
                 if (event_count := sum(1 for _ in self.events())) >= self.event_count:
                     break
                 times.sleep(DELAY)

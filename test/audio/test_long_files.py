@@ -2,7 +2,6 @@ import os
 from test.audio.test_channel_writer import TIMES
 
 import numpy as np
-import pytest
 import tdir
 
 from recs.audio import channel_writer

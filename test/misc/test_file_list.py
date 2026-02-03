@@ -15,7 +15,7 @@ def test_file_list():
         fl.append(Path(str(i)))
 
         with fl[-1].open('w') as fp:
-            for j in range(i):
+            for _ in range(i):
                 fp.write(8 * 'x')
                 fp.flush()
                 ts += 8

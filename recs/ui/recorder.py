@@ -6,7 +6,7 @@ from multiprocessing import connection
 from threa import HasThread, Runnables, Wrapper
 
 from recs.base import RecsError
-from recs.cfg import Cfg, Track, device
+from recs.cfg import Cfg, device
 
 from . import live
 from .full_state import FullState
@@ -29,8 +29,8 @@ class Recorder(Runnables):
         self.processes: list[mp.Process] = []
 
         for _, tracks in all_tracks:
-            connection, child = mp.Pipe()
-            self.connections.append(connection)
+            conn, child = mp.Pipe()
+            self.connections.append(conn)
             kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
             process = mp.Process(target=SourceRecorder, kwargs=kwargs)
             self.processes.append(process)

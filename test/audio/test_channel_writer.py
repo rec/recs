@@ -84,7 +84,7 @@ def test_channel_writer(case, mock_devices):
     suffix = '.' + case.format
     assert all(f.suffix == suffix for f in files)
 
-    contents, samplerates = zip(*(soundfile.read(f) for f in files))
+    contents, samplerates = zip(*(soundfile.read(f) for f in files), strict=False)
 
     assert all(s == SAMPLERATE for s in samplerates)
     result = [list(_on_and_off_segments(c)) for c in contents]

@@ -15,14 +15,14 @@ def test_fields():
     hand, auto = dc.fields(cfg_raw.CfgRaw), dc.fields(Cfg)
 
     assert [f.name for f in hand] == [f.name for f in auto]
-    had = {h.name: (h.default, a.default) for h, a in zip(hand, auto)}
+    had = {h.name: (h.default, a.default) for h, a in zip(hand, auto, strict=False)}
 
     differences = {k: (h, a) for k, (h, a) in had.items() if h != a}
     differences.pop('files')
     assert not differences
     # Work around dtyper.
 
-    actual = [(h.type, a.type) for h, a in zip(hand, auto)]
+    actual = [(h.type, a.type) for h, a in zip(hand, auto, strict=False)]
     ok = (
         (t.Sequence[str], list[str]),
         (str, types.Format),

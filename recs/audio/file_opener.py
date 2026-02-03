@@ -47,3 +47,4 @@ class FileOpener:
                 return self.open(f, metadata)
             except FileExistsError:
                 pass
+        raise FileNotFoundError

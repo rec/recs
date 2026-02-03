@@ -11,9 +11,9 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base.state import ChannelState
-from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
+from recs.base.type_conversions import SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, source, time_settings
+from recs.cfg import Cfg, Track, time_settings
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -76,12 +76,12 @@ class ChannelWriter(Runnable):
             subtype = track.source.subtype
 
         if track.source.subtype is None or cfg.cfg.sdtype:
-            sdtype = cfg.sdtype
+            sdtype = cfg.sdtype or SDTYPE
         else:
             sdtype = SUBTYPE_TO_SDTYPE[track.source.subtype]
 
         self.files_written = file_list.FileList()
-        self.frame_size = ITEMSIZE[cfg.sdtype or SDTYPE] * len(track.channels)
+        self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
 
         self.openers = [
@@ -102,7 +102,7 @@ class ChannelWriter(Runnable):
 
         self.largest_file_size = max(0, *(size(f) for f in cfg.formats))
 
-    def to_block(self, array: NDArray) -> Block:  # type: ignore[type-arg]
+    def to_block(self, array: NDArray) -> Block:
         return Block(array[:, self.track.slice])
 
     def receive_update(

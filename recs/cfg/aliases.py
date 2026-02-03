@@ -25,11 +25,11 @@ class Aliases:
             alias, sep, value = (n.strip() for n in name.partition('='))
             return alias, (value or alias)
 
-        names, values = zip(*(split(n) for n in aliases))
+        names, values = zip(*(split(n) for n in aliases), strict=False)
         if len(set(names)) < len(names):
             raise RecsError(f'Duplicate aliases: {aliases}')
 
-        self.tracks.update(sorted(zip(names, self.to_tracks(values))))
+        self.tracks.update(sorted(zip(names, self.to_tracks(values), strict=False)))
 
         inv: dict[Track, list[str]] = {}
         for k, v in self.tracks.items():

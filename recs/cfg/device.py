@@ -10,7 +10,7 @@ from threa import Runnable, Wrapper
 
 from recs.base import times
 from recs.base.prefix_dict import PrefixDict
-from recs.base.types import SdType, Stop
+from recs.base.types import SdType
 
 from .source import Source, Update
 

@@ -60,7 +60,7 @@ def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
     assert actual == [p.relative_to(tdata) for p in expected]
     assert [p.name for p in actual] == [p.name for p in expected]
 
-    ae = list(zip(actual, expected))
+    ae = list(zip(actual, expected, strict=False))
 
     nae = [(a.name, soundfile.read(a)[0], soundfile.read(e)[0]) for a, e in ae]
     ds = [(n, a.shape, e.shape) for n, a, e in nae if a.shape != e.shape]

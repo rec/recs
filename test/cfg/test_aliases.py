@@ -56,7 +56,7 @@ def test_to_tracks(mock_devices):
     assert actual == expected
 
     with pytest.raises(RecsError) as e:
-        list(to_tracks((['flow + 1-2', 'flow + 3', 'ext', 'oxt'])))
+        list(to_tracks(['flow + 1-2', 'flow + 3', 'ext', 'oxt']))
 
     assert (
         e.value.args[0] == 'Unknown device name: oxt\nDevices: "Ext", "Flower 8", "Mic"'

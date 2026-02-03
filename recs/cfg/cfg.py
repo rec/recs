@@ -57,7 +57,7 @@ class Cfg:
             else:
                 self.subtype = None
                 msg = f'formats={self.formats[0]:s}, sdtype={cfg.sdtype:s}'
-                warnings.warn(f"Can't get subtype for {msg}")
+                warnings.warn(f"Can't get subtype for {msg}", stacklevel=2)
 
         if self.subtype and not soundfile.check_format(self.formats[0], self.subtype):
             raise RecsError(f'{self.formats[0]} and {self.subtype} are incompatible')

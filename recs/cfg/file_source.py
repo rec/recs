@@ -6,7 +6,7 @@ import soundfile
 from overrides import override
 from threa import HasThread, Runnable
 
-from recs.base.types import Format, SdType, Stop, Subtype
+from recs.base.types import Format, SdType, Subtype
 
 from .source import Source, Update, to_matrix
 

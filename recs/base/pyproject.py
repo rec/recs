@@ -7,7 +7,7 @@ assert PYPROJECT.exists()
 
 
 def message() -> str:
-    p = tomli.loads(PYPROJECT.read_text())['tool']['poetry']
+    p = tomli.loads(PYPROJECT.read_text())['project']
     desc, name = p['description'], p['name']
 
     icon, *d, icon2 = desc.split()

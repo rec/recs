@@ -4,7 +4,7 @@ import typing as t
 import numpy as np
 from threa import Runnable
 
-from recs.base.types import Format, SdType, Stop, Subtype
+from recs.base.types import Format, SdType, Subtype
 from recs.cfg import hash_cmp
 
 

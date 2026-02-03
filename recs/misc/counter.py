@@ -57,7 +57,7 @@ class Accumulator:
 
 
 class MovingBlock:
-    _dq: deque[np.ndarray] | None = None  # type: ignore[type-arg]
+    _dq: deque[np.ndarray] | None = None
 
     def __init__(self, moving_average_time: int):
         self.moving_average_time = moving_average_time
@@ -71,7 +71,7 @@ class MovingBlock:
 
     __call__ = accumulate  # deprecated
 
-    def mean(self) -> np.ndarray:  # type: ignore[type-arg]
+    def mean(self) -> np.ndarray:
         if not self._dq:
             return np.array([0])
 
