@@ -30,9 +30,9 @@ class Recorder(Runnables):
 
         for _, tracks in all_tracks:
             conn, child = mp.Pipe()
-            self.connections.append(conn)
             kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
             process = mp.Process(target=SourceRecorder, kwargs=kwargs)
+            self.connections.append(conn)
             self.processes.append(process)
 
         ui_time = 1 / self.cfg.ui_refresh_rate
