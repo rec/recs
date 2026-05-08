@@ -151,6 +151,8 @@ FIELD_TO_PSTRING: dict[str, str] = {
     'time': '%H%M%S',
     'ddate': '%Y-%m-%d',
     'dtime': '%H-%M-%S',
+    'pdate': '%Y.%m.%d',
+    'ptime': '%H.%M.%S',
     'sdate': '%Y/%m/%d',
     'stime': '%H/%M/%S',
     'timestamp': '%H%M%S_Y%m%d',
