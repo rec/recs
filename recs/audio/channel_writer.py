@@ -2,6 +2,7 @@ import contextlib
 import sys
 import typing as t
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from threading import Lock
 
@@ -84,15 +85,14 @@ class ChannelWriter(Runnable):
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
 
-        self.openers = [
-            FileOpener(
-                channels=len(track.channels),
-                format=f,
-                samplerate=track.source.samplerate,
-                subtype=subtype,
-            )
-            for f in self.formats
-        ]
+        opener = partial(
+            FileOpener,
+            channels=len(track.channels),
+            samplerate=track.source.samplerate,
+            subtype=subtype,
+        )
+
+        self.openers = [opener(format=f) for f in self.formats]
         self._volume = counter.MovingBlock(times.moving_average_time)
 
         def size(f: str) -> int:
