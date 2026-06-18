@@ -9,11 +9,11 @@ import typing as t
 
 
 def _query_devices() -> t.Any:
-    try:
-        import sounddevice
+    import sounddevice
 
+    try:
         return sounddevice.query_devices()
-    except BaseException:
+    except sounddevice.PortAudioError:
         return []
 
 

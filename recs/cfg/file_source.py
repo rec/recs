@@ -1,4 +1,3 @@
-import traceback
 import typing as t
 from pathlib import Path
 
@@ -51,10 +50,6 @@ class FileSource(Source):
                                 break
                             update_callback(Update(array, timestamp / self.samplerate))
                             timestamp += BLOCKSIZE
-
-            except Exception:
-                traceback.print_exc()
-
             finally:
                 result.stop()
 

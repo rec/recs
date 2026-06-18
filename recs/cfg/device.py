@@ -1,7 +1,6 @@
 import json
 import subprocess as sp
 import sys
-import traceback
 import typing as t
 
 import numpy as np
@@ -44,12 +43,7 @@ class InputDevice(Source):
             if status:  # pragma: no cover
                 print('Status', self, status, file=sys.stderr)
 
-            try:
-                update_callback(Update(indata.copy(), times.timestamp()))
-
-            except Exception:  # pragma: no cover
-                traceback.print_exc()
-                result.stop()
+            update_callback(Update(indata.copy(), times.timestamp()))
 
         stream = sounddevice.InputStream(
             callback=callback,
@@ -72,10 +66,7 @@ CMD = sys.executable, '-m', 'recs.base._query_device'
 
 
 def query_devices() -> t.Sequence[DeviceDict]:
-    try:
-        r = sp.run(CMD, text=True, check=True, stdout=sp.PIPE)
-    except sp.CalledProcessError:
-        return []
+    r = sp.run(CMD, text=True, check=True, stdout=sp.PIPE)
     return t.cast(list[DeviceDict], json.loads(r.stdout))
 
 
