@@ -100,7 +100,7 @@ class ChannelWriter(Runnable):
                 MAX_WAV_SIZE if f == Format.wav and not self.cfg.infinite_length else 0
             )
 
-        self.largest_file_size = max(0, *(size(f) for f in cfg.formats))
+        self.largest_file_size = max(0, *(size(f) for f in self.formats))
 
     def to_block(self, array: NDArray) -> Block:
         return Block(array[:, self.track.slice])
@@ -144,7 +144,7 @@ class ChannelWriter(Runnable):
         metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
-        self.bytes_in_file = max(header_size(metadata, f) for f in self.cfg.formats)
+        self.bytes_in_file = max(header_size(metadata, f) for f in self.formats)
         self.frames_in_file = 0
 
         path = self.cfg.output_directory.make_path(
