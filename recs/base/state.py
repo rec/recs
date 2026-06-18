@@ -1,13 +1,13 @@
-import dataclasses as dc
 import time
+
+from pydantic import BaseModel, Field
 
 from recs.cfg.time_settings import amplitude_to_db
 
 INF = float('inf')
 
 
-@dc.dataclass(slots=True)
-class ChannelState:
+class ChannelState(BaseModel):
     """Represents the state of a single recording channel"""
 
     condition: str = 'running'
@@ -21,10 +21,8 @@ class ChannelState:
     min_amp: float = INF
 
     recorded_time: float = 0
-    timestamp: float = dc.field(default_factory=time.time)
-    volume: tuple[float, ...] = ()
-
-    replace = dc.replace
+    timestamp: float = Field(default_factory=time.time)
+    volume: list[float] = Field(default_factory=list)
 
     @property
     def amp(self) -> float:
@@ -63,11 +61,11 @@ class ChannelState:
         return self
 
     def __add__(self, m: 'ChannelState') -> 'ChannelState':
-        x = self.replace()
+        x = self.model_copy()
         x += m
         return x
 
     def __sub__(self, m: 'ChannelState') -> 'ChannelState':
-        x = self.replace()
+        x = self.model_copy()
         x -= m
         return x

@@ -1,7 +1,9 @@
-import dataclasses as dc
 import math
 import typing as t
 from functools import cached_property
+
+from pydantic import BaseModel, ConfigDict, model_validator
+from typing_extensions import Self
 
 T = t.TypeVar('T', float, int)
 NO_SCALE = ('noise_floor',)
@@ -17,11 +19,12 @@ def amplitude_to_db(amp: float) -> float:
     return float('inf')
 
 
-@dc.dataclass(frozen=True)
-class TimeSettings(t.Generic[T]):
+class TimeSettings(BaseModel, t.Generic[T]):
     """Amounts of time are specified as seconds in the input but converted
     to samples when we find out the sample rate
     """
+
+    model_config = ConfigDict(frozen=True)
 
     #: Longest amount of time per file: 0 means infinite
     longest_file_time: T = t.cast(T, 0)
@@ -54,11 +57,13 @@ class TimeSettings(t.Generic[T]):
     def noise_floor_amplitude(self) -> float:
         return db_to_amplitude(self.noise_floor)
 
-    def __post_init__(self) -> None:
-        if negative_fields := [k for k, v in dc.asdict(self).items() if v < 0]:
+    @model_validator(mode='after')
+    def validate_nonnegative(self) -> Self:
+        if negative_fields := [k for k, v in self.model_dump().items() if v < 0]:
             raise ValueError(f'TimeSettings cannot be negative: {negative_fields=}')
+        return self
 
     def scale(self, samplerate: float | int) -> 'TimeSettings[int]':
-        it = dc.asdict(self).items()
+        it = self.model_dump().items()
         d = {k: v if k in NO_SCALE else round(samplerate * v) for k, v in it}
         return TimeSettings[int](**d)

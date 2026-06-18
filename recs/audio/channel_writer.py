@@ -103,7 +103,7 @@ class ChannelWriter(Runnable):
         self.largest_file_size = max(0, *(size(f) for f in self.formats))
 
     def to_block(self, array: NDArray) -> Block:
-        return Block(array[:, self.track.slice])
+        return Block(block=array[:, self.track.slice])
 
     def receive_update(
         self, block: Block, timestamp: float, should_record: bool = False
@@ -179,7 +179,7 @@ class ChannelWriter(Runnable):
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)
 
-                self._write_blocks(self._blocks)
+                self._write_blocks(self._blocks.blocks)
                 self._blocks.clear()
 
             if self.stopped or self._blocks.duration > self.times.stop_after_quiet:
@@ -194,7 +194,7 @@ class ChannelWriter(Runnable):
             is_active=bool(self._sfs),
             recorded_time=self.frames_written / self.track.source.samplerate,
             timestamp=self.timestamp,
-            volume=tuple(self._volume.mean()),
+            volume=list(self._volume.mean()),
             **kwargs,
         )
 

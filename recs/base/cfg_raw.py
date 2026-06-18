@@ -1,15 +1,14 @@
-import dataclasses as dc
-import typing as t
 from pathlib import Path
 
+from pydantic import BaseModel, Field
 
-@dc.dataclass
-class CfgRaw:
+
+class CfgRaw(BaseModel):
     # See ./cli.py for full help
     #
     # Directory settings
     #
-    files: list[str] = dc.field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
     output_directory: str = ''
     #
     # General purpose settings
@@ -22,20 +21,20 @@ class CfgRaw:
     #
     # Aliases for input devices or channels
     #
-    alias: t.Sequence[str] = ()
+    alias: list[str] = Field(default_factory=list)
     devices: Path = Path()
     #
     # Exclude or include devices or channels
     #
-    exclude: t.Sequence[str] = ()
-    include: t.Sequence[str] = ()
+    exclude: list[str] = Field(default_factory=list)
+    include: list[str] = Field(default_factory=list)
     #
     # Audio file format and subtype
     #
-    formats: t.Sequence[str] = ()
-    metadata: t.Sequence[str] = ()
-    sdtype: str = ''
-    subtype: str = ''
+    formats: list[str] = Field(default_factory=list)
+    metadata: list[str] = Field(default_factory=list)
+    sdtype: str | None = None
+    subtype: str | None = None
     #
     # Console and UI settings
     #
@@ -57,5 +56,3 @@ class CfgRaw:
     quiet_before_start: float = 1.0
     stop_after_quiet: float = 20.0
     total_run_time: float = 0.0
-
-    asdict = dc.asdict

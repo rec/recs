@@ -4,7 +4,9 @@ TIMESTAMP = 1_700_000_000
 
 
 def cm(*a, **ka):
-    return ChannelState('running', *a, **ka, timestamp=TIMESTAMP)
+    fields = tuple(ChannelState.model_fields)
+    values = dict(zip(fields, ('running', *a), strict=False))
+    return ChannelState(**values, **ka, timestamp=TIMESTAMP)
 
 
 def test_message():
@@ -15,4 +17,4 @@ def test_message():
     b = cm(10, 15, True, 0.4, -0.6, 2.5)
     c = cm(11, 17, True, 0.5, -0.6, 12.5)
     assert a + b == c
-    assert c - a == b.replace(max_amp=0.5)
+    assert c - a == b.model_copy(update={'max_amp': 0.5})

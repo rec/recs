@@ -1,16 +1,15 @@
-import dataclasses as dc
 import itertools
 import typing as t
 from pathlib import Path
 
 import soundfile
+from pydantic import BaseModel
 
 from recs.base.types import Format, Subtype
 from recs.cfg.metadata import ALLOWS_METADATA
 
 
-@dc.dataclass
-class FileOpener:
+class FileOpener(BaseModel):
     format: Format
     channels: int = 1
     samplerate: int = 48_000

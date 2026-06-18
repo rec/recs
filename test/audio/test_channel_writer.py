@@ -1,10 +1,10 @@
-import dataclasses as dc
 from test import conftest
 
 import numpy as np
 import pytest
 import soundfile
 import tdir
+from pydantic import BaseModel, ConfigDict
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
@@ -19,18 +19,16 @@ II = [np.array((1, -1, 1, -1), dtype=SDTYPE)]
 OO = [np.array((0, 0, 0, 0), dtype=SDTYPE)]
 
 
-@dc.dataclass
-class Case:
-    arrays: np.ndarray
+class Case(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    arrays: list[np.ndarray]
     result: list[list[int]]
     format: Format = Format.wav
     longest_file_time: int = 0
     name: str = ''
     sdtype: SdType | None = None
     shortest_file_time: int = 1
-
-    replace = dc.replace
-
 
 BASE = Case(
     name='base',
@@ -47,18 +45,18 @@ LONGEST_FILE_TIME = Case(
 
 TEST_CASES = (
     BASE,
-    BASE.replace(sdtype=SdType.int16),
-    BASE.replace(sdtype=SdType.int32),
-    BASE.replace(sdtype=SdType.float32),
+    BASE.model_copy(update={'sdtype': SdType.int16}),
+    BASE.model_copy(update={'sdtype': SdType.int32}),
+    BASE.model_copy(update={'sdtype': SdType.float32}),
     Case(
         name='not sure',
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
         result=[[0, 16, 12, 4, 12], [28, 12]],
     ),
     LONGEST_FILE_TIME,
-    LONGEST_FILE_TIME.replace(format=Format.flac),
-    LONGEST_FILE_TIME.replace(format=Format.wav),
-    LONGEST_FILE_TIME.replace(format=Format.mp3),
+    LONGEST_FILE_TIME.model_copy(update={'format': Format.flac}),
+    LONGEST_FILE_TIME.model_copy(update={'format': Format.wav}),
+    LONGEST_FILE_TIME.model_copy(update={'format': Format.mp3}),
 )
 
 
@@ -76,7 +74,7 @@ def test_channel_writer(case, mock_devices):
     timestamp = conftest.TIMESTAMP
     with ChannelWriter(cfg, times=times, track=track) as writer:
         for a in case.arrays:
-            b = Block(a)
+            b = Block(block=a)
             writer._receive_block(b, timestamp, writer.should_record(b))
             timestamp += len(b) / SAMPLERATE
 

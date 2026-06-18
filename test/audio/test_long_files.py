@@ -39,7 +39,7 @@ def test_one_long_file(mock_input_streams, monkeypatch):
     print('Converting...')
     a = a.astype('float32')
 
-    block = Block(a)
+    block = Block(block=a)
     track = cfg.aliases.to_track('Ext + 1-2')
     times = TimeSettings[int](**TIMES)
 

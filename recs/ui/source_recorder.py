@@ -24,7 +24,7 @@ class SourceRecorder(Runnables):
         connection: Connection,
         tracks: t.Sequence[Track],
     ) -> None:
-        self.cfg = Cfg(**cfg.asdict())
+        self.cfg = Cfg(**cfg.model_dump())
         self.connection = connection
 
         self.source = tracks[0].source

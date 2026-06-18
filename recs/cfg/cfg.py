@@ -1,4 +1,3 @@
-import dataclasses as dc
 import json
 import logging
 import typing as t
@@ -90,6 +89,6 @@ class Cfg:
         return getattr(self.cfg, k)
 
     def _times(self) -> time_settings.TimeSettings[float]:
-        fields = (f.name for f in dc.fields(time_settings.TimeSettings))
+        fields = time_settings.TimeSettings.model_fields
         d = {k: getattr(self, k) for k in fields}
         return time_settings.TimeSettings(**d)

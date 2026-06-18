@@ -1,5 +1,3 @@
-import dataclasses as dc
-
 import pytest
 
 from recs.cfg import time_settings
@@ -11,8 +9,8 @@ def test_db_to_amplitude(db):
     assert time_settings.amplitude_to_db(amp) == pytest.approx(db)
 
 
-@pytest.mark.parametrize('field', dc.fields(time_settings.TimeSettings))
+@pytest.mark.parametrize('field', time_settings.TimeSettings.model_fields)
 def test_negative_times(field):
-    time_settings.TimeSettings(**{field.name: 1})
+    time_settings.TimeSettings(**{field: 1})
     with pytest.raises(ValueError):
-        time_settings.TimeSettings(**{field.name: -1})
+        time_settings.TimeSettings(**{field: -1})

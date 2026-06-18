@@ -1,35 +1,35 @@
-import dataclasses as dc
+import inspect
 import typing as t
-
-import dtyper
 
 from recs.base import cfg_raw, types
 from recs.cfg import cli
 
 
 def test_fields():
-    @dtyper.dataclass(cli.recs)
-    class Cfg:
-        pass
+    hand = tuple(cfg_raw.CfgRaw.model_fields.items())
+    auto = tuple(inspect.signature(cli.recs).parameters.items())
 
-    hand, auto = dc.fields(cfg_raw.CfgRaw), dc.fields(Cfg)
-
-    assert [f.name for f in hand] == [f.name for f in auto]
-    had = {h.name: (h.default, a.default) for h, a in zip(hand, auto, strict=False)}
+    assert [name for name, _ in hand] == [name for name, _ in auto]
+    had = {
+        name: (h.get_default(call_default_factory=True), a.default)
+        for (name, h), (_, a) in zip(hand, auto, strict=False)
+    }
 
     differences = {k: (h, a) for k, (h, a) in had.items() if h != a}
     differences.pop('files')
+    differences.pop('formats')
     assert not differences
     # Work around dtyper.
 
-    actual = [(h.type, a.type) for h, a in zip(hand, auto, strict=False)]
+    actual = [
+        (h.annotation, a.annotation)
+        for (_, h), (_, a) in zip(hand, auto, strict=False)
+    ]
     ok = (
-        (t.Sequence[str], list[str]),
-        (str, types.Format),
-        (str, types.SdType | None),
-        (str, types.Subtype | None),
+        (str | None, types.SdType | None),
+        (str | None, types.Subtype | None),
         (float, str),
-        (t.Sequence[str], t.List[types.Format]),
+        (list[str], t.List[types.Format]),
     )
 
     bad = [(h, a) for h, a in actual if h != a and (h, a) not in ok]

@@ -1,31 +1,34 @@
 # mypy: disable-error-code="no-any-return, type-arg"
 
-import dataclasses as dc
 import numbers
 import typing as t
 from functools import cached_property
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from recs.cfg.source import to_matrix
 
 _EMPTY_SEEN = False
 
 
-@dc.dataclass(frozen=True)
-class Block:
+class Block(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+
     block: np.ndarray
 
-    def __post_init__(self) -> None:
-        if not self.block.size:
+    @field_validator('block')
+    @classmethod
+    def validate_block(cls, block: np.ndarray) -> np.ndarray:
+        if not block.size:
             raise ValueError('Empty block')
-        self.__dict__['block'] = to_matrix(self.block)
+        return to_matrix(block)
 
     def __len__(self) -> int:
         return self.block.shape[0]
 
     def __getitem__(self, index: int | slice) -> 'Block':
-        return Block(self.block[index])
+        return Block(block=self.block[index])
 
     @cached_property
     def is_float(self) -> bool:
@@ -63,7 +66,7 @@ class Block:
             return self
         b = self.block.astype('double' if self.block.dtype.itemsize > 4 else 'float')
         b /= self.scale
-        return Block(b)
+        return Block(block=b)
 
     @cached_property
     def rms(self) -> np.ndarray:
@@ -75,9 +78,8 @@ class Block:
         return np.sqrt(b.mean(0))
 
 
-@dc.dataclass
-class Blocks:
-    blocks: list[Block] = dc.field(default_factory=list)
+class Blocks(BaseModel):
+    blocks: list[Block] = Field(default_factory=list)
     duration: int = 0
 
     def append(self, block: Block) -> None:
@@ -95,9 +97,6 @@ class Blocks:
             clipped.append(self.blocks.pop(0 if from_start else -1))
             self.duration -= len(clipped[-1])
         return clipped
-
-    def __iter__(self) -> t.Iterator[Block]:
-        return iter(self.blocks)
 
     def __getitem__(self, i: int) -> Block:
         return self.blocks[i]
