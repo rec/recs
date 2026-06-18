@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-recs = "recs.base.cli:run"
+recs = "recs.__main__:run"
 
 [dependency-groups]
 dev = [
