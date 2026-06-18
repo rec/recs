@@ -32,20 +32,31 @@ app = dtyper.Typer(
 class TimeParam(click.ParamType):
     name = 'TIME'
 
-    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> float:
+    def convert(
+        self,
+        value: t.Any,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> float:
         if isinstance(value, (int, float)):
             return value
         try:
             return times.to_time(value)
         except ValueError as e:
-            self.fail(f'{p.opts[0]}: {e.args[0]}', p, ctx)
+            option = param.opts[0] if param else self.name
+            self.fail(f'{option}: {e.args[0]}', param, ctx)
 
 
 class DictParam(click.ParamType):
     name = 'NONE'
     prefix_dict: dict[str, t.Any]
 
-    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
+    def convert(
+        self,
+        value: t.Any,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> t.Any:
         if not value:
             return None
         if not isinstance(value, str):
@@ -53,7 +64,8 @@ class DictParam(click.ParamType):
         try:
             return self.prefix_dict[value]
         except KeyError:
-            self.fail(f'Cannot understand {p.opts[0]}="{value}"')
+            option = param.opts[0] if param else self.name
+            self.fail(f'Cannot understand {option}="{value}"', param, ctx)
 
 
 class FormatParam(DictParam):
@@ -74,16 +86,27 @@ class SubtypeParam(DictParam):
 class MetadataParam(click.ParamType):
     name = 'METADATA'
 
-    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
+    def convert(
+        self,
+        value: t.Any,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> t.Any:
         try:
             metadata.to_dict([value])
             return value
         except RecsError as e:
-            self.fail(f'In {p.opts[0]}: "{e.args[0]}"')
+            option = param.opts[0] if param else self.name
+            self.fail(f'In {option}: "{e.args[0]}"', param, ctx)
 
 
 class AliasParam(click.ParamType):
     name = 'ALIAS'
 
-    def convert(self, value: t.Any, p: t.Any, ctx: t.Any) -> t.Any:
+    def convert(
+        self,
+        value: t.Any,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> t.Any:
         return value

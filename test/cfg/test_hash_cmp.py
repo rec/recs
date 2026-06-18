@@ -16,5 +16,5 @@ def test_hash_cmp():
 
 def test_error1():
     with pytest.raises(TypeError) as e:
-        Cmp(1) < 3
+        _ = Cmp(1) < 3
     assert e.value.args == ("'<' not supported between instances of 'Cmp' and 'int'",)

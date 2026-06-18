@@ -8,12 +8,12 @@ from recs.base.types import Format, SdType, Subtype
 from recs.cfg import hash_cmp
 
 
-def to_matrix(array: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
+def to_matrix(array: np.ndarray) -> np.ndarray:
     return array.reshape(*array.shape, 1) if len(array.shape) == 1 else array
 
 
 class Update(t.NamedTuple):
-    array: np.ndarray  # type: ignore[type-arg]
+    array: np.ndarray
     timestamp: float
 
 

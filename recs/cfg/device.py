@@ -32,10 +32,8 @@ class InputDevice(Source):
         import sounddevice
 
         stream: sounddevice.InputStream
-        result: Wrapper
-
         def callback(
-            indata: np.ndarray,  # type: ignore[type-arg]
+            indata: np.ndarray,
             frames: int,
             time: t.Any,
             status: int,
@@ -52,7 +50,7 @@ class InputDevice(Source):
             dtype=sdtype,
             samplerate=self.samplerate,
         )
-        return (result := Wrapper(stream))
+        return Wrapper(stream)
 
 
 InputDevices = PrefixDict[InputDevice]

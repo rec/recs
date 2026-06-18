@@ -1,9 +1,9 @@
-import typing as t
 from collections import deque
 
 import numpy as np
 
 from recs.audio.block import Block
+
 
 class MovingBlock:
     _dq: deque[np.ndarray] | None = None

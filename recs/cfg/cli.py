@@ -10,7 +10,7 @@ from recs.base.cfg_raw import CfgRaw
 
 from . import app, cfg
 
-rich_utils.STYLE_METAVAR = 'dim yellow'
+t.cast(t.Any, rich_utils).STYLE_METAVAR = 'dim yellow'
 # Three blank lines seems to force Typer to format correctly
 
 _SINGLES: set[str] = set()

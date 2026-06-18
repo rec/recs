@@ -4,11 +4,11 @@ from functools import cache, wraps
 
 C = t.TypeVar('C', bound=t.Callable[..., t.Any])
 
-DISABLE = False
+DISABLE: bool = False
 
 # Some sort of global state is needed here so that we can decorate
 # methods without having to have a Cfg around.
-VERBOSE = not False
+VERBOSE: bool = True
 
 
 @cache

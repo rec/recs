@@ -47,7 +47,7 @@ def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, .
         try:
             channels = tuple(int(i) for i in split)
         except ValueError:
-            raise ValueError('Channels must be numbers')
+            raise ValueError('Channels must be numbers') from None
 
         if channels[0] <= 0:
             raise ValueError('Channels must be positive')
