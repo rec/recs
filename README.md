@@ -17,7 +17,7 @@ Nothing like that existed so I wrote it.
 
 ## `recs`:  the Universal Recorder
 
-`recs` records any or every audio input on your machine, intelligently filters
+`recs` is a CLI  program that records any or every audio input on your machine, intelligently filters
 out quiet, and stores the results in named, organized files.
 
 Free, open-source, configurable, light on CPU and memory, and bulletproof
