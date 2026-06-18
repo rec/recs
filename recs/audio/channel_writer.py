@@ -164,7 +164,7 @@ class ChannelWriter(Runnable):
 
         dt = self.timestamp - timestamp
         self.timestamp = timestamp
-        self._volume(block)
+        self._volume.accumulate(block)
 
         if not self.do_not_record and (self._sfs or not self.stopped):
             expected_dt = len(block) / self.track.source.samplerate

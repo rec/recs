@@ -1,5 +1,4 @@
 import contextlib
-import os
 import typing as t
 from multiprocessing.connection import Connection
 from queue import Empty, Queue
@@ -13,9 +12,6 @@ from recs.base.types import Format
 from recs.cfg import Cfg, Track
 from recs.cfg.source import Update
 
-NEW_CODE_FLAG = 'RECS_NEW_CODE' in os.environ
-FINISH = 'finish'
-OFFLINE_TIME = 1
 POLL_TIMEOUT = 0.05
 
 
