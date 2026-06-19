@@ -1,16 +1,16 @@
 import json
-import multiprocessing as mp
 import typing as t
 from multiprocessing import connection
 
-from threa import HasThread, Runnables, Wrapper
+from threa import HasThread, Runnables
 
 from recs.base import RecsError
 from recs.cfg import Cfg, device
 
 from . import live
 from .full_state import FullState
-from .source_recorder import POLL_TIMEOUT, SourceRecorder
+from .source_process import SourceProcess
+from .source_recorder import POLL_TIMEOUT
 from .source_tracks import source_tracks
 
 
@@ -26,17 +26,9 @@ class Recorder(Runnables):
         self.state = FullState(all_tracks)
         self.names = device.input_names()
         self.state.set_online(self.names)
-        self.connections: list[connection.Connection] = []
-        self.processes: list[mp.Process] = []
+        self.sources = [SourceProcess(cfg.cfg, tracks) for _, tracks in all_tracks]
 
-        for _, tracks in all_tracks:
-            conn, child = mp.Pipe()
-            kwargs = {'cfg': cfg.cfg, 'connection': child, 'tracks': tracks}
-            process = mp.Process(target=SourceRecorder, kwargs=kwargs)
-            self.connections.append(conn)
-            self.processes.append(process)
-
-        runnables = tuple(Wrapper(p) for p in self.processes)
+        runnables = tuple(self.sources)
         if self.live.enabled:
             ui_time = 1 / self.cfg.ui_refresh_rate
             live_thread = HasThread(
@@ -61,8 +53,9 @@ class Recorder(Runnables):
 
     def _run(self) -> None:
         with self:
-            while self.running and all(p.is_alive() for p in self.processes):
-                for c in connection.wait(self.connections, timeout=POLL_TIMEOUT):
+            while self.running and all(source.is_alive for source in self.sources):
+                connections = [source.connection for source in self.sources]
+                for c in connection.wait(connections, timeout=POLL_TIMEOUT):
                     conn = t.cast(connection.Connection, c)
                     try:
                         msg = conn.recv()

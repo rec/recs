@@ -22,10 +22,12 @@ class SourceRecorder(Runnables):
         self,
         cfg: cfg_raw.CfgRaw,
         connection: Connection,
+        stop_event: t.Any,
         tracks: t.Sequence[Track],
     ) -> None:
         self.cfg = Cfg(**cfg.model_dump())
         self.connection = connection
+        self.stop_event = stop_event
 
         self.source = tracks[0].source
         assert all(t.source == self.source for t in tracks)
@@ -44,7 +46,7 @@ class SourceRecorder(Runnables):
         super().__init__(self.input_stream, *self.channel_writers)
 
         with contextlib.suppress(KeyboardInterrupt), self:
-            while self.running:
+            while self.running and not self.stop_event.is_set():
                 with contextlib.suppress(Empty):
                     self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
 

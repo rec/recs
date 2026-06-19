@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from recs.cfg import device
-from recs.ui import recorder, source_recorder
+from recs.ui import source_process, source_recorder
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -33,7 +33,7 @@ def wait(connections, timeout=None):
 @pytest.fixture
 def mock_mp(monkeypatch):
     monkeypatch.setattr(connection, 'wait', wait)
-    monkeypatch.setattr(recorder, 'mp', multiprocessing.dummy)
+    monkeypatch.setattr(source_process, 'mp', multiprocessing.dummy)
 
 
 @pytest.fixture
