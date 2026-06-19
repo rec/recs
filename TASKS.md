@@ -1,6 +1,6 @@
 ## TODO
 
-### Fix #135
+### Have a preloaded library of scales
 
 ## DONE
 
@@ -106,3 +106,40 @@ Create a new config option, `short_file_names`, default True.
 If it is true, and if there is only one device, then omit the device in the output file name generation, unless it is explicitly listed.
 
 Make a commit and add "(see #138)" at the end of the commit message.
+
+### Print a summary after quitting or interrupting the program.
+
+Clear the curses screen, and print a terse summary report in human-readable form of
+of what has happened:
+
+* How much time the recording ran, in human-readable form
+* Which files were written
+
+### Fix #135
+
+## Add an integration test
+
+Runs the full program and checks the audio file output using pytest-regressions
+
+Mock three devices:
+* device-mic has one input and no outputs
+* device-out has no inputs and two outputs
+* device-mixer has four inputs, 1 and 2, 3 and 4. Inputs 3 and 4 get no sound.
+* Use small audio files from the internet for mocking device-mic and device-out 1 and 2
+* Run the program for exactly 0.5 seconds.
+* Use pytest-regressions on the two files generated.
+* Make sure these are stable over more than one call, and if not, fix it.
+
+### Evaluate on regression test strategies
+
+Make a short plan for making that refactor extending `RecsRunner` you suggested and getting rid of the duplicated parts of test_end_to_end.py.
+
+Given that plan, we have these choices
+
+1. Change nothing.
+2. Only perform the refactoring
+3. Perform the refactoring; then remove the duplicated parts of `test_end_to_end`
+4. Remove `the test_integration_regression`.
+
+Which is best?
+
