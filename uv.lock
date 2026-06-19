@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-06-11T20:28:36.615366Z"
+exclude-newer = "2026-06-12T10:56:53.823719Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -56,18 +56,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4c/00/e17e2a8df0ff5aca2edd9eeebd93e095dd2515f2dd8d591d84a3233518f6/cffi-1.16.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:2d92b25dbf6cae33f65005baf472d2c245c050b1ce709cc4588cdcdd5495b520", size = 487099, upload-time = "2023-09-28T18:01:21.884Z" },
     { url = "https://files.pythonhosted.org/packages/c9/6e/751437067affe7ac0944b1ad4856ec11650da77f0dd8f305fae1117ef7bb/cffi-1.16.0-cp312-cp312-win32.whl", hash = "sha256:b2ca4e77f9f47c55c194982e10f058db063937845bb2b7a86c84a6cfe0aefa8b", size = 173564, upload-time = "2023-09-28T18:01:23.527Z" },
     { url = "https://files.pythonhosted.org/packages/e9/63/e285470a4880a4f36edabe4810057bd4b562c6ddcc165eacf9c3c7210b40/cffi-1.16.0-cp312-cp312-win_amd64.whl", hash = "sha256:68678abf380b42ce21a5f2abde8efee05c114c2fdb2e9eef2efdb0257fba1235", size = 181956, upload-time = "2023-09-28T18:01:24.971Z" },
-]
-
-[[package]]
-name = "click"
-version = "8.1.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121, upload-time = "2023-08-17T17:29:11.868Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl", hash = "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28", size = 97941, upload-time = "2023-08-17T17:29:10.08Z" },
 ]
 
 [[package]]
@@ -131,15 +119,12 @@ wheels = [
 ]
 
 [[package]]
-name = "dtyper"
-version = "2.5.1"
+name = "docstring-parser"
+version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typer" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/3c/4202f1c087524dde9240fe95f7cbd1181c21949f2e8f5634dd3ac413200d/dtyper-2.5.1.tar.gz", hash = "sha256:7644462564c99e7eca8a1635c4b5841c118c16443d72237fc0e2c992a111fba0", size = 6227, upload-time = "2024-01-25T10:42:54.989Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz", hash = "sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015", size = 29341, upload-time = "2026-04-14T04:09:19.867Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/29/1887e294502992a04852c7b6d860c1e586917cf1eb3c14aec1bad6c4eea9/dtyper-2.5.1-py3-none-any.whl", hash = "sha256:50d2257dae1dfca1380f8a1c1495e88e096b9fa55ca829555a9b4e7c78ce8873", size = 8518, upload-time = "2024-01-25T10:42:53.41Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl", hash = "sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b", size = 22484, upload-time = "2026-04-14T04:09:18.638Z" },
 ]
 
 [[package]]
@@ -471,7 +456,6 @@ version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "coverage" },
-    { name = "dtyper" },
     { name = "humanfriendly" },
     { name = "impall" },
     { name = "numpy" },
@@ -484,7 +468,7 @@ dependencies = [
     { name = "strenum" },
     { name = "threa" },
     { name = "tomli" },
-    { name = "typer" },
+    { name = "tyro" },
 ]
 
 [package.dev-dependencies]
@@ -500,7 +484,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "coverage" },
-    { name = "dtyper" },
     { name = "humanfriendly" },
     { name = "impall" },
     { name = "numpy" },
@@ -513,7 +496,7 @@ requires-dist = [
     { name = "strenum" },
     { name = "threa", specifier = ">=1.9.0" },
     { name = "tomli" },
-    { name = "typer" },
+    { name = "tyro", specifier = ">=1.0.13" },
 ]
 
 [package.metadata.requires-dev]
@@ -673,16 +656,15 @@ wheels = [
 ]
 
 [[package]]
-name = "typer"
-version = "0.9.0"
+name = "typeguard"
+version = "4.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/49/39f10d0f75886439ab3dac889f14f8ad511982a754e382c9b6ca895b29e9/typer-0.9.0.tar.gz", hash = "sha256:50922fd79aea2f4751a8e0408ff10d2662bd0c8bbfa84755a699f3bada2978b2", size = 273985, upload-time = "2023-05-02T05:20:57.63Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/1c/dfba5c4633cafc4c701f237d2ba63b416805047fd6d96aab4cfc40969f98/typeguard-4.5.2.tar.gz", hash = "sha256:5a16dcac23502039299c97c8941651bc33d7ea8cc4b2f7d6bbb1b528f6eea423", size = 80240, upload-time = "2026-05-14T12:59:40.857Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/0e/c68adf10adda05f28a6ed7b9f4cd7b8e07f641b44af88ba72d9c89e4de7a/typer-0.9.0-py3-none-any.whl", hash = "sha256:5d96d986a21493606a358cae4461bd8cdf83cbf33a5aa950ae629ca3b51467ee", size = 45861, upload-time = "2023-05-02T05:20:55.675Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/29/74eeb4d3f3ae61ca096b018ad486b3b3c74b17bec09ab4edab721cbefec3/typeguard-4.5.2-py3-none-any.whl", hash = "sha256:fcf9de18bd945cdb4c7b996e12b4c51ce83f92f191314a6d7cf1739586ec98cf", size = 36748, upload-time = "2026-05-14T12:59:39.473Z" },
 ]
 
 [[package]]
@@ -704,6 +686,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464", size = 75949, upload-time = "2025-10-01T02:14:41.687Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dc/9b/47798a6c91d8bdb567fe2698fe81e0c6b7cb7ef4d13da4114b41d239f65d/typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7", size = 14611, upload-time = "2025-10-01T02:14:40.154Z" },
+]
+
+[[package]]
+name = "tyro"
+version = "1.0.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docstring-parser" },
+    { name = "typeguard" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/d6/7126f9e7de139632134d59b5d1972e93c610ee2cb13829e8f4f48f6613cb/tyro-1.0.13.tar.gz", hash = "sha256:731a90c9836b77fffe7c3fa0477ef2d3b6fa91252ddc0bb4d32dadd4fcc143d4", size = 489479, upload-time = "2026-04-14T18:21:52.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/4f/c43a0a8f0c66fd40a1d6cc47332a5a1d1043e9b331f7070ea701b91a7598/tyro-1.0.13-py3-none-any.whl", hash = "sha256:a0bdb8462c551dd84fc00a76916ce4d37e879c84eefaf34e2165312407cc6c09", size = 185221, upload-time = "2026-04-14T18:21:54.328Z" },
 ]
 
 [[package]]

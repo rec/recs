@@ -8,14 +8,13 @@ readme = "README.md"
 license = "MIT"
 classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
 dependencies = [
-    "dtyper",
     "numpy",
     "pyaudio",
     "rich",
     "sounddevice",
     "soundfile",
     "threa>=1.9.0",
-    "typer",
+    "tyro>=1.0.13",
     "impall",
     "overrides",
     "coverage",
@@ -44,7 +43,6 @@ source = ["recs"]
 omit = [
     "recs/__main__.py",
     "recs/cfg/cli.py",
-    "recs/cfg/app.py",
 ]
 
 [tool.coverage.report]
@@ -54,9 +52,6 @@ exclude_lines = ["pragma: no cover", "if False:", "if __name__ == .__main__.:", 
 
 [tool.ruff]
 line-length = 88
-
-[tool.ruff.lint.per-file-ignores]
-"recs/cfg/cli.py" = ["B008"]
 
 [tool.ruff.format]
 quote-style = "single"
