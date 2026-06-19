@@ -11,6 +11,10 @@ def run() -> int:
         tyro.cli(cli.recs, prog='recs', description=cli.HELP)
         return 0
 
+    except KeyboardInterrupt:
+        print('Interrupted', file=sys.stderr)
+        return 0
+
     except RecsError as e:
         print('ERROR:', *e.args, file=sys.stderr)
 
