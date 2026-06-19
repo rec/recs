@@ -3,11 +3,9 @@ import logging
 import typing as t
 import warnings
 from functools import wraps
-from pathlib import Path
 
 import soundfile
 
-from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
@@ -35,21 +33,16 @@ class Cfg:
 
         self.output_directory = path_pattern.PathPattern(cfg.output_directory)
 
-        self.files = [Path(f) for f in cfg.files or ()]
-        if not_exist := [f for f in self.files if not f.exists()]:
-            s = 's' * (len(not_exist) != 1)
-            fname = ', '.join(str(f) for f in not_exist)
-            raise RecsError(f'Non-existent file{s}: {fname}')
+        self.files = list(cfg.files)
 
-        assert not isinstance(cfg.formats, str)
-        self.formats = [Format(f) for f in cfg.formats] or [Format._default]
+        self.formats = list(cfg.formats) or [Format._default]
 
         if cfg.subtype:
-            self.subtype = t.cast(Subtype, cfg.subtype)
+            self.subtype = cfg.subtype
         elif not cfg.sdtype:
             self.subtype = None
         else:
-            subtype = SDTYPE_TO_SUBTYPE[t.cast(SdType, cfg.sdtype)]
+            subtype = SDTYPE_TO_SUBTYPE[cfg.sdtype]
 
             if soundfile.check_format(self.formats[0], subtype):
                 self.subtype = subtype
@@ -58,11 +51,8 @@ class Cfg:
                 msg = f'formats={self.formats[0]:s}, sdtype={cfg.sdtype:s}'
                 warnings.warn(f"Can't get subtype for {msg}", stacklevel=2)
 
-        if self.subtype and not soundfile.check_format(self.formats[0], self.subtype):
-            raise RecsError(f'{self.formats[0]} and {self.subtype} are incompatible')
-
         if cfg.sdtype:
-            self.sdtype = t.cast(SdType, cfg.sdtype)
+            self.sdtype = cfg.sdtype
         elif self.subtype:
             self.sdtype = SUBTYPE_TO_SDTYPE.get(self.subtype, SDTYPE)
         else:
@@ -72,10 +62,7 @@ class Cfg:
             self.devices = PrefixDict()
 
         elif cfg.devices.name:
-            if not cfg.devices.exists():
-                raise RecsError(f'{cfg.devices} does not exist')
             devices = json.loads(cfg.devices.read_text())
-            assert devices
             self.devices = device.get_input_devices(devices)
 
         else:

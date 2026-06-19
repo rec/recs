@@ -1,8 +1,8 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
-from recs.base import RecsError
 from recs.base.types import Format, SdType, Subtype
 from recs.cfg import Cfg, run_cli
 
@@ -14,9 +14,8 @@ def test_list_types(capsys):
 
 
 def test_error_incompatible():
-    with pytest.raises(RecsError) as e:
+    with pytest.raises(ValidationError, match='flac and float are incompatible'):
         Cfg(formats=['flac'], subtype='float')
-    assert e.value.args == ('flac and float are incompatible',)
 
 
 def test_missing_subtype(capsys):
