@@ -26,7 +26,7 @@ class Req(IntEnum):
 
 
 class PathPattern:
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, short_file_names: bool = False) -> None:
         self.raw_path = path
         str_parts = parse_fields(path)
         time_parts = findall_strftime(path)
@@ -40,6 +40,8 @@ class PathPattern:
 
         used = set().union(*(FIELD_TO_REQUIRED[p] for p in parts))
         unused = set(Req) - used
+        if short_file_names:
+            unused.discard(Req.device)
 
         def rep(r: Req) -> str:
             return (r in unused) * f'{{{r.name}}}'

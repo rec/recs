@@ -79,6 +79,13 @@ def recs(
             help='Path or output_directory pattern for recorded file locations',
         ),
     ],
+    short_file_names: t.Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.short_file_names,
+            help='Omit the device from generated names when there is only one',
+        ),
+    ],
     calibrate: t.Annotated[
         bool,
         tyro.conf.arg(

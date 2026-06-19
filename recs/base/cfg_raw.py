@@ -15,6 +15,7 @@ class CfgRaw(BaseModel):
     #
     files: list[Path] = Field(default_factory=list)
     output_directory: str = ''
+    short_file_names: bool = True
     #
     # General purpose settings
     #

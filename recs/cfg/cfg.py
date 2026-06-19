@@ -14,6 +14,7 @@ from recs.misc import log
 
 from . import device, metadata, path_pattern, time_settings
 from .aliases import Aliases
+from .track import source_track
 
 
 class Cfg:
@@ -30,8 +31,6 @@ class Cfg:
         log.VERBOSE = cfg.verbose
         if cfg.verbose:
             logging.basicConfig(level=logging.DEBUG)
-
-        self.output_directory = path_pattern.PathPattern(cfg.output_directory)
 
         self.files = list(cfg.files)
 
@@ -69,6 +68,16 @@ class Cfg:
             self.devices = device.input_devices()
 
         self.aliases = Aliases(cfg.alias, self.devices)
+        excluded = self.aliases.to_tracks(cfg.exclude)
+        included = self.aliases.to_tracks(cfg.include)
+        selected_devices = sum(
+            any(source_track(input_device, excluded, included))
+            for input_device in self.devices.values()
+        )
+        short_file_names = cfg.short_file_names and selected_devices == 1
+        self.output_directory = path_pattern.PathPattern(
+            cfg.output_directory, short_file_names
+        )
         self.metadata = metadata.to_dict(cfg.metadata)
         self.times = self._times()
 

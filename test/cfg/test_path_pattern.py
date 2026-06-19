@@ -1,9 +1,9 @@
-from test.conftest import TIME, TIMESTAMP
+from test.conftest import DEVICES, TIME, TIMESTAMP
 
 import pytest
 
 from recs.base import RecsError
-from recs.cfg import Cfg
+from recs.cfg import Cfg, device
 from recs.cfg.path_pattern import PathPattern
 
 
@@ -47,6 +47,64 @@ def test_simple(mock_devices):
     )
     expected = '164921/20231015/Ext + 1'
     assert actual.match(expected)
+
+
+def test_short_file_names_with_one_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(device, 'query_devices', lambda: DEVICES[-1:])
+
+    cfg = Cfg()
+
+    assert cfg.output_directory.path == (
+        '{channel} + {year}{month}{day}-{hour}{minute}{second}'
+    )
+
+
+@pytest.mark.parametrize(
+    'selection',
+    (
+        {'include': ['Mic']},
+        {'exclude': ['Ext', 'Flower 8']},
+    ),
+)
+def test_short_file_names_after_device_selection(
+    mock_devices: None,
+    selection: dict[str, list[str]],
+) -> None:
+    cfg = Cfg(**selection)
+    actual = cfg.output_directory.make_path(
+        track=cfg.aliases.to_track('Mic + 1'),
+        aliases=cfg.aliases,
+        timestamp=TIMESTAMP,
+        index=1,
+    )
+
+    assert actual.match('1 + 20231015-164921')
+
+
+def test_short_file_names_preserve_explicit_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(device, 'query_devices', lambda: DEVICES[-1:])
+
+    cfg = Cfg(output_directory='{device}')
+
+    assert cfg.output_directory.path == (
+        '{device}/{channel} + {year}{month}{day}-{hour}{minute}{second}'
+    )
+
+
+def test_long_file_names_with_one_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(device, 'query_devices', lambda: DEVICES[-1:])
+
+    cfg = Cfg(short_file_names=False)
+
+    assert cfg.output_directory.path == (
+        '{track} + {year}{month}{day}-{hour}{minute}{second}'
+    )
 
 
 def test_mix(mock_devices):

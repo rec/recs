@@ -1,5 +1,6 @@
 from recs.cfg import Cfg
-from recs.ui.source_tracks import source_track, source_tracks
+from recs.cfg.track import source_track
+from recs.ui.source_tracks import source_tracks
 
 
 def _device_tracks(alias=(), exclude=(), include=()):

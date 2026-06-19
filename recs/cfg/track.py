@@ -1,6 +1,9 @@
+import typing as t
+
 from recs.base import RecsError
 
 from . import hash_cmp
+from .device import InputDevice
 from .source import Source
 
 __all__ = ('Track',)
@@ -64,3 +67,55 @@ def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, .
     except ValueError as e:
         msg = f'{e.args[0]}: device={device_name}, channel={channel}'
         raise RecsError(msg) from None
+
+
+def source_track(
+    d: InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
+) -> t.Iterator[Track]:
+    if Track(d) in exc:
+        return
+
+    excs = [i for i in exc if d.name == i.source.name]
+    incs = [i for i in inc if d.name == i.source.name]
+    if inc and not incs:
+        return
+
+    tracks = [i for i in incs if i.channels]
+
+    ic = {int(c) for t in tracks for c in t.channels} or set(range(1, d.channels + 1))
+    ec = {int(c) for t in excs for c in t.channels}
+
+    channels = sorted(ic - ec)
+
+    def track_channel() -> int:
+        return tracks[0].channels[-1]
+
+    while channels:
+        if tracks:
+            found = False
+            while channels and track_channel() >= channels[0]:
+                channels.pop(0)
+                found = True
+
+            if found:
+                yield tracks.pop(0)
+                continue
+
+            if not channels:
+                break
+
+        c1 = channels.pop(0)
+        ch = f'{c1}'
+        if (
+            channels
+            and channels[0] == c1 + 1
+            and c1 % 2
+            and not (tracks and track_channel() == c1 + 1)
+        ):
+            c2 = channels.pop(0)
+            assert c1 + 1 == c2
+            ch = f'{c1}-{c2}'
+
+        yield Track(d, ch)
+
+    yield from tracks
