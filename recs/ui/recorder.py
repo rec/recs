@@ -35,12 +35,18 @@ class Recorder(Runnables):
             self.connections.append(conn)
             self.processes.append(process)
 
-        ui_time = 1 / self.cfg.ui_refresh_rate
-        live_thread = HasThread(
-            self.live.update, looping=True, name='LiveUpdate', pre_delay=ui_time
-        )
+        runnables = tuple(Wrapper(p) for p in self.processes)
+        if self.live.enabled:
+            ui_time = 1 / self.cfg.ui_refresh_rate
+            live_thread = HasThread(
+                self.live.update,
+                looping=True,
+                name='LiveUpdate',
+                pre_delay=ui_time,
+            )
+            runnables += live_thread, self.live
 
-        self.runnables = *(Wrapper(p) for p in self.processes), live_thread, self.live
+        self.runnables = runnables
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield from self.state.rows(self.names)

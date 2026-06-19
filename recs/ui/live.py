@@ -1,3 +1,5 @@
+import os
+import sys
 import typing as t
 from functools import cached_property
 
@@ -14,6 +16,18 @@ from recs.cfg import Cfg
 from .table import TableFormatter, to_str
 
 CONSOLE = Console(color_system='truecolor')
+CURSES_TERMS: tuple[str, ...] = (
+    'ansi',
+    'linux',
+    'screen',
+    'screen-256color',
+    'tmux',
+    'tmux-256color',
+    'vt100',
+    'xterm',
+    'xterm-256color',
+    'xterm-color',
+)
 
 
 class Live(Runnable):
@@ -24,10 +38,22 @@ class Live(Runnable):
     ) -> None:
         self.rows = rows
         self.cfg = cfg
+        term = os.environ.get('TERM', '')
+        self.enabled: bool = (
+            not cfg.silent
+            and CONSOLE.is_terminal
+            and term.lower() in CURSES_TERMS
+        )
+        if not cfg.silent and not self.enabled:
+            print(
+                f'WARNING: Terminal does not support the live display (TERM={term!r})',
+                file=sys.stderr,
+            )
+            self.enabled = False
         super().__init__()
 
     def update(self) -> None:
-        if not self.cfg.silent:
+        if self.enabled:
             self.live.update(self.table())
 
     @cached_property
@@ -44,11 +70,11 @@ class Live(Runnable):
 
     def start(self) -> None:
         super().start()
-        if not self.cfg.silent:
+        if self.enabled:
             self.live.start(refresh=True)
 
     def stop(self) -> None:
-        if not self.cfg.silent:
+        if self.enabled:
             self.live.stop()
         super().stop()
 
