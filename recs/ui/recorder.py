@@ -25,6 +25,7 @@ class Recorder(Runnables):
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(all_tracks)
         self.names = device.input_names()
+        self.state.set_online(self.names)
         self.connections: list[connection.Connection] = []
         self.processes: list[mp.Process] = []
 
@@ -49,7 +50,7 @@ class Recorder(Runnables):
         self.runnables = runnables
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield from self.state.rows(self.names)
+        yield from self.state.rows()
 
     def run(self) -> None:
         try:

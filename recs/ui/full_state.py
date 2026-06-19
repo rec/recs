@@ -11,6 +11,7 @@ class FullState:
             return {i.name: state.ChannelState() for i in tr}
 
         self.state = {k.name: device_state(v) for k, v in tracks}
+        self.online: set[str] = set()
         self.total = state.ChannelState()
         self.start_time = times.timestamp()
 
@@ -27,7 +28,14 @@ class FullState:
                     # This is a stereo channel, so count it again
                     self.total.recorded_time += channel_state.recorded_time
 
-    def rows(self, devices: t.Sequence[str]) -> t.Iterator[dict[str, t.Any]]:
+    def set_online(self, devices: t.Iterable[str]) -> None:
+        self.online = set(devices) & self.state.keys()
+        for device_name in self.state.keys() - self.online:
+            for channel_state in self.state[device_name].values():
+                channel_state.is_active = False
+                channel_state.volume = []
+
+    def rows(self) -> t.Iterator[dict[str, t.Any]]:
         yield {
             'time': self.elapsed_time,
             'recorded': self.total.recorded_time,
@@ -36,7 +44,7 @@ class FullState:
         }
 
         for device_name, device_state in self.state.items():
-            active = Active.active if device_name in devices else Active.offline
+            active = Active.active if device_name in self.online else Active.offline
             yield {'device': device_name, 'on': active}  # TODO: use alias here
 
             for c, s in device_state.items():
