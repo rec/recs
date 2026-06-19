@@ -198,10 +198,12 @@ class ChannelWriter(Runnable):
 
     def _write_and_close(self) -> None:
         # Record some quiet after the last block
-        removed = self._blocks.clip(self.times.quiet_after_end, from_start=False)
+        self._blocks.clip(self.times.quiet_after_end, from_start=False)
 
-        if self._sfs and removed:
-            self._write_blocks(reversed(removed))
+        if self._sfs:
+            if self._blocks.blocks:
+                self._write_blocks(self._blocks.blocks)
+            self._blocks.clear()
 
         self._close()
 

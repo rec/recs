@@ -33,7 +33,7 @@ class Case(BaseModel):
 BASE = Case(
     name='base',
     arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
-    result=[[28, 16, 12], [28, 4, 12], [28, 76]],
+    result=[[28, 16, 40], [28, 4, 40], [28, 76]],
 )
 LONGEST_FILE_TIME = Case(
     name='longest_file_time',
@@ -51,7 +51,7 @@ TEST_CASES = (
     Case(
         name='not sure',
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
-        result=[[0, 16, 12, 4, 12], [28, 12]],
+        result=[[0, 16, 12, 4, 40], [28, 12]],
     ),
     LONGEST_FILE_TIME,
     LONGEST_FILE_TIME.model_copy(update={'format': Format.flac}),
