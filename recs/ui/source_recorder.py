@@ -8,11 +8,18 @@ from threa import Runnables
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.base import cfg_raw
+from recs.base.state import ChannelState
 from recs.base.types import Format
 from recs.cfg import Cfg, Track
 from recs.cfg.source import Update
 
 POLL_TIMEOUT = 0.05
+
+
+class SourceUpdate(t.NamedTuple):
+    channels: dict[str, ChannelState]
+    frames: int
+    source_name: str
 
 
 class SourceRecorder(Runnables):
@@ -67,8 +74,14 @@ class SourceRecorder(Runnables):
             c.track.name: c.receive_update(b, u.timestamp, should_record)
             for c, b in cb.items()
         }
-        self.connection.send({self.source.name: msgs})
+        self.connection.send(
+            SourceUpdate(
+                channels=msgs,
+                frames=len(u.array),
+                source_name=self.source.name,
+            )
+        )
 
         self.sample_count += len(u.array)
-        if (t := self.times.total_run_time) and self.sample_count >= t:
+        if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False

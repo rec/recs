@@ -19,6 +19,8 @@ class SourceProcess(Runnable):
 
     def __init__(self, cfg: CfgRaw, tracks: t.Sequence[Track]) -> None:
         self.cfg = cfg
+        self.name = tracks[0].source.name
+        self.source = tracks[0].source
         self.tracks = tracks
 
     @property
@@ -44,7 +46,7 @@ class SourceProcess(Runnable):
         self.stop_event.set()
 
     def finish(self) -> None:
-        self.running = False
+        self.stop()
 
     def join(self, timeout: float | None = None) -> None:
         self.process.join(STOP_TIMEOUT if timeout is None else timeout)

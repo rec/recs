@@ -10,7 +10,7 @@ from recs.cfg import Cfg, device
 from . import live
 from .full_state import FullState
 from .source_process import SourceProcess
-from .source_recorder import POLL_TIMEOUT
+from .source_recorder import POLL_TIMEOUT, SourceUpdate
 from .source_tracks import source_tracks
 
 
@@ -26,9 +26,13 @@ class Recorder(Runnables):
         self.state = FullState(all_tracks)
         self.names = device.input_names()
         self.state.set_online(self.names)
-        self.sources = [SourceProcess(cfg.cfg, tracks) for _, tracks in all_tracks]
+        self.sources = {
+            source.name: SourceProcess(cfg.cfg, tracks)
+            for source, tracks in all_tracks
+        }
+        self.frames = dict.fromkeys(self.sources, 0)
 
-        runnables = tuple(self.sources)
+        runnables = tuple(self.sources.values())
         if self.live.enabled:
             ui_time = 1 / self.cfg.ui_refresh_rate
             live_thread = HasThread(
@@ -53,8 +57,17 @@ class Recorder(Runnables):
 
     def _run(self) -> None:
         with self:
-            while self.running and all(source.is_alive for source in self.sources):
-                connections = [source.connection for source in self.sources]
+            while self.running:
+                sources = [
+                    source for source in self.sources.values() if source.is_alive
+                ]
+                self.state.set_online(
+                    source.name for source in sources if source.running
+                )
+                if not sources:
+                    break
+
+                connections = [source.connection for source in sources]
                 for c in connection.wait(connections, timeout=POLL_TIMEOUT):
                     conn = t.cast(connection.Connection, c)
                     try:
@@ -62,4 +75,19 @@ class Recorder(Runnables):
                     except EOFError:
                         pass
                     else:
-                        self.state.update(msg)
+                        self._receive_update(t.cast(SourceUpdate, msg))
+
+    def _receive_update(self, update: SourceUpdate) -> None:
+        self.frames[update.source_name] += update.frames
+        source = self.sources[update.source_name]
+        self.state.update({update.source_name: update.channels})
+        if source.running and self._source_time_expired(source):
+            source.stop()
+
+    def _source_time_expired(self, source: SourceProcess) -> bool:
+        total = self.cfg.total_run_time
+        if not total:
+            return False
+
+        target = round(total * source.source.samplerate)
+        return self.frames[source.name] >= target
