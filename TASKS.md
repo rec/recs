@@ -1,10 +1,6 @@
 ## TODO
 
-### Graceful shutdown for KeyboardInterrupt
-
-In __main__, catch KeyboardInterrupt, log 'Interrupted' and nothing else, and terminal normally.
-
-### Turn off running the CURSORS display if the user's terminal doesn't support it, and print a warning to stderr
+### Port the cfgs.cfg system to use pydantic validators
 
 ### Create a plan as to how to handle devices going on and off line while the program is running
 
@@ -30,3 +26,9 @@ Write this to a file doc/quality.md
 ### Port the cli from Typer to `tyro`
 
 ### Fill in the "## 2. Project Architecture & Code Map" section in AGENTS.md
+
+### Graceful shutdown for KeyboardInterrupt
+
+In __main__, catch KeyboardInterrupt, log 'Interrupted' and nothing else, and terminal normally.
+
+### Turn off running the CURSORS display if the user's terminal doesn't support it, and print a warning to stderr
