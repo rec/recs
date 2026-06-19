@@ -23,6 +23,7 @@ TBD
 - **Data classes:** Never put `set`, `tuple` or `frozenset` into any data class unless instructed otherwise; always prefer `list`.
 - **Unit tests for audio:** Any tests involving digital audio should be regression tests that write to WAV files at 48,000 samples per second. The length of that file should be at least one second or 48k samples.**
 - **Lazy properties:** Always prefer functools.cached_property to maintaining a protectected member
+- **Stray audio files:** Ignore any stray audio files lying around in these directories at the start of answering a request
 
 ## 5. How to Verify Your Work
 
