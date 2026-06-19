@@ -14,23 +14,14 @@ out quiet, and stores the results in named, organized files.
 
 ## 3. Project Architecture & Code Map
 
-- `recs/__main__.py`: CLI entry point. Tyro parses arguments into the command
-  model and converts `RecsError` failures into user-facing errors.
-- `recs/cfg/`: Configuration models, CLI commands, device discovery, source and
-  track definitions, aliases, metadata, output path patterns, and recording time
-  settings. `Cfg` validates and resolves raw CLI values into runtime settings.
-- `recs/ui/`: Recording orchestration and live terminal status. `Recorder`
-  starts one `SourceRecorder` process per input source, receives channel-state
-  updates over multiprocessing pipes, and feeds the live display.
-- `recs/audio/`: Audio block processing and file output. `ChannelWriter` applies
-  quiet detection and timing rules, buffers leading and trailing audio, and
-  writes each selected channel to the configured formats.
-- `recs/base/`: Shared low-level models, enums, conversions, configuration input,
-  device queries, timing helpers, and accumulated recording state.
-- `recs/misc/`: Small supporting utilities for counters, output file lists,
-  filename sanitization, and logging.
-- `test/`: Pytest suite mirroring the package layout. End-to-end fixtures and
-  expected WAV files live under `test/testdata/`.
+- `recs/__main__.py`: CLI entry point.
+
+- `recs/cfg/`: Configuration code: `Cfg` validates and resolves raw CLI values into runtime settings.
+- `recs/ui/`: Recording orchestration and live terminal status.
+- `recs/audio/`: Audio block processing and file output.
+- `recs/base/`: Shared low-level functions. Nothing in .base can depend on anything outside .base
+- `recs/misc/`: Small supporting utilities
+- `test/`: Pytest suite mirroring the package layout.
 
 The main runtime flow is `recs.__main__` -> `recs.cfg.cli` -> `Cfg` ->
 `Recorder` -> `SourceRecorder` -> `ChannelWriter`.

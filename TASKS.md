@@ -1,7 +1,5 @@
 ## TODO
 
-### Fill in the "## 2. Project Architecture & Code Map" section in AGENTS.md
-
 ### Graceful shutdown for KeyboardInterrupt
 
 In __main__, catch KeyboardInterrupt, log 'Interrupted' and nothing else, and terminal normally.
@@ -30,3 +28,5 @@ Write this to a file doc/quality.md
 ### Port all Python `dataclasses.dataclass` in this project to Pydantic BaseModel data classes
 
 ### Port the cli from Typer to `tyro`
+
+### Fill in the "## 2. Project Architecture & Code Map" section in AGENTS.md
