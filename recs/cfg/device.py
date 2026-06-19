@@ -64,7 +64,13 @@ CMD = sys.executable, '-m', 'recs.base._query_device'
 
 
 def query_devices() -> t.Sequence[DeviceDict]:
-    r = sp.run(CMD, text=True, check=True, stdout=sp.PIPE)
+    r = sp.run(
+        CMD,
+        text=True,
+        check=True,
+        start_new_session=True,
+        stdout=sp.PIPE,
+    )
     return t.cast(list[DeviceDict], json.loads(r.stdout))
 
 
