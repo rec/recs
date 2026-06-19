@@ -2,6 +2,7 @@ import json
 import sys
 import typing as t
 from multiprocessing import connection
+from pathlib import Path
 
 from threa import HasThread, Runnables
 
@@ -31,6 +32,7 @@ class Recorder(Runnables):
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
+        self.files_written: set[Path] = set()
         self.failed: set[str] = set()
         self.present: set[str] = set()
         self.hardware = {
@@ -68,9 +70,23 @@ class Recorder(Runnables):
     def run(self) -> None:
         try:
             self._run()
+        except KeyboardInterrupt:
+            pass
         finally:
+            self._receive_pending_updates()
             if self.cfg.calibrate or self.cfg.verbose:
                 print(json.dumps(self.state.db_ranges(), indent=2))
+        self._summary()
+
+    def _summary(self) -> None:
+        print(f'Recording time: {_summary_time(self.state.elapsed_time)}')
+        files = sorted(path for path in self.files_written if path.exists())
+        if files:
+            print('Files written:')
+            for path in files:
+                print(f'  {path}')
+        else:
+            print('Files written: none')
 
     def _run(self) -> None:
         with self:
@@ -155,8 +171,15 @@ class Recorder(Runnables):
             self._drain(source.connection)
             expected = not source.running
             source.join(timeout=0)
+            for update in source.take_updates():
+                self._receive_update(update)
             if not expected and name in self.present:
                 self.failed.add(name)
+
+    def _receive_pending_updates(self) -> None:
+        for source in self.sources.values():
+            for update in source.take_updates():
+                self._receive_update(update)
 
     def _drain(self, conn: connection.Connection) -> None:
         while conn.poll():
@@ -173,6 +196,7 @@ class Recorder(Runnables):
 
     def _receive_update(self, update: SourceUpdate) -> None:
         self.frames[update.source_name] += update.frames
+        self.files_written.update(update.files)
         source = self.sources[update.source_name]
         self.state.update({update.source_name: update.channels})
         if source.running and self._source_time_expired(source):
@@ -185,3 +209,10 @@ class Recorder(Runnables):
 
         target = round(total * source.source.samplerate)
         return self.frames[source.name] >= target
+
+
+def _summary_time(seconds: float) -> str:
+    value = times.to_str(seconds)
+    if seconds < 60:
+        return f'0:{value:0>6}'
+    return value

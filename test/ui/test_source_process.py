@@ -14,6 +14,9 @@ class FakeConnection:
     def close(self) -> None:
         self.closed = True
 
+    def poll(self) -> bool:
+        return False
+
 
 class FakeEvent:
     _is_set: bool = False

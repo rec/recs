@@ -7,7 +7,7 @@ from threa import Runnable
 from recs.base.cfg_raw import CfgRaw
 from recs.cfg import Track
 
-from .source_recorder import SourceRecorder
+from .source_recorder import SourceRecorder, SourceUpdate
 
 STOP_TIMEOUT = 2.0
 
@@ -23,6 +23,7 @@ class SourceProcess(Runnable):
         self.source = tracks[0].source
         self.tracks = tracks
         self.started: bool = False
+        self.pending_updates: list[SourceUpdate] = []
 
     @property
     def required_channels(self) -> int:
@@ -64,7 +65,18 @@ class SourceProcess(Runnable):
         if self.process.is_alive():
             self.process.terminate()
             self.process.join()
+        self.pending_updates = []
+        while self.connection.poll():
+            try:
+                update = self.connection.recv()
+            except EOFError:
+                break
+            self.pending_updates.append(t.cast(SourceUpdate, update))
         self.connection.close()
         self.running = False
         self.started = False
         self.stopped = True
+
+    def take_updates(self) -> list[SourceUpdate]:
+        updates, self.pending_updates = self.pending_updates, []
+        return updates

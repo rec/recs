@@ -1,6 +1,7 @@
 import contextlib
 import typing as t
 from multiprocessing.connection import Connection
+from pathlib import Path
 from queue import Empty, Queue
 
 import numpy as np
@@ -18,6 +19,7 @@ POLL_TIMEOUT = 0.05
 
 class SourceUpdate(t.NamedTuple):
     channels: dict[str, ChannelState]
+    files: list[Path]
     frames: int
     source_name: str
 
@@ -45,6 +47,7 @@ class SourceRecorder(Runnables):
         self.channel_writers = tuple(
             ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
         )
+        self.file_counts = [0] * len(self.channel_writers)
 
         self.input_stream = self.source.input_stream(
             sdtype=self.cfg.sdtype,
@@ -77,6 +80,7 @@ class SourceRecorder(Runnables):
         self.connection.send(
             SourceUpdate(
                 channels=msgs,
+                files=self._new_files(),
                 frames=len(u.array),
                 source_name=self.source.name,
             )
@@ -85,3 +89,10 @@ class SourceRecorder(Runnables):
         self.sample_count += len(u.array)
         if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False
+
+    def _new_files(self) -> list[Path]:
+        result: list[Path] = []
+        for index, writer in enumerate(self.channel_writers):
+            result.extend(writer.files_written[self.file_counts[index] :])
+            self.file_counts[index] = len(writer.files_written)
+        return result

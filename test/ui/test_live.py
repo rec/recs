@@ -67,4 +67,5 @@ def test_live_display_is_enabled_for_supported_terminal(
     display = live.Live(lambda: iter(()), Cfg())
 
     assert display.enabled
+    assert display.live.transient
     assert capsys.readouterr() == ('', '')

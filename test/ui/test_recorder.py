@@ -10,6 +10,7 @@ from recs.cfg import Cfg
 from recs.cfg.track import Track
 from recs.ui import recorder
 from recs.ui.recorder import Recorder
+from recs.ui.source_recorder import SourceUpdate
 
 
 class FakePoller:
@@ -37,6 +38,7 @@ class FakeSourceProcess:
         self.running = False
         self.alive = False
         self.start_count = 0
+        self.pending_updates: list[SourceUpdate] = []
 
     @property
     def is_alive(self) -> bool:
@@ -59,6 +61,10 @@ class FakeSourceProcess:
     def stop(self) -> None:
         self.running = False
         self.alive = False
+
+    def take_updates(self) -> list[SourceUpdate]:
+        updates, self.pending_updates = self.pending_updates, []
+        return updates
 
 
 def test_recorder_fails(mock_devices):
@@ -163,3 +169,37 @@ def test_recorder_finishes_with_all_devices_offline(
     rec.state.start_time -= 1
 
     assert rec._done([])
+
+
+def test_recorder_summarizes_interrupt(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 100.0)
+    rec = Recorder(Cfg(silent=True))
+    first = tmp_path / 'first.wav'
+    second = tmp_path / 'second.wav'
+    first.touch()
+    second.touch()
+    rec.files_written.update((second, tmp_path / 'deleted.wav', first))
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 165.25)
+
+    def interrupt() -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(rec, '_run', interrupt)
+
+    rec.run()
+
+    assert capsys.readouterr() == (
+        f'Recording time: 1:05.250\nFiles written:\n  {first}\n  {second}\n',
+        '',
+    )
+
+
+def test_recorder_summary_formats_short_time() -> None:
+    assert recorder._summary_time(4.143) == '0:04.143'
