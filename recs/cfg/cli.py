@@ -5,7 +5,6 @@ import tyro
 from tyro.constructors import PrimitiveConstructorSpec
 
 from recs.base import pyproject, times, types
-from recs.base.cfg_raw import CfgRaw
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
 
@@ -23,7 +22,7 @@ LINES = (
 )
 HELP = '\n\n'.join(LINES)
 
-RECS = CfgRaw()
+RECS = cfg.Cfg.model_construct()
 # Reading configs and environment variables would go here
 
 _T = t.TypeVar('_T')

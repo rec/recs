@@ -5,7 +5,6 @@ from test.conftest import DEVICES, DEVICES_FILE
 import pytest
 
 from recs.base import RecsError
-from recs.base.cfg_raw import CfgRaw
 from recs.base.state import ChannelState
 from recs.cfg import Cfg
 from recs.cfg.track import Track
@@ -31,7 +30,7 @@ class FakeConnection:
 
 
 class FakeSourceProcess:
-    def __init__(self, cfg: CfgRaw, tracks: t.Sequence[Track]) -> None:
+    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
         self.name = tracks[0].source.name
         self.source = tracks[0].source
         self.connection = FakeConnection()
