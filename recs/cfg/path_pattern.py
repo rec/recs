@@ -79,9 +79,7 @@ class PathPattern:
     ) -> Path:
         if path := getattr(track.source, 'path', None):
             # It's a file!
-            if not (parent_directory := Path(self.raw_path)).exists():
-                raise FileNotFoundError(f'{parent_directory=}')
-            return parent_directory / f'{path.stem}-{index}'
+            return Path(self.raw_path) / f'{path.stem}-{index}'
 
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)

@@ -173,7 +173,7 @@ class Recorder(Runnables):
         self.present = compatible
 
     def _reap_sources(self) -> None:
-        for name, source in self.hardware.items():
+        for name, source in self.sources.items():
             if not source.started or source.is_alive:
                 continue
             self._drain(source.connection)
@@ -181,6 +181,9 @@ class Recorder(Runnables):
             source.join(timeout=0)
             for update in source.take_updates():
                 self._receive_update(update)
+            if name not in self.hardware:
+                continue
+
             if not expected and name in self.present:
                 self.failed.add(name)
 

@@ -57,8 +57,11 @@ class SourceRecorder(Runnables):
 
         with contextlib.suppress(KeyboardInterrupt), self:
             while self.running and not self.stop_event.is_set():
-                with contextlib.suppress(Empty):
+                try:
                     self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
+                except Empty:
+                    if not self.input_stream.running:
+                        break
 
         with contextlib.suppress(Empty):
             while True:
