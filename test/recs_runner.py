@@ -6,6 +6,7 @@ from test.mock_input_stream import InputStreamReporter
 
 import numpy as np
 import soundfile
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from threa import HasThread
 
 from recs.base import times
@@ -17,46 +18,63 @@ TRIES = 100
 DELAY = 0.001
 
 
-class FixtureInputStream:
-    def __init__(
-        self,
-        callback: t.Callable[[np.ndarray, int, object, int], None],
-        channels: int,
-        device: str,
-        dtype: object,
-        samplerate: int,
-        audio: np.ndarray,
-        block_size: int,
-    ) -> None:
-        self.callback = callback
-        self.channels = channels
-        self.device = device
-        self.dtype = np.dtype(str(dtype))
-        self.samplerate = samplerate
-        self._recs_audio = audio.astype(self.dtype)
-        self._recs_block_size = block_size
-        self._recs_position = 0
-        self._recs_report: list[str] = []
-        assert self._recs_audio.shape[1] == channels
+class FixtureInputStream(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    audio: np.ndarray
+    block_size: int
+    callback: t.Callable[[np.ndarray, int, object, int], None]
+    channels: int
+    device: str
+    dtype: object
+    samplerate: int
+
+    _position: int = PrivateAttr(default=0)
+    _report: list[str] = PrivateAttr(default_factory=list)
+
+    def model_post_init(self, __context: object) -> None:
+        self.dtype = np.dtype(str(self.dtype))
+        self.audio = self.audio.astype(self.dtype)
+        assert self.audio.shape[1] == self.channels
+
+    @property
+    def _recs_report(self) -> list[str]:
+        return self._report
 
     def start(self) -> None:
-        self._recs_report.append('start')
+        self._report.append('start')
 
     def stop(self, ignore_errors: bool = True) -> None:
-        self._recs_report.append('stop')
+        self._report.append('stop')
 
     def close(self, ignore_errors: bool = True) -> None:
-        self._recs_report.append('close')
+        self._report.append('close')
 
     def _recs_callback(self) -> None:
-        end = self._recs_position + self._recs_block_size
-        array = self._recs_audio[self._recs_position : end]
-        self._recs_position = end
+        end = self._position + self.block_size
+        array = self.audio[self._position : end]
+        self._position = end
         self.callback(array, len(array), None, 0)
 
 
-class RecsRunner:
-    _timestamp = TIMESTAMP
+class RecsRunner(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    block_size: int = BLOCK_SIZE
+    cfg: Cfg
+    device_offset: float = DEVICE_OFFSET
+    event_count: int | None = None
+    event_multiplier: int = 2
+    expected_streams: int | None = None
+    input_audio: dict[str, np.ndarray] = Field(default_factory=dict)
+    monkeypatch: t.Any
+    streams: list[InputStreamReporter | FixtureInputStream] = Field(
+        default_factory=list
+    )
+    wait_for_stop: bool = False
+
+    _error: str = PrivateAttr(default='')
+    _timestamp: float = PrivateAttr(default=TIMESTAMP)
 
     def __init__(
         self,
@@ -71,21 +89,22 @@ class RecsRunner:
         total_run_time: float = 0.1,
         wait_for_stop: bool = False,
     ) -> None:
+        super().__init__(
+            block_size=block_size,
+            cfg=Cfg(shortest_file_time=0, total_run_time=total_run_time, **cfg),
+            device_offset=device_offset,
+            event_count=event_count,
+            event_multiplier=event_multiplier,
+            expected_streams=expected_streams,
+            input_audio=input_audio or {},
+            monkeypatch=monkeypatch,
+            wait_for_stop=wait_for_stop,
+        )
+
         import sounddevice
 
         monkeypatch.setattr(sounddevice, 'InputStream', self.make_input_stream)
         monkeypatch.setattr(times, 'timestamp', self.timestamp)
-
-        self.block_size = block_size
-        self.device_offset = device_offset
-        self.event_count = event_count
-        self.event_multiplier = event_multiplier
-        self.expected_streams = expected_streams
-        self.input_audio = input_audio or {}
-        self._timestamp = TIMESTAMP
-        self.wait_for_stop = wait_for_stop
-        self.streams: list[InputStreamReporter | FixtureInputStream] = []
-        self.cfg = Cfg(shortest_file_time=0, total_run_time=total_run_time, **cfg)
 
     def make_input_stream(
         self, **ka: object
