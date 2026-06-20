@@ -56,7 +56,7 @@ def test_short_file_names_with_one_device(
 
     cfg = Cfg()
 
-    assert cfg.output_directory.path == (
+    assert cfg.output_path_pattern.path == (
         '{channel} + {year}{month}{day}-{hour}{minute}{second}'
     )
 
@@ -73,7 +73,7 @@ def test_short_file_names_after_device_selection(
     selection: dict[str, list[str]],
 ) -> None:
     cfg = Cfg(**selection)
-    actual = cfg.output_directory.make_path(
+    actual = cfg.output_path_pattern.make_path(
         track=cfg.aliases.to_track('Mic + 1'),
         aliases=cfg.aliases,
         timestamp=TIMESTAMP,
@@ -90,7 +90,7 @@ def test_short_file_names_preserve_explicit_device(
 
     cfg = Cfg(output_directory='{device}')
 
-    assert cfg.output_directory.path == (
+    assert cfg.output_path_pattern.path == (
         '{device}/{channel} + {year}{month}{day}-{hour}{minute}{second}'
     )
 
@@ -102,7 +102,7 @@ def test_long_file_names_with_one_device(
 
     cfg = Cfg(short_file_names=False)
 
-    assert cfg.output_directory.path == (
+    assert cfg.output_path_pattern.path == (
         '{track} + {year}{month}{day}-{hour}{minute}{second}'
     )
 

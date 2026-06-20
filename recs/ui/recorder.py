@@ -32,7 +32,7 @@ class Recorder(Runnables):
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(all_tracks)
         self.sources = {
-            source.name: SourceProcess(cfg.cfg, tracks)
+            source.name: SourceProcess(cfg, tracks)
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)

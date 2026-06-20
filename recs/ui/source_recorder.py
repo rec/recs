@@ -8,10 +8,9 @@ import numpy as np
 from threa import Runnables
 
 from recs.audio.channel_writer import ChannelWriter
-from recs.base import cfg_raw
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
-from recs.base.types import Format
+from recs.base.types import Format, SdType
 from recs.cfg import Cfg, Track
 from recs.cfg.source import Update
 
@@ -30,12 +29,12 @@ class SourceRecorder(Runnables):
 
     def __init__(
         self,
-        cfg: cfg_raw.CfgRaw,
+        cfg: Cfg,
         connection: Connection,
         stop_event: t.Any,
         tracks: t.Sequence[Track],
     ) -> None:
-        self.cfg = Cfg(**cfg.model_dump())
+        self.cfg = cfg
         self.connection = connection
         self.stop_event = stop_event
 
@@ -51,7 +50,7 @@ class SourceRecorder(Runnables):
         self.file_counts = [0] * len(self.channel_writers)
 
         self.input_stream = self.source.input_stream(
-            sdtype=self.cfg.sdtype,
+            sdtype=t.cast(SdType, self.cfg.sdtype),
             update_callback=self.queue.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)

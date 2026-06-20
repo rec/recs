@@ -4,8 +4,7 @@ from multiprocessing import connection
 
 from threa import Runnable
 
-from recs.base.cfg_raw import CfgRaw
-from recs.cfg import Track
+from recs.cfg import Cfg, Track
 
 from .source_recorder import SourceRecorder, SourceUpdate
 
@@ -17,7 +16,7 @@ class SourceProcess(Runnable):
     process: mp.Process
     stop_event: t.Any
 
-    def __init__(self, cfg: CfgRaw, tracks: t.Sequence[Track]) -> None:
+    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
         self.cfg = cfg
         self.name = tracks[0].source.name
         self.source = tracks[0].source

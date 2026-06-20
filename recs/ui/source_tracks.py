@@ -6,7 +6,7 @@ from recs.cfg.track import source_track as _source_track
 
 
 def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
-    if not (cfg.devices or cfg.files):
+    if not (cfg.input_devices or cfg.files):
         raise RecsError('No inputs were found')
 
     if cfg.files:
@@ -19,6 +19,6 @@ def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
     else:
         exc = cfg.aliases.to_tracks(cfg.exclude)
         inc = cfg.aliases.to_tracks(cfg.include)
-        for d in cfg.devices.values():
+        for d in cfg.input_devices.values():
             if tracks := list(_source_track(d, exc, inc)):
                 yield d, tracks
