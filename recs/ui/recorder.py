@@ -7,6 +7,7 @@ from pathlib import Path
 from threa import HasThread, Runnables
 
 from recs.base import RecsError, times
+from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import Cfg, FileSource, InputDevice
 
 from . import live
@@ -74,14 +75,15 @@ class Recorder(Runnables):
         yield from self.state.rows()
 
     def run(self) -> None:
-        try:
-            self._run()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self._receive_pending_updates()
-            if self.cfg.calibrate or self.cfg.verbose:
-                print(json.dumps(self.state.db_ranges(), indent=2))
+        with raise_keyboard_interrupt_on_signal():
+            try:
+                self._run()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                self._receive_pending_updates()
+                if self.cfg.calibrate or self.cfg.verbose:
+                    print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
 
     def _summary(self) -> None:
