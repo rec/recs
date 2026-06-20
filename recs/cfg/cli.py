@@ -183,6 +183,13 @@ def recs(
             help='Clear display on shutdown',
         ),
     ],
+    gui: t.Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.console.gui,
+            help='Display live updates in a Dear PyGui window',
+        ),
+    ],
     silent: t.Annotated[
         bool,
         tyro.conf.arg(

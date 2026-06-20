@@ -1,24 +1,17 @@
-# Non-terminal GUI plan
+# Dear GUI plan
 
-This plan introduces a non-terminal GUI while keeping the existing terminal
+This plan introduces a Dear PyGui GUI while keeping the existing terminal
 interface as the TUI. The GUI should stay as close as possible to the TUI: same
 rows, same grouping, same status meanings, same refresh cadence, and the same
 recording controls. The important architecture rule is that one shared model
 should define the contents, shape, and layout for both front ends.
 
-## Library recommendation
+## Library choice
 
-The strongest default choice is PySide6, Qt for Python, with pyqtgraph for the
-eventual real-time waveform display. Qt gives a mature cross-platform desktop
-toolkit, a stable event loop, native windows, menus, tables, timers, and a path
-to packaging a real desktop application. pyqtgraph is designed for fast plotting
-on top of Qt, which matches the likely waveform requirement better than a
-general widget toolkit alone.
-
-Dear PyGui is worth evaluating in a spike. It is immediate-mode, GPU-oriented,
-and has plotting support, so it may be effective for a live monitoring window.
-The tradeoff is that it is less native than Qt and may push the application
-toward Dear PyGui-specific layout concepts.
+Use Dear PyGui. It is immediate-mode, GPU-oriented, and has plotting support, so
+it is a good fit for a live monitoring window and later waveform display. The
+first implementation should keep Dear PyGui-specific code behind the GUI
+renderer, while the TUI and GUI share the same presentation model.
 
 Tkinter should not be the primary choice. It is bundled with Python and useful
 for small forms, but it is a weak fit for a polished live recorder UI with
@@ -28,8 +21,6 @@ Kivy is intentionally excluded.
 
 Useful references:
 
-- Qt for Python documentation: https://doc.qt.io/qtforpython-6/
-- pyqtgraph documentation: https://pyqtgraph.readthedocs.io/en/latest/
 - Dear PyGui documentation: https://dearpygui.readthedocs.io/en/latest/
 
 ## Target shape
@@ -137,9 +128,9 @@ The TUI can ignore this feed. The GUI can use it later for waveform widgets.
 
 ## Phase 6: Render real-time waveforms
 
-If PySide6 is chosen, add pyqtgraph waveform widgets under each active channel
-or in a selected-channel detail pane. Start with one waveform at a time before
-rendering every channel. The goal is useful monitoring, not DAW-level editing.
+Add Dear PyGui plots under each active channel or in a selected-channel detail
+pane. Start with one waveform at a time before rendering every channel. The goal
+is useful monitoring, not DAW-level editing.
 
 Performance requirements should be explicit:
 
@@ -164,7 +155,7 @@ should not import GUI libraries.
 
 - GUI dependencies are larger than current CLI dependencies, so they should be
 optional.
-- Qt event-loop integration must not block recorder shutdown.
+- Dear PyGui event-loop integration must not block recorder shutdown.
 - Real-time plotting can become expensive if every channel redraws too often.
 - Sharing layout between GUI and TUI requires discipline: the presentation model
 must stay UI-neutral, or one front end will start leaking assumptions into the

@@ -5,13 +5,13 @@ import typing as t
 from multiprocessing import connection
 from pathlib import Path
 
-from threa import HasThread, Runnables
+from threa import HasThread, Runnable, Runnables
 
 from recs.base import RecsError, times
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import Cfg, FileSource, InputDevice
 
-from . import live
+from . import gui_process, live
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .session_manifest import ManifestFile, SessionManifest, timestamp_to_json
@@ -24,14 +24,18 @@ MIN_FRAME_CLOCK_RATIO = 0.5
 
 
 class Recorder(Runnables):
-    def __init__(self, cfg: Cfg) -> None:
+    def __init__(self, cfg: Cfg, *, display: bool = True) -> None:
         super().__init__()
 
         if not (all_tracks := list(source_tracks(cfg))):
             raise RecsError('No channels selected')
 
         self.cfg = cfg
-        self.live = live.Live(self.rows, cfg)
+        if cfg.console.gui:
+            display_type = gui_process.GuiProcess
+        else:
+            display_type = live.Live
+        self.live = display_type(self.rows, cfg) if display else None
         self.state = FullState(all_tracks)
         self.sources = {
             source.name: SourceProcess(cfg, tracks)
@@ -63,7 +67,7 @@ class Recorder(Runnables):
             self.poller = DevicePoller(cfg.console.sleep_time_device)
             self.poller.poll()
             runnables += (self.poller,)
-        if self.live.enabled:
+        if self.live and self.live.enabled:
             ui_time = 1 / self.cfg.console.ui_refresh_rate
             live_thread = HasThread(
                 self.live.update,
@@ -75,15 +79,19 @@ class Recorder(Runnables):
 
         self.runnables = runnables
 
+    def start(self) -> None:
+        super().start()
+        Runnable.start(self)
+
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        yield from self.state.rows()
+        return self.state.rows()
 
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():
             try:
                 self._run()
             except KeyboardInterrupt:
-                pass
+                print('Interrupted', file=sys.stderr)
             finally:
                 self._receive_pending_updates()
                 self._write_manifest()
@@ -105,6 +113,8 @@ class Recorder(Runnables):
         with self:
             try:
                 while self.running:
+                    if self._display_closed():
+                        break
                     self._poll_devices()
                     self._reap_sources()
                     sources = [
@@ -140,6 +150,9 @@ class Recorder(Runnables):
     def _invocation_expired(self) -> bool:
         total = self.cfg.recording.total_run_time
         return bool(total and self.state.elapsed_time >= total)
+
+    def _display_closed(self) -> bool:
+        return bool(self.live and self.live.closed)
 
     def _poll_devices(self) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
@@ -299,3 +312,4 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
+

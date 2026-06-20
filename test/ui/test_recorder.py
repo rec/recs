@@ -4,6 +4,7 @@ from pathlib import Path
 from test.conftest import DEVICES, DEVICES_FILE
 
 import pytest
+from threa import Runnable
 
 from recs.base import RecsError
 from recs.base.state import ChannelState
@@ -14,7 +15,7 @@ from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
 
 
-class FakePoller:
+class FakePoller(Runnable):
     def __init__(self, interval: float) -> None:
         self.snapshots: list[dict[str, t.Any] | None] = []
 
@@ -68,6 +69,21 @@ class FakeSourceProcess:
         return updates
 
 
+class ClosedDisplay(Runnable):
+    enabled = True
+    closed = True
+
+    def __init__(
+        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]], cfg: Cfg
+    ) -> None:
+        self.rows = rows
+        self.cfg = cfg
+        super().__init__()
+
+    def update(self) -> None:
+        pass
+
+
 def test_recorder_fails(mock_devices):
     with pytest.raises(RecsError) as e:
         Recorder(Cfg(include=['e'], exclude=['e']))
@@ -107,6 +123,38 @@ def test_recorder_replaces_returning_device(
     rec._poll_devices()
     assert mic.started
     assert mic.start_count == 2
+
+
+def test_recorder_loop_runs_without_live_display(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    polled = False
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
+
+    def poll_devices() -> None:
+        nonlocal polled
+        polled = True
+        rec.stop()
+
+    monkeypatch.setattr(rec, '_poll_devices', poll_devices)
+
+    rec._run()
+
+    assert polled
+
+
+def test_recorder_stops_when_gui_display_closes(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder.gui_process, 'GuiProcess', ClosedDisplay)
+    rec = Recorder(Cfg(gui=True))
+
+    rec._run()
+
+    assert rec.stopped
 
 
 def test_failed_device_waits_for_reconnect(
@@ -284,7 +332,7 @@ def test_recorder_summarizes_interrupt(
 
     assert capsys.readouterr() == (
         f'Recording time: 1:05.250\nFiles written:\n  {first}\n  {second}\n',
-        '',
+        'Interrupted\n',
     )
 
 
