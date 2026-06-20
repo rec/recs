@@ -1,3 +1,4 @@
+import json
 import typing as t
 from pathlib import Path
 from test.conftest import DEVICES, DEVICES_FILE
@@ -10,7 +11,7 @@ from recs.cfg import Cfg
 from recs.cfg.track import Track
 from recs.ui import recorder
 from recs.ui.recorder import Recorder
-from recs.ui.source_recorder import SourceUpdate
+from recs.ui.source_recorder import SourceFile, SourceUpdate
 
 
 class FakePoller:
@@ -285,6 +286,49 @@ def test_recorder_summarizes_interrupt(
         f'Recording time: 1:05.250\nFiles written:\n  {first}\n  {second}\n',
         '',
     )
+
+
+def test_live_input_manifest_omits_source(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    path = tmp_path / 'mic.wav'
+    path.touch()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[path],
+            frames=48_000,
+            source_name='Mic',
+            file_records=[
+                SourceFile(
+                    path=path,
+                    source_name='Mic',
+                    track=1,
+                    channels=1,
+                    sample_rate=48_000,
+                    bit_depth=64,
+                )
+            ],
+        )
+    )
+    rec._write_manifest()
+
+    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
+    assert manifest['files'] == [
+        {
+            'path': str(path),
+            'track': 1,
+            'channels': 1,
+            'sample_rate': 48_000,
+            'bit_depth': 64,
+        }
+    ]
 
 
 def test_recorder_summary_formats_short_time() -> None:

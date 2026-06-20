@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import soundfile
 import tdir
+from pytest_regressions.data_regression import DataRegressionFixture
 
 from recs.base.types import Format
 from recs.cfg import Cfg, run_cli
@@ -18,6 +19,7 @@ EVENT_COUNT_SINGLE = 75
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 FILE_INPUTS = Path(__file__).parent / 'testdata/file_inputs'
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 CASES = (
     ('default', {}, EVENT_COUNT),
@@ -58,7 +60,11 @@ def test_info(mock_input_streams, capsys):
 
 
 @tdir
-def test_file_inputs(mock_mp: None, capsys: pytest.CaptureFixture[str]) -> None:
+def test_file_inputs(
+    data_regression: DataRegressionFixture,
+    mock_mp: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     files = [FILE_INPUTS / 'mono.wav', FILE_INPUTS / 'stereo.wav']
     run_cli.run_cli(
         Cfg(
@@ -74,6 +80,12 @@ def test_file_inputs(mock_mp: None, capsys: pytest.CaptureFixture[str]) -> None:
     outputs = sorted(Path('files').glob(f'*.{Format.wav}'))
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
+    manifest = json.loads(Path('files/recs-session.json').read_text())
+    data_regression.check(
+        _stable_manifest(manifest),
+        basename='file_inputs_manifest',
+    )
+
     for source, output in zip(files, outputs, strict=True):
         source_audio, source_samplerate = soundfile.read(source)
         output_audio, output_samplerate = soundfile.read(output)
@@ -87,3 +99,15 @@ def test_file_inputs(mock_mp: None, capsys: pytest.CaptureFixture[str]) -> None:
         '  files/mono-1.wav\n'
         '  files/stereo-1.wav\n'
     )
+
+
+def _stable_manifest(manifest: dict[str, object]) -> dict[str, object]:
+    result = manifest | {
+        'started_at': '<timestamp>',
+        'ended_at': '<timestamp>',
+        'duration': '<duration>',
+    }
+    for file in result['files']:
+        assert isinstance(file, dict)
+        file['source'] = str(Path(str(file['source'])).relative_to(REPO_ROOT))
+    return result

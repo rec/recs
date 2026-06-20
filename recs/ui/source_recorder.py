@@ -22,6 +22,16 @@ class SourceUpdate(t.NamedTuple):
     files: list[Path]
     frames: int
     source_name: str
+    file_records: list['SourceFile'] | None = None
+
+
+class SourceFile(t.NamedTuple):
+    path: Path
+    source_name: str
+    track: int
+    channels: int
+    sample_rate: int
+    bit_depth: int
 
 
 class SourceRecorder(Runnables):
@@ -82,12 +92,14 @@ class SourceRecorder(Runnables):
             c.track.name: c.receive_update(b, u.timestamp, should_record)
             for c, b in cb.items()
         }
+        files, file_records = self._new_files(u.array.dtype.itemsize * 8)
         self.connection.send(
             SourceUpdate(
                 channels=msgs,
-                files=self._new_files(),
+                files=files,
                 frames=len(u.array),
                 source_name=self.source.name,
+                file_records=file_records,
             )
         )
 
@@ -95,9 +107,22 @@ class SourceRecorder(Runnables):
         if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False
 
-    def _new_files(self) -> list[Path]:
+    def _new_files(self, bit_depth: int) -> tuple[list[Path], list[SourceFile]]:
         result: list[Path] = []
+        records: list[SourceFile] = []
         for index, writer in enumerate(self.channel_writers):
-            result.extend(writer.files_written[self.file_counts[index] :])
+            new_files = writer.files_written[self.file_counts[index] :]
+            result.extend(new_files)
+            records.extend(
+                SourceFile(
+                    path=path,
+                    source_name=writer.track.source.name,
+                    track=writer.track.channels[0],
+                    channels=len(writer.track.channels),
+                    sample_rate=writer.track.source.samplerate,
+                    bit_depth=bit_depth,
+                )
+                for path in new_files
+            )
             self.file_counts[index] = len(writer.files_written)
-        return result
+        return result, records

@@ -1,0 +1,17 @@
+duration: <duration>
+ended_at: <timestamp>
+files:
+- bit_depth: 64
+  channels: 1
+  path: files/mono-1.wav
+  sample_rate: 48000
+  source: test/testdata/file_inputs/mono.wav
+  track: 1
+- bit_depth: 64
+  channels: 2
+  path: files/stereo-1.wav
+  sample_rate: 48000
+  source: test/testdata/file_inputs/stereo.wav
+  track: 1
+started_at: <timestamp>
+warnings: []
