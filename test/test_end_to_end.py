@@ -42,7 +42,7 @@ def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
     events = [(int(o * 1_000_000), s.channels) for o, s in events]
     assert len(events) == event_count
 
-    if test_case.cfg.dry_run:
+    if test_case.cfg.general.dry_run:
         assert not test_case.paths()
         return
 

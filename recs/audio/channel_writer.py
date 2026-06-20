@@ -57,7 +57,7 @@ class ChannelWriter(Runnable):
         super().__init__()
 
         self.cfg = cfg
-        self.do_not_record = cfg.dry_run or cfg.calibrate
+        self.do_not_record = cfg.general.dry_run or cfg.general.calibrate
         self.metadata = cfg.metadata_dict
         self.times = times
         self.track = track
@@ -66,17 +66,17 @@ class ChannelWriter(Runnable):
         self._lock = Lock()
 
         if track.source.format is None or 'formats' in cfg.model_fields_set:
-            self.formats = cfg.formats
+            self.formats = cfg.audio.formats
         else:
             self.formats = [track.source.format]
 
         if track.source.subtype is None or 'subtype' in cfg.model_fields_set:
-            subtype = cfg.subtype
+            subtype = cfg.audio.subtype
         else:
             subtype = track.source.subtype
 
         if track.source.subtype is None or 'sdtype' in cfg.model_fields_set:
-            sdtype = cfg.sdtype or SDTYPE
+            sdtype = cfg.audio.sdtype or SDTYPE
         else:
             sdtype = SUBTYPE_TO_SDTYPE[track.source.subtype]
 
@@ -96,7 +96,9 @@ class ChannelWriter(Runnable):
 
         def size(f: str) -> int:
             return (
-                MAX_WAV_SIZE if f == Format.wav and not self.cfg.infinite_length else 0
+                MAX_WAV_SIZE
+                if f == Format.wav and not self.cfg.recording.infinite_length
+                else 0
             )
 
         self.largest_file_size = max(0, *(size(f) for f in self.formats))

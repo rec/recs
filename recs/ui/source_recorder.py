@@ -50,7 +50,7 @@ class SourceRecorder(Runnables):
         self.file_counts = [0] * len(self.channel_writers)
 
         self.input_stream = self.source.input_stream(
-            sdtype=t.cast(SdType, self.cfg.sdtype),
+            sdtype=t.cast(SdType, self.cfg.audio.sdtype),
             update_callback=self.queue.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)
@@ -70,12 +70,12 @@ class SourceRecorder(Runnables):
                 self._receive_update(self.queue.get(block=False))
 
     def _receive_update(self, u: Update) -> None:
-        if Format.mp3 in self.cfg.formats and u.array.dtype == np.float32:
+        if Format.mp3 in self.cfg.audio.formats and u.array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             u = Update(u.array.astype(np.float64), u.timestamp)
 
         cb = {c: c.to_block(u.array) for c in self.channel_writers}
-        should_record = self.cfg.band_mode and any(
+        should_record = self.cfg.recording.band_mode and any(
             c.should_record(b) for c, b in cb.items()
         )
         msgs = {

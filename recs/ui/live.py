@@ -40,11 +40,11 @@ class Live(Runnable):
         self.cfg = cfg
         term = os.environ.get('TERM', '')
         self.enabled: bool = (
-            not cfg.silent
+            not cfg.console.silent
             and CONSOLE.is_terminal
             and term.lower() in CURSES_TERMS
         )
-        if not cfg.silent and not self.enabled:
+        if not cfg.console.silent and not self.enabled:
             print(
                 f'WARNING: Terminal does not support the live display (TERM={term!r})',
                 file=sys.stderr,
@@ -61,8 +61,8 @@ class Live(Runnable):
         return live.Live(
             self.table(),
             console=CONSOLE,
-            refresh_per_second=self.cfg.ui_refresh_rate,
-            transient=self.cfg.clear_terminal,
+            refresh_per_second=self.cfg.console.ui_refresh_rate,
+            transient=self.cfg.console.clear_terminal,
         )
 
     def table(self) -> Table:

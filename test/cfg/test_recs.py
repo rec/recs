@@ -20,7 +20,7 @@ def test_error_incompatible():
 
 def test_missing_subtype(capsys):
     r = Cfg(formats=[Format._default], sdtype=SdType.int16)
-    assert r.subtype == Subtype.pcm_16
+    assert r.audio.subtype == Subtype.pcm_16
 
 
 def test_error_subtype():
@@ -30,14 +30,14 @@ def test_error_subtype():
 
 
 def test_default_dtype1():
-    assert Cfg().sdtype == 'float32'
+    assert Cfg().audio.sdtype == 'float32'
 
 
 def test_default_dtype2():
     r = Cfg(formats=[Format.wav], subtype=Subtype.pcm_32)
-    assert r.sdtype == SdType.int32
+    assert r.audio.sdtype == SdType.int32
 
 
 def test_default_subtype():
     r = Cfg(formats=[Format.wav], sdtype=SdType.int32)
-    assert r.subtype == Subtype.pcm_32
+    assert r.audio.subtype == Subtype.pcm_32

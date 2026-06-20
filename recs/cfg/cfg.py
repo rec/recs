@@ -215,166 +215,46 @@ class Cfg(BaseModel):
 
     def model_post_init(self, context: object) -> None:
         # This constructor has this *global side-effect*, see log.py
-        log.VERBOSE = self.verbose
-        if self.verbose:
+        log.VERBOSE = self.general.verbose
+        if self.general.verbose:
             logging.basicConfig(level=logging.DEBUG)
 
     @cached_property
     def input_devices(self) -> device_module.InputDevices:
-        if self.files:
+        if self.directory.files:
             return PrefixDict()
 
-        if self.devices.name:
-            devices = json.loads(self.devices.read_text())
+        if self.device.devices.name:
+            devices = json.loads(self.device.devices.read_text())
             return device_module.get_input_devices(devices)
 
         return device_module.input_devices()
 
     @cached_property
     def aliases(self) -> Aliases:
-        return Aliases(self.alias, self.input_devices)
+        return Aliases(self.device.alias, self.input_devices)
 
     @cached_property
     def output_path_pattern(self) -> path_pattern.PathPattern:
-        excluded = self.aliases.to_tracks(self.exclude)
-        included = self.aliases.to_tracks(self.include)
+        excluded = self.aliases.to_tracks(self.selection.exclude)
+        included = self.aliases.to_tracks(self.selection.include)
         selected_devices = sum(
             any(source_track(input_device, excluded, included))
             for input_device in self.input_devices.values()
         )
-        short_file_names = self.short_file_names and selected_devices == 1
-        return path_pattern.PathPattern(self.output_directory, short_file_names)
+        short_file_names = (
+            self.directory.short_file_names and selected_devices == 1
+        )
+        return path_pattern.PathPattern(
+            self.directory.output_directory, short_file_names
+        )
 
     @cached_property
     def metadata_dict(self) -> dict[str, str]:
-        return metadata.to_dict(self.metadata)
+        return metadata.to_dict(self.audio.metadata)
 
     @cached_property
     def times(self) -> time_settings.TimeSettings[float]:
         fields = time_settings.TimeSettings.model_fields
-        d = {k: getattr(self, k) for k in fields}
+        d = {k: getattr(self.recording, k) for k in fields}
         return time_settings.TimeSettings(**d)
-
-    @property
-    def files(self) -> list[Path]:
-        return self.directory.files
-
-    @property
-    def output_directory(self) -> str:
-        return self.directory.output_directory
-
-    @property
-    def short_file_names(self) -> bool:
-        return self.directory.short_file_names
-
-    @property
-    def calibrate(self) -> bool:
-        return self.general.calibrate
-
-    @property
-    def dry_run(self) -> bool:
-        return self.general.dry_run
-
-    @property
-    def verbose(self) -> bool:
-        return self.general.verbose
-
-    @property
-    def info(self) -> bool:
-        return self.general.info
-
-    @property
-    def list_types(self) -> bool:
-        return self.general.list_types
-
-    @property
-    def alias(self) -> list[str]:
-        return self.device.alias
-
-    @property
-    def devices(self) -> Path:
-        return self.device.devices
-
-    @property
-    def exclude(self) -> list[str]:
-        return self.selection.exclude
-
-    @property
-    def include(self) -> list[str]:
-        return self.selection.include
-
-    @property
-    def formats(self) -> list[Format]:
-        return self.audio.formats
-
-    @property
-    def metadata(self) -> list[str]:
-        return self.audio.metadata
-
-    @property
-    def sdtype(self) -> SdType | None:
-        return self.audio.sdtype
-
-    @property
-    def subtype(self) -> Subtype | None:
-        return self.audio.subtype
-
-    @property
-    def clear_terminal(self) -> bool:
-        return self.console.clear_terminal
-
-    @property
-    def silent(self) -> bool:
-        return self.console.silent
-
-    @property
-    def sleep_time_device(self) -> float:
-        return self.console.sleep_time_device
-
-    @property
-    def ui_refresh_rate(self) -> float:
-        return self.console.ui_refresh_rate
-
-    @property
-    def band_mode(self) -> bool:
-        return self.recording.band_mode
-
-    @property
-    def infinite_length(self) -> bool:
-        return self.recording.infinite_length
-
-    @property
-    def longest_file_time(self) -> float:
-        return self.recording.longest_file_time
-
-    @property
-    def moving_average_time(self) -> float:
-        return self.recording.moving_average_time
-
-    @property
-    def noise_floor(self) -> float:
-        return self.recording.noise_floor
-
-    @property
-    def record_everything(self) -> bool:
-        return self.recording.record_everything
-
-    @property
-    def shortest_file_time(self) -> float:
-        return self.recording.shortest_file_time
-
-    @property
-    def quiet_after_end(self) -> float:
-        return self.recording.quiet_after_end
-
-    @property
-    def quiet_before_start(self) -> float:
-        return self.recording.quiet_before_start
-
-    @property
-    def stop_after_quiet(self) -> float:
-        return self.recording.stop_after_quiet
-
-    @property
-    def total_run_time(self) -> float:
-        return self.recording.total_run_time

@@ -135,7 +135,11 @@ class RecsRunner(BaseModel):
         for stream in self.streams:
             offset = stream.channels * self.device_offset
             block_time = self.block_size / stream.samplerate
-            blocks = int(self.event_multiplier * self.cfg.total_run_time / block_time)
+            blocks = int(
+                self.event_multiplier
+                * self.cfg.recording.total_run_time
+                / block_time
+            )
             for i in range(blocks):
                 yield (offset + i * block_time), stream
 
