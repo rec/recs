@@ -11,9 +11,7 @@ from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
 
 from . import cfg
 
-INTRO = f"""
-  {pyproject.message()}
-
+INTRO = f"""  {pyproject.message()}
 ============================================="""
 LINES = (
     INTRO,
@@ -22,9 +20,8 @@ LINES = (
     + 'program that ran in the background and recorded everything except quiet.',
     'Nothing like that existed so I wrote it.  Free, open-source, configurable.',
     'Full documentation here: https://github.com/rec/recs',
-    '',
 )
-HELP = '\n\n\n\n'.join(LINES)
+HELP = '\n\n'.join(LINES)
 
 RECS = CfgRaw()
 # Reading configs and environment variables would go here

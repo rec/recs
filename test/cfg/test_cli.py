@@ -26,6 +26,17 @@ def test_info():
     json.loads(r)
 
 
+def test_help_has_no_consecutive_empty_lines() -> None:
+    cmd = 'python -m recs --help'
+    help_text = sp.run(
+        cmd, text=True, check=True, stdout=sp.PIPE, shell=True
+    ).stdout
+    lines = help_text.splitlines()
+
+    for first, second in zip(lines, lines[1:], strict=False):
+        assert first or second
+
+
 def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     parsed: dict[str, t.Any] = {}
 
