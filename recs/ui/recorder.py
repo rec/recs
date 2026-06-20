@@ -16,6 +16,9 @@ from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, SourceUpdate
 from .source_tracks import source_tracks
 
+FRAME_CLOCK_GRACE = 5.0
+MIN_FRAME_CLOCK_RATIO = 0.5
+
 
 class Recorder(Runnables):
     def __init__(self, cfg: Cfg) -> None:
@@ -32,8 +35,11 @@ class Recorder(Runnables):
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
+        self.source_frames_at_start = dict.fromkeys(self.sources, 0)
+        self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
         self.failed: set[str] = set()
+        self.lag_reported: set[str] = set()
         self.present: set[str] = set()
         self.hardware = {
             name: source
@@ -161,6 +167,8 @@ class Recorder(Runnables):
                 and not self._invocation_expired()
             ):
                 source.start()
+                self.source_frames_at_start[name] = self.frames[name]
+                self.source_start_times[name] = times.timestamp()
 
         self.present = compatible
 
@@ -199,8 +207,30 @@ class Recorder(Runnables):
         self.files_written.update(update.files)
         source = self.sources[update.source_name]
         self.state.update({update.source_name: update.channels})
+        if source.running and not self._source_frame_clock_valid(source):
+            source.stop()
+            self.failed.add(update.source_name)
+            return
         if source.running and self._source_time_expired(source):
             source.stop()
+
+    def _source_frame_clock_valid(self, source: SourceProcess) -> bool:
+        if source.name not in self.hardware:
+            return True
+
+        elapsed = times.timestamp() - self.source_start_times[source.name]
+        if elapsed < FRAME_CLOCK_GRACE:
+            return True
+
+        frames = self.frames[source.name] - self.source_frames_at_start[source.name]
+        recorded = frames / source.source.samplerate
+        if recorded >= elapsed * MIN_FRAME_CLOCK_RATIO:
+            return True
+
+        if source.name not in self.lag_reported:
+            print(f'Device {source.name} lagging behind real time', file=sys.stderr)
+            self.lag_reported.add(source.name)
+        return False
 
     def _source_time_expired(self, source: SourceProcess) -> bool:
         total = self.cfg.total_run_time

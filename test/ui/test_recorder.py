@@ -6,6 +6,7 @@ import pytest
 
 from recs.base import RecsError
 from recs.base.cfg_raw import CfgRaw
+from recs.base.state import ChannelState
 from recs.cfg import Cfg
 from recs.cfg.track import Track
 from recs.ui import recorder
@@ -156,6 +157,92 @@ def test_device_with_too_few_channels_stays_offline(
     assert capsys.readouterr().err == (
         'ERROR: Flower 8 has 2 input channels; 10 required\n'
     )
+
+
+def test_slow_device_clock_stays_offline(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = 100.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    mic = rec.hardware['Mic']
+    rec.poller.snapshots = [{'Mic': mic_info}]
+
+    rec._poll_devices()
+    now = 110.0
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=48_000,
+            source_name='Mic',
+        )
+    )
+
+    assert not mic.running
+    assert 'Mic' in rec.failed
+    assert capsys.readouterr().err == 'Device Mic lagging behind real time\n'
+
+
+def test_slow_device_clock_reports_once_per_session(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = 100.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    mic = rec.hardware['Mic']
+    rec.poller.snapshots = [{'Mic': mic_info}]
+    update = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=[],
+        frames=48_000,
+        source_name='Mic',
+    )
+
+    rec._poll_devices()
+    now = 110.0
+    rec._receive_update(update)
+    mic.running = True
+    rec._receive_update(update)
+
+    assert capsys.readouterr().err == 'Device Mic lagging behind real time\n'
+
+
+def test_slow_device_clock_ignores_startup_grace(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = 100.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    mic = rec.hardware['Mic']
+    rec.poller.snapshots = [{'Mic': mic_info}]
+
+    rec._poll_devices()
+    now = 104.0
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=1,
+            source_name='Mic',
+        )
+    )
+
+    assert mic.running
+    assert 'Mic' not in rec.failed
+    assert capsys.readouterr().err == ''
 
 
 def test_recorder_finishes_with_all_devices_offline(
