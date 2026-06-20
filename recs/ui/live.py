@@ -62,7 +62,7 @@ class Live(Runnable):
             self.table(),
             console=CONSOLE,
             refresh_per_second=self.cfg.ui_refresh_rate,
-            transient=self.cfg.clear,
+            transient=self.cfg.clear_terminal,
         )
 
     def table(self) -> Table:

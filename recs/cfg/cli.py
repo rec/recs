@@ -175,10 +175,12 @@ def recs(
             help='Audio file subtype',
         ),
     ],
-    clear: t.Annotated[
+    clear_terminal: t.Annotated[
         bool,
         tyro.conf.arg(
-            aliases=('-r',), default=RECS.clear, help='Clear display on shutdown'
+            aliases=('-r',),
+            default=RECS.clear_terminal,
+            help='Clear display on shutdown',
         ),
     ],
     silent: t.Annotated[
