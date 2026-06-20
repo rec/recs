@@ -1,6 +1,20 @@
 ## TODO
 
-### Have a preloaded library of scales
+### Extend the end_to_end tests to deal with these cases:
+
+1. Flakey device
+
+A device which is not there at the start comes online, we record a little, it goes off,
+then comes back on.
+
+2. Long gaps
+
+In each track, at different times, sound levels descend low enough that the recording stops and restarts.
+
+3. Both of the above.
+
+Three devices, one flakey, the other two with periods of silence.
+
 
 ## DONE
 
@@ -143,3 +157,7 @@ Given that plan, we have these choices
 
 Which is best?
 
+### 1. Flakey device
+
+A device which is not there at the start comes online, we record a little, it goes off,
+then comes back on.
