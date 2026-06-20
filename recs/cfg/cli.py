@@ -22,7 +22,7 @@ LINES = (
 )
 HELP = '\n\n'.join(LINES)
 
-RECS = cfg.Cfg.model_construct()
+RECS = cfg.Cfg.raw_defaults()
 # Reading configs and environment variables would go here
 
 _T = t.TypeVar('_T')

@@ -3,7 +3,7 @@ import typing as t
 import pytest
 import tyro
 
-from recs.cfg import Cfg, cli, run_cli
+from recs.cfg import Cfg, cfg, cli, run_cli
 
 
 def test_fields(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,5 +21,5 @@ def test_fields(monkeypatch: pytest.MonkeyPatch) -> None:
 
     tyro.cli(cli.recs, args=[])
 
-    assert tuple(parsed) == tuple(Cfg.model_fields)
+    assert tuple(parsed) == tuple(cfg.FLAT_FIELDS)
     assert Cfg(**parsed) == Cfg()
