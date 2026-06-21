@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile
 import tdir
 
+from recs.base.types import Format
 from recs.cfg import Cfg, run_cli
 
 from .conftest import DEVICES
@@ -14,6 +17,7 @@ EVENT_COUNT_SINGLE = 75
 
 
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
+FILE_INPUTS = Path(__file__).parent / 'testdata/file_inputs'
 
 CASES = (
     ('default', {}, EVENT_COUNT),
@@ -51,3 +55,35 @@ def test_info(mock_input_streams, capsys):
 
     actual = json.loads(data)
     assert actual == DEVICES
+
+
+@tdir
+def test_file_inputs(mock_mp: None, capsys: pytest.CaptureFixture[str]) -> None:
+    files = [FILE_INPUTS / 'mono.wav', FILE_INPUTS / 'stereo.wav']
+    run_cli.run_cli(
+        Cfg(
+            files=files,
+            output_directory='files',
+            quiet_after_end=0,
+            quiet_before_start=0,
+            shortest_file_time=0,
+            silent=True,
+        )
+    )
+
+    outputs = sorted(Path('files').glob(f'*.{Format.wav}'))
+    assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
+
+    for source, output in zip(files, outputs, strict=True):
+        source_audio, source_samplerate = soundfile.read(source)
+        output_audio, output_samplerate = soundfile.read(output)
+        assert output_samplerate == source_samplerate
+        assert np.allclose(output_audio, source_audio)
+
+    summary = capsys.readouterr().out
+    assert summary.startswith('Recording time: ')
+    assert summary.endswith(
+        'Files written:\n'
+        '  files/mono-1.wav\n'
+        '  files/stereo-1.wav\n'
+    )

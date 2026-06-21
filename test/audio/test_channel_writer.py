@@ -1,3 +1,5 @@
+import signal
+from pathlib import Path
 from test import conftest
 
 import numpy as np
@@ -8,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
+from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
@@ -98,6 +101,32 @@ def test_channel_writer(case, mock_devices):
         else:
             assert fp.date.startswith('2023-10-15T16:49:21')
             assert fp.software.startswith('https://github.com/rec/recs')
+
+
+@tdir
+def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+    files: list[Path] = []
+
+    with pytest.raises(KeyboardInterrupt):
+        with raise_keyboard_interrupt_on_signal(), ChannelWriter(
+            cfg, times=times, track=track
+        ) as writer:
+            writer._receive_block(block, conftest.TIMESTAMP, True)
+            files = list(writer.files_written)
+            signal.raise_signal(signal.SIGTERM)
+
+    assert len(files) == 1
+    with soundfile.SoundFile(files[0]) as fp:
+        assert fp.frames == len(block)
 
 
 def _on_and_off_segments(it):

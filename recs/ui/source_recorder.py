@@ -9,6 +9,7 @@ from threa import Runnables
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.base import cfg_raw
+from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
 from recs.base.types import Format
 from recs.cfg import Cfg, Track
@@ -55,10 +56,15 @@ class SourceRecorder(Runnables):
         )
         super().__init__(self.input_stream, *self.channel_writers)
 
-        with contextlib.suppress(KeyboardInterrupt), self:
+        with raise_keyboard_interrupt_on_signal(), contextlib.suppress(
+            KeyboardInterrupt
+        ), self:
             while self.running and not self.stop_event.is_set():
-                with contextlib.suppress(Empty):
+                try:
                     self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
+                except Empty:
+                    if not self.input_stream.running:
+                        break
 
         with contextlib.suppress(Empty):
             while True:
