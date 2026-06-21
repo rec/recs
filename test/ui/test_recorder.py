@@ -379,5 +379,77 @@ def test_live_input_manifest_omits_source(
     ]
 
 
+def test_manifest_records_source_and_track_lifecycle_events(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    now = 100.0
+
+    def timestamp() -> float:
+        nonlocal now
+        now += 1.0
+        return now
+
+    monkeypatch.setattr(recorder.times, 'timestamp', timestamp)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(
+        Cfg(
+            devices=Path(DEVICES_FILE),
+            include=['Mic'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    rec.poller.snapshots = [{'Mic': mic_info}, {}]
+
+    rec._poll_devices()
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState(is_active=True)},
+            files=[],
+            frames=48_000,
+            source_name='Mic',
+        )
+    )
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState(is_active=False)},
+            files=[],
+            frames=240_000,
+            source_name='Mic',
+        )
+    )
+    rec._poll_devices()
+    rec._write_manifest()
+
+    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
+    assert manifest['events'] == [
+        {
+            'timestamp': '1970-01-01T00:01:43.000Z',
+            'type': 'source_online',
+            'source': 'Mic',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:44.000Z',
+            'type': 'track_started',
+            'source': 'Mic',
+            'track': '1',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:46.000Z',
+            'type': 'track_stopped',
+            'source': 'Mic',
+            'track': '1',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:48.000Z',
+            'type': 'source_offline',
+            'source': 'Mic',
+        },
+    ]
+
+
 def test_recorder_summary_formats_short_time() -> None:
     assert recorder._summary_time(4.143) == '0:04.143'

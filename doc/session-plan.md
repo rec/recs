@@ -45,6 +45,30 @@ A minimal first version could record only stable, high-value data:
       "bit_depth": 32
     }
   ],
+  "events": [
+    {
+      "timestamp": "2026-06-20T18:00:03.000Z",
+      "type": "source_online",
+      "source": "Mic"
+    },
+    {
+      "timestamp": "2026-06-20T18:00:04.000Z",
+      "type": "track_started",
+      "source": "Mic",
+      "track": "1"
+    },
+    {
+      "timestamp": "2026-06-20T18:12:33.000Z",
+      "type": "track_stopped",
+      "source": "Mic",
+      "track": "1"
+    },
+    {
+      "timestamp": "2026-06-20T18:14:02.000Z",
+      "type": "source_offline",
+      "source": "Mic"
+    }
+  ],
   "warnings": [
     "Device Mic lagging behind real time"
   ]
@@ -65,6 +89,15 @@ later see that a USB interface disappeared at 18:12 and returned at 18:14, or
 that a source was stopped because it lagged behind real time. That is valuable
 when `recs` is used as a safety recorder, where knowing why a file is missing
 can matter as much as the file itself.
+
+The manifest should also record the two lifecycle streams that explain gaps in
+the resulting files. Source events describe when a device or file source became
+available or unavailable during the session. Track events describe when an
+individual track actually started or stopped writing audio after quiet filtering.
+Keeping both levels matters because they answer different questions: a device
+can stay online while one track is quiet, and a track can stop because the
+device disappeared. A minimal event schema only needs a timestamp, an event
+type, a source name, and, for track events, the track name.
 
 The implementation should stay small. The main recorder already knows about
 files written, sources, elapsed time, failures, and warnings. The first version

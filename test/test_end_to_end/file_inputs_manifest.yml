@@ -1,5 +1,14 @@
 duration: <duration>
 ended_at: <timestamp>
+events:
+- source: test/testdata/file_inputs/mono.wav
+  timestamp: <timestamp>
+  track: '1'
+  type: track_started
+- source: test/testdata/file_inputs/stereo.wav
+  timestamp: <timestamp>
+  track: 1-2
+  type: track_started
 files:
 - bit_depth: 64
   channels: 1

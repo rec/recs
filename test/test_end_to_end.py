@@ -231,6 +231,12 @@ def _stable_manifest(manifest: dict[str, object]) -> dict[str, object]:
     for file in result['files']:
         assert isinstance(file, dict)
         file['source'] = str(Path(str(file['source'])).relative_to(REPO_ROOT))
+    for event in result.get('events', []):
+        assert isinstance(event, dict)
+        event['timestamp'] = '<timestamp>'
+        source = Path(str(event['source']))
+        if source.is_absolute():
+            event['source'] = str(source.relative_to(REPO_ROOT))
     return result
 
 

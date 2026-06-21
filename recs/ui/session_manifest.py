@@ -14,10 +14,18 @@ class ManifestFile(BaseModel):
     source: str | None = None
 
 
+class ManifestEvent(BaseModel):
+    timestamp: str
+    type: str
+    source: str
+    track: str | None = None
+
+
 class SessionManifest(BaseModel):
     started_at: str
     ended_at: str
     duration: float
+    events: list[ManifestEvent] = Field(default_factory=list)
     files: list[ManifestFile] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 

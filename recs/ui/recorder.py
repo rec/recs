@@ -14,7 +14,12 @@ from recs.cfg import Cfg, FileSource, InputDevice
 from . import gui_process, live
 from .device_poller import DevicePoller
 from .full_state import FullState
-from .session_manifest import ManifestFile, SessionManifest, timestamp_to_json
+from .session_manifest import (
+    ManifestEvent,
+    ManifestFile,
+    SessionManifest,
+    timestamp_to_json,
+)
 from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, SourceUpdate
 from .source_tracks import source_tracks
@@ -45,6 +50,7 @@ class Recorder(Runnables):
         self.source_frames_at_start = dict.fromkeys(self.sources, 0)
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
+        self.manifest_events: list[ManifestEvent] = []
         self.manifest_files: dict[Path, ManifestFile] = {}
         self.warnings: list[str] = []
         self.failed: set[str] = set()
@@ -191,7 +197,24 @@ class Recorder(Runnables):
                 self.source_frames_at_start[name] = self.frames[name]
                 self.source_start_times[name] = times.timestamp()
 
+        self._record_source_presence(compatible)
         self.present = compatible
+
+    def _record_source_presence(self, compatible: set[str]) -> None:
+        for name in sorted(compatible - self.present):
+            self._record_event('source_online', source=name)
+        for name in sorted(self.present - compatible):
+            self._record_active_tracks_stopped(name)
+            self._record_event('source_offline', source=name)
+
+    def _record_active_tracks_stopped(self, source_name: str) -> None:
+        for track_name, channel_state in self.state.state[source_name].items():
+            if channel_state.is_active:
+                self._record_event(
+                    'track_stopped',
+                    source=source_name,
+                    track=track_name,
+                )
 
     def _reap_sources(self) -> None:
         for name, source in self.sources.items():
@@ -239,7 +262,12 @@ class Recorder(Runnables):
                 bit_depth=file_record.bit_depth,
             )
         source = self.sources[update.source_name]
+        previous = {
+            track_name: state.is_active
+            for track_name, state in self.state.state[update.source_name].items()
+        }
         self.state.update({update.source_name: update.channels})
+        self._record_track_activity(update.source_name, previous, update.channels)
         if source.running and not self._source_frame_clock_valid(source):
             source.stop()
             self.failed.add(update.source_name)
@@ -267,6 +295,36 @@ class Recorder(Runnables):
             self.lag_reported.add(source.name)
         return False
 
+    def _record_track_activity(
+        self,
+        source_name: str,
+        previous: dict[str, bool],
+        updates: t.Mapping[str, t.Any],
+    ) -> None:
+        for track_name in updates:
+            active = self.state.state[source_name][track_name].is_active
+            was_active = previous[track_name]
+            if active == was_active:
+                continue
+            event_type = 'track_started' if active else 'track_stopped'
+            self._record_event(event_type, source=source_name, track=track_name)
+
+    def _record_event(
+        self,
+        event_type: str,
+        *,
+        source: str,
+        track: str | None = None,
+    ) -> None:
+        self.manifest_events.append(
+            ManifestEvent(
+                timestamp=timestamp_to_json(times.timestamp()),
+                type=event_type,
+                source=source,
+                track=track,
+            )
+        )
+
     def _source_time_expired(self, source: SourceProcess) -> bool:
         total = self.cfg.recording.total_run_time
         if not total:
@@ -285,6 +343,7 @@ class Recorder(Runnables):
             started_at=timestamp_to_json(self.state.start_time),
             ended_at=timestamp_to_json(times.timestamp()),
             duration=self.state.elapsed_time,
+            events=self.manifest_events,
             files=files,
             warnings=self.warnings,
         )
@@ -312,4 +371,3 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
-
