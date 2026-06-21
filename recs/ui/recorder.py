@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import typing as t
 from multiprocessing import connection
@@ -13,6 +14,7 @@ from recs.cfg import Cfg, FileSource, InputDevice
 from . import live
 from .device_poller import DevicePoller
 from .full_state import FullState
+from .session_manifest import ManifestFile, SessionManifest, timestamp_to_json
 from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, SourceUpdate
 from .source_tracks import source_tracks
@@ -39,6 +41,8 @@ class Recorder(Runnables):
         self.source_frames_at_start = dict.fromkeys(self.sources, 0)
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
+        self.manifest_files: dict[Path, ManifestFile] = {}
+        self.warnings: list[str] = []
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
         self.present: set[str] = set()
@@ -82,6 +86,7 @@ class Recorder(Runnables):
                 pass
             finally:
                 self._receive_pending_updates()
+                self._write_manifest()
                 if self.cfg.general.calibrate or self.cfg.general.verbose:
                     print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
@@ -152,11 +157,12 @@ class Recorder(Runnables):
             if channels < source.required_channels:
                 source.stop()
                 if name not in self.failed:
-                    print(
-                        f'ERROR: {name} has {channels} input channels; '
-                        f'{source.required_channels} required',
-                        file=sys.stderr,
+                    warning = (
+                        f'{name} has {channels} input channels; '
+                        f'{source.required_channels} required'
                     )
+                    print(f'ERROR: {warning}', file=sys.stderr)
+                    self.warnings.append(warning)
                     self.failed.add(name)
                 continue
 
@@ -210,6 +216,15 @@ class Recorder(Runnables):
     def _receive_update(self, update: SourceUpdate) -> None:
         self.frames[update.source_name] += update.frames
         self.files_written.update(update.files)
+        for file_record in update.file_records or []:
+            self.manifest_files[file_record.path] = ManifestFile(
+                path=str(file_record.path),
+                source=self._manifest_source(file_record.source_name),
+                track=file_record.track,
+                channels=file_record.channels,
+                sample_rate=file_record.sample_rate,
+                bit_depth=file_record.bit_depth,
+            )
         source = self.sources[update.source_name]
         self.state.update({update.source_name: update.channels})
         if source.running and not self._source_frame_clock_valid(source):
@@ -233,7 +248,9 @@ class Recorder(Runnables):
             return True
 
         if source.name not in self.lag_reported:
-            print(f'Device {source.name} lagging behind real time', file=sys.stderr)
+            warning = f'Device {source.name} lagging behind real time'
+            print(warning, file=sys.stderr)
+            self.warnings.append(warning)
             self.lag_reported.add(source.name)
         return False
 
@@ -244,6 +261,37 @@ class Recorder(Runnables):
 
         target = round(total * source.source.samplerate)
         return self.frames[source.name] >= target
+
+    def _write_manifest(self) -> None:
+        files = [
+            file
+            for path, file in sorted(self.manifest_files.items())
+            if path.exists()
+        ]
+        manifest = SessionManifest(
+            started_at=timestamp_to_json(self.state.start_time),
+            ended_at=timestamp_to_json(times.timestamp()),
+            duration=self.state.elapsed_time,
+            files=files,
+            warnings=self.warnings,
+        )
+        manifest.write(self._manifest_path())
+
+    def _manifest_source(self, source_name: str) -> str | None:
+        if isinstance(self.sources[source_name].source, FileSource):
+            return source_name
+        return None
+
+    def _manifest_path(self) -> Path:
+        paths = sorted(path for path in self.files_written if path.exists())
+        if paths:
+            parent = Path(os.path.commonpath([path.parent for path in paths]))
+            return parent / 'recs-session.json'
+
+        output_directory = self.cfg.directory.output_directory
+        if output_directory and '{' not in output_directory:
+            return Path(output_directory) / 'recs-session.json'
+        return Path('recs-session.json')
 
 
 def _summary_time(seconds: float) -> str:
