@@ -31,4 +31,4 @@ def test_empty_devices(tmp_path: Path, mock_devices: None) -> None:
 
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
-    assert cfg.devices
+    assert cfg.input_devices

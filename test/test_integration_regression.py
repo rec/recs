@@ -76,7 +76,7 @@ def _run(monkeypatch: pytest.MonkeyPatch, output_directory: Path) -> list[Path]:
     runner = RecsRunner(
         {
             'band_mode': False,
-            'clear': False,
+            'clear_terminal': False,
             'output_directory': str(output_directory),
             'quiet_after_end': 0,
             'quiet_before_start': 0,

@@ -10,9 +10,9 @@ from . import Cfg
 
 
 def run_cli(cfg: Cfg) -> None:
-    if cfg.info:
+    if cfg.general.info:
         _info()
-    elif cfg.list_types:
+    elif cfg.general.list_types:
         _list_types()
     else:
         Recorder(cfg).run()

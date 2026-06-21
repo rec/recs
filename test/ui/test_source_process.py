@@ -2,8 +2,7 @@ import typing as t
 
 import pytest
 
-from recs.base.cfg_raw import CfgRaw
-from recs.cfg import InputDevice, Track
+from recs.cfg import Cfg, InputDevice, Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
 
@@ -71,7 +70,7 @@ def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(CfgRaw(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
 
     owner.start()
     first = owner.process

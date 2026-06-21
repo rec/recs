@@ -5,7 +5,6 @@ import tyro
 from tyro.constructors import PrimitiveConstructorSpec
 
 from recs.base import pyproject, times, types
-from recs.base.cfg_raw import CfgRaw
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
 
@@ -23,7 +22,7 @@ LINES = (
 )
 HELP = '\n\n'.join(LINES)
 
-RECS = CfgRaw()
+RECS = cfg.Cfg.raw_defaults()
 # Reading configs and environment variables would go here
 
 _T = t.TypeVar('_T')
@@ -64,7 +63,7 @@ def recs(
         list[str],
         tyro.conf.Positional,
         tyro.conf.arg(
-            default=RECS.files,
+            default=RECS.directory.files,
             help='One or more files to split for silence',
         ),
     ],
@@ -72,21 +71,21 @@ def recs(
         str,
         tyro.conf.arg(
             aliases=('-o',),
-            default=RECS.output_directory,
+            default=RECS.directory.output_directory,
             help='Path or output_directory pattern for recorded file locations',
         ),
     ],
     short_file_names: t.Annotated[
         bool,
         tyro.conf.arg(
-            default=RECS.short_file_names,
+            default=RECS.directory.short_file_names,
             help='Omit the device from generated names when there is only one',
         ),
     ],
     calibrate: t.Annotated[
         bool,
         tyro.conf.arg(
-            default=RECS.calibrate,
+            default=RECS.general.calibrate,
             help='Detect and print noise levels, do not record',
         ),
     ],
@@ -94,24 +93,24 @@ def recs(
         bool,
         tyro.conf.arg(
             aliases=('-n',),
-            default=RECS.dry_run,
+            default=RECS.general.dry_run,
             help='Display levels only, do not record',
         ),
     ],
     verbose: t.Annotated[
         bool,
         tyro.conf.arg(
-            aliases=('-v',), default=RECS.verbose, help='Print more stuff'
+            aliases=('-v',), default=RECS.general.verbose, help='Print more stuff'
         ),
     ],
     info: t.Annotated[
         bool,
-        tyro.conf.arg(default=RECS.info, help='Display device info as JSON'),
+        tyro.conf.arg(default=RECS.general.info, help='Display device info as JSON'),
     ],
     list_types: t.Annotated[
         bool,
         tyro.conf.arg(
-            default=RECS.list_types,
+            default=RECS.general.list_types,
             help='List all subtypes for each format as JSON',
         ),
     ],
@@ -119,14 +118,14 @@ def recs(
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-a',),
-            default=RECS.alias,
+            default=RECS.device.alias,
             help='Set aliases for devices or channels',
         ),
     ],
     devices: t.Annotated[
         Path,
         tyro.conf.arg(
-            default=RECS.devices,
+            default=RECS.device.devices,
             help='A path to a JSON file with device definitions',
         ),
     ],
@@ -134,7 +133,7 @@ def recs(
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-e',),
-            default=RECS.exclude,
+            default=RECS.selection.exclude,
             help='Exclude devices or channels',
         ),
     ],
@@ -142,21 +141,21 @@ def recs(
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-i',),
-            default=RECS.include,
+            default=RECS.selection.include,
             help='Only include these devices or channels',
         ),
     ],
     formats: t.Annotated[
         tyro.conf.UseAppendAction[list[t.Annotated[types.Format, FORMAT_SPEC]]],
         tyro.conf.arg(
-            aliases=('-f',), default=RECS.formats, help='Audio file formats'
+            aliases=('-f',), default=RECS.audio.formats, help='Audio file formats'
         ),
     ],
     metadata: t.Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-m',),
-            default=RECS.metadata,
+            default=RECS.audio.metadata,
             help='Metadata fields to add to output files',
         ),
     ],
@@ -164,7 +163,7 @@ def recs(
         t.Annotated[types.SdType, SDTYPE_SPEC] | None,
         tyro.conf.arg(
             aliases=('-d',),
-            default=RECS.sdtype,
+            default=RECS.audio.sdtype,
             help='Integer or float number type for recording',
         ),
     ],
@@ -172,21 +171,23 @@ def recs(
         t.Annotated[types.Subtype, SUBTYPE_SPEC] | None,
         tyro.conf.arg(
             aliases=('-u',),
-            default=RECS.subtype,
+            default=RECS.audio.subtype,
             help='Audio file subtype',
         ),
     ],
-    clear: t.Annotated[
+    clear_terminal: t.Annotated[
         bool,
         tyro.conf.arg(
-            aliases=('-r',), default=RECS.clear, help='Clear display on shutdown'
+            aliases=('-r',),
+            default=RECS.console.clear_terminal,
+            help='Clear display on shutdown',
         ),
     ],
     silent: t.Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-s',),
-            default=RECS.silent,
+            default=RECS.console.silent,
             help='Do not display live updates',
         ),
     ],
@@ -194,14 +195,14 @@ def recs(
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.sleep_time_device,
+            default=RECS.console.sleep_time_device,
             help='How long to sleep between checking device',
         ),
     ],
     ui_refresh_rate: t.Annotated[
         float,
         tyro.conf.arg(
-            default=RECS.ui_refresh_rate,
+            default=RECS.console.ui_refresh_rate,
             help='How many UI refreshes per second',
         ),
     ],
@@ -209,14 +210,14 @@ def recs(
         bool,
         tyro.conf.arg(
             aliases=('-B',),
-            default=RECS.band_mode,
+            default=RECS.recording.band_mode,
             help='Band mode: any track starting starts them all',
         ),
     ],
     infinite_length: t.Annotated[
         bool,
         tyro.conf.arg(
-            default=RECS.infinite_length,
+            default=RECS.recording.infinite_length,
             help='Ignore file size limit: 4G on .wav',
         ),
     ],
@@ -224,7 +225,7 @@ def recs(
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.longest_file_time,
+            default=RECS.recording.longest_file_time,
             help='Longest amount of time per file: 0 means infinite',
         ),
     ],
@@ -232,7 +233,7 @@ def recs(
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.moving_average_time,
+            default=RECS.recording.moving_average_time,
             help='How long to average the volume display over',
         ),
     ],
@@ -240,7 +241,7 @@ def recs(
         float,
         tyro.conf.arg(
             aliases=('-z',),
-            default=RECS.noise_floor,
+            default=RECS.recording.noise_floor,
             help='The noise floor in decibels',
         ),
     ],
@@ -248,7 +249,7 @@ def recs(
         bool,
         tyro.conf.arg(
             aliases=('-R',),
-            default=RECS.record_everything,
+            default=RECS.recording.record_everything,
             help='Start immediately, record everything until end',
         ),
     ],
@@ -256,7 +257,7 @@ def recs(
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.shortest_file_time,
+            default=RECS.recording.shortest_file_time,
             help='Files shorter than this duration get deleted',
         ),
     ],
@@ -265,7 +266,7 @@ def recs(
         TIME_SPEC,
         tyro.conf.arg(
             aliases=('-c',),
-            default=RECS.quiet_after_end,
+            default=RECS.recording.quiet_after_end,
             help='How much quiet after the end',
         ),
     ],
@@ -274,7 +275,7 @@ def recs(
         TIME_SPEC,
         tyro.conf.arg(
             aliases=('-b',),
-            default=RECS.quiet_before_start,
+            default=RECS.recording.quiet_before_start,
             help='How much quiet before a recording',
         ),
     ],
@@ -282,7 +283,7 @@ def recs(
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.stop_after_quiet,
+            default=RECS.recording.stop_after_quiet,
             help='How much quiet before stopping a recording',
         ),
     ],
@@ -291,7 +292,7 @@ def recs(
         TIME_SPEC,
         tyro.conf.arg(
             aliases=('-t',),
-            default=RECS.total_run_time,
+            default=RECS.recording.total_run_time,
             help='How many seconds to record? 0 means forever',
         ),
     ],

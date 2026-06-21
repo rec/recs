@@ -32,7 +32,7 @@ class Recorder(Runnables):
         self.live = live.Live(self.rows, cfg)
         self.state = FullState(all_tracks)
         self.sources = {
-            source.name: SourceProcess(cfg.cfg, tracks)
+            source.name: SourceProcess(cfg, tracks)
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
@@ -56,11 +56,11 @@ class Recorder(Runnables):
         runnables = tuple(self.files.values())
         self.poller = None
         if self.hardware:
-            self.poller = DevicePoller(cfg.sleep_time_device)
+            self.poller = DevicePoller(cfg.console.sleep_time_device)
             self.poller.poll()
             runnables += (self.poller,)
         if self.live.enabled:
-            ui_time = 1 / self.cfg.ui_refresh_rate
+            ui_time = 1 / self.cfg.console.ui_refresh_rate
             live_thread = HasThread(
                 self.live.update,
                 looping=True,
@@ -82,7 +82,7 @@ class Recorder(Runnables):
                 pass
             finally:
                 self._receive_pending_updates()
-                if self.cfg.calibrate or self.cfg.verbose:
+                if self.cfg.general.calibrate or self.cfg.general.verbose:
                     print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
 
@@ -133,7 +133,7 @@ class Recorder(Runnables):
         )
 
     def _invocation_expired(self) -> bool:
-        total = self.cfg.total_run_time
+        total = self.cfg.recording.total_run_time
         return bool(total and self.state.elapsed_time >= total)
 
     def _poll_devices(self) -> None:
@@ -238,7 +238,7 @@ class Recorder(Runnables):
         return False
 
     def _source_time_expired(self, source: SourceProcess) -> bool:
-        total = self.cfg.total_run_time
+        total = self.cfg.recording.total_run_time
         if not total:
             return False
 
