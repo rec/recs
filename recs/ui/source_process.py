@@ -32,12 +32,17 @@ class SourceProcess(Runnable):
     def is_alive(self) -> bool:
         return self.started and self.process.is_alive()
 
+    @property
+    def recorder_cfg(self) -> Cfg:
+        console = self.cfg.console.model_copy(update={'gui': False})
+        return self.cfg.model_copy(update={'console': console})
+
     def start(self) -> None:
         assert not self.started
         self.connection, child = mp.Pipe()
         self.stop_event = mp.Event()
         kwargs = {
-            'cfg': self.cfg,
+            'cfg': self.recorder_cfg,
             'connection': child,
             'stop_event': self.stop_event,
             'tracks': self.tracks,

@@ -82,3 +82,29 @@ def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None
     assert first.kwargs['stop_event'].is_set()
     assert connections[0].closed
     assert owner.is_alive
+
+
+def test_source_process_starts_recorder_with_gui_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def pipe() -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(gui=True), [Track(source, '1')])
+
+    owner.start()
+
+    recorder_cfg = owner.process.kwargs['cfg']
+    assert recorder_cfg.console.gui is False
+    assert owner.cfg.console.gui is True

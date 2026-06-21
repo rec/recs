@@ -3,17 +3,14 @@ import sys
 import typing as t
 from functools import cached_property
 
-from humanfriendly import format_size
 from rich import live
 from rich.console import Console
 from rich.table import Table
 from threa import Runnable
 
-from recs.base import times
-from recs.base.types import Active
 from recs.cfg import Cfg
 
-from .table import TableFormatter, to_str
+from . import presentation
 
 CONSOLE = Console(color_system='truecolor')
 CURSES_TERMS: tuple[str, ...] = (
@@ -32,6 +29,8 @@ CURSES_TERMS: tuple[str, ...] = (
 
 class Live(Runnable):
     _last_update_time: float = 0
+    needs_update_thread = True
+    closed = False
 
     def __init__(
         self, rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]], cfg: Cfg
@@ -66,7 +65,11 @@ class Live(Runnable):
         )
 
     def table(self) -> Table:
-        return TABLE_FORMATTER(self.rows())
+        table = Table(*presentation.COLUMNS)
+        view = presentation.view_model(self.rows())
+        for row in view.rows:
+            table.add_row(*(_rich_text(cell) for cell in row.cells))
+        return table
 
     def start(self) -> None:
         super().start()
@@ -84,68 +87,13 @@ def _rgb(r: int = 0, g: int = 0, b: int = 0) -> str:
     return f'[rgb({r},{g},{b})]'
 
 
-def _on(active: Active) -> str:
-    if active == Active.active:
-        return _rgb(g=0xFF) + '•'
-    elif active == Active.offline:
-        return _rgb(r=0xFF) + 'ˣ'
-    else:
-        return ''
-
-
-def _volume(x: t.Any) -> str:
-    try:
-        s: float = sum(x) / len(x)
-    except Exception:
-        s = x
-
-    if s < 0.001:
-        return ''
-
-    if s < 1 / 3:
-        r = 0
-        g = round(3 * s)
-    else:
-        r = round((3 * s - 1) / 2)
-        g = 1 - r
-
-    return _rgb(r * 256, g * 256) + to_str(x)
-
-
-def _time_to_str(x: int) -> str:
-    if not x:
-        return ''
-    s = times.to_str(x)
-    return f'{s:>11}'
-
-
-def _naturalsize(x: int) -> str:
-    if not x:
-        return ''
-
-    fs = format_size(x)
-
-    # Fix #97
-    value, _, unit = fs.partition(' ')
-    if unit != 'bytes':
-        integer, _, decimal = value.partition('.')
-        decimal = (decimal + '00')[:2]
-        fs = f'{integer}.{decimal} {unit}'
-
-    return f'{fs:>9}'
-
-
-def _channel(x: str) -> str:
-    return f' {x} ' if len(x) == 1 else x
-
-
-TABLE_FORMATTER = TableFormatter(
-    time=_time_to_str,
-    device=None,
-    channel=_channel,
-    on=_on,
-    recorded=_time_to_str,
-    file_size=_naturalsize,
-    file_count=str,
-    volume=_volume,
-)
+def _rich_text(cell: presentation.Cell) -> str:
+    if cell.style == 'active':
+        return _rgb(g=0xFF) + cell.text
+    if cell.style == 'offline':
+        return _rgb(r=0xFF) + cell.text
+    if cell.style == 'volume-low':
+        return _rgb(g=0xFF) + cell.text
+    if cell.style == 'volume-high':
+        return _rgb(r=0xFF) + cell.text
+    return cell.text

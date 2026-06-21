@@ -88,10 +88,11 @@ class SourceRecorder(Runnables):
         should_record = self.cfg.recording.band_mode and any(
             c.should_record(b) for c, b in cb.items()
         )
-        msgs = {
-            c.track.name: c.receive_update(b, u.timestamp, should_record)
-            for c, b in cb.items()
-        }
+        msgs: dict[str, ChannelState] = {}
+        for writer, block in cb.items():
+            msgs[writer.track.name] = writer.receive_update(
+                block, u.timestamp, should_record
+            )
         files, file_records = self._new_files(u.array.dtype.itemsize * 8)
         self.connection.send(
             SourceUpdate(
