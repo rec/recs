@@ -6,9 +6,9 @@ import typing as t
 
 from recs.cfg import Cfg
 
-from . import dear_gui
 from .gui_process import Rows
 from .key_events import KeyEvent
+from .pyside_gui import Gui
 
 
 class StdinRows:
@@ -40,7 +40,7 @@ def main() -> None:
         gui=True,
         ui_refresh_rate=float(os.environ.get('RECS_GUI_REFRESH_RATE', '23')),
     )
-    dear_gui.Gui(
+    Gui(
         provider.rows,
         cfg,
         stop_when=lambda: provider.closed,
