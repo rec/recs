@@ -189,7 +189,7 @@ def recs(
         bool,
         tyro.conf.arg(
             default=RECS.console.gui,
-            help='Display live updates in a Dear PyGui window',
+            help='Display live updates in a PySide6 window',
         ),
     ],
     silent: t.Annotated[
