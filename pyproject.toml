@@ -30,7 +30,6 @@ recs = "recs.__main__:run"
 [dependency-groups]
 dev = [
     "coverage>=7.4.1",
-    "dearpygui>=2.3.1",
     "pyside6>=6.11.1",
     "pytest",
     "pytest-regressions>=2.11.0",
