@@ -1,4 +1,5 @@
 import types
+from pathlib import Path
 
 import pytest
 
@@ -14,14 +15,24 @@ def test_gui_is_disabled_in_silent_mode(monkeypatch: pytest.MonkeyPatch) -> None
     assert not gui.enabled
 
 
-def test_gui_runs_dearpygui_on_current_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_gui_runs_dearpygui_on_current_thread(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     fake = _fake_dearpygui()
+    font = tmp_path / 'bold.ttf'
+    font.touch()
+    monkeypatch.setattr(dear_gui, 'FONT_PATHS', [font])
     monkeypatch.setattr(dear_gui, '_import_dearpygui', lambda: fake)
 
     gui = dear_gui.Gui(lambda: iter(()), Cfg(gui=True))
     gui.run()
 
     assert fake.started
+    assert fake.font_bound == 'bold-font'
+    assert fake.font_file == str(font)
+    assert fake.font_scale == dear_gui.FONT_SCALE
+    assert fake.font_size == dear_gui.FONT_SIZE
     assert fake.thread_name == 'MainThread'
     assert fake.primary_window == dear_gui.WINDOW
     assert fake.theme_bound == dear_gui.THEME
@@ -66,6 +77,10 @@ class FakeDearPyGui(types.SimpleNamespace):
     started: bool = False
     thread_name: str = ''
     primary_window: str = ''
+    font_bound: str = ''
+    font_file: str = ''
+    font_scale: float = 0.0
+    font_size: float = 0.0
     table_kwargs: dict[str, object]
     theme_bound: str = ''
     window_kwargs: dict[str, object]
@@ -87,6 +102,20 @@ class FakeDearPyGui(types.SimpleNamespace):
 
     def add_text(self, text: str, *, color: list[int] | None = None) -> None:
         pass
+
+    def font_registry(self) -> object:
+        return _Context()
+
+    def add_font(self, file: str, size: float) -> int | str:
+        self.font_file = file
+        self.font_size = size
+        return 'bold-font'
+
+    def bind_font(self, font: int | str) -> None:
+        self.font_bound = str(font)
+
+    def set_global_font_scale(self, scale: float) -> None:
+        self.font_scale = scale
 
     def theme(self, *, tag: str) -> object:
         return _Context()

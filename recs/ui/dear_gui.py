@@ -1,6 +1,7 @@
 import sys
 import time
 import typing as t
+from pathlib import Path
 
 from threa import Runnable
 
@@ -11,6 +12,15 @@ from . import presentation
 WINDOW = 'recs_window'
 TABLE = 'recs_table'
 THEME = 'recs_light_theme'
+FONT_SIZE = 18
+FONT_SCALE = 1.15
+FONT_PATHS = [
+    Path('/System/Library/Fonts/Supplemental/Arial Bold.ttf'),
+    Path('/System/Library/Fonts/Supplemental/Helvetica Bold.ttf'),
+    Path('/Library/Fonts/Arial Bold.ttf'),
+    Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+    Path('C:/Windows/Fonts/arialbd.ttf'),
+]
 
 COLORS = {
     '': [32, 32, 32, 255],
@@ -62,6 +72,14 @@ class DearPyGui(t.Protocol):
     def window(self, **kwargs: object) -> Context: ...
 
     def add_text(self, text: str, *, color: list[int] | None = None) -> None: ...
+
+    def font_registry(self) -> Context: ...
+
+    def add_font(self, file: str, size: float) -> int | str: ...
+
+    def bind_font(self, font: int | str) -> None: ...
+
+    def set_global_font_scale(self, scale: float) -> None: ...
 
     def theme(self, *, tag: str) -> Context: ...
 
@@ -154,6 +172,7 @@ class Gui(Runnable):
         self._context_ready = True
         try:
             dpg.create_viewport(title='recs', width=1024, height=640)
+            self._configure_font()
             self._configure_theme()
             with dpg.window(
                 label='recs',
@@ -175,6 +194,17 @@ class Gui(Runnable):
         finally:
             dpg.destroy_context()
             self._context_ready = False
+
+    def _configure_font(self) -> None:
+        dpg = self._dpg
+        dpg.set_global_font_scale(FONT_SCALE)
+        for path in FONT_PATHS:
+            if not path.exists():
+                continue
+            with dpg.font_registry():
+                font = dpg.add_font(str(path), FONT_SIZE)
+            dpg.bind_font(font)
+            return
 
     def _configure_theme(self) -> None:
         dpg = self._dpg
