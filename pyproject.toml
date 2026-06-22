@@ -31,6 +31,7 @@ recs = "recs.__main__:run"
 dev = [
     "coverage>=7.4.1",
     "dearpygui>=2.3.1",
+    "pyside6>=6.11.1",
     "pytest",
     "pytest-regressions>=2.11.0",
     "pyupgrade>=3.21.2",
