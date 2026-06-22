@@ -118,6 +118,8 @@ class Recorder(Runnables):
             print('Files written: none')
 
     def _run(self) -> None:
+        if self.cfg.console.gui:
+            self._poll_devices()
         with self:
             try:
                 while self.running:

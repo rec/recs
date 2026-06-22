@@ -176,6 +176,24 @@ def test_recorder_stops_when_gui_display_closes(
     assert rec.stopped
 
 
+def test_gui_starts_sources_before_display_process(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    rec: Recorder
+
+    class OrderDisplay(ClosedDisplay):
+        def start(self) -> None:
+            assert any(source.started for source in rec.hardware.values())
+            super().start()
+
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.gui_process, 'GuiProcess', OrderDisplay)
+    rec = Recorder(Cfg(gui=True))
+
+    rec._run()
+
+
 def test_failed_device_waits_for_reconnect(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
