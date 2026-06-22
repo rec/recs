@@ -4,7 +4,8 @@ from test.conftest import DEVICES_FILE
 import pytest
 from pydantic import ValidationError
 
-from recs.cfg import Cfg
+from recs.base.types import RecordKeys
+from recs.cfg import Cfg, cfg
 
 
 def test_sdtype(mock_devices):
@@ -32,3 +33,43 @@ def test_empty_devices(tmp_path: Path, mock_devices: None) -> None:
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
     assert cfg.input_devices
+
+
+def test_gui_defaults_to_all_key_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: False)
+
+    c = Cfg(gui=True)
+
+    assert c.keys.record_keys == RecordKeys.all
+    assert c.keys.record_key_all_apps is True
+
+
+def test_terminal_defaults_to_all_key_events_when_pynput_is_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: True)
+
+    c = Cfg()
+
+    assert c.keys.record_keys == RecordKeys.all
+    assert c.keys.record_key_all_apps is False
+
+
+def test_terminal_without_pynput_defaults_to_key_presses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: False)
+
+    c = Cfg()
+
+    assert c.keys.record_keys == RecordKeys.press
+    assert c.keys.record_key_all_apps is False
+
+
+def test_terminal_without_pynput_rejects_all_key_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: False)
+
+    with pytest.raises(ValidationError, match='record_keys cannot be all'):
+        Cfg(record_keys=RecordKeys.all)

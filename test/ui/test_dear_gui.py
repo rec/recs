@@ -3,8 +3,10 @@ from pathlib import Path
 
 import pytest
 
+from recs.base.types import RecordKeys
 from recs.cfg import Cfg
 from recs.ui import dear_gui
+from recs.ui.key_events import KeyEvent
 
 
 def test_gui_is_disabled_in_silent_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,6 +54,29 @@ def test_gui_runs_dearpygui_on_current_thread(
     assert fake.table_kwargs['scrollY']
 
 
+def test_gui_records_key_press_and_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = _fake_dearpygui()
+    fake.mvKey_G = 100
+    monkeypatch.setattr(dear_gui, '_import_dearpygui', lambda: fake)
+    events: list[KeyEvent] = []
+
+    gui = dear_gui.Gui(
+        lambda: iter(()),
+        Cfg(gui=True, record_keys=RecordKeys.all),
+        record_key=events.append,
+    )
+    gui.run()
+    fake.key_press_callback(None, fake.mvKey_G)
+    fake.key_release_callback(None, fake.mvKey_G)
+
+    assert [event.model_dump() for event in events] == [
+        {'type': 'key_pressed', 'key': 'g'},
+        {'type': 'key_released', 'key': 'g'},
+    ]
+
+
 class FakeDearPyGui(types.SimpleNamespace):
     mvAll: int = 1
     mvThemeCat_Core: int = 2
@@ -84,11 +109,15 @@ class FakeDearPyGui(types.SimpleNamespace):
     table_kwargs: dict[str, object]
     theme_bound: str = ''
     window_kwargs: dict[str, object]
+    key_press_callback: object
+    key_release_callback: object
 
     def __init__(self) -> None:
         super().__init__()
         self.table_kwargs = {}
         self.window_kwargs = {}
+        self.key_press_callback = None
+        self.key_release_callback = None
 
     def create_context(self) -> None:
         pass
@@ -102,6 +131,17 @@ class FakeDearPyGui(types.SimpleNamespace):
 
     def add_text(self, text: str, *, color: list[int] | None = None) -> None:
         pass
+
+    def handler_registry(self) -> object:
+        return _Context()
+
+    def add_key_press_handler(self, *, callback: object) -> int | str:
+        self.key_press_callback = callback
+        return 'key-press'
+
+    def add_key_release_handler(self, *, callback: object) -> int | str:
+        self.key_release_callback = callback
+        return 'key-release'
 
     def font_registry(self) -> object:
         return _Context()

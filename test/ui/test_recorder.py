@@ -11,6 +11,7 @@ from recs.base.state import ChannelState
 from recs.cfg import Cfg
 from recs.cfg.track import Track
 from recs.ui import recorder
+from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
 
@@ -81,6 +82,24 @@ class ClosedDisplay(Runnable):
         super().__init__()
 
     def update(self) -> None:
+        pass
+
+    def take_key_events(self) -> list[KeyEvent]:
+        return []
+
+
+class FakeKeyRecorder:
+    def __init__(self, events: list[KeyEvent]) -> None:
+        self.events = events
+
+    def take_events(self) -> list[KeyEvent]:
+        events, self.events = self.events, []
+        return events
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
         pass
 
 
@@ -447,6 +466,47 @@ def test_manifest_records_source_and_track_lifecycle_events(
             'timestamp': '1970-01-01T00:01:48.000Z',
             'type': 'source_offline',
             'source': 'Mic',
+        },
+    ]
+
+
+def test_manifest_records_key_events(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    now = 100.0
+
+    def timestamp() -> float:
+        nonlocal now
+        now += 1.0
+        return now
+
+    monkeypatch.setattr(recorder.times, 'timestamp', timestamp)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
+    rec.key_recorder = FakeKeyRecorder(
+        [
+            KeyEvent(type='key_pressed', key='g'),
+            KeyEvent(type='key_released', key='g'),
+        ]
+    )
+
+    rec._receive_key_events()
+    rec._write_manifest()
+
+    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
+    assert manifest['events'] == [
+        {
+            'timestamp': '1970-01-01T00:01:42.000Z',
+            'type': 'key_pressed',
+            'key': 'g',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:43.000Z',
+            'type': 'key_released',
+            'key': 'g',
         },
     ]
 

@@ -11,6 +11,7 @@ from threa import Runnable
 from recs.cfg import Cfg
 
 from . import presentation
+from .key_events import KeyEvent
 
 CONSOLE = Console(color_system='truecolor')
 CURSES_TERMS: tuple[str, ...] = (
@@ -54,6 +55,9 @@ class Live(Runnable):
     def update(self) -> None:
         if self.enabled:
             self.live.update(self.table())
+
+    def take_key_events(self) -> list[KeyEvent]:
+        return []
 
     @cached_property
     def live(self) -> live.Live:

@@ -17,8 +17,9 @@ class ManifestFile(BaseModel):
 class ManifestEvent(BaseModel):
     timestamp: str
     type: str
-    source: str
+    source: str | None = None
     track: str | None = None
+    key: str | None = None
 
 
 class SessionManifest(BaseModel):

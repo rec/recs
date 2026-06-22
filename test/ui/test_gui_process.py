@@ -1,6 +1,7 @@
 import json
 import subprocess as sp
 import typing as t
+from io import StringIO
 
 from recs.cfg import Cfg
 from recs.ui import gui_process
@@ -30,6 +31,7 @@ def test_gui_process_writes_rows_to_subprocess_stdin(
         'recs.ui.gui_child',
     ]
     assert processes[0].kwargs['stderr'] == sp.DEVNULL
+    assert processes[0].kwargs['stdout'] == sp.PIPE
     assert processes[0].kwargs['text'] is True
     assert processes[0].kwargs['env']['RECS_GUI_REFRESH_RATE'] == '12.0'
     assert json.loads(processes[0].stdin.text) == [
@@ -78,6 +80,27 @@ def test_gui_process_closes_stdin_on_stop(
     assert processes[0].stdin.closed
 
 
+def test_gui_process_reads_key_events_from_subprocess_stdout(
+    monkeypatch: t.Any,
+) -> None:
+    processes: list[FakeProcess] = []
+
+    def make_process(*args: object, **kwargs: object) -> FakeProcess:
+        process = FakeProcess(*args, **kwargs)
+        process.stdout = StringIO('{"type":"key_pressed","key":"g"}\n')
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(gui_process.sp, 'Popen', make_process)
+
+    display = gui_process.GuiProcess(lambda: iter([{'time': 1}]), Cfg(gui=True))
+    display.start()
+
+    assert [event.model_dump() for event in display.take_key_events()] == [
+        {'type': 'key_pressed', 'key': 'g'}
+    ]
+
+
 class FakeStdin:
     def __init__(self) -> None:
         self.text = ''
@@ -99,6 +122,7 @@ class FakeProcess:
         self.args = list(args[0]) if args else []
         self.kwargs = kwargs
         self.stdin = FakeStdin()
+        self.stdout = StringIO()
         self.returncode: int | None = None
         self.terminated = False
 

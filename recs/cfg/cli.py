@@ -47,6 +47,8 @@ def _prefix_spec(
 
 
 FORMAT_SPEC = _prefix_spec(FORMATS, 'AUDIO FORMAT')
+RECORD_KEYS = PrefixDict({value: value for value in types.RecordKeys})
+RECORD_KEYS_SPEC = _prefix_spec(RECORD_KEYS, 'KEY RECORDING MODE')
 SDTYPE_SPEC = _prefix_spec(SDTYPES, 'NUMERIC TYPE')
 SUBTYPE_SPEC = _prefix_spec(SUBTYPES, 'AUDIO SUBTYPE')
 TIME_SPEC = PrimitiveConstructorSpec[float](
@@ -211,6 +213,20 @@ def recs(
         tyro.conf.arg(
             default=RECS.console.ui_refresh_rate,
             help='How many UI refreshes per second',
+        ),
+    ],
+    record_keys: t.Annotated[
+        t.Annotated[types.RecordKeys, RECORD_KEYS_SPEC] | None,
+        tyro.conf.arg(
+            default=RECS.keys.record_keys,
+            help='Record keys in the session manifest: none, press, or all',
+        ),
+    ],
+    record_key_all_apps: t.Annotated[
+        bool | None,
+        tyro.conf.arg(
+            default=RECS.keys.record_key_all_apps,
+            help='Record key events from all applications when supported',
         ),
     ],
     band_mode: t.Annotated[

@@ -14,6 +14,7 @@ from recs.cfg import Cfg, FileSource, InputDevice
 from . import gui_process, live
 from .device_poller import DevicePoller
 from .full_state import FullState
+from .key_events import KeyEvent, make_key_recorder
 from .session_manifest import (
     ManifestEvent,
     ManifestFile,
@@ -52,6 +53,7 @@ class Recorder(Runnables):
         self.files_written: set[Path] = set()
         self.manifest_events: list[ManifestEvent] = []
         self.manifest_files: dict[Path, ManifestFile] = {}
+        self.key_recorder = make_key_recorder(cfg)
         self.warnings: list[str] = []
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
@@ -67,7 +69,7 @@ class Recorder(Runnables):
             if isinstance(source.source, FileSource)
         }
 
-        runnables = tuple(self.files.values())
+        runnables = tuple(self.files.values()) + (self.key_recorder,)
         self.poller = None
         if self.hardware:
             self.poller = DevicePoller(cfg.console.sleep_time_device)
@@ -121,6 +123,7 @@ class Recorder(Runnables):
                 while self.running:
                     if self._display_closed():
                         break
+                    self._receive_key_events()
                     self._poll_devices()
                     self._reap_sources()
                     sources = [
@@ -232,9 +235,18 @@ class Recorder(Runnables):
                 self.failed.add(name)
 
     def _receive_pending_updates(self) -> None:
+        self._receive_key_events()
         for source in self.sources.values():
             for update in source.take_updates():
                 self._receive_update(update)
+
+    def _receive_key_events(self) -> None:
+        for event in self.key_recorder.take_events():
+            self._record_key_event(event)
+        if self.live is None:
+            return
+        for event in self.live.take_key_events():
+            self._record_key_event(event)
 
     def _drain(self, conn: connection.Connection) -> None:
         while conn.poll():
@@ -322,6 +334,15 @@ class Recorder(Runnables):
                 type=event_type,
                 source=source,
                 track=track,
+            )
+        )
+
+    def _record_key_event(self, event: KeyEvent) -> None:
+        self.manifest_events.append(
+            ManifestEvent(
+                timestamp=timestamp_to_json(times.timestamp()),
+                type=event.type,
+                key=event.key,
             )
         )
 

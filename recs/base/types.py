@@ -12,6 +12,12 @@ class Active(StrEnum):
     offline = auto()
 
 
+class RecordKeys(StrEnum):
+    none = auto()
+    press = auto()
+    all = auto()
+
+
 class SdType(StrEnum):
     float32 = auto()
     int16 = auto()

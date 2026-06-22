@@ -5,9 +5,11 @@ from pathlib import Path
 
 from threa import Runnable
 
+from recs.base.types import RecordKeys
 from recs.cfg import Cfg
 
 from . import presentation
+from .key_events import KeyEvent
 
 WINDOW = 'recs_window'
 TABLE = 'recs_table'
@@ -73,6 +75,12 @@ class DearPyGui(t.Protocol):
 
     def add_text(self, text: str, *, color: list[int] | None = None) -> None: ...
 
+    def handler_registry(self) -> Context: ...
+
+    def add_key_press_handler(self, *, callback: object) -> int | str: ...
+
+    def add_key_release_handler(self, *, callback: object) -> int | str: ...
+
     def font_registry(self) -> Context: ...
 
     def add_font(self, file: str, size: float) -> int | str: ...
@@ -131,10 +139,12 @@ class Gui(Runnable):
         cfg: Cfg,
         *,
         stop_when: t.Callable[[], bool] | None = None,
+        record_key: t.Callable[[KeyEvent], None] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg
         self.stop_when = stop_when
+        self.record_key = record_key
         self.enabled = not cfg.console.silent
         self.dpg = _import_dearpygui() if self.enabled else None
         self._context_ready = False
@@ -174,6 +184,7 @@ class Gui(Runnable):
             dpg.create_viewport(title='recs', width=1024, height=640)
             self._configure_font()
             self._configure_theme()
+            self._configure_key_handlers()
             with dpg.window(
                 label='recs',
                 tag=WINDOW,
@@ -205,6 +216,36 @@ class Gui(Runnable):
                 font = dpg.add_font(str(path), FONT_SIZE)
             dpg.bind_font(font)
             return
+
+    def _configure_key_handlers(self) -> None:
+        if self.record_key is None or self.cfg.keys.record_keys == RecordKeys.none:
+            return
+        dpg = self._dpg
+        with dpg.handler_registry():
+            dpg.add_key_press_handler(callback=self._record_key_press)
+            if self.cfg.keys.record_keys == RecordKeys.all:
+                dpg.add_key_release_handler(callback=self._record_key_release)
+
+    def _record_key_press(self, sender: object, key: object) -> None:
+        if self.record_key is not None:
+            self.record_key(KeyEvent(type='key_pressed', key=self._key_name(key)))
+
+    def _record_key_release(self, sender: object, key: object) -> None:
+        if self.record_key is not None:
+            self.record_key(KeyEvent(type='key_released', key=self._key_name(key)))
+
+    def _key_name(self, key: object) -> str:
+        if not isinstance(key, int):
+            return str(key)
+
+        prefix = 'mvKey_'
+        for name in dir(self._dpg):
+            if name.startswith(prefix) and getattr(self._dpg, name) == key:
+                label = name.removeprefix(prefix)
+                if len(label) == 1 and label.isalpha():
+                    return label.lower()
+                return label
+        return str(key)
 
     def _configure_theme(self) -> None:
         dpg = self._dpg

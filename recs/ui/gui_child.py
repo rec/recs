@@ -8,6 +8,7 @@ from recs.cfg import Cfg
 
 from . import dear_gui
 from .gui_process import Rows
+from .key_events import KeyEvent
 
 
 class StdinRows:
@@ -39,7 +40,16 @@ def main() -> None:
         gui=True,
         ui_refresh_rate=float(os.environ.get('RECS_GUI_REFRESH_RATE', '23')),
     )
-    dear_gui.Gui(provider.rows, cfg, stop_when=lambda: provider.closed).run()
+    dear_gui.Gui(
+        provider.rows,
+        cfg,
+        stop_when=lambda: provider.closed,
+        record_key=_write_key_event,
+    ).run()
+
+
+def _write_key_event(event: KeyEvent) -> None:
+    print(event.model_dump_json(), flush=True)
 
 
 if __name__ == '__main__':

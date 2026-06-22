@@ -2,6 +2,7 @@ import json
 import logging
 import warnings
 from functools import cached_property
+from importlib.util import find_spec
 from pathlib import Path
 
 import soundfile
@@ -10,7 +11,7 @@ from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from recs.base.types import SDTYPE, Format, SdType, Subtype
+from recs.base.types import SDTYPE, Format, RecordKeys, SdType, Subtype
 from recs.misc import log
 
 from . import device as device_module
@@ -130,6 +131,14 @@ class ConsoleCfg(BaseModel):
     ui_refresh_rate: float = 23.0
 
 
+class KeyCfg(BaseModel):
+    #
+    # Keyboard event recording
+    #
+    record_keys: RecordKeys | None = None
+    record_key_all_apps: bool | None = None
+
+
 class RecordingCfg(BaseModel):
     #
     # Settings relating to times
@@ -154,6 +163,7 @@ CFG_PARTS = (
     'selection',
     'audio',
     'console',
+    'keys',
     'recording',
 )
 
@@ -164,6 +174,7 @@ CFG_MODEL_TYPES = {
     'selection': SelectionCfg,
     'audio': AudioCfg,
     'console': ConsoleCfg,
+    'keys': KeyCfg,
     'recording': RecordingCfg,
 }
 
@@ -185,6 +196,7 @@ class Cfg(BaseModel):
     selection: SelectionCfg = Field(default_factory=SelectionCfg)
     audio: AudioCfg = Field(default_factory=AudioCfg)
     console: ConsoleCfg = Field(default_factory=ConsoleCfg)
+    keys: KeyCfg = Field(default_factory=KeyCfg)
     recording: RecordingCfg = Field(default_factory=RecordingCfg)
 
     def __init__(self, **data: object) -> None:
@@ -219,6 +231,37 @@ class Cfg(BaseModel):
         log.VERBOSE = self.general.verbose
         if self.general.verbose:
             logging.basicConfig(level=logging.DEBUG)
+        self._configure_keys()
+
+    def _configure_keys(self) -> None:
+        fields_set = set(self.model_fields_set)
+        record_keys = self.keys.record_keys
+        record_key_all_apps = self.keys.record_key_all_apps
+
+        if self.console.gui:
+            record_keys = record_keys or RecordKeys.all
+            if record_key_all_apps is None:
+                record_key_all_apps = True
+        elif _pynput_available():
+            record_keys = record_keys or RecordKeys.all
+            if record_key_all_apps is None:
+                record_key_all_apps = record_keys != RecordKeys.all
+        else:
+            record_keys = record_keys or RecordKeys.press
+            if record_keys == RecordKeys.all:
+                raise ValueError('record_keys cannot be all without pynput')
+            if record_key_all_apps:
+                raise ValueError('record_key_all_apps must be False without pynput')
+            record_key_all_apps = False
+
+        keys = self.keys.model_copy(
+            update={
+                'record_keys': record_keys,
+                'record_key_all_apps': record_key_all_apps,
+            }
+        )
+        object.__setattr__(self, 'keys', keys)
+        object.__setattr__(self, '__pydantic_fields_set__', fields_set)
 
     @cached_property
     def input_devices(self) -> device_module.InputDevices:
@@ -259,3 +302,7 @@ class Cfg(BaseModel):
         fields = time_settings.TimeSettings.model_fields
         d = {k: getattr(self.recording, k) for k in fields}
         return time_settings.TimeSettings(**d)
+
+
+def _pynput_available() -> bool:
+    return find_spec('pynput') is not None
