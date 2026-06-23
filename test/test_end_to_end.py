@@ -300,7 +300,7 @@ def _send_blocks(
     runner: RecsRunner, streams: t.Sequence[object], block_count: int
 ) -> None:
     for _ in range(block_count):
-        runner._timestamp += BLOCK_TIME
+        runner.state.timestamp += BLOCK_TIME
         for stream in streams:
             report = t.cast(list[str], stream._recs_report)
             if 'stop' not in report:
@@ -312,7 +312,11 @@ def _wait_for_stream(
     runner: RecsRunner, device_name: str, offset: int = 0
 ) -> object:
     for _ in range(1000):
-        matches = [stream for stream in runner.streams if stream.device == device_name]
+        matches = [
+            stream
+            for stream in runner.state.streams
+            if stream.device == device_name
+        ]
         if len(matches) > offset:
             return matches[offset]
         times.sleep(0.001)
@@ -330,8 +334,8 @@ def _wait_until_stopped(stream: object) -> None:
 def _wait_for_thread(thread: HasThread, runner: RecsRunner) -> None:
     for _ in range(1000):
         if not thread.running:
-            if runner._error:
-                raise AssertionError(runner._error)
+            if runner.state.error:
+                raise AssertionError(runner.state.error)
             return
         times.sleep(0.001)
     raise AssertionError('run_cli thread did not stop')

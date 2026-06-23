@@ -5,6 +5,7 @@ from test.conftest import BLOCK_SIZE, TIMESTAMP
 from test.mock_input_stream import InputStreamReporter
 
 import numpy as np
+import pytest
 import soundfile
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from threa import HasThread
@@ -57,29 +58,38 @@ class FixtureInputStream(BaseModel):
         self.callback(array, len(array), None, 0)
 
 
-class RecsRunner(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
+class RecsRunnerOptions(BaseModel):
     block_size: int = BLOCK_SIZE
-    cfg: Cfg
     device_offset: float = DEVICE_OFFSET
     event_count: int | None = None
     event_multiplier: int = 2
     expected_streams: int | None = None
+    wait_for_stop: bool = False
+
+
+class RecsRunnerState(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     input_audio: dict[str, np.ndarray] = Field(default_factory=dict)
-    monkeypatch: t.Any
     streams: list[InputStreamReporter | FixtureInputStream] = Field(
         default_factory=list
     )
-    wait_for_stop: bool = False
+    error: str = ''
+    timestamp: float = TIMESTAMP
 
-    _error: str = PrivateAttr(default='')
-    _timestamp: float = PrivateAttr(default=TIMESTAMP)
+
+class RecsRunner(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    cfg: Cfg
+    monkeypatch: pytest.MonkeyPatch
+    options: RecsRunnerOptions
+    state: RecsRunnerState
 
     def __init__(
         self,
         cfg: dict[str, object],
-        monkeypatch: t.Any,
+        monkeypatch: pytest.MonkeyPatch,
         event_count: int | None = None,
         input_audio: dict[str, np.ndarray] | None = None,
         block_size: int = BLOCK_SIZE,
@@ -90,15 +100,17 @@ class RecsRunner(BaseModel):
         wait_for_stop: bool = False,
     ) -> None:
         super().__init__(
-            block_size=block_size,
             cfg=Cfg(shortest_file_time=0, total_run_time=total_run_time, **cfg),
-            device_offset=device_offset,
-            event_count=event_count,
-            event_multiplier=event_multiplier,
-            expected_streams=expected_streams,
-            input_audio=input_audio or {},
             monkeypatch=monkeypatch,
-            wait_for_stop=wait_for_stop,
+            options=RecsRunnerOptions(
+                block_size=block_size,
+                device_offset=device_offset,
+                event_count=event_count,
+                event_multiplier=event_multiplier,
+                expected_streams=expected_streams,
+                wait_for_stop=wait_for_stop,
+            ),
+            state=RecsRunnerState(input_audio=input_audio or {}),
         )
 
         import sounddevice
@@ -110,7 +122,7 @@ class RecsRunner(BaseModel):
         self, **ka: object
     ) -> InputStreamReporter | FixtureInputStream:
         device = t.cast(str, ka['device'])
-        audio = self.input_audio.get(device)
+        audio = self.state.input_audio.get(device)
         if audio is not None:
             s = FixtureInputStream(
                 callback=t.cast(
@@ -122,21 +134,21 @@ class RecsRunner(BaseModel):
                 dtype=ka['dtype'],
                 samplerate=t.cast(int, ka['samplerate']),
                 audio=audio,
-                block_size=self.block_size,
+                block_size=self.options.block_size,
             )
         else:
             s = InputStreamReporter(**ka)
-        self.streams.append(s)
+        self.state.streams.append(s)
         return s
 
     def events(
         self,
     ) -> t.Iterator[tuple[float, InputStreamReporter | FixtureInputStream]]:
-        for stream in self.streams:
-            offset = stream.channels * self.device_offset
-            block_time = self.block_size / stream.samplerate
+        for stream in self.state.streams:
+            offset = stream.channels * self.options.device_offset
+            block_time = self.options.block_size / stream.samplerate
             blocks = int(
-                self.event_multiplier
+                self.options.event_multiplier
                 * self.cfg.recording.total_run_time
                 / block_time
             )
@@ -144,37 +156,37 @@ class RecsRunner(BaseModel):
                 yield (offset + i * block_time), stream
 
     def timestamp(self) -> float:
-        return self._timestamp
+        return self.state.timestamp
 
     def run_cli(self) -> None:
         try:
             run_cli.run_cli(self.cfg)
         except ValueError as e:
             if 'Invalid file object' not in str(e):
-                self._error = traceback.format_exc()
+                self.state.error = traceback.format_exc()
         except Exception:
-            self._error = traceback.format_exc()
+            self.state.error = traceback.format_exc()
 
     def run(self) -> None:
-        self._error = ''
-        if self.wait_for_stop:
+        self.state.error = ''
+        if self.options.wait_for_stop:
             self._run_bounded()
             return
 
         with HasThread(self.run_cli, name='RunCli'):
             for _ in range(TRIES):
-                if self._error:
-                    raise ValueError(self._error)
+                if self.state.error:
+                    raise ValueError(self.state.error)
                 if self._ready():
                     break
                 times.sleep(DELAY)
             else:
                 event_count = sum(1 for _ in self.events())
-                raise ValueError(f'{event_count=} {self._error=}')
+                raise ValueError(f'event_count={event_count} error={self.state.error}')
 
             for offset, stream in sorted(self.events(), key=lambda event: event[0]):
                 if 'stop' not in stream._recs_report:
-                    self._timestamp = TIMESTAMP + offset
+                    self.state.timestamp = TIMESTAMP + offset
                     stream._recs_callback()
 
     def _run_bounded(self) -> None:
@@ -190,8 +202,8 @@ class RecsRunner(BaseModel):
 
         if thread.running:
             raise AssertionError('run_cli thread did not stop')
-        if self._error:
-            raise AssertionError(self._error)
+        if self.state.error:
+            raise AssertionError(self.state.error)
 
     def paths(self, root: Path | None = None) -> list[Path]:
         return sorted((root or Path()).glob(f'**/*.{Format._default}'))
@@ -225,36 +237,36 @@ class RecsRunner(BaseModel):
 
     def _ready(self) -> bool:
         if (
-            self.expected_streams is not None
-            and len(self.streams) < self.expected_streams
+            self.options.expected_streams is not None
+            and len(self.state.streams) < self.options.expected_streams
         ):
             return False
         event_count = sum(1 for _ in self.events())
-        if self.event_count is not None:
-            return event_count >= self.event_count
+        if self.options.event_count is not None:
+            return event_count >= self.options.event_count
         return bool(event_count)
 
     def _send_events(self) -> None:
         for offset, stream in sorted(self.events(), key=lambda event: event[0]):
             if 'stop' not in stream._recs_report:
-                self._timestamp = TIMESTAMP + offset
+                self.state.timestamp = TIMESTAMP + offset
                 stream._recs_callback()
 
     def _wait_until_ready(self) -> None:
         for _ in range(TRIES):
-            if self._error:
-                raise AssertionError(self._error)
+            if self.state.error:
+                raise AssertionError(self.state.error)
             if self._ready():
                 return
             times.sleep(DELAY)
         event_count = sum(1 for _ in self.events())
-        raise AssertionError(f'{event_count=} {self._error=}')
+        raise AssertionError(f'event_count={event_count} error={self.state.error}')
 
     def _wait_until_stopped(self) -> None:
         for _ in range(TRIES):
-            if self._error:
-                raise AssertionError(self._error)
-            if all('stop' in stream._recs_report for stream in self.streams):
+            if self.state.error:
+                raise AssertionError(self.state.error)
+            if all('stop' in stream._recs_report for stream in self.state.streams):
                 return
             times.sleep(DELAY)
-        raise AssertionError(f'Streams did not stop: {self.streams}')
+        raise AssertionError(f'Streams did not stop: {self.state.streams}')
