@@ -20,7 +20,7 @@ from .aliases import Aliases
 from .track import source_track
 
 
-class DirectoryCfg(BaseModel):
+class Directory(BaseModel):
     # See ./cli.py for full help
     #
     # Directory settings
@@ -39,7 +39,7 @@ class DirectoryCfg(BaseModel):
         return files
 
 
-class GeneralCfg(BaseModel):
+class General(BaseModel):
     #
     # General purpose settings
     #
@@ -50,7 +50,7 @@ class GeneralCfg(BaseModel):
     list_types: bool = False
 
 
-class DeviceCfg(BaseModel):
+class Device(BaseModel):
     #
     # Aliases for input devices or channels
     #
@@ -69,7 +69,7 @@ class DeviceCfg(BaseModel):
         return devices
 
 
-class SelectionCfg(BaseModel):
+class Selection(BaseModel):
     #
     # Exclude or include devices or channels
     #
@@ -77,7 +77,7 @@ class SelectionCfg(BaseModel):
     include: list[str] = Field(default_factory=list)
 
 
-class AudioCfg(BaseModel):
+class Audio(BaseModel):
     #
     # Audio file format and subtype
     #
@@ -120,7 +120,7 @@ class AudioCfg(BaseModel):
         return self
 
 
-class ConsoleCfg(BaseModel):
+class Console(BaseModel):
     #
     # Console and UI settings
     #
@@ -131,7 +131,7 @@ class ConsoleCfg(BaseModel):
     ui_refresh_rate: float = 23.0
 
 
-class KeyCfg(BaseModel):
+class Key(BaseModel):
     #
     # Keyboard event recording
     #
@@ -139,7 +139,7 @@ class KeyCfg(BaseModel):
     record_key_all_apps: bool | None = None
 
 
-class RecordingCfg(BaseModel):
+class Recording(BaseModel):
     #
     # Settings relating to times
     #
@@ -168,14 +168,14 @@ CFG_PARTS = (
 )
 
 CFG_MODEL_TYPES = {
-    'directory': DirectoryCfg,
-    'general': GeneralCfg,
-    'device': DeviceCfg,
-    'selection': SelectionCfg,
-    'audio': AudioCfg,
-    'console': ConsoleCfg,
-    'keys': KeyCfg,
-    'recording': RecordingCfg,
+    'directory': Directory,
+    'general': General,
+    'device': Device,
+    'selection': Selection,
+    'audio': Audio,
+    'console': Console,
+    'keys': Key,
+    'recording': Recording,
 }
 
 
@@ -190,14 +190,14 @@ FLAT_FIELDS = _flat_fields()
 
 
 class Cfg(BaseModel):
-    directory: DirectoryCfg = Field(default_factory=DirectoryCfg)
-    general: GeneralCfg = Field(default_factory=GeneralCfg)
-    device: DeviceCfg = Field(default_factory=DeviceCfg)
-    selection: SelectionCfg = Field(default_factory=SelectionCfg)
-    audio: AudioCfg = Field(default_factory=AudioCfg)
-    console: ConsoleCfg = Field(default_factory=ConsoleCfg)
-    keys: KeyCfg = Field(default_factory=KeyCfg)
-    recording: RecordingCfg = Field(default_factory=RecordingCfg)
+    directory: Directory = Field(default_factory=Directory)
+    general: General = Field(default_factory=General)
+    device: Device = Field(default_factory=Device)
+    selection: Selection = Field(default_factory=Selection)
+    audio: Audio = Field(default_factory=Audio)
+    console: Console = Field(default_factory=Console)
+    keys: Key = Field(default_factory=Key)
+    recording: Recording = Field(default_factory=Recording)
 
     def __init__(self, **data: object) -> None:
         fields_set = set(data) - set(CFG_PARTS)
