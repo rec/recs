@@ -1,208 +1,209 @@
 # Command-line cleanup plan
 
-## Goals
+## Goal
 
-Clean up the `recs` command-line interface without changing runtime behavior.
+Rewrite the command-line interface so the option names are consistent, unique,
+short, and easy to remember.
 
-The target state is:
+Backward compatibility is not a goal. Old option names can be removed in the same
+change that introduces the new names.
 
-1. Every config name is unique and unambiguous.
-2. Every named option has a shorter long-option spelling where useful.
-3. Every named option has a single-character short option.
-4. Existing long option names keep working during the transition unless there is a direct conflict.
+The final command should have:
 
-## Current problem
+1. Unique config field names.
+2. One canonical long option for every named argument.
+3. A short long-option spelling where the current name is too verbose.
+4. One unique single-character option for every named argument.
 
-The current CLI is generated from the flat `recs.cfg.cli.recs()` function and then passed into `Cfg`. The options are grouped internally by config section, but their command-line names are all flat.
+## Design rules
 
-That creates three cleanup problems:
+1. Use the same canonical name in config and on the command line.
+2. Prefer short, plain names over section-prefixed names when they are unambiguous.
+3. Use section-specific names only when the plain name would be ambiguous.
+4. Use singular names for appendable options unless the value is naturally plural.
+5. Keep the most common options on lowercase short options.
+6. Use uppercase short options for less common options or paired variants.
+7. Do not keep old aliases.
 
-1. Some names are too generic once they are viewed outside their config section.
-2. Some names repeat concepts with different wording.
-3. Many options do not have any short alias.
+There are 33 named options, so single-character options require both lowercase and
+uppercase letters.
 
-The current named options are:
+## Proposed option set
 
-| Area | Current option | Current short option |
-| --- | --- | --- |
-| Directory | `--output-directory` | `-o` |
-| Directory | `--short-file-names` | none |
-| General | `--calibrate` | none |
-| General | `--dry-run` | `-n` |
-| General | `--verbose` | `-v` |
-| General | `--info` | none |
-| General | `--list-types` | none |
-| Device | `--alias` | `-a` |
-| Device | `--devices` | none |
-| Selection | `--exclude` | `-e` |
-| Selection | `--include` | `-i` |
-| Audio | `--formats` | `-f` |
-| Audio | `--metadata` | `-m` |
-| Audio | `--sdtype` | `-d` |
-| Audio | `--subtype` | `-u` |
-| Console | `--clear-terminal` | `-r` |
-| Console | `--gui` | none |
-| Console | `--silent` | `-s` |
-| Console | `--sleep-time-device` | none |
-| Console | `--ui-refresh-rate` | none |
-| Keys | `--record-keys` | none |
-| Keys | `--record-key-all-apps` | none |
-| Recording | `--band-mode` | `-B` |
-| Recording | `--infinite-length` | none |
-| Recording | `--longest-file-time` | none |
-| Recording | `--moving-average-time` | none |
-| Recording | `--noise-floor` | `-z` |
-| Recording | `--record-everything` | `-R` |
-| Recording | `--shortest-file-time` | none |
-| Recording | `--quiet-after-end` | `-c` |
-| Recording | `--quiet-before-start` | `-b` |
-| Recording | `--stop-after-quiet` | none |
-| Recording | `--total-run-time` | `-t` |
+| New config field | Long option | Short option | Current field |
+| --- | --- | --- | --- |
+| `output` | `--output` | `-o` | `output_directory` |
+| `short_names` | `--short-names` | `-S` | `short_file_names` |
+| `calibrate` | `--calibrate` | `-C` | `calibrate` |
+| `dry_run` | `--dry-run` | `-n` | `dry_run` |
+| `verbose` | `--verbose` | `-v` | `verbose` |
+| `info` | `--info` | `-I` | `info` |
+| `types` | `--types` | `-L` | `list_types` |
+| `alias` | `--alias` | `-a` | `alias` |
+| `devices` | `--devices` | `-D` | `devices` |
+| `exclude` | `--exclude` | `-e` | `exclude` |
+| `include` | `--include` | `-i` | `include` |
+| `format` | `--format` | `-f` | `formats` |
+| `metadata` | `--metadata` | `-m` | `metadata` |
+| `dtype` | `--dtype` | `-d` | `sdtype` |
+| `subtype` | `--subtype` | `-u` | `subtype` |
+| `clear_terminal` | `--clear-terminal` | `-r` | `clear_terminal` |
+| `gui` | `--gui` | `-g` | `gui` |
+| `silent` | `--silent` | `-s` | `silent` |
+| `device_poll_time` | `--device-poll-time` | `-P` | `sleep_time_device` |
+| `refresh_rate` | `--refresh-rate` | `-U` | `ui_refresh_rate` |
+| `keys` | `--keys` | `-k` | `record_keys` |
+| `keys_all_apps` | `--keys-all-apps` | `-K` | `record_key_all_apps` |
+| `band_mode` | `--band-mode` | `-B` | `band_mode` |
+| `infinite` | `--infinite` | `-l` | `infinite_length` |
+| `max_file_time` | `--max-file-time` | `-M` | `longest_file_time` |
+| `average_time` | `--average-time` | `-A` | `moving_average_time` |
+| `noise_floor` | `--noise-floor` | `-z` | `noise_floor` |
+| `record_all` | `--record-all` | `-R` | `record_everything` |
+| `min_file_time` | `--min-file-time` | `-F` | `shortest_file_time` |
+| `after` | `--after` | `-c` | `quiet_after_end` |
+| `before` | `--before` | `-b` | `quiet_before_start` |
+| `stop_after` | `--stop-after` | `-q` | `stop_after_quiet` |
+| `time` | `--time` | `-t` | `total_run_time` |
 
-There are 33 named options. If every option must have a single-character option, lowercase letters alone are not enough. The design must allow uppercase short options too.
+The positional `files` argument stays positional and does not need a short option.
 
-## Naming rules
+## Config model changes
 
-Use these rules when renaming or adding aliases:
+Rename the config fields to match the new CLI names. This keeps the program from
+having two vocabularies for the same concept.
 
-1. Long option names describe the config field exactly.
-2. Shorter long aliases are allowed when they are obvious and not ambiguous.
-3. Single-character aliases are unique across the whole command.
-4. Lowercase single-character aliases are reserved for commonly used options.
-5. Uppercase single-character aliases are acceptable for less common options and variants of a lowercase option.
-6. Boolean negation names should be explicit. Do not rely on users remembering a default.
-7. Keep old long names as aliases for one release cycle where possible.
+The affected models are:
 
-## Proposed long-option cleanup
+| Model | Rename |
+| --- | --- |
+| `Directory` | `output_directory` to `output` |
+| `Directory` | `short_file_names` to `short_names` |
+| `General` | `list_types` to `types` |
+| `Audio` | `formats` to `format` |
+| `Audio` | `sdtype` to `dtype` |
+| `Console` | `sleep_time_device` to `device_poll_time` |
+| `Console` | `ui_refresh_rate` to `refresh_rate` |
+| `Key` | `record_keys` to `keys` |
+| `Key` | `record_key_all_apps` to `keys_all_apps` |
+| `Recording` | `infinite_length` to `infinite` |
+| `Recording` | `longest_file_time` to `max_file_time` |
+| `Recording` | `moving_average_time` to `average_time` |
+| `Recording` | `record_everything` to `record_all` |
+| `Recording` | `shortest_file_time` to `min_file_time` |
+| `Recording` | `quiet_after_end` to `after` |
+| `Recording` | `quiet_before_start` to `before` |
+| `Recording` | `stop_after_quiet` to `stop_after` |
+| `Recording` | `total_run_time` to `time` |
 
-The config field names should remain implementation-oriented, but the CLI should expose shorter and more consistent aliases.
+Keep names that are already clear and unique:
 
-| Config field | Canonical CLI option | Compatibility alias |
-| --- | --- | --- |
-| `files` | positional `files` | none |
-| `output_directory` | `--output` | `--output-directory` |
-| `short_file_names` | `--short-names` | `--short-file-names` |
-| `calibrate` | `--calibrate` | none |
-| `dry_run` | `--dry-run` | none |
-| `verbose` | `--verbose` | none |
-| `info` | `--info` | none |
-| `list_types` | `--list-types` | none |
-| `alias` | `--alias` | none |
-| `devices` | `--devices` | none |
-| `exclude` | `--exclude` | none |
-| `include` | `--include` | none |
-| `formats` | `--format` | `--formats` |
-| `metadata` | `--metadata` | none |
-| `sdtype` | `--dtype` | `--sdtype` |
-| `subtype` | `--subtype` | none |
-| `clear_terminal` | `--clear-terminal` | none |
-| `gui` | `--gui` | none |
-| `silent` | `--silent` | none |
-| `sleep_time_device` | `--device-poll-time` | `--sleep-time-device` |
-| `ui_refresh_rate` | `--refresh-rate` | `--ui-refresh-rate` |
-| `record_keys` | `--keys` | `--record-keys` |
-| `record_key_all_apps` | `--keys-all-apps` | `--record-key-all-apps` |
-| `band_mode` | `--band-mode` | none |
-| `infinite_length` | `--infinite` | `--infinite-length` |
-| `longest_file_time` | `--max-file-time` | `--longest-file-time` |
-| `moving_average_time` | `--average-time` | `--moving-average-time` |
-| `noise_floor` | `--noise-floor` | none |
-| `record_everything` | `--record-all` | `--record-everything` |
-| `shortest_file_time` | `--min-file-time` | `--shortest-file-time` |
-| `quiet_after_end` | `--after` | `--quiet-after-end` |
-| `quiet_before_start` | `--before` | `--quiet-before-start` |
-| `stop_after_quiet` | `--stop-after` | `--stop-after-quiet` |
-| `total_run_time` | `--time` | `--total-run-time` |
+- `files`
+- `calibrate`
+- `dry_run`
+- `verbose`
+- `info`
+- `alias`
+- `devices`
+- `exclude`
+- `include`
+- `metadata`
+- `subtype`
+- `clear_terminal`
+- `gui`
+- `silent`
+- `band_mode`
+- `noise_floor`
 
-## Proposed single-character options
+## Implementation plan
 
-This table keeps the most common options on mnemonic lowercase letters and uses uppercase letters for less common or paired options.
+### 1. Add CLI surface tests
 
-| Canonical option | Single-character option | Reason |
-| --- | --- | --- |
-| `--output` | `-o` | Existing alias |
-| `--short-names` | `-S` | Short names |
-| `--calibrate` | `-C` | Calibration |
-| `--dry-run` | `-n` | Existing alias |
-| `--verbose` | `-v` | Existing alias |
-| `--info` | `-I` | Info |
-| `--list-types` | `-L` | List |
-| `--alias` | `-a` | Existing alias |
-| `--devices` | `-D` | Devices |
-| `--exclude` | `-e` | Existing alias |
-| `--include` | `-i` | Existing alias |
-| `--format` | `-f` | Existing alias |
-| `--metadata` | `-m` | Existing alias |
-| `--dtype` | `-d` | Existing alias for `sdtype` |
-| `--subtype` | `-u` | Existing alias |
-| `--clear-terminal` | `-r` | Existing alias |
-| `--gui` | `-g` | GUI |
-| `--silent` | `-s` | Existing alias |
-| `--device-poll-time` | `-P` | Polling |
-| `--refresh-rate` | `-U` | UI refresh |
-| `--keys` | `-k` | Keys |
-| `--keys-all-apps` | `-K` | Global keys |
-| `--band-mode` | `-B` | Existing alias |
-| `--infinite` | `-l` | Length behavior |
-| `--max-file-time` | `-M` | Maximum |
-| `--average-time` | `-A` | Average |
-| `--noise-floor` | `-z` | Existing alias |
-| `--record-all` | `-R` | Existing alias |
-| `--min-file-time` | `-F` | File minimum |
-| `--after` | `-c` | Existing alias for quiet after end |
-| `--before` | `-b` | Existing alias |
-| `--stop-after` | `-q` | Stop after quiet |
-| `--time` | `-t` | Existing alias |
+Add tests before the rename so the behavior is easy to verify during the change.
+The tests should assert:
 
-## Implementation sequence
+1. Every new long option parses.
+2. Every new single-character option parses.
+3. No single-character option is reused.
+4. Removed old names fail to parse.
+5. The generated help text contains each new option.
 
-### 1. Add tests around the current CLI surface
+Use the existing `test/cfg/test_cli.py` pattern and inspect the `Cfg` passed to
+`run_cli.run_cli`.
 
-Before changing names, add or update tests that capture:
+### 2. Rename config fields
 
-1. Every canonical long option parses.
-2. Every compatibility long option parses.
-3. Every single-character option parses.
-4. No single-character option is reused.
-5. Help text has no duplicate short options.
+Rename the fields in `recs/cfg/cfg.py`.
 
-Use the existing `test/cfg/test_cli.py` pattern and inspect the `Cfg` instance passed to `run_cli.run_cli`.
+Update every internal reference in:
 
-### 2. Add aliases without removing old names
+- `recs/cfg/cli.py`
+- `recs/cfg/run_cli.py`
+- `recs/cfg/path_pattern.py`
+- `recs/audio/`
+- `recs/ui/`
+- tests
+- docs
 
-Update `recs/cfg/cli.py` so each argument has:
+Do not add compatibility properties. The old names should disappear.
+
+### 3. Update the CLI declaration
+
+Update `recs/cfg/cli.py` so each option has exactly:
 
 1. One canonical long option.
-2. Any compatibility long option.
-3. One single-character option.
+2. One single-character short option.
 
-Use tyro aliases for compatibility names. Do not rename `Cfg` fields in this step.
+Do not include old long names in `aliases`.
 
-### 3. Update documentation and examples
+### 4. Update help snapshots and docs
 
-Update user-facing examples to use canonical names:
+Update any tests or documentation that mention old names.
 
-1. `--output` instead of `--output-directory`.
-2. `--format` instead of `--formats`.
-3. `--dtype` instead of `--sdtype`.
-4. `--time` instead of `--total-run-time`.
+Important replacements:
 
-### 4. Decide whether to remove compatibility aliases
+| Old | New |
+| --- | --- |
+| `--output-directory` | `--output` |
+| `--short-file-names` | `--short-names` |
+| `--list-types` | `--types` |
+| `--formats` | `--format` |
+| `--sdtype` | `--dtype` |
+| `--sleep-time-device` | `--device-poll-time` |
+| `--ui-refresh-rate` | `--refresh-rate` |
+| `--record-keys` | `--keys` |
+| `--record-key-all-apps` | `--keys-all-apps` |
+| `--infinite-length` | `--infinite` |
+| `--longest-file-time` | `--max-file-time` |
+| `--moving-average-time` | `--average-time` |
+| `--record-everything` | `--record-all` |
+| `--shortest-file-time` | `--min-file-time` |
+| `--quiet-after-end` | `--after` |
+| `--quiet-before-start` | `--before` |
+| `--stop-after-quiet` | `--stop-after` |
+| `--total-run-time` | `--time` |
 
-After one release cycle, decide whether to remove compatibility aliases. If there is no real maintenance cost, keeping them is acceptable.
+### 5. Run full verification
 
-Do not remove old names in the same change that introduces new names. That would make the CLI cleanup harder to review and harder to recover from.
+Run:
+
+1. `pytest`
+2. `ruff check --fix --select B,E,F,I recs test*`
+3. `ty check recs`
+4. `pyupgrade` using the project Python version
 
 ## Open decisions
 
-1. Should all single-character options be case-sensitive? This plan assumes yes.
-2. Should compatibility long aliases appear in help text? Hiding them keeps help shorter, but visible aliases make transition easier.
-3. Should boolean flags get explicit negative aliases such as `--no-gui` or `--no-band-mode`? That is useful, but separate from this cleanup.
-4. Should `--format` remain appendable even though the config field is plural? This plan says yes.
+1. Should `--types` be named `--list-types` despite the shorter-name goal?
+2. Should `--format` remain appendable even though the field becomes singular?
+3. Should `--after` and `--before` be renamed to `--quiet-after` and
+   `--quiet-before` for clarity, at the cost of longer names?
+4. Should boolean defaults get explicit negative forms such as `--no-gui` or
+   `--no-band-mode`? This is useful, but separate from the rename.
 
 ## Non-goals
 
-1. Do not change config field names in `Cfg`.
-2. Do not change recording behavior.
-3. Do not change defaults.
-4. Do not remove compatibility aliases in the first implementation commit.
+1. Do not change recording behavior.
+2. Do not change defaults.
+3. Do not add compatibility aliases.
+4. Do not introduce a second config vocabulary.
