@@ -32,11 +32,17 @@ class GuiProcess(Runnable):
             return
         if self.closed:
             return
+        if self.process.stdin.closed:
+            return
 
         try:
             self.process.stdin.write(json.dumps([dict(row) for row in self.rows()]))
             self.process.stdin.write('\n')
             self.process.stdin.flush()
+        except ValueError:
+            if self.process.stdin.closed:
+                return
+            raise
         except BrokenPipeError:
             self.process.stdin.close()
 

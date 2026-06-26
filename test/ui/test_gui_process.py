@@ -80,6 +80,43 @@ def test_gui_process_closes_stdin_on_stop(
     assert processes[0].stdin.closed
 
 
+def test_gui_process_update_ignores_closed_stdin(
+    monkeypatch: t.Any,
+) -> None:
+    processes: list[FakeProcess] = []
+
+    def make_process(*args: object, **kwargs: object) -> FakeProcess:
+        process = FakeProcess(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(gui_process.sp, 'Popen', make_process)
+
+    display = gui_process.GuiProcess(lambda: iter([{'time': 1}]), Cfg(gui=True))
+    display.start()
+    processes[0].stdin.close()
+
+    display.update()
+
+
+def test_gui_process_update_ignores_stdin_closed_during_write(
+    monkeypatch: t.Any,
+) -> None:
+    processes: list[FakeProcess] = []
+
+    def make_process(*args: object, **kwargs: object) -> FakeProcess:
+        process = FakeProcess(*args, **kwargs)
+        process.stdin.close_on_write = True
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(gui_process.sp, 'Popen', make_process)
+
+    display = gui_process.GuiProcess(lambda: iter([{'time': 1}]), Cfg(gui=True))
+
+    display.start()
+
+
 def test_gui_process_reads_key_events_from_subprocess_stdout(
     monkeypatch: t.Any,
 ) -> None:
@@ -105,8 +142,14 @@ class FakeStdin:
     def __init__(self) -> None:
         self.text = ''
         self.closed = False
+        self.close_on_write = False
 
     def write(self, text: str) -> int:
+        if self.close_on_write:
+            self.closed = True
+            raise ValueError('I/O operation on closed file.')
+        if self.closed:
+            raise ValueError('I/O operation on closed file.')
         self.text += text
         return len(text)
 
