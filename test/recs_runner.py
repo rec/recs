@@ -210,17 +210,18 @@ class RecsRunner(BaseModel):
 
     def assert_matches(self, tdata: Path) -> None:
         actual = self.paths()
+        relative_actual = self._relative_actual_paths(actual)
         expected = sorted(tdata.glob(f'**/*.{Format._default}'))
 
         if not expected:
-            for a in actual:
-                f = tdata / a
+            for actual_path, relative_path in zip(actual, relative_actual, strict=True):
+                f = tdata / relative_path
                 f.parent.mkdir(exist_ok=True, parents=True)
-                f.write_bytes(a.read_bytes())
+                f.write_bytes(actual_path.read_bytes())
             return
 
-        assert actual == [p.relative_to(tdata) for p in expected]
-        assert [p.name for p in actual] == [p.name for p in expected]
+        assert relative_actual == [p.relative_to(tdata) for p in expected]
+        assert [p.name for p in relative_actual] == [p.name for p in expected]
 
         actual_expected = list(zip(actual, expected, strict=False))
         named_audio = [
@@ -234,6 +235,16 @@ class RecsRunner(BaseModel):
 
         differs = [n for n, a, e in named_audio if not np.allclose(a, e)]
         assert differs == []
+
+    def _relative_actual_paths(self, paths: list[Path]) -> list[Path]:
+        if self.cfg.directory.output_directory or not paths:
+            return paths
+
+        parents = {path.parent for path in paths}
+        assert len(parents) == 1
+        parent = parents.pop()
+        assert parent.name.startswith('recs: ')
+        return [path.relative_to(parent) for path in paths]
 
     def _ready(self) -> bool:
         if (

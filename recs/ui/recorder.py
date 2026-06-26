@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import typing as t
+from datetime import datetime
 from multiprocessing import connection
 from pathlib import Path
 
@@ -36,15 +37,15 @@ class Recorder(Runnables):
         if not (all_tracks := list(source_tracks(cfg))):
             raise RecsError('No channels selected')
 
-        self.cfg = cfg
-        if cfg.console.gui:
+        self.state = FullState(all_tracks)
+        self.cfg = _with_default_output_directory(cfg, self.state.start_time)
+        if self.cfg.console.gui:
             display_type = gui_process.GuiProcess
         else:
             display_type = live.Live
-        self.live = display_type(self.rows, cfg) if display else None
-        self.state = FullState(all_tracks)
+        self.live = display_type(self.rows, self.cfg) if display else None
         self.sources = {
-            source.name: SourceProcess(cfg, tracks)
+            source.name: SourceProcess(self.cfg, tracks)
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
@@ -394,3 +395,34 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
+
+
+def _with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
+    if cfg.directory.output_directory:
+        return cfg
+
+    directory = cfg.directory.model_copy(
+        update={'output_directory': str(_available_session_directory(timestamp))}
+    )
+    result = cfg.model_copy(update={'directory': directory})
+    result.__dict__.pop('output_path_pattern', None)
+    return result
+
+
+def _available_session_directory(timestamp: float) -> Path:
+    path = Path(_session_directory_name(timestamp))
+    if not path.exists():
+        return path
+
+    index = 1
+    while True:
+        candidate = path.with_name(f'{path.name}_{index}')
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def _session_directory_name(timestamp: float) -> str:
+    if os.name == 'nt':
+        return datetime.fromtimestamp(timestamp).strftime('recs %Y-%m-%d %H-%M-%S')
+    return datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')

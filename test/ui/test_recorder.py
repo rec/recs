@@ -1,5 +1,6 @@
 import json
 import typing as t
+from datetime import datetime
 from pathlib import Path
 from test.conftest import DEVICES, DEVICES_FILE
 
@@ -414,6 +415,71 @@ def test_live_input_manifest_omits_source(
             'bit_depth': 64,
         }
     ]
+
+
+def test_default_output_directory_uses_session_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    path = Path(rec.cfg.directory.output_directory) / 'mic.wav'
+    path.parent.mkdir(parents=True)
+    path.touch()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[path],
+            frames=48_000,
+            source_name='Mic',
+            file_records=[
+                SourceFile(
+                    path=path,
+                    source_name='Mic',
+                    track=1,
+                    channels=1,
+                    sample_rate=48_000,
+                    bit_depth=64,
+                )
+            ],
+        )
+    )
+    rec._write_manifest()
+
+    assert rec.cfg.directory.output_directory == 'recs: 2026-06-23 20:34:10'
+    assert (path.parent / 'recs-session.json').exists()
+
+
+def test_default_output_directory_uses_collision_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    Path('recs: 2026-06-23 20:34:10').mkdir()
+
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+
+    assert rec.cfg.directory.output_directory == 'recs: 2026-06-23 20:34:10_1'
+
+
+def test_windows_default_output_directory_avoids_colons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+
+    monkeypatch.setattr(recorder.os, 'name', 'nt')
+
+    assert recorder._session_directory_name(timestamp) == 'recs 2026-06-23 20-34-10'
 
 
 def test_manifest_records_source_and_track_lifecycle_events(
