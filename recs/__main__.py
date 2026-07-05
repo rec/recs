@@ -5,10 +5,13 @@ from pydantic import ValidationError
 
 from recs.base import RecsError
 from recs.cfg import cli
+from recs.daemon import cli as daemon_cli
 
 
 def run() -> int:
     try:
+        if len(sys.argv) > 1 and sys.argv[1] == 'daemon':
+            return daemon_cli.main(sys.argv[2:])
         tyro.cli(cli.recs, prog='recs', description=cli.HELP)
         return 0
 
