@@ -348,6 +348,29 @@ def test_slow_device_clock_ignores_startup_grace(
     assert capsys.readouterr().err == ''
 
 
+def test_stalled_source_is_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    now = 100.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    mic = rec.hardware['Mic']
+    rec.poller.snapshots = [{'Mic': mic_info}]
+
+    rec._poll_devices()
+    now += recorder.SOURCE_STALL_TIMEOUT + 1
+    rec._stop_stalled_sources()
+
+    assert not mic.started
+    assert 'Mic' in rec.failed
+    assert rec.warnings == ['Device Mic stopped sending updates']
+    assert capsys.readouterr().err == 'Device Mic stopped sending updates\n'
+
+
 def test_recorder_finishes_with_all_devices_offline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

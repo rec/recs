@@ -29,6 +29,7 @@ from .source_tracks import source_tracks
 
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
+SOURCE_STALL_TIMEOUT = 10.0
 
 
 class Recorder(Runnables):
@@ -54,6 +55,7 @@ class Recorder(Runnables):
         self.frames = dict.fromkeys(self.sources, 0)
         self.source_frames_at_start = dict.fromkeys(self.sources, 0)
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
+        self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
         self.manifest_events: list[ManifestEvent] = []
         self.manifest_files: dict[Path, ManifestFile] = {}
@@ -132,6 +134,7 @@ class Recorder(Runnables):
                     self._receive_key_events()
                     self._poll_devices()
                     self._reap_sources()
+                    self._stop_stalled_sources()
                     sources = [
                         source
                         for source in self.sources.values()
@@ -205,6 +208,7 @@ class Recorder(Runnables):
                 source.start()
                 self.source_frames_at_start[name] = self.frames[name]
                 self.source_start_times[name] = times.timestamp()
+                self.source_last_updates[name] = self.source_start_times[name]
 
         self._record_source_presence(compatible)
         self.present = compatible
@@ -238,6 +242,21 @@ class Recorder(Runnables):
                 continue
 
             if not expected and name in self.present:
+                self.failed.add(name)
+
+    def _stop_stalled_sources(self) -> None:
+        now = times.timestamp()
+        for name, source in self.sources.items():
+            if not source.started or not source.is_alive or not source.running:
+                continue
+            if now - self.source_last_updates[name] <= SOURCE_STALL_TIMEOUT:
+                continue
+            warning = f'Device {name} stopped sending updates'
+            print(warning, file=sys.stderr)
+            self.warnings.append(warning)
+            source.stop()
+            source.join()
+            if name in self.hardware:
                 self.failed.add(name)
 
     def _receive_pending_updates(self) -> None:
@@ -286,18 +305,20 @@ class Recorder(Runnables):
         }
         self.state.update({update.source_name: update.channels})
         self._record_track_activity(update.source_name, previous, update.channels)
-        if source.running and not self._source_frame_clock_valid(source):
+        now = times.timestamp()
+        self.source_last_updates[update.source_name] = now
+        if source.running and not self._source_frame_clock_valid(source, now):
             source.stop()
             self.failed.add(update.source_name)
             return
         if source.running and self._source_time_expired(source):
             source.stop()
 
-    def _source_frame_clock_valid(self, source: SourceProcess) -> bool:
+    def _source_frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
         if source.name not in self.hardware:
             return True
 
-        elapsed = times.timestamp() - self.source_start_times[source.name]
+        elapsed = now - self.source_start_times[source.name]
         if elapsed < FRAME_CLOCK_GRACE:
             return True
 
