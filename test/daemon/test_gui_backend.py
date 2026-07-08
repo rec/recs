@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,20 @@ def test_windows_pipe_client_uses_named_pipe_family(
 
     assert calls == [(gui_backend.WINDOWS_PIPE, 'AF_PIPE')]
     assert pipe.sent == ['hello\n']
+
+
+def test_windows_pipe_client_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def connect(endpoint: str, family: str) -> FakePipe:
+        time.sleep(0.1)
+        return FakePipe()
+
+    monkeypatch.setattr(gui_backend, 'PIPE_CONNECT_TIMEOUT', 0.01)
+    monkeypatch.setattr(gui_backend.mp_connection, 'Client', connect)
+
+    with pytest.raises(TimeoutError, match='Timed out connecting'):
+        gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
 
 
 def test_windows_pipe_connection_reads_until_closed() -> None:

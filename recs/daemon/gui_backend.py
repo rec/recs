@@ -1,8 +1,11 @@
 import multiprocessing.connection as mp_connection
+import queue
 import socket
+import threading
 import typing as t
 from pathlib import Path
 
+PIPE_CONNECT_TIMEOUT = 0.2
 SOCKET_TIMEOUT = 0.2
 WINDOWS_PIPE = r'\\.\pipe\recs'
 
@@ -127,7 +130,7 @@ class WindowsPipeConnection:
 
     @classmethod
     def connect(cls, endpoint: str) -> 'WindowsPipeConnection':
-        return cls(mp_connection.Client(endpoint, family='AF_PIPE'))
+        return cls(_connect_windows_pipe(endpoint))
 
     def read_lines(self) -> t.Iterator[str]:
         while True:
@@ -159,3 +162,25 @@ def _remove_stale_socket(path: Path) -> None:
             conn.connect(str(path))
     except OSError:
         path.unlink()
+
+
+def _connect_windows_pipe(endpoint: str) -> mp_connection.Connection:
+    results: queue.Queue[
+        mp_connection.Connection | OSError | ValueError
+    ] = queue.Queue()
+
+    def connect() -> None:
+        try:
+            result = mp_connection.Client(endpoint, family='AF_PIPE')
+        except (OSError, ValueError) as error:
+            result = error
+        results.put(result)
+
+    threading.Thread(target=connect, daemon=True).start()
+    try:
+        result = results.get(timeout=PIPE_CONNECT_TIMEOUT)
+    except queue.Empty:
+        raise TimeoutError(f'Timed out connecting to {endpoint}') from None
+    if isinstance(result, OSError | ValueError):
+        raise result
+    return result
