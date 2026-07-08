@@ -26,9 +26,10 @@ def test_gui_process_writes_rows_to_subprocess_stdin(
     display.start()
 
     assert processes[0].args == [
-        gui_process.sys.executable,
+        gui_process.app_command.sys.executable,
         '-m',
-        'recs.ui.gui_child',
+        'recs',
+        'gui-child',
     ]
     assert processes[0].kwargs['stderr'] == sp.DEVNULL
     assert processes[0].kwargs['stdout'] == sp.PIPE

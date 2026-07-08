@@ -1,17 +1,29 @@
+import json
+import multiprocessing as mp
 import sys
 
 import tyro
 from pydantic import ValidationError
 
 from recs.base import RecsError
+from recs.base._query_device import _query_devices
 from recs.cfg import cli
 from recs.daemon import cli as daemon_cli
 
 
 def run() -> int:
+    mp.freeze_support()
     try:
         if len(sys.argv) > 1 and sys.argv[1] == 'daemon':
             return daemon_cli.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
+            from recs.ui.gui_child import main as gui_child
+
+            gui_child()
+            return 0
+        if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
+            print(json.dumps(_query_devices(), indent=4))
+            return 0
         tyro.cli(cli.recs, prog='recs', description=cli.HELP)
         return 0
 

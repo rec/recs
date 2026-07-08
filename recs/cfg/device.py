@@ -7,7 +7,7 @@ import numpy as np
 from overrides import override
 from threa import Runnable, Wrapper
 
-from recs.base import times
+from recs.base import app_command, times
 from recs.base.prefix_dict import PrefixDict
 from recs.base.types import SdType
 
@@ -60,12 +60,9 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i)).channels})
 
 
-CMD = sys.executable, '-m', 'recs.base._query_device'
-
-
 def query_devices() -> t.Sequence[DeviceDict]:
     r = sp.run(
-        CMD,
+        app_command.command('query-devices'),
         text=True,
         check=True,
         start_new_session=True,

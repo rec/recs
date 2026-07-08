@@ -14,7 +14,7 @@ def test_input_devices():
 def test_query_device_failure_is_not_an_empty_device_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    error = sp.CalledProcessError(1, device.CMD)
+    error = sp.CalledProcessError(1, ['recs', 'query-devices'])
 
     def fail(*args: t.Any, **kwargs: t.Any) -> t.NoReturn:
         raise error

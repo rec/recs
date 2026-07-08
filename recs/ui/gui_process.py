@@ -1,13 +1,13 @@
 import json
 import os
 import subprocess as sp
-import sys
 import threading
 import typing as t
 
 from pydantic import ValidationError
 from threa import Runnable
 
+from recs.base import app_command
 from recs.cfg import Cfg
 
 from .key_events import KeyEvent
@@ -55,7 +55,7 @@ class GuiProcess(Runnable):
             'RECS_GUI_REFRESH_RATE': str(self.cfg.console.ui_refresh_rate)
         }
         self.process = sp.Popen(
-            [sys.executable, '-m', 'recs.ui.gui_child'],
+            app_command.command('gui-child'),
             stdin=sp.PIPE,
             stdout=sp.PIPE,
             stderr=sp.DEVNULL,
