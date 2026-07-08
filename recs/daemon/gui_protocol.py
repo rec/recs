@@ -2,11 +2,13 @@ import typing as t
 
 from pydantic import BaseModel, TypeAdapter
 
+VERSION = 1
+
 
 class Hello(BaseModel):
     type: t.Literal['hello']
-    role: t.Literal['gui']
-    version: int = 1
+    role: t.Literal['daemon', 'gui']
+    version: int = VERSION
 
 
 class RowsMessage(BaseModel):

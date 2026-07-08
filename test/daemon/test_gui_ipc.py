@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from recs.cfg import Cfg
 from recs.daemon import gui_ipc
-from recs.daemon.gui_protocol import RowsMessage, parse_message
+from recs.daemon.gui_protocol import Hello, RowsMessage, parse_message
 from recs.daemon.models import DaemonMetadata, Platform
 from recs.ui.key_events import KeyEvent
 
@@ -16,6 +16,13 @@ def test_protocol_parses_valid_messages() -> None:
 
     assert isinstance(message, RowsMessage)
     assert message.rows == [{'device': 'Mic'}]
+
+
+def test_protocol_parses_daemon_hello() -> None:
+    message = parse_message('{"type":"hello","role":"daemon","version":1}')
+
+    assert isinstance(message, Hello)
+    assert message.role == 'daemon'
 
 
 def test_protocol_rejects_malformed_messages() -> None:
@@ -52,6 +59,30 @@ def test_daemon_publisher_removes_broken_listeners() -> None:
     assert broken.closed
 
 
+def test_gui_listener_replies_to_supported_hello() -> None:
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":1}\n'])
+    listener = gui_ipc.GuiListener(connection, lambda event: None)
+
+    listener._read()
+
+    assert connection.sent == ['{"type":"hello","role":"daemon","version":1}\n']
+
+
+def test_gui_listener_rejects_unsupported_hello() -> None:
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":2}\n'])
+    listener = gui_ipc.GuiListener(connection, lambda event: None)
+
+    listener._read()
+
+    assert connection.sent == [
+        (
+            '{"type":"error","message":"GUI protocol version 2 is not supported; '
+            'daemon requires 1"}\n'
+        )
+    ]
+    assert connection.closed
+
+
 def test_remote_row_provider_exposes_latest_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -61,6 +92,22 @@ def test_remote_row_provider_exposes_latest_rows(
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
     assert _eventually(lambda: list(client.rows()) == [{'device': 'Mic'}])
+
+
+def test_remote_row_provider_closes_on_protocol_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    connection = FakeConnection(
+        ['{"type":"error","message":"GUI protocol version 2 is not supported"}\n']
+    )
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+
+    client.start()
+
+    assert _eventually(lambda: client.closed)
+    assert capsys.readouterr().err == 'GUI protocol version 2 is not supported\n'
 
 
 def test_remote_row_provider_sends_key_events(

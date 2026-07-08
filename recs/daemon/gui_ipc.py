@@ -1,4 +1,5 @@
 import logging
+import sys
 import threading
 import typing as t
 from pathlib import Path
@@ -17,6 +18,8 @@ from .gui_backend import (
     server_backend,
 )
 from .gui_protocol import (
+    VERSION,
+    Error,
     Hello,
     KeyPressed,
     KeyReleased,
@@ -135,8 +138,29 @@ class GuiListener:
             except ValidationError:
                 LOGGER.warning('Ignoring malformed GUI message')
                 continue
+            if isinstance(message, Hello):
+                self._receive_hello(message)
+                continue
             if isinstance(message, (KeyPressed, KeyReleased)):
                 self.append_key_event(KeyEvent(type=message.type, key=message.key))
+
+    def _receive_hello(self, message: Hello) -> None:
+        if message.version != VERSION:
+            self.write(
+                Error(
+                    type='error',
+                    message=(
+                        f'GUI protocol version {message.version} is not supported; '
+                        f'daemon requires {VERSION}'
+                    ),
+                ).model_dump_json()
+                + '\n'
+            )
+            self.close()
+            return
+        self.write(
+            Hello(type='hello', role='daemon', version=VERSION).model_dump_json() + '\n'
+        )
 
 
 class RemoteGuiClient:
@@ -149,7 +173,9 @@ class RemoteGuiClient:
 
     def start(self) -> None:
         self.connection = client_connection(self.endpoint)
-        self._write(Hello(type='hello', role='gui').model_dump_json() + '\n')
+        self._write(
+            Hello(type='hello', role='gui', version=VERSION).model_dump_json() + '\n'
+        )
         threading.Thread(target=self._read, daemon=True, name='RemoteGuiRows').start()
 
     def rows(self) -> t.Iterator[t.Mapping[str, object]]:
@@ -173,6 +199,18 @@ class RemoteGuiClient:
                 message = parse_message(line)
             except ValidationError:
                 continue
+            if isinstance(message, Error):
+                print(message.message, file=sys.stderr)
+                self.closed = True
+                return
+            if isinstance(message, Hello) and message.version != VERSION:
+                print(
+                    f'Daemon GUI protocol version {message.version} is not supported; '
+                    f'client requires {VERSION}',
+                    file=sys.stderr,
+                )
+                self.closed = True
+                return
             if isinstance(message, RowsMessage):
                 with self.lock:
                     self.latest = message.rows
