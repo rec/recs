@@ -1,5 +1,4 @@
 import logging
-import socket
 import threading
 import typing as t
 from pathlib import Path
@@ -11,6 +10,12 @@ from recs.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
 from . import paths
+from .gui_backend import (
+    WINDOWS_PIPE,
+    GuiConnection,
+    client_connection,
+    server_backend,
+)
 from .gui_protocol import (
     Hello,
     KeyPressed,
@@ -21,8 +26,6 @@ from .gui_protocol import (
 from .models import DaemonMetadata
 
 LOGGER = logging.getLogger(__name__)
-SOCKET_TIMEOUT = 0.2
-WINDOWS_PIPE = r'\\.\pipe\recs'
 
 
 class DaemonGuiServer(Runnable):
@@ -33,7 +36,7 @@ class DaemonGuiServer(Runnable):
         self.cfg = cfg
         self.enabled = daemon_mode_enabled()
         self.endpoint = paths.service_paths(paths.current_platform()).gui_endpoint
-        self.socket: socket.socket | None = None
+        self.backend = server_backend(self.endpoint)
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
         self.lock = threading.Lock()
@@ -43,21 +46,11 @@ class DaemonGuiServer(Runnable):
         if not self.enabled:
             super().start()
             return
-        if not isinstance(self.endpoint, Path):
-            LOGGER.warning('GUI IPC is not supported on this platform')
-            super().start()
-            return
 
-        self.endpoint.parent.mkdir(parents=True, exist_ok=True)
-        _remove_stale_socket(self.endpoint)
         try:
-            self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.socket.bind(str(self.endpoint))
-            self.socket.listen()
-            self.socket.settimeout(SOCKET_TIMEOUT)
+            self.backend.start()
         except OSError as e:
             LOGGER.warning('Cannot start GUI IPC server: %s', e)
-            self.socket = None
             super().start()
             return
 
@@ -69,7 +62,7 @@ class DaemonGuiServer(Runnable):
         ).start()
 
     def update(self) -> None:
-        if not self.enabled or self.socket is None:
+        if not self.enabled:
             return
         self.broadcast([dict(row) for row in self.rows()])
 
@@ -91,20 +84,15 @@ class DaemonGuiServer(Runnable):
                 self._remove(listener)
 
     def stop(self) -> None:
-        if self.socket is not None:
-            self.socket.close()
+        self.backend.close()
         for listener in self.clients:
             listener.close()
         super().stop()
 
     def _accept(self) -> None:
-        while self.running and self.socket is not None:
-            try:
-                conn, _ = self.socket.accept()
-            except TimeoutError:
+        while self.running:
+            if (conn := self.backend.accept()) is None:
                 continue
-            except OSError:
-                return
 
             listener = GuiListener(conn, self._append_key_event)
             with self.lock:
@@ -124,11 +112,10 @@ class DaemonGuiServer(Runnable):
 
 class GuiListener:
     def __init__(
-        self, conn: socket.socket, append_key_event: t.Callable[[KeyEvent], None]
+        self, conn: GuiConnection, append_key_event: t.Callable[[KeyEvent], None]
     ) -> None:
         self.conn = conn
         self.append_key_event = append_key_event
-        self.file = conn.makefile('r', encoding='utf-8')
         self.lock = threading.Lock()
 
     def start(self) -> None:
@@ -136,20 +123,13 @@ class GuiListener:
 
     def write(self, message: str) -> bool:
         with self.lock:
-            try:
-                self.conn.sendall(message.encode())
-            except OSError:
-                return False
-        return True
+            return self.conn.write(message)
 
     def close(self) -> None:
-        try:
-            self.conn.close()
-        except OSError:
-            pass
+        self.conn.close()
 
     def _read(self) -> None:
-        for line in self.file:
+        for line in self.conn.read_lines():
             try:
                 message = parse_message(line)
             except ValidationError:
@@ -162,19 +142,13 @@ class GuiListener:
 class RemoteGuiClient:
     def __init__(self, endpoint: str | Path) -> None:
         self.endpoint = endpoint
-        self.socket: socket.socket | None = None
-        self.file: t.TextIO | None = None
+        self.connection: GuiConnection | None = None
         self.latest: list[dict[str, object]] = []
         self.closed = False
         self.lock = threading.Lock()
 
     def start(self) -> None:
-        if not isinstance(self.endpoint, Path):
-            raise OSError('GUI IPC is not supported on this platform')
-
-        self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.socket.connect(str(self.endpoint))
-        self.file = self.socket.makefile(encoding='utf-8')
+        self.connection = client_connection(self.endpoint)
         self._write(Hello(type='hello', role='gui').model_dump_json() + '\n')
         threading.Thread(target=self._read, daemon=True, name='RemoteGuiRows').start()
 
@@ -187,14 +161,14 @@ class RemoteGuiClient:
         self._write(event.model_dump_json() + '\n')
 
     def _write(self, message: str) -> None:
-        if self.socket is None:
+        if self.connection is None:
             return
-        self.socket.sendall(message.encode())
+        self.connection.write(message)
 
     def _read(self) -> None:
-        if self.file is None:
+        if self.connection is None:
             return
-        for line in self.file:
+        for line in self.connection.read_lines():
             try:
                 message = parse_message(line)
             except ValidationError:
@@ -206,16 +180,11 @@ class RemoteGuiClient:
 
 
 def endpoint_reachable(metadata: DaemonMetadata) -> bool:
-    endpoint = _endpoint(metadata.gui_endpoint)
-    if not isinstance(endpoint, Path):
-        return False
-
     try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-            conn.settimeout(SOCKET_TIMEOUT)
-            conn.connect(str(endpoint))
-    except OSError:
+        connection = client_connection(_endpoint(metadata.gui_endpoint))
+    except (OSError, ValueError):
         return False
+    connection.close()
     return True
 
 
@@ -252,14 +221,3 @@ def daemon_mode_enabled() -> bool:
     import os
 
     return os.environ.get('RECS_DAEMON') == '1'
-
-
-def _remove_stale_socket(path: Path) -> None:
-    if not path.exists():
-        return
-    try:
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-            conn.settimeout(SOCKET_TIMEOUT)
-            conn.connect(str(path))
-    except OSError:
-        path.unlink()

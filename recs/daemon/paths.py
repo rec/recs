@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 
+from .gui_backend import WINDOWS_PIPE
 from .models import Platform, ServicePaths
 
 
@@ -31,7 +32,7 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
             service=appdata / 'recs/recs-scheduled-task.json',
             stdout_log=local / 'recs/logs/recs.out.log',
             stderr_log=local / 'recs/logs/recs.err.log',
-            gui_endpoint=r'\\.\pipe\recs',
+            gui_endpoint=WINDOWS_PIPE,
         )
     return ServicePaths(
         metadata=home / '.config/recs/daemon.json',

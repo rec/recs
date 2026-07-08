@@ -1,6 +1,4 @@
-import socket
 import typing as t
-import uuid
 from pathlib import Path
 
 import pytest
@@ -54,48 +52,66 @@ def test_daemon_publisher_removes_broken_listeners() -> None:
     assert broken.closed
 
 
-def test_remote_row_provider_exposes_latest_rows() -> None:
-    endpoint = _socket_path()
-    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    listener.bind(str(endpoint))
-    listener.listen()
-    client = gui_ipc.RemoteGuiClient(endpoint)
+def test_remote_row_provider_exposes_latest_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection(['{"type":"rows","rows":[{"device":"Mic"}]}\n'])
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
 
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
-    conn, _ = listener.accept()
-    conn.recv(1024)
-    conn.sendall(b'{"type":"rows","rows":[{"device":"Mic"}]}\n')
-
     assert _eventually(lambda: list(client.rows()) == [{'device': 'Mic'}])
 
 
-def test_remote_row_provider_sends_key_events() -> None:
-    endpoint = _socket_path()
-    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    listener.bind(str(endpoint))
-    listener.listen()
-    client = gui_ipc.RemoteGuiClient(endpoint)
+def test_remote_row_provider_sends_key_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection()
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
 
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
-    conn, _ = listener.accept()
-    conn.recv(1024)
     client.record_key(KeyEvent(type='key_pressed', key='g'))
 
-    assert b'"type":"key_pressed"' in conn.recv(1024)
+    assert '{"type":"key_pressed","key":"g"}\n' in connection.sent
 
 
-def test_endpoint_reachable_checks_metadata_socket() -> None:
-    endpoint = _socket_path()
-    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    listener.bind(str(endpoint))
-    listener.listen()
+def test_endpoint_reachable_checks_metadata_socket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection()
     metadata = DaemonMetadata(
         executable=Path('/opt/recs/bin/recs'),
         platform=Platform.linux,
-        gui_endpoint=str(endpoint),
+        gui_endpoint='/tmp/recs.sock',
     )
 
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+
     assert gui_ipc.endpoint_reachable(metadata)
+    assert connection.closed
+
+
+def test_endpoint_reachable_checks_windows_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connections: list[FakeConnection] = []
+    metadata = DaemonMetadata(
+        executable=Path('/opt/recs/bin/recs'),
+        platform=Platform.windows,
+        gui_endpoint=gui_ipc.WINDOWS_PIPE,
+    )
+
+    def connect(endpoint: str | Path) -> FakeConnection:
+        assert endpoint == gui_ipc.WINDOWS_PIPE
+        connection = FakeConnection()
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(gui_ipc, 'client_connection', connect)
+
+    assert gui_ipc.endpoint_reachable(metadata)
+    assert connections[0].closed
 
 
 class FakeListener:
@@ -112,6 +128,23 @@ class FakeListener:
         self.closed = True
 
 
+class FakeConnection:
+    def __init__(self, received: list[str] | None = None) -> None:
+        self.closed = False
+        self.received = received or []
+        self.sent: list[str] = []
+
+    def read_lines(self) -> t.Iterator[str]:
+        return iter(self.received)
+
+    def write(self, message: str) -> bool:
+        self.sent.append(message)
+        return True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def _eventually(check: t.Callable[[], bool]) -> bool:
     import time
 
@@ -121,7 +154,3 @@ def _eventually(check: t.Callable[[], bool]) -> bool:
             return True
         time.sleep(0.01)
     return False
-
-
-def _socket_path() -> Path:
-    return Path('/tmp') / f'recs-test-{uuid.uuid4().hex}.sock'
