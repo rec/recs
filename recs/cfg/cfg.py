@@ -12,7 +12,6 @@ from typing_extensions import Self
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Format, RecordKeys, SdType, Subtype
-from recs.misc import log
 
 from . import device as device_module
 from . import metadata, path_pattern, time_settings
@@ -225,8 +224,6 @@ class Cfg(BaseModel):
         )
 
     def model_post_init(self, context: object) -> None:
-        # This constructor has this *global side-effect*, see log.py
-        log.VERBOSE = self.general.verbose
         if self.general.verbose:
             logging.basicConfig(level=logging.DEBUG)
         self._configure_keys()
