@@ -100,9 +100,7 @@ def test_file_inputs(
     summary = capsys.readouterr().out
     assert summary.startswith('Recording time: ')
     assert summary.endswith(
-        'Files written:\n'
-        '  files/mono-1.wav\n'
-        '  files/stereo-1.wav\n'
+        'Files written:\n' '  files/mono-1.wav\n' '  files/stereo-1.wav\n'
     )
 
 
@@ -279,10 +277,7 @@ def _gap_cfg(root: str, include: list[str]) -> dict[str, object]:
 def _blocks(channels: int, levels: list[float]) -> np.ndarray:
     wave = np.resize(np.array([1, -1], dtype=np.float32), BLOCK_SIZE)
     return np.vstack(
-        [
-            np.tile((wave * level / 2).reshape(-1, 1), (1, channels))
-            for level in levels
-        ]
+        [np.tile((wave * level / 2).reshape(-1, 1), (1, channels)) for level in levels]
     )
 
 
@@ -308,14 +303,10 @@ def _send_blocks(
         times.sleep(0.001)
 
 
-def _wait_for_stream(
-    runner: RecsRunner, device_name: str, offset: int = 0
-) -> object:
+def _wait_for_stream(runner: RecsRunner, device_name: str, offset: int = 0) -> object:
     for _ in range(1000):
         matches = [
-            stream
-            for stream in runner.state.streams
-            if stream.device == device_name
+            stream for stream in runner.state.streams if stream.device == device_name
         ]
         if len(matches) > offset:
             return matches[offset]

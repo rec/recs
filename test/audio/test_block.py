@@ -56,9 +56,7 @@ def test_asfloat2():
 
 
 def test_rms1():
-    b = Block(
-        block=np.array([[0.5, 0.5], [0, 0], [-0.5, -0.5]], dtype='float32')
-    )
+    b = Block(block=np.array([[0.5, 0.5], [0, 0], [-0.5, -0.5]], dtype='float32'))
     level = 1 / 6**0.5
     assert np.allclose(b.rms, [level, level])
 

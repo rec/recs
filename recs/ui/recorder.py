@@ -136,9 +136,7 @@ class Recorder(Runnables):
                     self._reap_sources()
                     self._stop_stalled_sources()
                     sources = [
-                        source
-                        for source in self.sources.values()
-                        if source.is_alive
+                        source for source in self.sources.values() if source.is_alive
                     ]
                     self.state.set_online(
                         source.name for source in sources if source.running
@@ -383,9 +381,7 @@ class Recorder(Runnables):
 
     def _write_manifest(self) -> None:
         files = [
-            file
-            for path, file in sorted(self.manifest_files.items())
-            if path.exists()
+            file for path, file in sorted(self.manifest_files.items()) if path.exists()
         ]
         manifest = SessionManifest(
             started_at=timestamp_to_json(self.state.start_time),

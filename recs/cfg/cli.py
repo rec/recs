@@ -28,9 +28,7 @@ RECS = cfg.Cfg.raw_defaults()
 _T = t.TypeVar('_T')
 
 
-def _prefix_spec(
-    values: PrefixDict[_T], metavar: str
-) -> PrimitiveConstructorSpec[_T]:
+def _prefix_spec(values: PrefixDict[_T], metavar: str) -> PrimitiveConstructorSpec[_T]:
     def parse(args: list[str]) -> _T:
         try:
             return values[args[0]]

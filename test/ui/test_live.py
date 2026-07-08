@@ -24,7 +24,7 @@ def test_live_display_is_disabled_without_cursor_support(
     assert not display.enabled
     assert capsys.readouterr() == (
         '',
-        "WARNING: Terminal does not support the live display "
+        'WARNING: Terminal does not support the live display '
         "(TERM='xterm-256color')\n",
     )
 

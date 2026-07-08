@@ -91,9 +91,7 @@ class Audio(BaseModel):
         fields_set = set(self.model_fields_set)
         self.formats = self.formats or [Format._default]
 
-        if self.subtype and not soundfile.check_format(
-            self.formats[0], self.subtype
-        ):
+        if self.subtype and not soundfile.check_format(self.formats[0], self.subtype):
             raise ValueError(f'{self.formats[0]} and {self.subtype} are incompatible')
 
         if self.subtype:
@@ -286,9 +284,7 @@ class Cfg(BaseModel):
             any(source_track(input_device, excluded, included))
             for input_device in self.input_devices.values()
         )
-        short_file_names = (
-            self.directory.short_file_names and selected_devices == 1
-        )
+        short_file_names = self.directory.short_file_names and selected_devices == 1
         return path_pattern.PathPattern(
             self.directory.output_directory, short_file_names
         )

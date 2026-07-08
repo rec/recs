@@ -34,8 +34,7 @@ class SessionManifest(BaseModel):
         target = _available_path(path)
         target.parent.mkdir(exist_ok=True, parents=True)
         target.write_text(
-            json.dumps(self.model_dump(mode='json', exclude_none=True), indent=2)
-            + '\n'
+            json.dumps(self.model_dump(mode='json', exclude_none=True), indent=2) + '\n'
         )
         return target
 

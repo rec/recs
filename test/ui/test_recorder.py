@@ -250,9 +250,7 @@ def test_device_with_too_few_channels_stays_offline(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
     flower = rec.hardware['Flower 8']
-    rec.poller.snapshots = [
-        {'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}
-    ]
+    rec.poller.snapshots = [{'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}]
 
     rec._poll_devices()
 
@@ -376,9 +374,7 @@ def test_recorder_finishes_with_all_devices_offline(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(
-        Cfg(devices=Path(DEVICES_FILE), silent=True, total_run_time=0.1)
-    )
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True, total_run_time=0.1))
     rec.state.start_time -= 1
 
     assert rec._done([])

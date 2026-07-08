@@ -187,17 +187,17 @@ class ServiceController:
 
 def _register_windows_task_command(path: Path) -> str:
     return (
-        "$task = Get-Content "
+        '$task = Get-Content '
         + _powershell_string(path)
-        + " | ConvertFrom-Json; "
-        + "$action = New-ScheduledTaskAction -Execute $task.executable "
-        + "-Argument $task.argument_string "
-        + "-WorkingDirectory $task.working_directory; "
-        + "$trigger = New-ScheduledTaskTrigger -AtLogOn; "
-        + "$settings = New-ScheduledTaskSettingsSet -RestartCount 3 "
-        + "-RestartInterval (New-TimeSpan -Minutes 1); "
-        + "Register-ScheduledTask -TaskName $task.task_name "
-        + "-Action $action -Trigger $trigger -Settings $settings -Force"
+        + ' | ConvertFrom-Json; '
+        + '$action = New-ScheduledTaskAction -Execute $task.executable '
+        + '-Argument $task.argument_string '
+        + '-WorkingDirectory $task.working_directory; '
+        + '$trigger = New-ScheduledTaskTrigger -AtLogOn; '
+        + '$settings = New-ScheduledTaskSettingsSet -RestartCount 3 '
+        + '-RestartInterval (New-TimeSpan -Minutes 1); '
+        + 'Register-ScheduledTask -TaskName $task.task_name '
+        + '-Action $action -Trigger $trigger -Settings $settings -Force'
     )
 
 

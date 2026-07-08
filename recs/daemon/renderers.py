@@ -42,9 +42,7 @@ def metadata_json(value: DaemonMetadata) -> str:
     return json.dumps(value.model_dump(mode='json'), indent=2) + '\n'
 
 
-def macos_launch_agent(
-    value: DaemonMetadata, paths: ServicePaths
-) -> ServiceDefinition:
+def macos_launch_agent(value: DaemonMetadata, paths: ServicePaths) -> ServiceDefinition:
     plist = {
         'KeepAlive': True,
         'Label': LAUNCHD_LABEL,
@@ -59,9 +57,7 @@ def macos_launch_agent(
     return ServiceDefinition(path=paths.service, content=content)
 
 
-def linux_systemd_unit(
-    value: DaemonMetadata, paths: ServicePaths
-) -> ServiceDefinition:
+def linux_systemd_unit(value: DaemonMetadata, paths: ServicePaths) -> ServiceDefinition:
     command = shlex.join([str(value.executable), *value.argv])
     content = '\n'.join(
         [
@@ -107,9 +103,7 @@ def linux_xdg_autostart(
     return ServiceDefinition(path=path, content=content)
 
 
-def windows_task(
-    value: DaemonMetadata, paths: ServicePaths
-) -> WindowsTaskDefinition:
+def windows_task(value: DaemonMetadata, paths: ServicePaths) -> WindowsTaskDefinition:
     return WindowsTaskDefinition(
         task_name=TASK_NAME,
         executable=value.executable,

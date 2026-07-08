@@ -18,9 +18,7 @@ class DevicePoller(HasThread):
     def poll(self) -> None:
         devices = device.query_devices()
         snapshot = {
-            str(info['name']): info
-            for info in devices
-            if info['max_input_channels']
+            str(info['name']): info for info in devices if info['max_input_channels']
         }
         self.snapshots.put(snapshot)
 

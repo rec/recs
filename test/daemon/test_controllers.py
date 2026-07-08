@@ -98,6 +98,4 @@ def test_status_uses_platform_command(tmp_path: Path) -> None:
     assert not result.installed
     assert result.running
     assert result.details == 'active'
-    assert runner.commands == [
-        ['systemctl', '--user', 'is-active', 'recs.service']
-    ]
+    assert runner.commands == [['systemctl', '--user', 'is-active', 'recs.service']]

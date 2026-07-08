@@ -32,6 +32,7 @@ class InputDevice(Source):
         import sounddevice
 
         stream: sounddevice.InputStream
+
         def callback(
             indata: np.ndarray,
             frames: int,

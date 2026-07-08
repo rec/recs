@@ -28,9 +28,7 @@ def test_info():
 
 def test_help_has_no_consecutive_empty_lines() -> None:
     cmd = 'python -m recs --help'
-    help_text = sp.run(
-        cmd, text=True, check=True, stdout=sp.PIPE, shell=True
-    ).stdout
+    help_text = sp.run(cmd, text=True, check=True, stdout=sp.PIPE, shell=True).stdout
     lines = help_text.splitlines()
 
     for first, second in zip(lines, lines[1:], strict=False):

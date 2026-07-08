@@ -33,6 +33,7 @@ class Case(BaseModel):
     sdtype: SdType | None = None
     shortest_file_time: int = 1
 
+
 BASE = Case(
     name='base',
     arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
