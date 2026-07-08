@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from recs.base import RecsError
 from recs.cfg import Cfg
 from recs.daemon import gui_ipc
 from recs.daemon.gui_protocol import Hello, RowsMessage, parse_message
@@ -159,6 +160,24 @@ def test_endpoint_reachable_checks_windows_pipe(
 
     assert gui_ipc.endpoint_reachable(metadata)
     assert connections[0].closed
+
+
+def test_run_remote_gui_reports_connection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata = DaemonMetadata(
+        executable=Path('/opt/recs/bin/recs'),
+        platform=Platform.linux,
+        gui_endpoint='/tmp/recs.sock',
+    )
+
+    def connect(endpoint: str | Path) -> FakeConnection:
+        raise OSError('connection refused')
+
+    monkeypatch.setattr(gui_ipc, 'client_connection', connect)
+
+    with pytest.raises(RecsError, match='Could not connect to daemon GUI'):
+        gui_ipc.run_remote_gui(metadata, Cfg(gui=True))
 
 
 class FakeListener:

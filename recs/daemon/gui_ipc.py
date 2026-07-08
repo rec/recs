@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import ValidationError
 from threa import Runnable
 
+from recs.base import RecsError
 from recs.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
@@ -240,7 +241,10 @@ def run_remote_gui(metadata: DaemonMetadata, cfg: Cfg) -> None:
     from recs.ui.pyside_gui import Gui
 
     client = RemoteGuiClient(_endpoint(metadata.gui_endpoint))
-    client.start()
+    try:
+        client.start()
+    except (OSError, ValueError) as e:
+        raise RecsError(f'Could not connect to daemon GUI: {e}') from None
     Gui(
         client.rows,
         cfg,
