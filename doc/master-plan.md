@@ -2,6 +2,7 @@
 
 I want to combine many of my projects into one big project, to build a universal recorder/player for timed data.
 
+These projects are found on this machine below /Users/tom/code/ and on Github berlow https://github.com/rec/
 
 Working:
 * tuney: turn text into audio (beta)
@@ -13,7 +14,7 @@ Sketches
 * litoid: automatically record all DMX events (strong alpha)
 * vl8: process existing audio into new audio (lots of code of
 
-The idea is to build a universal recorder that records, processes, mixes and plays back all sorts of data in time except video:
+The plan is to combine the code of the first three
 
 * audio
 * MIDI
