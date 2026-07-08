@@ -1,14 +1,17 @@
-import json
 import os
 import sys
 import threading
 import typing as t
+
+from pydantic import TypeAdapter, ValidationError
 
 from recs.cfg import Cfg
 
 from .gui_process import Rows
 from .key_events import KeyEvent
 from .pyside_gui import Gui
+
+ROWS = TypeAdapter(Rows)
 
 
 class StdinRows:
@@ -27,7 +30,10 @@ class StdinRows:
 
     def _read(self) -> None:
         for line in sys.stdin:
-            rows = t.cast(Rows, json.loads(line))
+            try:
+                rows = ROWS.validate_json(line)
+            except ValidationError:
+                continue
             with self.lock:
                 self.latest = rows
         self.closed = True
