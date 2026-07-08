@@ -1,0 +1,221 @@
+name: Release builds
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-tag:
+    name: Require tag on main
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require tagged commit to be on main
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: validate-tag
+    runs-on: ${{ matrix.os }}
+    env:
+      ARTIFACT_NAME: Recs-${{ github.ref_name }}-${{ matrix.package }}.${{ matrix.extension }}
+      QT_QPA_PLATFORM: offscreen
+      UV_NO_SOURCES: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            package: macOS
+            extension: zip
+            dist-path: dist/Recs.app
+          - name: Windows
+            os: windows-latest
+            package: Windows
+            extension: zip
+            dist-path: dist/Recs
+          - name: Linux
+            os: ubuntu-22.04
+            package: Linux
+            extension: tar.gz
+            dist-path: dist/Recs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install macOS system libraries
+        if: runner.os == 'macOS'
+        run: brew install portaudio
+
+      - name: Install Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libportaudio2 portaudio19-dev
+
+      - name: Install project
+        run: uv sync --dev
+
+      - name: Test
+        run: uv run pytest
+
+      - name: Write Windows version metadata
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $parts = $version.Split(".")
+          while ($parts.Length -lt 4) {
+            $parts += "0"
+          }
+          $tuple = ($parts[0..3] -join ", ")
+          @"
+          # UTF-8
+          VSVersionInfo(
+            ffi=FixedFileInfo(
+              filevers=($tuple),
+              prodvers=($tuple),
+              mask=0x3f,
+              flags=0x0,
+              OS=0x40004,
+              fileType=0x1,
+              subtype=0x0,
+              date=(0, 0),
+            ),
+            kids=[
+              StringFileInfo([
+                StringTable(
+                  '040904B0',
+                  [
+                    StringStruct('CompanyName', 'Recs'),
+                    StringStruct('FileDescription', 'Recs universal audio recorder'),
+                    StringStruct('FileVersion', '$version'),
+                    StringStruct('InternalName', 'Recs'),
+                    StringStruct('OriginalFilename', 'Recs.exe'),
+                    StringStruct('ProductName', 'Recs'),
+                    StringStruct('ProductVersion', '$version'),
+                  ],
+                )
+              ]),
+              VarFileInfo([VarStruct('Translation', [1033, 1200])]),
+            ],
+          )
+          "@ | Set-Content windows-version-info.txt
+
+      - name: Build macOS application
+        if: runner.os == 'macOS'
+        run: uv run --with pyinstaller --with pillow pyinstaller --windowed --disable-windowed-traceback --name Recs --hidden-import recs.ui.gui_child --hidden-import _sounddevice --hidden-import _soundfile --collect-binaries _sounddevice_data --collect-binaries _soundfile_data --add-data recs:recs --add-data README.md:README.md install/pyinstaller_entrypoint.py
+
+      - name: Build Linux application
+        if: runner.os == 'Linux'
+        run: uv run --with pyinstaller --with pillow pyinstaller --windowed --disable-windowed-traceback --name Recs --hidden-import recs.ui.gui_child --hidden-import _sounddevice --hidden-import _soundfile --collect-binaries _sounddevice_data --collect-binaries _soundfile_data --add-data recs:recs --add-data README.md:README.md install/pyinstaller_entrypoint.py
+
+      - name: Build Windows application
+        if: runner.os == 'Windows'
+        run: uv run --with pyinstaller --with pillow pyinstaller --windowed --disable-windowed-traceback --name Recs --version-file windows-version-info.txt --hidden-import recs.ui.gui_child --hidden-import _sounddevice --hidden-import _soundfile --collect-binaries _sounddevice_data --collect-binaries _soundfile_data --add-data recs:recs --add-data README.md:README.md install/pyinstaller_entrypoint.py
+
+      - name: Ad-hoc sign macOS app
+        if: runner.os == 'macOS'
+        run: codesign --force --deep --sign - dist/Recs.app
+
+      - name: Package macOS artifact
+        if: runner.os == 'macOS'
+        run: |
+          mkdir macos-package
+          ditto "${{ matrix.dist-path }}" macos-package/Recs.app
+          python -c "from pathlib import Path; Path('macos-package/README-MACOS.txt').write_text(Path('packaging/README-MACOS.txt').read_text().replace('<version>', '${{ github.ref_name }}'))"
+          ditto -c -k macos-package "$ARTIFACT_NAME"
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          (Get-Content -Raw packaging/README-WINDOWS.txt).Replace("<version>", "${{ github.ref_name }}") | Set-Content "${{ matrix.dist-path }}/README-WINDOWS.txt"
+          Compress-Archive -Path "${{ matrix.dist-path }}" -DestinationPath "$env:ARTIFACT_NAME"
+
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        run: |
+          python -c "from pathlib import Path; Path('${{ matrix.dist-path }}/README-LINUX.txt').write_text(Path('packaging/README-LINUX.txt').read_text().replace('<version>', '${{ github.ref_name }}'))"
+          tar -czf "$ARTIFACT_NAME" -C dist Recs
+
+      - name: Write SHA256 checksum
+        if: runner.os != 'Windows'
+        run: shasum -a 256 "$ARTIFACT_NAME" > "$ARTIFACT_NAME.sha256"
+
+      - name: Write Windows SHA256 checksum
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 "$env:ARTIFACT_NAME").Hash.ToLower()
+          "$hash  $env:ARTIFACT_NAME" | Set-Content "$env:ARTIFACT_NAME.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            ${{ env.ARTIFACT_NAME }}
+            ${{ env.ARTIFACT_NAME }}.sha256
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > RELEASE-NOTES.md <<EOF
+          ## Downloads
+
+          - Windows: download \`Recs-$TAG-Windows.zip\`.
+          - macOS: download \`Recs-$TAG-macOS.zip\`.
+          - Linux: download \`Recs-$TAG-Linux.tar.gz\`.
+
+          Do not download the "Source code" files unless you want to install Recs from Python.
+
+          ## Windows testers
+
+          Extract the zip first, open the extracted \`Recs\` folder, then run \`Recs.exe\`.
+          Do not move \`Recs.exe\` out of the folder. It needs the files next to it.
+
+          This Windows build is unsigned, so antivirus software may warn before running it.
+
+          ## macOS testers
+
+          Right-click \`Recs.app\` and choose Open. If macOS asks for confirmation, choose Open again.
+
+          ## Linux testers
+
+          Extract the archive, open the extracted \`Recs\` folder, then run the \`Recs\` executable inside it.
+
+          Linux audio input setup varies by desktop. Recs needs working microphone or audio input permissions.
+
+          ## Checksums
+
+          SHA256 checksum files are attached next to each build.
+          EOF
+          notes="$(cat RELEASE-NOTES.md)"
+          gh release create "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "$notes" --generate-notes
