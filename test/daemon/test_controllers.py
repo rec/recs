@@ -5,7 +5,7 @@ import pytest
 
 from recs.daemon import controllers
 from recs.daemon.controllers import ServiceController
-from recs.daemon.models import Platform
+from recs.daemon.models import DaemonMetadata, Platform
 from recs.daemon.renderers import metadata
 
 
@@ -72,6 +72,21 @@ def test_macos_controller_installs_launch_agent(
             str(controller.paths.service),
         ]
     ]
+
+
+def test_controller_writes_metadata_atomically(tmp_path: Path) -> None:
+    controller = ServiceController(Platform.linux, tmp_path, FakeRunner())
+    daemon_metadata = metadata(
+        Path('/opt/recs/bin/recs'), Platform.linux, ['--include', 'Mic']
+    )
+
+    controller.install(daemon_metadata)
+
+    assert (
+        DaemonMetadata.model_validate_json(controller.paths.metadata.read_text())
+        == daemon_metadata
+    )
+    assert not controller.paths.metadata.with_name('.daemon.json.tmp').exists()
 
 
 def test_status_uses_platform_command(tmp_path: Path) -> None:
