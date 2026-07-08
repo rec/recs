@@ -4,6 +4,7 @@ import shlex
 import subprocess as sp
 from pathlib import Path
 
+from . import paths as paths_module
 from .models import (
     DaemonMetadata,
     Platform,
@@ -20,11 +21,14 @@ def metadata(
     executable: Path,
     platform: Platform,
     recording_args: list[str],
+    paths: ServicePaths | None = None,
 ) -> DaemonMetadata:
+    paths = paths or paths_module.service_paths(platform)
     return DaemonMetadata(
         argv=daemon_args(recording_args),
         executable=executable,
         platform=platform,
+        gui_endpoint=str(paths.gui_endpoint),
     )
 
 
@@ -49,6 +53,7 @@ def macos_launch_agent(
         'StandardErrorPath': str(paths.stderr_log),
         'StandardOutPath': str(paths.stdout_log),
         'WorkingDirectory': str(Path.home()),
+        'EnvironmentVariables': {'RECS_DAEMON': '1'},
     }
     content = plistlib.dumps(plist, sort_keys=True).decode()
     return ServiceDefinition(path=paths.service, content=content)
@@ -66,6 +71,7 @@ def linux_systemd_unit(
             '',
             '[Service]',
             f'ExecStart={command}',
+            'Environment=RECS_DAEMON=1',
             'Restart=always',
             'RestartSec=5',
             'WorkingDirectory=%h',

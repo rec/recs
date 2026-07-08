@@ -11,6 +11,7 @@ from threa import HasThread, Runnable, Runnables
 from recs.base import RecsError, times
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import Cfg, FileSource, InputDevice
+from recs.daemon import gui_ipc
 
 from . import gui_process, live
 from .device_poller import DevicePoller
@@ -39,7 +40,9 @@ class Recorder(Runnables):
 
         self.state = FullState(all_tracks)
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
-        if self.cfg.console.gui:
+        if gui_ipc.daemon_mode_enabled():
+            display_type = gui_ipc.DaemonGuiServer
+        elif self.cfg.console.gui:
             display_type = gui_process.GuiProcess
         else:
             display_type = live.Live

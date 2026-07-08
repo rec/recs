@@ -40,6 +40,7 @@ def test_macos_launch_agent() -> None:
         '--include',
         'Mic',
     ]
+    assert plist['EnvironmentVariables'] == {'RECS_DAEMON': '1'}
     assert plist['RunAtLoad'] is True
     assert plist['KeepAlive'] is True
 
@@ -54,6 +55,7 @@ def test_linux_systemd_unit() -> None:
 
     assert definition.path == Path('/home/tom/.config/systemd/user/recs.service')
     assert 'ExecStart=/opt/recs/bin/recs --silent --include Mic' in definition.content
+    assert 'Environment=RECS_DAEMON=1' in definition.content
     assert 'Restart=always' in definition.content
     assert 'WantedBy=default.target' in definition.content
 

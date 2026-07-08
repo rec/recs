@@ -16,6 +16,7 @@ class DaemonMetadata(BaseModel):
     argv: list[str] = Field(default_factory=list)
     executable: Path
     platform: Platform
+    gui_endpoint: str
 
 
 class ServicePaths(BaseModel):
@@ -23,6 +24,7 @@ class ServicePaths(BaseModel):
     service: Path
     stdout_log: Path
     stderr_log: Path
+    gui_endpoint: Path | str
 
 
 class ServiceDefinition(BaseModel):

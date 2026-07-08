@@ -4,6 +4,7 @@ import soundfile
 
 from recs.base.types import Format, SdType
 from recs.cfg import device
+from recs.daemon import gui_ipc
 from recs.ui.recorder import Recorder
 
 from . import Cfg
@@ -14,6 +15,11 @@ def run_cli(cfg: Cfg) -> None:
         _info()
     elif cfg.general.list_types:
         _list_types()
+    elif cfg.console.gui and (metadata := gui_ipc.load_metadata()) is not None:
+        if gui_ipc.endpoint_reachable(metadata):
+            gui_ipc.run_remote_gui(metadata, cfg)
+        else:
+            Recorder(cfg).run()
     else:
         Recorder(cfg).run()
 

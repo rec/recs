@@ -195,6 +195,23 @@ def test_gui_starts_sources_before_display_process(
     rec._run()
 
 
+def test_daemon_mode_uses_gui_server_instead_of_local_gui(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    class DaemonDisplay(ClosedDisplay):
+        pass
+
+    monkeypatch.setenv('RECS_DAEMON', '1')
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.gui_process, 'GuiProcess', pytest.fail)
+    monkeypatch.setattr(recorder.gui_ipc, 'DaemonGuiServer', DaemonDisplay)
+
+    rec = Recorder(Cfg(gui=True))
+
+    assert isinstance(rec.live, DaemonDisplay)
+
+
 def test_failed_device_waits_for_reconnect(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -21,6 +21,7 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
             service=home / 'Library/LaunchAgents/com.swirly.recs.plist',
             stdout_log=home / 'Library/Logs/recs/recs.out.log',
             stderr_log=home / 'Library/Logs/recs/recs.err.log',
+            gui_endpoint=home / '.local/state/recs/gui.sock',
         )
     if platform == Platform.windows:
         appdata = Path(os.environ.get('APPDATA', home / 'AppData/Roaming'))
@@ -30,10 +31,12 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
             service=appdata / 'recs/recs-scheduled-task.json',
             stdout_log=local / 'recs/logs/recs.out.log',
             stderr_log=local / 'recs/logs/recs.err.log',
+            gui_endpoint=r'\\.\pipe\recs',
         )
     return ServicePaths(
         metadata=home / '.config/recs/daemon.json',
         service=home / '.config/systemd/user/recs.service',
         stdout_log=home / '.local/state/recs/recs.out.log',
         stderr_log=home / '.local/state/recs/recs.err.log',
+        gui_endpoint=home / '.local/state/recs/gui.sock',
     )
