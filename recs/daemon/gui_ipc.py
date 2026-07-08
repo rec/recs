@@ -120,6 +120,7 @@ class GuiListener:
     ) -> None:
         self.conn = conn
         self.append_key_event = append_key_event
+        self.handshake_complete = False
         self.lock = threading.Lock()
 
     def start(self) -> None:
@@ -140,28 +141,31 @@ class GuiListener:
                 LOGGER.warning('Ignoring malformed GUI message')
                 continue
             if isinstance(message, Hello):
-                self._receive_hello(message)
+                if not self._receive_hello(message):
+                    return
                 continue
+            if not self.handshake_complete:
+                self._reject('GUI hello required before other messages')
+                return
             if isinstance(message, (KeyPressed, KeyReleased)):
                 self.append_key_event(KeyEvent(type=message.type, key=message.key))
 
-    def _receive_hello(self, message: Hello) -> None:
+    def _receive_hello(self, message: Hello) -> bool:
         if message.version != VERSION:
-            self.write(
-                Error(
-                    type='error',
-                    message=(
-                        f'GUI protocol version {message.version} is not supported; '
-                        f'daemon requires {VERSION}'
-                    ),
-                ).model_dump_json()
-                + '\n'
+            self._reject(
+                f'GUI protocol version {message.version} is not supported; '
+                f'daemon requires {VERSION}'
             )
-            self.close()
-            return
+            return False
+        self.handshake_complete = True
         self.write(
             Hello(type='hello', role='daemon', version=VERSION).model_dump_json() + '\n'
         )
+        return True
+
+    def _reject(self, message: str) -> None:
+        self.write(Error(type='error', message=message).model_dump_json() + '\n')
+        self.close()
 
 
 class RemoteGuiClient:

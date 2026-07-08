@@ -69,6 +69,35 @@ def test_gui_listener_replies_to_supported_hello() -> None:
     assert connection.sent == ['{"type":"hello","role":"daemon","version":1}\n']
 
 
+def test_gui_listener_accepts_key_events_after_hello() -> None:
+    events: list[KeyEvent] = []
+    connection = FakeConnection(
+        [
+            '{"type":"hello","role":"gui","version":1}\n',
+            '{"type":"key_pressed","key":"g"}\n',
+        ]
+    )
+    listener = gui_ipc.GuiListener(connection, events.append)
+
+    listener._read()
+
+    assert events == [KeyEvent(type='key_pressed', key='g')]
+
+
+def test_gui_listener_rejects_key_events_before_hello() -> None:
+    events: list[KeyEvent] = []
+    connection = FakeConnection(['{"type":"key_pressed","key":"g"}\n'])
+    listener = gui_ipc.GuiListener(connection, events.append)
+
+    listener._read()
+
+    assert connection.sent == [
+        '{"type":"error","message":"GUI hello required before other messages"}\n'
+    ]
+    assert connection.closed
+    assert events == []
+
+
 def test_gui_listener_rejects_unsupported_hello() -> None:
     connection = FakeConnection(['{"type":"hello","role":"gui","version":2}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
