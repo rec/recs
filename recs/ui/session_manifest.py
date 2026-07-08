@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -33,8 +34,10 @@ class SessionManifest(BaseModel):
     def write(self, path: Path) -> Path:
         target = _available_path(path)
         target.parent.mkdir(exist_ok=True, parents=True)
-        target.write_text(
-            json.dumps(self.model_dump(mode='json', exclude_none=True), indent=2) + '\n'
+        _write_text_atomically(
+            target,
+            json.dumps(self.model_dump(mode='json', exclude_none=True), indent=2)
+            + '\n',
         )
         return target
 
@@ -57,3 +60,12 @@ def _available_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
         index += 1
+
+
+def _write_text_atomically(path: Path, content: str) -> None:
+    tmp = path.with_name(f'.{path.name}.tmp')
+    with tmp.open('w') as fp:
+        fp.write(content)
+        fp.flush()
+        os.fsync(fp.fileno())
+    tmp.replace(path)
