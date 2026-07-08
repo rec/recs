@@ -2,15 +2,30 @@ import typing as t
 
 from recs.base import state, times
 from recs.base.types import Active
-from recs.cfg import Source, Track
+from recs.cfg import Aliases, Source, Track
 
 
 class FullState:
-    def __init__(self, tracks: t.Sequence[tuple[Source, t.Sequence[Track]]]) -> None:
+    def __init__(
+        self,
+        tracks: t.Sequence[tuple[Source, t.Sequence[Track]]],
+        aliases: Aliases | None = None,
+    ) -> None:
         def device_state(tr: t.Sequence[Track]) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in tr}
 
         self.state = {k.name: device_state(v) for k, v in tracks}
+        self.source_names = {
+            source.name: aliases.display_name(source) if aliases else source.name
+            for source, _ in tracks
+        }
+        self.track_names = {
+            (source.name, track.name): (
+                aliases.display_name(track) if aliases else track.name
+            )
+            for source, source_tracks in tracks
+            for track in source_tracks
+        }
         self.online: set[str] = set()
         self.total = state.ChannelState()
         self.start_time = times.timestamp()
@@ -45,11 +60,11 @@ class FullState:
 
         for device_name, device_state in self.state.items():
             active = Active.active if device_name in self.online else Active.offline
-            yield {'device': device_name, 'on': active}  # TODO: use alias here
+            yield {'device': self.source_names[device_name], 'on': active}
 
             for c, s in device_state.items():
                 yield {
-                    'channel': c,  # TODO: use alias here
+                    'channel': self.track_names[(device_name, c)],
                     'on': Active.active if s.is_active else Active.inactive,
                     'recorded': s.recorded_time,
                     'file_size': s.file_size,

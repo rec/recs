@@ -39,7 +39,7 @@ class Recorder(Runnables):
         if not (all_tracks := list(source_tracks(cfg))):
             raise RecsError('No channels selected')
 
-        self.state = FullState(all_tracks)
+        self.state = FullState(all_tracks, cfg.aliases)
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         if gui_ipc.daemon_mode_enabled():
             display_type = gui_ipc.DaemonGuiServer

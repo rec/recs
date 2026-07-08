@@ -1,6 +1,8 @@
+from test.conftest import DEVICES_FILE
+
 from recs.base.state import ChannelState
 from recs.base.types import Active
-from recs.cfg import InputDevice, Track
+from recs.cfg import Cfg, InputDevice, Track
 from recs.ui.full_state import FullState
 
 
@@ -45,3 +47,15 @@ def test_offline_transition_preserves_cumulative_state() -> None:
     assert channel.file_count == 2
     assert channel.file_size == 100
     assert channel.recorded_time == 3
+
+
+def test_rows_use_aliases() -> None:
+    cfg = Cfg(devices=DEVICES_FILE, alias=('m = Mic', 'main = Mic + 1'))
+    source = cfg.input_devices['Mic']
+    track = Track(source, '1')
+    state = FullState([(source, [track])], cfg.aliases)
+
+    rows = list(state.rows())
+
+    assert rows[1]['device'] == 'm'
+    assert rows[2]['channel'] == 'main'
