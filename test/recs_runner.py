@@ -243,7 +243,7 @@ class RecsRunner(BaseModel):
         parents = {path.parent for path in paths}
         assert len(parents) == 1
         parent = parents.pop()
-        assert parent.name.startswith('recs: ')
+        assert parent.name.startswith(('recs: ', 'recs '))
         return [path.relative_to(parent) for path in paths]
 
     def _ready(self) -> bool:

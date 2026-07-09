@@ -168,7 +168,9 @@ def test_recorder_loop_runs_without_live_display(
 def test_recorder_stops_when_gui_display_closes(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
+    mock_mp: None,
 ) -> None:
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recorder.gui_process, 'GuiProcess', ClosedDisplay)
     rec = Recorder(Cfg(gui=True))
 
@@ -464,6 +466,7 @@ def test_default_output_directory_uses_session_timestamp(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
+    expected = recorder._session_directory_name(timestamp)
     path = Path(rec.cfg.directory.output_directory) / 'mic.wav'
     path.parent.mkdir(parents=True)
     path.touch()
@@ -488,7 +491,7 @@ def test_default_output_directory_uses_session_timestamp(
     )
     rec._write_manifest()
 
-    assert rec.cfg.directory.output_directory == 'recs: 2026-06-23 20:34:10'
+    assert rec.cfg.directory.output_directory == expected
     assert (path.parent / 'recs-session.json').exists()
 
 
@@ -501,11 +504,12 @@ def test_default_output_directory_uses_collision_suffix(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    Path('recs: 2026-06-23 20:34:10').mkdir()
+    expected = recorder._session_directory_name(timestamp)
+    Path(expected).mkdir()
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
 
-    assert rec.cfg.directory.output_directory == 'recs: 2026-06-23 20:34:10_1'
+    assert rec.cfg.directory.output_directory == f'{expected}_1'
 
 
 def test_windows_default_output_directory_avoids_colons(

@@ -289,7 +289,7 @@ class Recorder(Runnables):
         self.files_written.update(update.files)
         for file_record in update.file_records or []:
             self.manifest_files[file_record.path] = ManifestFile(
-                path=str(file_record.path),
+                path=file_record.path.as_posix(),
                 source=self._manifest_source(file_record.source_name),
                 track=file_record.track,
                 channels=file_record.channels,

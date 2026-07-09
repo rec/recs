@@ -228,13 +228,14 @@ def _stable_manifest(manifest: dict[str, object]) -> dict[str, object]:
     }
     for file in result['files']:
         assert isinstance(file, dict)
-        file['source'] = str(Path(str(file['source'])).relative_to(REPO_ROOT))
+        file['path'] = Path(str(file['path'])).as_posix()
+        file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
     for event in result.get('events', []):
         assert isinstance(event, dict)
         event['timestamp'] = '<timestamp>'
         source = Path(str(event['source']))
         if source.is_absolute():
-            event['source'] = str(source.relative_to(REPO_ROOT))
+            event['source'] = source.relative_to(REPO_ROOT).as_posix()
     return result
 
 

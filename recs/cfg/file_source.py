@@ -24,7 +24,7 @@ class FileSource(Source):
             super().__init__(
                 channels=fp.channels,
                 format=self.format,
-                name=str(path),
+                name=path.as_posix(),
                 samplerate=int(fp.samplerate),
                 subtype=self.subtype,
             )

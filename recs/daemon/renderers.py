@@ -46,10 +46,10 @@ def macos_launch_agent(value: DaemonMetadata, paths: ServicePaths) -> ServiceDef
     plist = {
         'KeepAlive': True,
         'Label': LAUNCHD_LABEL,
-        'ProgramArguments': [str(value.executable), *value.argv],
+        'ProgramArguments': [_posix(value.executable), *value.argv],
         'RunAtLoad': True,
-        'StandardErrorPath': str(paths.stderr_log),
-        'StandardOutPath': str(paths.stdout_log),
+        'StandardErrorPath': _posix(paths.stderr_log),
+        'StandardOutPath': _posix(paths.stdout_log),
         'WorkingDirectory': str(Path.home()),
         'EnvironmentVariables': {'RECS_DAEMON': '1'},
     }
@@ -58,7 +58,7 @@ def macos_launch_agent(value: DaemonMetadata, paths: ServicePaths) -> ServiceDef
 
 
 def linux_systemd_unit(value: DaemonMetadata, paths: ServicePaths) -> ServiceDefinition:
-    command = shlex.join([str(value.executable), *value.argv])
+    command = shlex.join([_posix(value.executable), *value.argv])
     content = '\n'.join(
         [
             '[Unit]',
@@ -71,8 +71,8 @@ def linux_systemd_unit(value: DaemonMetadata, paths: ServicePaths) -> ServiceDef
             'Restart=always',
             'RestartSec=5',
             'WorkingDirectory=%h',
-            f'StandardOutput=append:{paths.stdout_log}',
-            f'StandardError=append:{paths.stderr_log}',
+            f'StandardOutput=append:{_posix(paths.stdout_log)}',
+            f'StandardError=append:{_posix(paths.stderr_log)}',
             '',
             '[Install]',
             'WantedBy=default.target',
@@ -86,7 +86,7 @@ def linux_xdg_autostart(
     value: DaemonMetadata, home: Path | None = None
 ) -> ServiceDefinition:
     home = home or Path.home()
-    command = shlex.join([str(value.executable), *value.argv])
+    command = shlex.join([_posix(value.executable), *value.argv])
     path = home / '.config/autostart/recs.desktop'
     content = '\n'.join(
         [
@@ -113,3 +113,7 @@ def windows_task(value: DaemonMetadata, paths: ServicePaths) -> WindowsTaskDefin
         stdout_log=paths.stdout_log,
         stderr_log=paths.stderr_log,
     )
+
+
+def _posix(path: Path) -> str:
+    return path.as_posix()
