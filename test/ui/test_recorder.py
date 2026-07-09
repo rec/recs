@@ -446,7 +446,7 @@ def test_live_input_manifest_omits_source(
     manifest = json.loads((tmp_path / 'recs-session.json').read_text())
     assert manifest['files'] == [
         {
-            'path': str(path),
+            'path': path.as_posix(),
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
