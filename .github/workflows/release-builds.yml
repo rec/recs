@@ -125,7 +125,7 @@ jobs:
 
       - name: Build Windows application
         if: runner.os == 'Windows'
-        run: uv run --with pyinstaller --with pillow pyinstaller --windowed --disable-windowed-traceback --name Recs --version-file windows-version-info.txt --hidden-import recs.ui.gui_child --hidden-import _sounddevice --hidden-import _soundfile --collect-binaries _sounddevice_data --collect-binaries _soundfile_data --add-data recs:recs --add-data README.md:README.md install/pyinstaller_entrypoint.py
+        run: uv run --with pyinstaller --with pillow pyinstaller --windowed --disable-windowed-traceback --name Recs --version-file windows-version-info.txt --hidden-import recs.ui.gui_child --hidden-import _sounddevice --hidden-import _soundfile --collect-binaries _sounddevice_data --collect-binaries _soundfile_data --add-data "recs;recs" --add-data "README.md;README.md" install/pyinstaller_entrypoint.py
 
       - name: Ad-hoc sign macOS app
         if: runner.os == 'macOS'
