@@ -123,6 +123,7 @@ class Console(BaseModel):
     #
     clear_terminal: bool = True
     gui: bool = False
+    remote: bool = False
     silent: bool = False
     sleep_time_device: float = 0.1
     ui_refresh_rate: float = 23.0

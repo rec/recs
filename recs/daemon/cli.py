@@ -13,6 +13,7 @@ INTERACTIVE_OPTIONS = {
     '--gui',
     '--info',
     '--list-types',
+    '--remote',
     '--types',
     '--no-silent',
 }

@@ -190,6 +190,13 @@ def recs(
             help='Display live updates in a PySide6 window',
         ),
     ],
+    remote: t.Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.console.remote,
+            help='Connect to an already-running recs daemon instead of recording',
+        ),
+    ],
     silent: t.Annotated[
         bool,
         tyro.conf.arg(

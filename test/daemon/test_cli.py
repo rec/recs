@@ -55,6 +55,8 @@ def test_daemon_install_stores_recording_args(
 def test_daemon_install_rejects_interactive_options() -> None:
     with pytest.raises(RecsError, match='Cannot install daemon with --gui'):
         cli.main(['install', '--gui'])
+    with pytest.raises(RecsError, match='Cannot install daemon with --remote'):
+        cli.main(['install', '--remote'])
 
 
 def test_daemon_status(
