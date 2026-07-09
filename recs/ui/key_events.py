@@ -1,9 +1,6 @@
 import importlib
-import select
 import sys
-import termios
 import threading
-import tty
 import typing as t
 
 from pydantic import BaseModel
@@ -38,14 +35,21 @@ class TerminalKeyRecorder(Runnable):
         self.original_termios: t.Any | None = None
 
     def start(self) -> None:
+        if sys.platform == 'win32':
+            return
         if not sys.stdin.isatty():
             return
+        import termios
+        import tty
+
         self.original_termios = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin)
         super().start()
 
     def stop(self) -> None:
         if self.original_termios is not None:
+            import termios
+
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.original_termios)
             self.original_termios = None
         super().stop()
@@ -53,6 +57,8 @@ class TerminalKeyRecorder(Runnable):
     def update(self) -> None:
         if not self.running:
             return
+        import select
+
         readable, _, _ = select.select([sys.stdin], [], [], 0)
         if not readable:
             return
