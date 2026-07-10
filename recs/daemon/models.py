@@ -20,8 +20,11 @@ class DaemonMetadata(BaseModel):
 
 
 class DaemonStatus(BaseModel):
+    client_count: int = 0
     gui_ipc_error: str | None = None
+    rows: list[dict[str, object]] = Field(default_factory=list)
     recording: bool = False
+    updated_at: float = 0.0
 
 
 class ServicePaths(BaseModel):
@@ -52,3 +55,4 @@ class StatusResult(BaseModel):
     installed: bool
     running: bool | None = None
     details: str = ''
+    health: DaemonStatus | None = None

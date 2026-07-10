@@ -71,6 +71,16 @@ def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
     assert 'address in use' in server.paths.status.read_text()
 
 
+def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([{'device': 'Mic'}]), Cfg())
+    server.enabled = True
+    server.paths = server.paths.model_copy(update={'status': tmp_path / 'status.json'})
+
+    server.update()
+
+    assert '"rows":[{"device":"Mic"}]' in server.paths.status.read_text()
+
+
 def test_gui_listener_replies_to_supported_hello() -> None:
     connection = FakeConnection(['{"type":"hello","role":"gui","version":1}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)

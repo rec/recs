@@ -111,3 +111,5 @@ def test_status_reports_gui_ipc_errors(tmp_path: Path) -> None:
     result = controller.status()
 
     assert result.details == 'active\nGUI IPC error: address in use'
+    assert result.health is not None
+    assert result.health.gui_ipc_error == 'address in use'

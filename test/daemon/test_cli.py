@@ -69,3 +69,25 @@ def test_daemon_status(
     assert cli.main(['status']) == 0
 
     assert '"details":"active"' in capsys.readouterr().out
+
+
+def test_daemon_status_accepts_json_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
+    monkeypatch.setattr(cli, 'ServiceController', FakeController)
+
+    assert cli.main(['status', '--json']) == 0
+
+    assert '"running":true' in capsys.readouterr().out
+
+
+def test_daemon_status_rejects_unknown_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
+    monkeypatch.setattr(cli, 'ServiceController', FakeController)
+
+    with pytest.raises(RecsError, match='Unknown daemon status option'):
+        cli.main(['status', '--brief'])

@@ -156,13 +156,15 @@ class ServiceController:
                 capture_output=True,
             )
         details = (result.stdout or result.stderr or '').strip()
-        if (status := _read_status(self.paths.status)) and status.gui_ipc_error:
+        status = _read_status(self.paths.status)
+        if status and status.gui_ipc_error:
             details = '\n'.join(
                 part
                 for part in [details, f'GUI IPC error: {status.gui_ipc_error}']
                 if part
             )
         return StatusResult(
+            health=status,
             installed=installed,
             running=result.returncode == 0,
             details=details,

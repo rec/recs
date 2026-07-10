@@ -1,6 +1,7 @@
 import logging
 import sys
 import threading
+import time
 import typing as t
 from pathlib import Path
 
@@ -57,13 +58,13 @@ class DaemonGuiServer(Runnable):
         except OSError as e:
             _write_status(
                 self.paths.status,
-                DaemonStatus(recording=True, gui_ipc_error=str(e)),
+                self._status(gui_ipc_error=str(e)),
             )
             LOGGER.warning('Cannot start GUI IPC server: %s', e)
             super().start()
             return
 
-        _write_status(self.paths.status, DaemonStatus(recording=True))
+        _write_status(self.paths.status, self._status())
         super().start()
         threading.Thread(
             target=self._accept,
@@ -74,7 +75,9 @@ class DaemonGuiServer(Runnable):
     def update(self) -> None:
         if not self.enabled:
             return
-        self.broadcast([dict(row) for row in self.rows()])
+        rows = [dict(row) for row in self.rows()]
+        _write_status(self.paths.status, self._status(rows=rows))
+        self.broadcast(rows)
 
     @property
     def closed(self) -> bool:
@@ -118,6 +121,22 @@ class DaemonGuiServer(Runnable):
         with self.lock:
             if listener in self.clients:
                 self.clients.remove(listener)
+
+    def _status(
+        self,
+        *,
+        gui_ipc_error: str | None = None,
+        rows: list[dict[str, object]] | None = None,
+    ) -> DaemonStatus:
+        with self.lock:
+            client_count = len(self.clients)
+        return DaemonStatus(
+            client_count=client_count,
+            gui_ipc_error=gui_ipc_error,
+            recording=True,
+            rows=rows or [],
+            updated_at=time.time(),
+        )
 
 
 class GuiListener:

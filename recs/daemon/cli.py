@@ -27,6 +27,10 @@ def main(argv: list[str]) -> int:
     command, args = argv[0], argv[1:]
     if command not in COMMANDS:
         raise RecsError(f'Unknown daemon command: {command}')
+    if command == 'status' and args == ['--json']:
+        args = []
+    if command == 'status' and args:
+        raise RecsError(f'Unknown daemon status option: {args[0]}')
 
     platform = paths.current_platform()
     controller = ServiceController(platform)
