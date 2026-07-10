@@ -47,8 +47,8 @@ Recorder if you liked.
 
 ### Installation
 
-`recs` is a standard PyPi package - use `poetry add recs` or `pip install recs` or your
-favorite package manager.
+`recs` is a standard Python package. Use `pip install recs`, `uv tool install
+recs`, or your favorite package manager.
 
 To test, type `recs --info`, which prints JSON describing the input devices
 you have. Here's a snippet from my machine:
@@ -106,6 +106,6 @@ The aim is to be as bulletproof as possible. The pre-beta existing as I write th
 (2023/11/19) seems to handle harder cases like hybernation well, and can
 detect if a  device goes offline and report it.
 
-The holy grail is reconnecting to a device that comes back online: this is an
-[unsolved problem](https://github.com/spatialaudio/python-sounddevice/issues/382)
-in Python, I believe, but I am on my way to solving it.
+`recs` polls devices while it runs and can start recording again when a matching
+device comes back online. Hardware and driver failures can still lose audio, but
+the recorder is designed to keep the session alive where possible.
