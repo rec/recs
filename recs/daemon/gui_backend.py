@@ -8,6 +8,8 @@ from pathlib import Path
 PIPE_CONNECT_TIMEOUT = 0.2
 SOCKET_TIMEOUT = 0.2
 WINDOWS_PIPE = r'\\.\pipe\recs'
+_CONNECTING_PIPES: set[str] = set()
+_CONNECTING_PIPES_LOCK = threading.Lock()
 
 
 class GuiConnection(t.Protocol):
@@ -165,6 +167,11 @@ def _remove_stale_socket(path: Path) -> None:
 
 
 def _connect_windows_pipe(endpoint: str) -> mp_connection.Connection:
+    with _CONNECTING_PIPES_LOCK:
+        if endpoint in _CONNECTING_PIPES:
+            raise TimeoutError(f'Timed out connecting to {endpoint}')
+        _CONNECTING_PIPES.add(endpoint)
+
     results: queue.Queue[
         mp_connection.Connection | OSError | ValueError
     ] = queue.Queue()
@@ -174,6 +181,8 @@ def _connect_windows_pipe(endpoint: str) -> mp_connection.Connection:
             result = mp_connection.Client(endpoint, family='AF_PIPE')
         except (OSError, ValueError) as error:
             result = error
+        with _CONNECTING_PIPES_LOCK:
+            _CONNECTING_PIPES.discard(endpoint)
         results.put(result)
 
     threading.Thread(target=connect, daemon=True).start()

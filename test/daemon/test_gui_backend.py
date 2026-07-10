@@ -61,7 +61,11 @@ def test_windows_pipe_client_uses_named_pipe_family(
 def test_windows_pipe_client_times_out(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    calls = 0
+
     def connect(endpoint: str, family: str) -> FakePipe:
+        nonlocal calls
+        calls += 1
         time.sleep(0.1)
         return FakePipe()
 
@@ -70,6 +74,9 @@ def test_windows_pipe_client_times_out(
 
     with pytest.raises(TimeoutError, match='Timed out connecting'):
         gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
+    with pytest.raises(TimeoutError, match='Timed out connecting'):
+        gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
+    assert calls == 1
 
 
 def test_windows_pipe_connection_reads_until_closed() -> None:
