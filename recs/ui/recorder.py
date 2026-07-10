@@ -111,7 +111,9 @@ class Recorder(Runnables):
             finally:
                 self._receive_pending_updates()
                 self._write_manifest()
-                if self.cfg.general.calibrate or self.cfg.general.verbose:
+                if self.cfg.general.silence_preview:
+                    print(json.dumps(self._silence_preview_report(), indent=2))
+                elif self.cfg.general.calibrate or self.cfg.general.verbose:
                     print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
 
@@ -413,7 +415,7 @@ class Recorder(Runnables):
         return self.frames[source.name] >= target
 
     def _write_manifest(self) -> None:
-        if self.cfg.general.dry_run:
+        if self.cfg.general.dry_run or self.cfg.general.silence_preview:
             return
         files = [
             file for path, file in sorted(self.manifest_files.items()) if path.exists()
@@ -432,6 +434,28 @@ class Recorder(Runnables):
         if isinstance(self.sources[source_name].source, FileSource):
             return source_name
         return None
+
+    def _silence_preview_report(self) -> dict[str, object]:
+        measurements = self.state.db_ranges()
+        noise_floor = max(measurements.values(), default=0.0) + 6.0
+        return {
+            'measurements': measurements,
+            'recommendations': {
+                'noise_floor': round(noise_floor, 1),
+                'quiet_before_start': self.cfg.recording.quiet_before_start,
+                'quiet_after_end': self.cfg.recording.quiet_after_end,
+            },
+            'flags': {
+                'noise_floor': f'--noise-floor {noise_floor:.1f}',
+                'quiet_before_start': (
+                    f'--quiet-before-start '
+                    f'{self.cfg.recording.quiet_before_start:g}'
+                ),
+                'quiet_after_end': (
+                    f'--quiet-after-end {self.cfg.recording.quiet_after_end:g}'
+                ),
+            },
+        }
 
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.files_written if path.exists())

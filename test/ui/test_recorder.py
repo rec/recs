@@ -500,7 +500,9 @@ def test_live_input_manifest_omits_source(
     ]
 
 
-def test_dry_run_does_not_write_manifest(
+@pytest.mark.parametrize('field', ['dry_run', 'silence_preview'])
+def test_preview_modes_do_not_write_manifest(
+    field: str,
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -508,11 +510,35 @@ def test_dry_run_does_not_write_manifest(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(dry_run=True, include=['Mic'], silent=True))
+    rec = Recorder(Cfg(**{field: True}, include=['Mic'], silent=True))
 
     rec._write_manifest()
 
     assert not Path('recs-session.json').exists()
+
+
+def test_silence_preview_report_recommends_thresholds(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(silence_preview=True, include=['Mic'], silent=True))
+    rec.state.update({'Mic': {'1': ChannelState(max_amp=0.5, min_amp=-0.5)}})
+
+    assert rec._silence_preview_report() == {
+        'measurements': {'Mic - 1': 6.020599913279624, '(all)': 6.020599913279624},
+        'recommendations': {
+            'noise_floor': 12.0,
+            'quiet_before_start': 1.0,
+            'quiet_after_end': 2.0,
+        },
+        'flags': {
+            'noise_floor': '--noise-floor 12.0',
+            'quiet_before_start': '--quiet-before-start 1',
+            'quiet_after_end': '--quiet-after-end 2',
+        },
+    }
 
 
 def test_empty_template_output_directory_manifest_uses_time_template(

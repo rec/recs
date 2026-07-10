@@ -57,7 +57,9 @@ class ChannelWriter(Runnable):
         super().__init__()
 
         self.cfg = cfg
-        self.do_not_record = cfg.general.dry_run or cfg.general.calibrate
+        self.do_not_record = (
+            cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
+        )
         self.metadata = cfg.metadata_dict
         self.times = times
         self.track = track

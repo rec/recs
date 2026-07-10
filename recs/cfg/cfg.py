@@ -47,6 +47,7 @@ class General(BaseModel):
     verbose: bool = False
     info: bool = False
     list_types: bool = False
+    silence_preview: bool = False
 
 
 class Device(BaseModel):

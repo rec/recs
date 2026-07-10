@@ -114,6 +114,13 @@ def recs(
             help='List all subtypes for each format as JSON',
         ),
     ],
+    silence_preview: t.Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.general.silence_preview,
+            help='Show live silence measurements and suggested recording thresholds',
+        ),
+    ],
     alias: t.Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
