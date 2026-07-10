@@ -56,6 +56,7 @@ class Device(BaseModel):
     #
     alias: list[str] = Field(default_factory=list)
     devices: Path = Path()
+    profiles: Path = Path()
 
     @field_validator('devices')
     @classmethod
@@ -67,6 +68,17 @@ class Device(BaseModel):
         if not json.loads(devices.read_text()):
             raise ValueError(f'{devices} contains no devices')
         return devices
+
+    @field_validator('profiles')
+    @classmethod
+    def validate_profiles_file(cls, profiles: Path) -> Path:
+        if not profiles.name:
+            return profiles
+        if not profiles.exists():
+            raise ValueError(f'{profiles} does not exist')
+        if not json.loads(profiles.read_text()):
+            raise ValueError(f'{profiles} contains no profiles')
+        return profiles
 
 
 class Selection(BaseModel):
@@ -327,6 +339,39 @@ class Cfg(BaseModel):
         return path_pattern.PathPattern(
             self.directory.output_directory, short_file_names
         )
+
+    @cached_property
+    def device_profiles(self) -> dict[str, dict[str, object]]:
+        path = self.device.profiles
+        if not path.name:
+            return {}
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict):
+            raise ValueError(f'{path} must contain a JSON object')
+
+        profiles: dict[str, dict[str, object]] = {}
+        for name, values in data.items():
+            if not isinstance(name, str) or not isinstance(values, dict):
+                raise ValueError(f'{path} must map device names to objects')
+            profiles[name] = values
+        return profiles
+
+    def with_device_profile(self, source_name: str) -> Self:
+        values = self.device_profiles.get(source_name)
+        if not values:
+            return self
+
+        data = self.model_dump()
+        for field, value in values.items():
+            if field in CFG_PARTS:
+                if not isinstance(value, dict):
+                    raise ValueError(f'Profile section {field} must be an object')
+                data[field] = data[field] | value
+            elif field in FLAT_FIELDS:
+                data[FLAT_FIELDS[field]][field] = value
+            else:
+                raise ValueError(f'Unknown profile field: {field}')
+        return type(self)(**data)
 
     @cached_property
     def metadata_dict(self) -> dict[str, str]:

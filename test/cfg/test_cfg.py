@@ -30,6 +30,35 @@ def test_empty_devices(tmp_path: Path, mock_devices: None) -> None:
         Cfg(devices=devices)
 
 
+def test_device_profiles_apply_to_matching_device(
+    tmp_path: Path,
+    mock_devices: None,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text(
+        '{"Mic": {"noise_floor": 42, "recording": {"quiet_after_end": 5}}}'
+    )
+
+    profiled = Cfg(profiles=profiles).with_device_profile('Mic')
+    unprofiled = Cfg(profiles=profiles).with_device_profile('Other')
+
+    assert profiled.recording.noise_floor == 42
+    assert profiled.recording.quiet_after_end == 5
+    assert profiled.recording.quiet_before_start == 1
+    assert unprofiled.recording.noise_floor == 70
+
+
+def test_unknown_device_profile_field_is_validation_error(
+    tmp_path: Path,
+    mock_devices: None,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"unknown": true}}')
+
+    with pytest.raises(ValueError, match='Unknown profile field'):
+        Cfg(profiles=profiles).with_device_profile('Mic')
+
+
 def test_unknown_config_field_is_validation_error(mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='Extra inputs are not permitted'):
         Cfg(unknown=True)

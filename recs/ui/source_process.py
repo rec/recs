@@ -34,8 +34,9 @@ class SourceProcess(Runnable):
 
     @property
     def recorder_cfg(self) -> Cfg:
-        console = self.cfg.console.model_copy(update={'gui': False})
-        return self.cfg.model_copy(update={'console': console})
+        cfg = self.cfg.with_device_profile(self.name)
+        console = cfg.console.model_copy(update={'gui': False})
+        return cfg.model_copy(update={'console': console})
 
     def start(self) -> None:
         assert not self.started

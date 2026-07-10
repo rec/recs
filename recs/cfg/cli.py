@@ -136,6 +136,13 @@ def recs(
             help='A path to a JSON file with device definitions',
         ),
     ],
+    profiles: t.Annotated[
+        Path,
+        tyro.conf.arg(
+            default=RECS.device.profiles,
+            help='A JSON file with per-device default profiles',
+        ),
+    ],
     exclude: t.Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
