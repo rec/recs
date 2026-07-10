@@ -70,10 +70,10 @@ class SourceProcess(Runnable):
             self.process.terminate()
             self.process.join()
         self.pending_updates = []
-        while self.connection.poll():
+        while _connection_ready(self.connection):
             try:
                 update = self.connection.recv()
-            except EOFError:
+            except (EOFError, OSError):
                 break
             self.pending_updates.append(t.cast(SourceUpdate, update))
         self.connection.close()
@@ -84,3 +84,10 @@ class SourceProcess(Runnable):
     def take_updates(self) -> list[SourceUpdate]:
         updates, self.pending_updates = self.pending_updates, []
         return updates
+
+
+def _connection_ready(conn: connection.Connection) -> bool:
+    try:
+        return conn.poll()
+    except OSError:
+        return False

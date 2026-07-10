@@ -17,6 +17,11 @@ class FakeConnection:
         return False
 
 
+class BrokenPollConnection(FakeConnection):
+    def poll(self) -> bool:
+        raise BrokenPipeError
+
+
 class FakeEvent:
     _is_set: bool = False
 
@@ -108,3 +113,29 @@ def test_source_process_starts_recorder_with_gui_disabled(
     recorder_cfg = owner.process.kwargs['cfg']
     assert recorder_cfg.console.gui is False
     assert owner.cfg.console.gui is True
+
+
+def test_source_process_ignores_broken_connection_poll(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def pipe() -> tuple[FakeConnection, FakeConnection]:
+        return BrokenPollConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
+
+    owner.start()
+    owner.stop()
+    owner.join()
+
+    assert owner.stopped

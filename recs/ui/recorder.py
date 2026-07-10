@@ -272,14 +272,14 @@ class Recorder(Runnables):
             self._record_key_event(event)
 
     def _drain(self, conn: connection.Connection) -> None:
-        while conn.poll():
+        while _connection_ready(conn):
             if not self._receive_connection(conn):
                 break
 
     def _receive_connection(self, conn: connection.Connection) -> bool:
         try:
             msg = conn.recv()
-        except EOFError:
+        except (EOFError, OSError):
             return False
         self._receive_update(t.cast(SourceUpdate, msg))
         return True
@@ -446,3 +446,10 @@ def _session_directory_name(timestamp: float) -> str:
     if os.name == 'nt':
         return datetime.fromtimestamp(timestamp).strftime('recs %Y-%m-%d %H-%M-%S')
     return datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+
+
+def _connection_ready(conn: connection.Connection) -> bool:
+    try:
+        return conn.poll()
+    except OSError:
+        return False
