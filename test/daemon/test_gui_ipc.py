@@ -60,6 +60,17 @@ def test_daemon_publisher_removes_broken_listeners() -> None:
     assert broken.closed
 
 
+def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    server.enabled = True
+    server.paths = server.paths.model_copy(update={'status': tmp_path / 'status.json'})
+    server.backend = BrokenBackend()
+
+    server.start()
+
+    assert 'address in use' in server.paths.status.read_text()
+
+
 def test_gui_listener_replies_to_supported_hello() -> None:
     connection = FakeConnection(['{"type":"hello","role":"gui","version":1}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
@@ -235,6 +246,17 @@ class FakeListener:
 
     def close(self) -> None:
         self.closed = True
+
+
+class BrokenBackend:
+    def start(self) -> None:
+        raise OSError('address in use')
+
+    def accept(self) -> None:
+        return None
+
+    def close(self) -> None:
+        pass
 
 
 class FakeConnection:

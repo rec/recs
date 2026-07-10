@@ -3,8 +3,16 @@ import os
 import subprocess as sp
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from . import paths, renderers
-from .models import DaemonMetadata, Platform, ServiceDefinition, StatusResult
+from .models import (
+    DaemonMetadata,
+    DaemonStatus,
+    Platform,
+    ServiceDefinition,
+    StatusResult,
+)
 
 
 class ServiceController:
@@ -73,7 +81,7 @@ class ServiceController:
             self._run(['systemctl', '--user', 'disable', 'recs.service'], check=False)
             self._run(['systemctl', '--user', 'daemon-reload'], check=False)
 
-        for path in [self.paths.service, self.paths.metadata]:
+        for path in [self.paths.service, self.paths.metadata, self.paths.status]:
             path.unlink(missing_ok=True)
         return StatusResult(installed=False, running=False)
 
@@ -147,10 +155,17 @@ class ServiceController:
                 check=False,
                 capture_output=True,
             )
+        details = (result.stdout or result.stderr or '').strip()
+        if (status := _read_status(self.paths.status)) and status.gui_ipc_error:
+            details = '\n'.join(
+                part
+                for part in [details, f'GUI IPC error: {status.gui_ipc_error}']
+                if part
+            )
         return StatusResult(
             installed=installed,
             running=result.returncode == 0,
-            details=(result.stdout or result.stderr or '').strip(),
+            details=details,
         )
 
     def _write_metadata(self, metadata: DaemonMetadata) -> None:
@@ -221,3 +236,12 @@ def _write_text_atomically(path: Path, content: str) -> None:
         fp.flush()
         os.fsync(fp.fileno())
     tmp.replace(path)
+
+
+def _read_status(path: Path) -> DaemonStatus | None:
+    if not path.exists():
+        return None
+    try:
+        return DaemonStatus.model_validate_json(path.read_text())
+    except ValidationError:
+        return None

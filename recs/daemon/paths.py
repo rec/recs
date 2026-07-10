@@ -20,6 +20,7 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
         return ServicePaths(
             metadata=home / '.config/recs/daemon.json',
             service=home / 'Library/LaunchAgents/com.swirly.recs.plist',
+            status=home / '.local/state/recs/status.json',
             stdout_log=home / 'Library/Logs/recs/recs.out.log',
             stderr_log=home / 'Library/Logs/recs/recs.err.log',
             gui_endpoint=home / '.local/state/recs/gui.sock',
@@ -30,6 +31,7 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
         return ServicePaths(
             metadata=appdata / 'recs/daemon.json',
             service=appdata / 'recs/recs-scheduled-task.json',
+            status=local / 'recs/status.json',
             stdout_log=local / 'recs/logs/recs.out.log',
             stderr_log=local / 'recs/logs/recs.err.log',
             gui_endpoint=WINDOWS_PIPE,
@@ -37,6 +39,7 @@ def service_paths(platform: Platform, home: Path | None = None) -> ServicePaths:
     return ServicePaths(
         metadata=home / '.config/recs/daemon.json',
         service=home / '.config/systemd/user/recs.service',
+        status=home / '.local/state/recs/status.json',
         stdout_log=home / '.local/state/recs/recs.out.log',
         stderr_log=home / '.local/state/recs/recs.err.log',
         gui_endpoint=home / '.local/state/recs/gui.sock',

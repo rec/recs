@@ -27,7 +27,7 @@ from .gui_protocol import (
     RowsMessage,
     parse_message,
 )
-from .models import DaemonMetadata
+from .models import DaemonMetadata, DaemonStatus
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +39,8 @@ class DaemonGuiServer(Runnable):
         self.rows = rows
         self.cfg = cfg
         self.enabled = daemon_mode_enabled()
-        self.endpoint = paths.service_paths(paths.current_platform()).gui_endpoint
+        self.paths = paths.service_paths(paths.current_platform())
+        self.endpoint = self.paths.gui_endpoint
         self.backend = server_backend(self.endpoint)
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
@@ -54,10 +55,15 @@ class DaemonGuiServer(Runnable):
         try:
             self.backend.start()
         except OSError as e:
+            _write_status(
+                self.paths.status,
+                DaemonStatus(recording=True, gui_ipc_error=str(e)),
+            )
             LOGGER.warning('Cannot start GUI IPC server: %s', e)
             super().start()
             return
 
+        _write_status(self.paths.status, DaemonStatus(recording=True))
         super().start()
         threading.Thread(
             target=self._accept,
@@ -269,3 +275,8 @@ def daemon_mode_enabled() -> bool:
     import os
 
     return os.environ.get('RECS_DAEMON') == '1'
+
+
+def _write_status(path: Path, status: DaemonStatus) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(status.model_dump_json() + '\n')

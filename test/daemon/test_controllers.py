@@ -5,7 +5,7 @@ import pytest
 
 from recs.daemon import controllers
 from recs.daemon.controllers import ServiceController
-from recs.daemon.models import DaemonMetadata, Platform
+from recs.daemon.models import DaemonMetadata, DaemonStatus, Platform
 from recs.daemon.renderers import metadata
 
 
@@ -99,3 +99,15 @@ def test_status_uses_platform_command(tmp_path: Path) -> None:
     assert result.running
     assert result.details == 'active'
     assert runner.commands == [['systemctl', '--user', 'is-active', 'recs.service']]
+
+
+def test_status_reports_gui_ipc_errors(tmp_path: Path) -> None:
+    controller = ServiceController(Platform.linux, tmp_path, FakeRunner())
+    controller.paths.status.parent.mkdir(parents=True)
+    controller.paths.status.write_text(
+        DaemonStatus(recording=True, gui_ipc_error='address in use').model_dump_json()
+    )
+
+    result = controller.status()
+
+    assert result.details == 'active\nGUI IPC error: address in use'

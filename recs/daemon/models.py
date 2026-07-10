@@ -19,9 +19,15 @@ class DaemonMetadata(BaseModel):
     gui_endpoint: str
 
 
+class DaemonStatus(BaseModel):
+    gui_ipc_error: str | None = None
+    recording: bool = False
+
+
 class ServicePaths(BaseModel):
     metadata: Path
     service: Path
+    status: Path
     stdout_log: Path
     stderr_log: Path
     gui_endpoint: Path | str
