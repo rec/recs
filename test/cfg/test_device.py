@@ -40,3 +40,15 @@ def test_query_device_does_not_receive_terminal_interrupts(
 
     assert device.query_devices() == []
     assert kwargs['start_new_session'] is True
+    assert kwargs['timeout'] == device.DEVICE_QUERY_TIMEOUT
+
+
+def test_query_device_timeout_is_empty_device_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def timeout(*args: t.Any, **kwargs: t.Any) -> t.NoReturn:
+        raise sp.TimeoutExpired(['recs', 'query-devices'], timeout=5)
+
+    monkeypatch.setattr(sp, 'run', timeout)
+
+    assert device.query_devices() == []

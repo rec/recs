@@ -14,6 +14,7 @@ from recs.base.types import SdType
 from .source import Source, Update
 
 DeviceDict = dict[str, float | int | str]
+DEVICE_QUERY_TIMEOUT = 5.0
 
 
 class InputDevice(Source):
@@ -62,13 +63,17 @@ def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
 
 
 def query_devices() -> t.Sequence[DeviceDict]:
-    r = sp.run(
-        app_command.command('query-devices'),
-        text=True,
-        check=True,
-        start_new_session=True,
-        stdout=sp.PIPE,
-    )
+    try:
+        r = sp.run(
+            app_command.command('query-devices'),
+            text=True,
+            check=True,
+            start_new_session=True,
+            stdout=sp.PIPE,
+            timeout=DEVICE_QUERY_TIMEOUT,
+        )
+    except sp.TimeoutExpired:
+        return []
     return t.cast(list[DeviceDict], json.loads(r.stdout))
 
 
