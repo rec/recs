@@ -24,6 +24,10 @@ def run() -> int:
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
             print(json.dumps(_query_devices(), indent=4))
             return 0
+        if len(sys.argv) > 1 and sys.argv[1] == 'sessions':
+            from recs.ui import session_browser
+
+            return session_browser.main(sys.argv[2:])
         tyro.cli(cli.recs, prog='recs', description=cli.HELP)
         return 0
 
