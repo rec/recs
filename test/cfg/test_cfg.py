@@ -30,6 +30,11 @@ def test_empty_devices(tmp_path: Path, mock_devices: None) -> None:
         Cfg(devices=devices)
 
 
+def test_unknown_config_field_is_validation_error(mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='Extra inputs are not permitted'):
+        Cfg(unknown=True)
+
+
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
     assert cfg.input_devices

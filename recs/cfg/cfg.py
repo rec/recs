@@ -6,7 +6,7 @@ from importlib.util import find_spec
 from pathlib import Path
 
 import soundfile
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
@@ -188,6 +188,8 @@ FLAT_FIELDS = _flat_fields()
 
 
 class Cfg(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     directory: Directory = Field(default_factory=Directory)
     general: General = Field(default_factory=General)
     device: Device = Field(default_factory=Device)
@@ -198,6 +200,10 @@ class Cfg(BaseModel):
     recording: Recording = Field(default_factory=Recording)
 
     def __init__(self, **data: object) -> None:
+        if unknown := set(data) - set(CFG_PARTS) - set(FLAT_FIELDS):
+            super().__init__(**{k: data[k] for k in unknown})
+            return
+
         fields_set = set(data) - set(CFG_PARTS)
         grouped: dict[str, dict[str, object]] = {part: {} for part in CFG_PARTS}
         nested = {part: data.pop(part) for part in CFG_PARTS if part in data}
