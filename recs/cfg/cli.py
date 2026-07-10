@@ -264,6 +264,13 @@ def recs(
             help='Longest amount of time per file: 0 means infinite',
         ),
     ],
+    minimum_free_space: t.Annotated[
+        int,
+        tyro.conf.arg(
+            default=RECS.recording.minimum_free_space,
+            help='Stop recording when output disk free space is below this many bytes',
+        ),
+    ],
     moving_average_time: t.Annotated[
         float,
         TIME_SPEC,

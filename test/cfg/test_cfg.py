@@ -41,6 +41,11 @@ def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
         Cfg(**{field: 0})
 
 
+def test_minimum_free_space_must_not_be_negative(mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='must be non-negative'):
+        Cfg(minimum_free_space=-1)
+
+
 def test_key_labels_parse_to_label_map(mock_devices: None) -> None:
     cfg = Cfg(key_label=['g=guitar too soft', 'd=drums too soft'])
 

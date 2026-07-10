@@ -169,6 +169,7 @@ class Recording(BaseModel):
     band_mode: bool = True
     infinite_length: bool = False
     longest_file_time: float = 0.0
+    minimum_free_space: int = 0
     moving_average_time: float = 1.0
     noise_floor: float = 70.0
     record_everything: bool = False
@@ -177,6 +178,13 @@ class Recording(BaseModel):
     quiet_before_start: float = 1.0
     stop_after_quiet: float = 20.0
     total_run_time: float = 0.0
+
+    @field_validator('minimum_free_space')
+    @classmethod
+    def validate_minimum_free_space(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError('must be non-negative')
+        return value
 
 
 CFG_PARTS = (

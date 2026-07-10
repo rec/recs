@@ -17,6 +17,12 @@ from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFailure, SourceFile, SourceUpdate
 
 
+class DiskUsage(t.NamedTuple):
+    total: int
+    used: int
+    free: int
+
+
 class FakePoller(Runnable):
     def __init__(self, interval: float) -> None:
         self.snapshots: list[dict[str, t.Any] | None] = []
@@ -399,6 +405,26 @@ def test_recorder_finishes_with_all_devices_offline(
     rec.state.start_time -= 1
 
     assert rec._done([])
+
+
+def test_recorder_reports_low_disk_space_once(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(
+        recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
+    )
+    rec = Recorder(Cfg(minimum_free_space=5, silent=True))
+
+    assert rec._disk_space_low()
+    assert rec._disk_space_low()
+    assert rec.warnings == ['Free disk space 4 bytes is below minimum_free_space=5']
+    assert capsys.readouterr().err == (
+        'Free disk space 4 bytes is below minimum_free_space=5\n'
+    )
 
 
 def test_recorder_summarizes_interrupt(

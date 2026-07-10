@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sys
 import typing as t
 from datetime import datetime
@@ -61,6 +62,7 @@ class Recorder(Runnables):
         self.manifest_files: dict[Path, ManifestFile] = {}
         self.key_recorder = make_key_recorder(cfg)
         self.warnings: list[str] = []
+        self.disk_space_reported = False
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
         self.present: set[str] = set()
@@ -131,6 +133,8 @@ class Recorder(Runnables):
                 while self.running:
                     if self._display_closed():
                         break
+                    if self._disk_space_low():
+                        break
                     self._receive_key_events()
                     self._poll_devices()
                     self._reap_sources()
@@ -169,6 +173,25 @@ class Recorder(Runnables):
 
     def _display_closed(self) -> bool:
         return bool(self.live and self.live.closed)
+
+    def _disk_space_low(self) -> bool:
+        minimum = self.cfg.recording.minimum_free_space
+        if not minimum:
+            return False
+
+        free = shutil.disk_usage(_existing_parent(self._manifest_path())).free
+        if free >= minimum:
+            return False
+
+        if not self.disk_space_reported:
+            warning = (
+                f'Free disk space {free} bytes is below '
+                f'minimum_free_space={minimum}'
+            )
+            print(warning, file=sys.stderr)
+            self.warnings.append(warning)
+            self.disk_space_reported = True
+        return True
 
     def _poll_devices(self) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
@@ -469,6 +492,13 @@ def _manifest_directory(output_directory: str, timestamp: float) -> Path:
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
         return Path(prefix or '.')
+
+
+def _existing_parent(path: Path) -> Path:
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            return candidate
+    return Path()
 
 
 def _manifest_times(ts: datetime) -> dict[str, str]:
