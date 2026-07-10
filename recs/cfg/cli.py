@@ -197,6 +197,13 @@ def recs(
             help='Display live updates in a PySide6 window',
         ),
     ],
+    open_output_folder: t.Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.console.open_output_folder,
+            help='Open the output folder when recording finishes',
+        ),
+    ],
     remote: t.Annotated[
         bool,
         tyro.conf.arg(

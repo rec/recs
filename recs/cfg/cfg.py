@@ -124,6 +124,7 @@ class Console(BaseModel):
     #
     clear_terminal: bool = True
     gui: bool = False
+    open_output_folder: bool = False
     remote: bool = False
     silent: bool = False
     sleep_time_device: float = 0.1

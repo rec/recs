@@ -494,6 +494,39 @@ def test_recorder_explains_quiet_or_short_audio(
     )
 
 
+def test_recorder_output_folder_prefers_written_files(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    path = tmp_path / 'session/take.wav'
+    path.parent.mkdir()
+    path.touch()
+    rec.files_written.add(path)
+
+    assert rec._output_folder() == path.parent
+
+
+def test_open_folder_uses_platform_file_manager(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    commands: list[list[str]] = []
+    monkeypatch.setattr(recorder.sys, 'platform', 'darwin')
+    monkeypatch.setattr(
+        recorder.sp,
+        'run',
+        lambda command, check: commands.append(command),
+    )
+
+    recorder._open_folder(tmp_path)
+
+    assert commands == [['open', str(tmp_path)]]
+
+
 def test_live_input_manifest_omits_source(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

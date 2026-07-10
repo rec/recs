@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import subprocess as sp
 import sys
 import typing as t
 from datetime import datetime
@@ -116,6 +117,8 @@ class Recorder(Runnables):
                 elif self.cfg.general.calibrate or self.cfg.general.verbose:
                     print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
+        if self.cfg.console.open_output_folder:
+            _open_folder(self._output_folder())
 
     def _summary(self) -> None:
         print(f'Recording time: {_summary_time(self.state.elapsed_time)}')
@@ -489,6 +492,12 @@ class Recorder(Runnables):
             )
         return Path('recs-session.json')
 
+    def _output_folder(self) -> Path:
+        paths = sorted(path for path in self.files_written if path.exists())
+        if paths:
+            return Path(os.path.commonpath([path.parent for path in paths]))
+        return _existing_parent(self._manifest_path()).resolve()
+
 
 def _summary_time(seconds: float) -> str:
     value = times.to_str(seconds)
@@ -542,6 +551,15 @@ def _existing_parent(path: Path) -> Path:
         if candidate.exists():
             return candidate
     return Path()
+
+
+def _open_folder(path: Path) -> None:
+    commands = {
+        'darwin': ['open', str(path)],
+        'win32': ['explorer', str(path)],
+    }
+    command = commands.get(sys.platform, ['xdg-open', str(path)])
+    sp.run(command, check=False)
 
 
 def _manifest_times(ts: datetime) -> dict[str, str]:
