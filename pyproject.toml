@@ -9,15 +9,12 @@ license = "MIT"
 classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
 dependencies = [
     "numpy",
-    "pyaudio",
     "rich",
     "sounddevice",
     "soundfile",
     "threa>=1.9.0",
     "tyro>=1.0.13",
-    "impall",
     "overrides",
-    "coverage",
     "strenum",
     "humanfriendly",
     "tomli",
@@ -31,6 +28,7 @@ recs = "recs.__main__:run"
 [dependency-groups]
 dev = [
     "coverage>=7.4.1",
+    "impall",
     "pytest",
     "pytest-regressions>=2.11.0",
     "pyupgrade>=3.21.2",
