@@ -28,6 +28,10 @@ def run() -> int:
             from recs.ui import session_browser
 
             return session_browser.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'test-input':
+            from recs.ui import input_self_test
+
+            return input_self_test.main(sys.argv[2:])
         tyro.cli(cli.recs, prog='recs', description=cli.HELP)
         return 0
 
