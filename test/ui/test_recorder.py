@@ -470,6 +470,23 @@ def test_dry_run_does_not_write_manifest(
     assert not Path('recs-session.json').exists()
 
 
+def test_empty_template_output_directory_manifest_uses_time_template(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
+
+    rec._write_manifest()
+
+    assert Path('sessions/2026-06-23/recs-session.json').exists()
+
+
 def test_default_output_directory_uses_session_timestamp(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

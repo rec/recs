@@ -407,8 +407,10 @@ class Recorder(Runnables):
             return parent / 'recs-session.json'
 
         output_directory = self.cfg.directory.output_directory
-        if output_directory and '{' not in output_directory:
-            return Path(output_directory) / 'recs-session.json'
+        if output_directory:
+            return _manifest_directory(output_directory, self.state.start_time) / (
+                'recs-session.json'
+            )
         return Path('recs-session.json')
 
 
@@ -448,6 +450,32 @@ def _session_directory_name(timestamp: float) -> str:
     if os.name == 'nt':
         return datetime.fromtimestamp(timestamp).strftime('recs %Y-%m-%d %H-%M-%S')
     return datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+
+
+def _manifest_directory(output_directory: str, timestamp: float) -> Path:
+    ts = datetime.fromtimestamp(timestamp)
+    try:
+        return Path(ts.strftime(output_directory).format(**_manifest_times(ts)))
+    except KeyError:
+        prefix = output_directory.split('{', 1)[0].rstrip('/\\')
+        return Path(prefix or '.')
+
+
+def _manifest_times(ts: datetime) -> dict[str, str]:
+    return {
+        'date': ts.strftime('%Y%m%d'),
+        'ddate': ts.strftime('%Y-%m-%d'),
+        'dtime': ts.strftime('%H:%M:%S'),
+        'hour': ts.strftime('%H'),
+        'minute': ts.strftime('%M'),
+        'month': ts.strftime('%m'),
+        'sdate': ts.strftime('%Y-%m-%d'),
+        'second': ts.strftime('%S'),
+        'stime': ts.strftime('%H-%M-%S'),
+        'time': ts.strftime('%H%M%S'),
+        'timestamp': ts.isoformat(),
+        'year': ts.strftime('%Y'),
+    }
 
 
 def _connection_ready(conn: connection.Connection) -> bool:
