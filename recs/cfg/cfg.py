@@ -128,6 +128,13 @@ class Console(BaseModel):
     sleep_time_device: float = 0.1
     ui_refresh_rate: float = 23.0
 
+    @field_validator('sleep_time_device', 'ui_refresh_rate')
+    @classmethod
+    def validate_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError('must be positive')
+        return value
+
 
 class Key(BaseModel):
     #

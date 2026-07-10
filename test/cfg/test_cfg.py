@@ -35,6 +35,12 @@ def test_unknown_config_field_is_validation_error(mock_devices: None) -> None:
         Cfg(unknown=True)
 
 
+@pytest.mark.parametrize('field', ['sleep_time_device', 'ui_refresh_rate'])
+def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='must be positive'):
+        Cfg(**{field: 0})
+
+
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
     assert cfg.input_devices
