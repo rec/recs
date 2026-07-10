@@ -24,7 +24,7 @@ from .session_manifest import (
     timestamp_to_json,
 )
 from .source_process import SourceProcess
-from .source_recorder import POLL_TIMEOUT, SourceUpdate
+from .source_recorder import POLL_TIMEOUT, SourceFailure, SourceUpdate
 from .source_tracks import source_tracks
 
 FRAME_CLOCK_GRACE = 5.0
@@ -235,7 +235,7 @@ class Recorder(Runnables):
             expected = not source.running
             source.join(timeout=0)
             for update in source.take_updates():
-                self._receive_update(update)
+                self._receive_source_message(update)
             if name not in self.hardware:
                 continue
 
@@ -261,7 +261,7 @@ class Recorder(Runnables):
         self._receive_key_events()
         for source in self.sources.values():
             for update in source.take_updates():
-                self._receive_update(update)
+                self._receive_source_message(update)
 
     def _receive_key_events(self) -> None:
         for event in self.key_recorder.take_events():
@@ -281,8 +281,17 @@ class Recorder(Runnables):
             msg = conn.recv()
         except (EOFError, OSError):
             return False
-        self._receive_update(t.cast(SourceUpdate, msg))
+        self._receive_source_message(t.cast(SourceUpdate | SourceFailure, msg))
         return True
+
+    def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
+        if isinstance(message, SourceFailure):
+            warning = f'Device {message.source_name} failed: {message.message}'
+            print(warning, file=sys.stderr)
+            self.warnings.append(warning)
+            self.failed.add(message.source_name)
+            return
+        self._receive_update(message)
 
     def _receive_update(self, update: SourceUpdate) -> None:
         self.frames[update.source_name] += update.frames

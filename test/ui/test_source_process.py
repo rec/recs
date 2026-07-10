@@ -5,6 +5,7 @@ import pytest
 from recs.cfg import Cfg, InputDevice, Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
+from recs.ui.source_recorder import SourceFailure
 
 
 class FakeConnection:
@@ -20,6 +21,14 @@ class FakeConnection:
 class BrokenPollConnection(FakeConnection):
     def poll(self) -> bool:
         raise BrokenPipeError
+
+
+class FakeSendConnection(FakeConnection):
+    def __init__(self) -> None:
+        self.sent: list[object] = []
+
+    def send(self, message: object) -> None:
+        self.sent.append(message)
 
 
 class FakeEvent:
@@ -139,3 +148,31 @@ def test_source_process_ignores_broken_connection_poll(
     owner.join()
 
     assert owner.stopped
+
+
+def test_source_process_reports_recorder_start_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(**kwargs: object) -> None:
+        raise ValueError('no input device')
+
+    monkeypatch.setattr(source_process, 'SourceRecorder', fail)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    connection = FakeSendConnection()
+
+    source_process._run_source_recorder(
+        cfg=Cfg(),
+        connection=connection,
+        stop_event=FakeEvent(),
+        tracks=[Track(source, '1')],
+    )
+
+    assert connection.sent == [
+        SourceFailure(message='ValueError: no input device', source_name='Mic')
+    ]

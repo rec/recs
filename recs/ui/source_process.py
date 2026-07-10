@@ -6,7 +6,7 @@ from threa import Runnable
 
 from recs.cfg import Cfg, Track
 
-from .source_recorder import SourceRecorder, SourceUpdate
+from .source_recorder import SourceFailure, SourceRecorder, SourceUpdate
 
 STOP_TIMEOUT = 2.0
 
@@ -22,7 +22,7 @@ class SourceProcess(Runnable):
         self.source = tracks[0].source
         self.tracks = tracks
         self.started: bool = False
-        self.pending_updates: list[SourceUpdate] = []
+        self.pending_updates: list[SourceUpdate | SourceFailure] = []
 
     @property
     def required_channels(self) -> int:
@@ -47,7 +47,7 @@ class SourceProcess(Runnable):
             'stop_event': self.stop_event,
             'tracks': self.tracks,
         }
-        self.process = mp.Process(target=SourceRecorder, kwargs=kwargs)
+        self.process = mp.Process(target=_run_source_recorder, kwargs=kwargs)
         self.process.start()
         self.started = True
         self.stopped = False
@@ -75,15 +75,35 @@ class SourceProcess(Runnable):
                 update = self.connection.recv()
             except (EOFError, OSError):
                 break
-            self.pending_updates.append(t.cast(SourceUpdate, update))
+            self.pending_updates.append(t.cast(SourceUpdate | SourceFailure, update))
         self.connection.close()
         self.running = False
         self.started = False
         self.stopped = True
 
-    def take_updates(self) -> list[SourceUpdate]:
+    def take_updates(self) -> list[SourceUpdate | SourceFailure]:
         updates, self.pending_updates = self.pending_updates, []
         return updates
+
+
+def _run_source_recorder(
+    cfg: Cfg,
+    connection: connection.Connection,
+    stop_event: t.Any,
+    tracks: t.Sequence[Track],
+) -> None:
+    try:
+        SourceRecorder(
+            cfg=cfg,
+            connection=connection,
+            stop_event=stop_event,
+            tracks=tracks,
+        )
+    except (OSError, RuntimeError, ValueError) as e:
+        source_name = tracks[0].source.name
+        connection.send(
+            SourceFailure(message=f'{type(e).__name__}: {e}', source_name=source_name)
+        )
 
 
 def _connection_ready(conn: connection.Connection) -> bool:

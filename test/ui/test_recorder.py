@@ -14,7 +14,7 @@ from recs.cfg.track import Track
 from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
-from recs.ui.source_recorder import SourceFile, SourceUpdate
+from recs.ui.source_recorder import SourceFailure, SourceFile, SourceUpdate
 
 
 class FakePoller(Runnable):
@@ -369,6 +369,25 @@ def test_stalled_source_is_stopped(
     assert 'Mic' in rec.failed
     assert rec.warnings == ['Device Mic stopped sending updates']
     assert capsys.readouterr().err == 'Device Mic stopped sending updates\n'
+
+
+def test_source_failure_is_reported(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+
+    rec._receive_source_message(
+        SourceFailure(message='ValueError: no input device', source_name='Mic')
+    )
+
+    assert rec.warnings == ['Device Mic failed: ValueError: no input device']
+    assert 'Mic' in rec.failed
+    assert capsys.readouterr().err == (
+        'Device Mic failed: ValueError: no input device\n'
+    )
 
 
 def test_recorder_finishes_with_all_devices_offline(

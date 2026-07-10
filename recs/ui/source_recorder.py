@@ -25,6 +25,11 @@ class SourceUpdate(t.NamedTuple):
     file_records: list['SourceFile'] | None = None
 
 
+class SourceFailure(t.NamedTuple):
+    message: str
+    source_name: str
+
+
 class SourceFile(t.NamedTuple):
     path: Path
     source_name: str
