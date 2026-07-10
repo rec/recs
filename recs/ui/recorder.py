@@ -380,6 +380,8 @@ class Recorder(Runnables):
         return self.frames[source.name] >= target
 
     def _write_manifest(self) -> None:
+        if self.cfg.general.dry_run:
+            return
         files = [
             file for path, file in sorted(self.manifest_files.items()) if path.exists()
         ]

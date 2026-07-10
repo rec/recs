@@ -455,6 +455,21 @@ def test_live_input_manifest_omits_source(
     ]
 
 
+def test_dry_run_does_not_write_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(dry_run=True, include=['Mic'], silent=True))
+
+    rec._write_manifest()
+
+    assert not Path('recs-session.json').exists()
+
+
 def test_default_output_directory_uses_session_timestamp(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
