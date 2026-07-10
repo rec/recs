@@ -3,10 +3,12 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ManifestFile(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     path: str
     track: int
     channels: int
@@ -16,6 +18,8 @@ class ManifestFile(BaseModel):
 
 
 class ManifestEvent(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     timestamp: str
     type: str
     source: str | None = None
@@ -25,6 +29,8 @@ class ManifestEvent(BaseModel):
 
 
 class SessionManifest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     started_at: str
     ended_at: str
     duration: float
