@@ -457,6 +457,43 @@ def test_recorder_summarizes_interrupt(
     )
 
 
+def test_recorder_explains_dry_run_without_files(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(dry_run=True, include=['Mic'], silent=True))
+
+    assert rec._no_file_explanation() == 'dry-run mode does not write files'
+
+
+def test_recorder_explains_missing_audio_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+
+    assert rec._no_file_explanation() == 'no audio updates were received'
+
+
+def test_recorder_explains_quiet_or_short_audio(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec.frames['Mic'] = 48_000
+
+    assert rec._no_file_explanation() == (
+        'audio stayed below the noise floor or candidate files were shorter '
+        'than shortest_file_time'
+    )
+
+
 def test_live_input_manifest_omits_source(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

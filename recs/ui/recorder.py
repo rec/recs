@@ -126,6 +126,25 @@ class Recorder(Runnables):
                 print(f'  {path}')
         else:
             print('Files written: none')
+            print(f'No files written because {self._no_file_explanation()}.')
+
+    def _no_file_explanation(self) -> str:
+        if self.cfg.general.dry_run:
+            return 'dry-run mode does not write files'
+        if self.cfg.general.calibrate:
+            return 'calibration mode does not write files'
+        if self.cfg.general.silence_preview:
+            return 'silence preview mode does not write files'
+        if self.failed:
+            return f'sources failed: {", ".join(sorted(self.failed))}'
+        if self.files_written:
+            return 'all candidate files were removed or are no longer present'
+        if not any(self.frames.values()):
+            return 'no audio updates were received'
+        return (
+            'audio stayed below the noise floor or candidate files were shorter '
+            'than shortest_file_time'
+        )
 
     def _run(self) -> None:
         if self.cfg.console.gui:
