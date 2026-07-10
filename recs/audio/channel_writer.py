@@ -132,9 +132,9 @@ class ChannelWriter(Runnable):
             if sf.frames and sf.frames >= self.times.shortest_file_time:
                 sf.close()
             else:
-                with contextlib.suppress(Exception):
+                with contextlib.suppress(OSError, RuntimeError):
                     sf.close()
-                with contextlib.suppress(Exception):
+                with contextlib.suppress(OSError):
                     Path(sf.name).unlink()
 
     def _open(self, offset: int) -> t.Sequence[SoundFile]:
