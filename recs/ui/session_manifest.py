@@ -21,6 +21,7 @@ class ManifestEvent(BaseModel):
     source: str | None = None
     track: str | None = None
     key: str | None = None
+    label: str | None = None
 
 
 class SessionManifest(BaseModel):

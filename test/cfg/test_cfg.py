@@ -41,6 +41,17 @@ def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
         Cfg(**{field: 0})
 
 
+def test_key_labels_parse_to_label_map(mock_devices: None) -> None:
+    cfg = Cfg(key_label=['g=guitar too soft', 'd=drums too soft'])
+
+    assert cfg.keys.labels == {'g': 'guitar too soft', 'd': 'drums too soft'}
+
+
+def test_key_labels_must_have_labels(mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='key_label must look like key=label'):
+        Cfg(key_label=['g'])
+
+
 def test_devices(mock_devices):
     cfg = Cfg(devices=DEVICES_FILE)
     assert cfg.input_devices

@@ -377,6 +377,7 @@ class Recorder(Runnables):
                 timestamp=timestamp_to_json(times.timestamp()),
                 type=event.type,
                 key=event.key,
+                label=self.cfg.keys.labels.get(event.key),
             )
         )
 

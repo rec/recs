@@ -660,7 +660,13 @@ def test_manifest_records_key_events(
     monkeypatch.setattr(recorder.times, 'timestamp', timestamp)
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
+    rec = Recorder(
+        Cfg(
+            key_label=['g=guitar too soft'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
     rec.key_recorder = FakeKeyRecorder(
         [
             KeyEvent(type='key_pressed', key='g'),
@@ -677,11 +683,13 @@ def test_manifest_records_key_events(
             'timestamp': '1970-01-01T00:01:42.000Z',
             'type': 'key_pressed',
             'key': 'g',
+            'label': 'guitar too soft',
         },
         {
             'timestamp': '1970-01-01T00:01:43.000Z',
             'type': 'key_released',
             'key': 'g',
+            'label': 'guitar too soft',
         },
     ]
 

@@ -140,8 +140,26 @@ class Key(BaseModel):
     #
     # Keyboard event recording
     #
+    key_label: list[str] = Field(default_factory=list)
     record_keys: RecordKeys | None = None
     record_key_all_apps: bool | None = None
+
+    @field_validator('key_label')
+    @classmethod
+    def validate_key_label(cls, key_label: list[str]) -> list[str]:
+        for entry in key_label:
+            key, separator, label = entry.partition('=')
+            if not separator or not key or not label:
+                raise ValueError(f'key_label must look like key=label: {entry}')
+        return key_label
+
+    @cached_property
+    def labels(self) -> dict[str, str]:
+        labels: dict[str, str] = {}
+        for entry in self.key_label:
+            key, _, label = entry.partition('=')
+            labels[key] = label
+        return labels
 
 
 class Recording(BaseModel):

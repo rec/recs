@@ -220,6 +220,13 @@ def recs(
             help='How many UI refreshes per second',
         ),
     ],
+    key_label: t.Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.keys.key_label,
+            help='Add a manifest label for a key, for example g=guitar too soft',
+        ),
+    ],
     record_keys: t.Annotated[
         t.Annotated[types.RecordKeys, RECORD_KEYS_SPEC] | None,
         tyro.conf.arg(
