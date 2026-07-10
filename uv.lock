@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-07-02T14:27:47.759937Z"
+exclude-newer = "2026-07-03T07:32:42.944163Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -601,6 +601,7 @@ dependencies = [
     { name = "overrides" },
     { name = "pyaudio" },
     { name = "pydantic" },
+    { name = "pyside6" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
@@ -613,7 +614,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "pyside6" },
     { name = "pytest" },
     { name = "pytest-regressions" },
     { name = "pyupgrade" },
@@ -631,6 +631,7 @@ requires-dist = [
     { name = "overrides" },
     { name = "pyaudio" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pyside6", specifier = ">=6.11.1" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
@@ -643,7 +644,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.4.1" },
-    { name = "pyside6", specifier = ">=6.11.1" },
     { name = "pytest" },
     { name = "pytest-regressions", specifier = ">=2.11.0" },
     { name = "pyupgrade", specifier = ">=3.21.2" },

@@ -22,6 +22,7 @@ dependencies = [
     "humanfriendly",
     "tomli",
     "pydantic>=2.13.4",
+    "pyside6>=6.11.1",
 ]
 
 [project.scripts]
@@ -30,7 +31,6 @@ recs = "recs.__main__:run"
 [dependency-groups]
 dev = [
     "coverage>=7.4.1",
-    "pyside6>=6.11.1",
     "pytest",
     "pytest-regressions>=2.11.0",
     "pyupgrade>=3.21.2",
