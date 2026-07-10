@@ -178,9 +178,11 @@ class RemoteGuiClient:
 
     def start(self) -> None:
         self.connection = client_connection(self.endpoint)
-        self._write(
+        if not self._write(
             Hello(type='hello', role='gui', version=VERSION).model_dump_json() + '\n'
-        )
+        ):
+            self.closed = True
+            raise BrokenPipeError('Could not send GUI hello')
         threading.Thread(target=self._read, daemon=True, name='RemoteGuiRows').start()
 
     def rows(self) -> t.Iterator[t.Mapping[str, object]]:
@@ -191,10 +193,10 @@ class RemoteGuiClient:
     def record_key(self, event: KeyEvent) -> None:
         self._write(event.model_dump_json() + '\n')
 
-    def _write(self, message: str) -> None:
+    def _write(self, message: str) -> bool:
         if self.connection is None:
-            return
-        self.connection.write(message)
+            return False
+        return self.connection.write(message)
 
     def _read(self) -> None:
         if self.connection is None:

@@ -153,6 +153,20 @@ def test_remote_row_provider_sends_key_events(
     assert '{"type":"key_pressed","key":"g"}\n' in connection.sent
 
 
+def test_remote_row_provider_fails_when_hello_cannot_be_sent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection(broken=True)
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+
+    with pytest.raises(BrokenPipeError, match='Could not send GUI hello'):
+        client.start()
+
+    assert client.closed
+
+
 def test_endpoint_reachable_checks_metadata_socket(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -224,7 +238,13 @@ class FakeListener:
 
 
 class FakeConnection:
-    def __init__(self, received: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        received: list[str] | None = None,
+        *,
+        broken: bool = False,
+    ) -> None:
+        self.broken = broken
         self.closed = False
         self.received = received or []
         self.sent: list[str] = []
@@ -234,7 +254,7 @@ class FakeConnection:
 
     def write(self, message: str) -> bool:
         self.sent.append(message)
-        return True
+        return not self.broken
 
     def close(self) -> None:
         self.closed = True
