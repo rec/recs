@@ -1,54 +1,31 @@
-import json
 from pathlib import Path
 
 from recs.ui import session_manifest_check
 
 
-def test_manifest_check_accepts_existing_files(tmp_path: Path) -> None:
+def test_manifest_check_accepts_existing_finished_files(tmp_path: Path) -> None:
     audio = tmp_path / 'take.wav'
     audio.touch()
-    manifest = tmp_path / 'recs-session.json'
+    manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text(
-        json.dumps(
-            {
-                'started_at': 'start',
-                'ended_at': 'end',
-                'duration': 1,
-                'files': [
-                    {
-                        'path': 'take.wav',
-                        'track': 1,
-                        'channels': 1,
-                        'sample_rate': 48_000,
-                        'bit_depth': 32,
-                    }
-                ],
-            }
-        )
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_started","timestamp":"start","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '{"type":"file_finished","timestamp":"end","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
     assert session_manifest_check.check(manifest) == []
 
 
 def test_manifest_check_reports_missing_files(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.json'
+    manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text(
-        json.dumps(
-            {
-                'started_at': 'start',
-                'ended_at': 'end',
-                'duration': 1,
-                'files': [
-                    {
-                        'path': 'missing.wav',
-                        'track': 1,
-                        'channels': 1,
-                        'sample_rate': 48_000,
-                        'bit_depth': 32,
-                    }
-                ],
-            }
-        )
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_finished","timestamp":"end","path":"missing.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
     assert session_manifest_check.check(manifest) == [
@@ -57,16 +34,26 @@ def test_manifest_check_reports_missing_files(tmp_path: Path) -> None:
 
 
 def test_manifest_check_reports_unknown_fields(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.json'
+    manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text(
-        json.dumps(
-            {
-                'started_at': 'start',
-                'ended_at': 'end',
-                'duration': 1,
-                'unknown': True,
-            }
-        )
+        '{"type":"header","version":2,"started_at":"start","unknown":true}\n'
     )
 
-    assert 'Extra inputs are not permitted' in session_manifest_check.check(manifest)[0]
+    errors = session_manifest_check.check(manifest)
+    assert any('Extra inputs are not permitted' in e for e in errors)
+
+
+def test_manifest_check_reports_unfinished_files(tmp_path: Path) -> None:
+    audio = tmp_path / 'take.wav'
+    audio.touch()
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_started","timestamp":"start","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: missing footer',
+        f'{manifest}: unfinished file {audio.as_posix()}',
+    ]

@@ -22,7 +22,9 @@ from .key_events import KeyEvent, make_key_recorder
 from .session_manifest import (
     ManifestEvent,
     ManifestFile,
-    SessionManifest,
+    ManifestFooter,
+    ManifestWarning,
+    SessionManifestWriter,
     timestamp_to_json,
 )
 from .source_process import SourceProcess
@@ -59,8 +61,8 @@ class Recorder(Runnables):
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
-        self.manifest_events: list[ManifestEvent] = []
         self.manifest_files: dict[Path, ManifestFile] = {}
+        self.manifest: SessionManifestWriter | None = None
         self.key_recorder = make_key_recorder(cfg)
         self.warnings: list[str] = []
         self.disk_space_reported = False
@@ -106,12 +108,13 @@ class Recorder(Runnables):
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():
             try:
+                self._start_manifest()
                 self._run()
             except KeyboardInterrupt:
                 print('Interrupted', file=sys.stderr)
             finally:
                 self._receive_pending_updates()
-                self._write_manifest()
+                self._finish_manifest()
                 if self.cfg.general.silence_preview:
                     print(json.dumps(self._silence_preview_report(), indent=2))
                 elif self.cfg.general.calibrate or self.cfg.general.verbose:
@@ -213,7 +216,7 @@ class Recorder(Runnables):
                 f'minimum_free_space={minimum}'
             )
             print(warning, file=sys.stderr)
-            self.warnings.append(warning)
+            self._record_warning(warning)
             self.disk_space_reported = True
         return True
 
@@ -238,7 +241,7 @@ class Recorder(Runnables):
                         f'{source.required_channels} required'
                     )
                     print(f'ERROR: {warning}', file=sys.stderr)
-                    self.warnings.append(warning)
+                    self._record_warning(warning)
                     self.failed.add(name)
                 continue
 
@@ -298,7 +301,7 @@ class Recorder(Runnables):
                 continue
             warning = f'Device {name} stopped sending updates'
             print(warning, file=sys.stderr)
-            self.warnings.append(warning)
+            self._record_warning(warning)
             source.stop()
             source.join()
             if name in self.hardware:
@@ -335,7 +338,7 @@ class Recorder(Runnables):
         if isinstance(message, SourceFailure):
             warning = f'Device {message.source_name} failed: {message.message}'
             print(warning, file=sys.stderr)
-            self.warnings.append(warning)
+            self._record_warning(warning)
             self.failed.add(message.source_name)
             return
         self._receive_update(message)
@@ -344,7 +347,9 @@ class Recorder(Runnables):
         self.frames[update.source_name] += update.frames
         self.files_written.update(update.files)
         for file_record in update.file_records or []:
-            self.manifest_files[file_record.path] = ManifestFile(
+            record = ManifestFile(
+                type='file_started',
+                timestamp=timestamp_to_json(times.timestamp()),
                 path=file_record.path.as_posix(),
                 source=self._manifest_source(file_record.source_name),
                 track=file_record.track,
@@ -352,6 +357,8 @@ class Recorder(Runnables):
                 sample_rate=file_record.sample_rate,
                 bit_depth=file_record.bit_depth,
             )
+            self.manifest_files[file_record.path] = record
+            self._write_manifest_record(record)
         source = self.sources[update.source_name]
         previous = {
             track_name: state.is_active
@@ -384,7 +391,7 @@ class Recorder(Runnables):
         if source.name not in self.lag_reported:
             warning = f'Device {source.name} lagging behind real time'
             print(warning, file=sys.stderr)
-            self.warnings.append(warning)
+            self._record_warning(warning)
             self.lag_reported.add(source.name)
         return False
 
@@ -409,7 +416,7 @@ class Recorder(Runnables):
         source: str,
         track: str | None = None,
     ) -> None:
-        self.manifest_events.append(
+        self._write_manifest_record(
             ManifestEvent(
                 timestamp=timestamp_to_json(times.timestamp()),
                 type=event_type,
@@ -419,7 +426,7 @@ class Recorder(Runnables):
         )
 
     def _record_key_event(self, event: KeyEvent) -> None:
-        self.manifest_events.append(
+        self._write_manifest_record(
             ManifestEvent(
                 timestamp=timestamp_to_json(times.timestamp()),
                 type=event.type,
@@ -436,21 +443,50 @@ class Recorder(Runnables):
         target = round(total * source.source.samplerate)
         return self.frames[source.name] >= target
 
-    def _write_manifest(self) -> None:
+    def _start_manifest(self) -> None:
         if self.cfg.general.dry_run or self.cfg.general.silence_preview:
             return
-        files = [
-            file for path, file in sorted(self.manifest_files.items()) if path.exists()
-        ]
-        manifest = SessionManifest(
+        self.manifest = SessionManifestWriter(
+            self._manifest_path(),
             started_at=timestamp_to_json(self.state.start_time),
-            ended_at=timestamp_to_json(times.timestamp()),
-            duration=self.state.elapsed_time,
-            events=self.manifest_events,
-            files=files,
-            warnings=self.warnings,
         )
-        manifest.write(self._manifest_path())
+
+    def _finish_manifest(self) -> None:
+        if self.manifest is None:
+            return
+        for path, file in sorted(self.manifest_files.items()):
+            if path.exists():
+                self._write_manifest_record(
+                    file.model_copy(
+                        update={
+                            'type': 'file_finished',
+                            'timestamp': timestamp_to_json(times.timestamp()),
+                        }
+                    )
+                )
+        self._write_manifest_record(
+            ManifestFooter(
+                ended_at=timestamp_to_json(times.timestamp()),
+                duration=self.state.elapsed_time,
+            )
+        )
+        self.manifest.close()
+
+    def _record_warning(self, warning: str) -> None:
+        self.warnings.append(warning)
+        self._write_manifest_record(
+            ManifestWarning(
+                timestamp=timestamp_to_json(times.timestamp()),
+                message=warning,
+            )
+        )
+
+    def _write_manifest_record(
+        self,
+        record: ManifestEvent | ManifestFile | ManifestFooter | ManifestWarning,
+    ) -> None:
+        if self.manifest is not None:
+            self.manifest.write(record)
 
     def _manifest_source(self, source_name: str) -> str | None:
         if isinstance(self.sources[source_name].source, FileSource):
@@ -483,14 +519,14 @@ class Recorder(Runnables):
         paths = sorted(path for path in self.files_written if path.exists())
         if paths:
             parent = Path(os.path.commonpath([path.parent for path in paths]))
-            return parent / 'recs-session.json'
+            return parent / 'recs-session.jsonl'
 
         output_directory = self.cfg.directory.output_directory
         if output_directory:
             return _manifest_directory(output_directory, self.state.start_time) / (
-                'recs-session.json'
+                'recs-session.jsonl'
             )
-        return Path('recs-session.json')
+        return Path('recs-session.jsonl')
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.files_written if path.exists())

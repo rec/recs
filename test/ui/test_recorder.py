@@ -34,6 +34,10 @@ class FakePoller(Runnable):
         pass
 
 
+def read_jsonl(path: Path) -> list[dict[str, t.Any]]:
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
 class FakeConnection:
     def poll(self) -> bool:
         return False
@@ -501,7 +505,7 @@ def test_recorder_output_folder_prefers_written_files(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     path = tmp_path / 'session/take.wav'
     path.parent.mkdir()
     path.touch()
@@ -534,7 +538,8 @@ def test_live_input_manifest_omits_source(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_manifest()
     path = tmp_path / 'mic.wav'
     path.touch()
 
@@ -556,17 +561,28 @@ def test_live_input_manifest_omits_source(
             ],
         )
     )
-    rec._write_manifest()
+    rec._finish_manifest()
 
-    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
-    assert manifest['files'] == [
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    for record in records:
+        record.pop('timestamp', None)
+    assert records[1:3] == [
         {
+            'type': 'file_started',
             'path': path.as_posix(),
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
             'bit_depth': 64,
-        }
+        },
+        {
+            'type': 'file_finished',
+            'path': path.as_posix(),
+            'track': 1,
+            'channels': 1,
+            'sample_rate': 48_000,
+            'bit_depth': 64,
+        },
     ]
 
 
@@ -582,9 +598,9 @@ def test_preview_modes_do_not_write_manifest(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(**{field: True}, include=['Mic'], silent=True))
 
-    rec._write_manifest()
+    rec._finish_manifest()
 
-    assert not Path('recs-session.json').exists()
+    assert not Path('recs-session.jsonl').exists()
 
 
 def test_silence_preview_report_recommends_thresholds(
@@ -622,10 +638,9 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
+    rec._start_manifest()
 
-    rec._write_manifest()
-
-    assert Path('sessions/2026-06-23/recs-session.json').exists()
+    assert Path('sessions/2026-06-23/recs-session.jsonl').exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -639,9 +654,10 @@ def test_default_output_directory_uses_session_timestamp(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec._start_manifest()
     expected = recorder._session_directory_name(timestamp)
     path = Path(rec.cfg.directory.output_directory) / 'mic.wav'
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(exist_ok=True, parents=True)
     path.touch()
 
     rec._receive_update(
@@ -662,10 +678,10 @@ def test_default_output_directory_uses_session_timestamp(
             ],
         )
     )
-    rec._write_manifest()
+    rec._finish_manifest()
 
     assert rec.cfg.directory.output_directory == expected
-    assert (path.parent / 'recs-session.json').exists()
+    assert (path.parent / 'recs-session.jsonl').exists()
 
 
 def test_default_output_directory_uses_collision_suffix(
@@ -717,6 +733,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
             silent=True,
         )
     )
+    rec._start_manifest()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     rec.poller.snapshots = [{'Mic': mic_info}, {}]
 
@@ -738,10 +755,8 @@ def test_manifest_records_source_and_track_lifecycle_events(
         )
     )
     rec._poll_devices()
-    rec._write_manifest()
-
-    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
-    assert manifest['events'] == [
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:43.000Z',
             'type': 'source_online',
@@ -789,6 +804,7 @@ def test_manifest_records_key_events(
             silent=True,
         )
     )
+    rec._start_manifest()
     rec.key_recorder = FakeKeyRecorder(
         [
             KeyEvent(type='key_pressed', key='g'),
@@ -797,10 +813,8 @@ def test_manifest_records_key_events(
     )
 
     rec._receive_key_events()
-    rec._write_manifest()
-
-    manifest = json.loads((tmp_path / 'recs-session.json').read_text())
-    assert manifest['events'] == [
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:42.000Z',
             'type': 'key_pressed',

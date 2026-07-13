@@ -12,6 +12,7 @@ from threa import HasThread
 from recs.base import times
 from recs.base.types import Format
 from recs.cfg import Cfg, device, run_cli
+from recs.ui import session_manifest
 
 from .conftest import BLOCK_SIZE, DEVICES, DEVICES_FILE
 from .recs_runner import RecsRunner
@@ -85,7 +86,7 @@ def test_file_inputs(
     outputs = sorted(Path('files').glob(f'*.{Format.wav}'))
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
-    manifest = json.loads(Path('files/recs-session.json').read_text())
+    manifest = session_manifest.read(Path('files/recs-session.jsonl'))
     data_regression.check(
         _stable_manifest(manifest),
         basename='file_inputs_manifest',
@@ -220,18 +221,24 @@ def test_flaky_device_and_long_gaps_end_to_end(
     ]
 
 
-def _stable_manifest(manifest: dict[str, object]) -> dict[str, object]:
-    result = manifest | {
+def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, object]:
+    result = manifest.model_dump(mode='json') | {
         'started_at': '<timestamp>',
         'ended_at': '<timestamp>',
         'duration': '<duration>',
     }
+    result.pop('errors')
+    result['files'] = [f for f in result['files'] if f['type'] == 'file_finished']
     for file in result['files']:
         assert isinstance(file, dict)
+        file.pop('timestamp')
+        file.pop('type')
         file['path'] = Path(str(file['path'])).as_posix()
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
     for event in result.get('events', []):
         assert isinstance(event, dict)
+        event.pop('key')
+        event.pop('label')
         event['timestamp'] = '<timestamp>'
         source = Path(str(event['source']))
         if source.is_absolute():

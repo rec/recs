@@ -1,18 +1,18 @@
 import json
 from pathlib import Path
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
-from .session_manifest import SessionManifest
+from . import session_manifest
 
-MANIFEST_NAME = 'recs-session.json'
+MANIFEST_NAME = 'recs-session.jsonl'
 
 
 class SessionSummary(BaseModel):
     path: str
     started_at: str
-    ended_at: str
-    duration: float
+    ended_at: str | None
+    duration: float | None
     files: int
     warnings: list[str] = Field(default_factory=list)
     key_markers: int = 0
@@ -35,15 +35,17 @@ def scan(root: Path) -> list[SessionSummary]:
 
 def _summary(path: Path) -> SessionSummary | None:
     try:
-        manifest = SessionManifest.model_validate_json(path.read_text())
-    except (OSError, ValidationError):
+        manifest = session_manifest.read(path)
+    except OSError:
+        return None
+    if not manifest.started_at:
         return None
     return SessionSummary(
         path=path.as_posix(),
         started_at=manifest.started_at,
         ended_at=manifest.ended_at,
         duration=manifest.duration,
-        files=len(manifest.files),
-        warnings=manifest.warnings,
+        files=sum(1 for f in manifest.files if f.type == 'file_finished'),
+        warnings=manifest.warnings + manifest.errors,
         key_markers=sum(1 for e in manifest.events if e.key),
     )

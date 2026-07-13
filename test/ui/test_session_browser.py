@@ -8,27 +8,15 @@ def test_session_browser_lists_session_manifests(
     capsys,
     tmp_path: Path,
 ) -> None:
-    manifest = tmp_path / 'take/recs-session.json'
+    manifest = tmp_path / 'take/recs-session.jsonl'
     manifest.parent.mkdir()
     manifest.write_text(
-        json.dumps(
-            {
-                'started_at': 'start',
-                'ended_at': 'end',
-                'duration': 1.5,
-                'events': [{'timestamp': 'mark', 'type': 'key_pressed', 'key': 'g'}],
-                'files': [
-                    {
-                        'path': 'take.wav',
-                        'track': 1,
-                        'channels': 1,
-                        'sample_rate': 48000,
-                        'bit_depth': 32,
-                    }
-                ],
-                'warnings': ['quiet'],
-            }
-        )
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"key_pressed","timestamp":"mark","key":"g"}\n'
+        '{"type":"file_finished","timestamp":"done","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
+        '{"type":"footer","ended_at":"end","duration":1.5}\n'
     )
 
     assert session_browser.main([str(tmp_path)]) == 0
@@ -48,7 +36,7 @@ def test_session_browser_lists_session_manifests(
 
 
 def test_session_browser_ignores_invalid_manifests(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.json'
+    manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text('{')
 
     assert session_browser.scan(tmp_path) == []

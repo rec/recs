@@ -3,12 +3,33 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+
+class ManifestHeader(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: str = 'header'
+    version: int = 2
+    started_at: str
+
+
+class ManifestEvent(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: str
+    timestamp: str
+    source: str | None = None
+    track: str | None = None
+    key: str | None = None
+    label: str | None = None
 
 
 class ManifestFile(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
+    type: str
+    timestamp: str
     path: str
     track: int
     channels: int
@@ -17,36 +38,71 @@ class ManifestFile(BaseModel):
     source: str | None = None
 
 
-class ManifestEvent(BaseModel):
+class ManifestWarning(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
+    type: str = 'warning'
     timestamp: str
-    type: str
-    source: str | None = None
-    track: str | None = None
-    key: str | None = None
-    label: str | None = None
+    message: str
+
+
+class ManifestFooter(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: str = 'footer'
+    ended_at: str
+    duration: float
 
 
 class SessionManifest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     started_at: str
-    ended_at: str
-    duration: float
+    ended_at: str | None = None
+    duration: float | None = None
     events: list[ManifestEvent] = Field(default_factory=list)
     files: list[ManifestFile] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
-    def write(self, path: Path) -> Path:
-        target = _available_path(path)
-        target.parent.mkdir(exist_ok=True, parents=True)
-        _write_text_atomically(
-            target,
-            json.dumps(self.model_dump(mode='json', exclude_none=True), indent=2)
-            + '\n',
-        )
-        return target
+
+ManifestRecord = (
+    ManifestEvent | ManifestFile | ManifestFooter | ManifestHeader | ManifestWarning
+)
+
+
+class SessionManifestWriter:
+    def __init__(self, path: Path, started_at: str) -> None:
+        self.path = _available_path(path)
+        self.path.parent.mkdir(exist_ok=True, parents=True)
+        self.fp = self.path.open('a')
+        self.write(ManifestHeader(started_at=started_at))
+
+    def write(
+        self,
+        record: ManifestRecord,
+    ) -> None:
+        self.fp.write(record.model_dump_json(exclude_none=True) + '\n')
+        self.fp.flush()
+        os.fsync(self.fp.fileno())
+
+    def close(self) -> None:
+        self.fp.close()
+
+
+def read(path: Path) -> SessionManifest:
+    records, errors = _read_records(path)
+    header = next((r for r in records if isinstance(r, ManifestHeader)), None)
+    footer = next((r for r in reversed(records) if isinstance(r, ManifestFooter)), None)
+    return SessionManifest(
+        started_at=header.started_at if header else '',
+        ended_at=footer.ended_at if footer else None,
+        duration=footer.duration if footer else None,
+        events=[r for r in records if isinstance(r, ManifestEvent)],
+        files=[r for r in records if isinstance(r, ManifestFile)],
+        warnings=[r.message for r in records if isinstance(r, ManifestWarning)],
+        errors=errors,
+    )
 
 
 def timestamp_to_json(timestamp: float) -> str:
@@ -55,6 +111,43 @@ def timestamp_to_json(timestamp: float) -> str:
         .isoformat(timespec='milliseconds')
         .replace('+00:00', 'Z')
     )
+
+
+def _read_records(
+    path: Path,
+) -> tuple[list[ManifestRecord], list[str]]:
+    records: list[ManifestRecord] = []
+    errors: list[str] = []
+    lines = path.read_text().splitlines()
+    for i, line in enumerate(lines, 1):
+        if not line:
+            continue
+        try:
+            records.append(_parse_record(line))
+        except (json.JSONDecodeError, ValidationError, ValueError) as e:
+            prefix = 'truncated final line' if i == len(lines) else f'line {i}'
+            errors.append(f'{path}: {prefix}: {e}')
+    return records, errors
+
+
+def _parse_record(
+    line: str,
+) -> ManifestRecord:
+    data = json.loads(line)
+    if not isinstance(data, dict):
+        raise ValueError('manifest line must be a JSON object')
+    record_type = data.get('type')
+    if record_type == 'header':
+        return ManifestHeader.model_validate(data)
+    if record_type in {'file_finished', 'file_started'}:
+        return ManifestFile.model_validate(data)
+    if record_type == 'footer':
+        return ManifestFooter.model_validate(data)
+    if record_type == 'warning':
+        return ManifestWarning.model_validate(data)
+    if isinstance(record_type, str):
+        return ManifestEvent.model_validate(data)
+    raise ValueError('manifest line is missing a string type')
 
 
 def _available_path(path: Path) -> Path:
@@ -67,12 +160,3 @@ def _available_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
         index += 1
-
-
-def _write_text_atomically(path: Path, content: str) -> None:
-    tmp = path.with_name(f'.{path.name}.tmp')
-    with tmp.open('w') as fp:
-        fp.write(content)
-        fp.flush()
-        os.fsync(fp.fileno())
-    tmp.replace(path)
