@@ -14,7 +14,7 @@ from recs.cfg.track import Track
 from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
-from recs.ui.source_recorder import SourceFailure, SourceFile, SourceUpdate
+from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
 
 
 class DiskUsage(t.NamedTuple):
@@ -409,6 +409,59 @@ def test_recorder_finishes_with_all_devices_offline(
     rec.state.start_time -= 1
 
     assert rec._done([])
+
+
+def test_recorder_records_buffer_overflow_event(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 0.0)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_manifest()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=48_000,
+            source_name='Mic',
+            buffer_stats=BufferStats(
+                dropped_blocks=1,
+                dropped_frames=512,
+                max_queued_seconds=0.5,
+                queued_seconds=0.25,
+            ),
+        )
+    )
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1] == {
+        'type': 'buffer_overflow',
+        'timestamp': '1970-01-01T00:00:00.000Z',
+        'dropped_blocks': 1,
+        'dropped_frames': 512,
+        'source': 'Mic',
+        'max_queued_seconds': 0.5,
+        'queued_seconds': 0.25,
+    }
+
+
+def test_recorder_rows_include_buffer_stats(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec.buffer_stats['Mic'] = BufferStats(queued_seconds=0.25, dropped_frames=512)
+
+    rows = list(rec.rows())
+
+    assert rows[1]['buffer'] == 0.25
+    assert rows[1]['dropped'] == 512
 
 
 def test_recorder_reports_low_disk_space_once(

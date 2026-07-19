@@ -1,10 +1,12 @@
 import contextlib
+import math
 import typing as t
 from multiprocessing.connection import Connection
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 
 import numpy as np
+from pydantic import BaseModel
 from threa import Runnables
 
 from recs.audio.channel_writer import ChannelWriter
@@ -15,6 +17,16 @@ from recs.cfg import Cfg, Track
 from recs.cfg.source import Update
 
 POLL_TIMEOUT = 0.05
+DEFAULT_BLOCK_FRAMES = 512
+
+
+class BufferStats(BaseModel):
+    queued_blocks: int = 0
+    queued_seconds: float = 0.0
+    max_queued_seconds: float = 0.0
+    dropped_blocks: int = 0
+    dropped_frames: int = 0
+    last_drop_timestamp: float = 0.0
 
 
 class SourceUpdate(t.NamedTuple):
@@ -22,6 +34,8 @@ class SourceUpdate(t.NamedTuple):
     files: list[Path]
     frames: int
     source_name: str
+    buffer_stats: BufferStats | None = None
+    buffer_warnings: list[str] | None = None
     file_records: list['SourceFile'] | None = None
 
 
@@ -37,6 +51,75 @@ class SourceFile(t.NamedTuple):
     channels: int
     sample_rate: int
     bit_depth: int
+
+
+class InputBuffer:
+    def __init__(self, cfg: Cfg, samplerate: int) -> None:
+        self.cfg = cfg
+        self.samplerate = samplerate
+        self.block_frames = DEFAULT_BLOCK_FRAMES
+        self.queue: Queue[Update] = Queue(maxsize=self._max_blocks())
+        self.stats = BufferStats()
+        self.reported_dropped_frames = 0
+        self.last_pressure_warning = 0.0
+        self.pressure_reported = False
+
+    def put(self, update: Update) -> None:
+        self.block_frames = max(1, len(update.array))
+        try:
+            self.queue.put_nowait(update)
+            self._update_queue_stats()
+        except Full:
+            self.stats.dropped_blocks += 1
+            self.stats.dropped_frames += len(update.array)
+            self.stats.last_drop_timestamp = update.timestamp
+
+    def get(self, timeout: float | None = None, *, block: bool = True) -> Update:
+        update = self.queue.get(block=block, timeout=timeout)
+        self.block_frames = max(1, len(update.array))
+        self._update_queue_stats()
+        return update
+
+    def warnings(self, source_name: str, timestamp: float) -> list[str]:
+        warnings: list[str] = []
+        if self.stats.dropped_frames > self.reported_dropped_frames:
+            dropped = self.stats.dropped_frames - self.reported_dropped_frames
+            warnings.append(
+                f'Device {source_name} audio buffer overflow: '
+                f'dropped {dropped} frames'
+            )
+            self.reported_dropped_frames = self.stats.dropped_frames
+
+        fraction = self.queue.qsize() / self.queue.maxsize
+        period = self.cfg.recording.buffer_status_period
+        if fraction < self.cfg.recording.buffer_warning_fraction:
+            self.pressure_reported = False
+        elif (
+            not self.pressure_reported
+            or timestamp - self.last_pressure_warning >= period
+        ):
+            seconds = self.stats.queued_seconds
+            warnings.append(
+                f'Device {source_name} audio buffer pressure: '
+                f'{seconds:.3f} seconds queued'
+            )
+            self.last_pressure_warning = timestamp
+            self.pressure_reported = True
+        return warnings
+
+    def _update_queue_stats(self) -> None:
+        self.stats.queued_blocks = self.queue.qsize()
+        self.stats.queued_seconds = (
+            self.stats.queued_blocks * self.block_frames / self.samplerate
+        )
+        self.stats.max_queued_seconds = max(
+            self.stats.max_queued_seconds,
+            self.stats.queued_seconds,
+        )
+
+    def _max_blocks(self) -> int:
+        seconds = self.cfg.recording.audio_buffer_seconds
+        return max(1, math.ceil(seconds * self.samplerate / DEFAULT_BLOCK_FRAMES))
 
 
 class SourceRecorder(Runnables):
@@ -57,7 +140,7 @@ class SourceRecorder(Runnables):
         assert all(t.source == self.source for t in tracks)
 
         self.name = self.cfg.aliases.display_name(self.source)
-        self.queue: Queue[Update] = Queue()
+        self.buffer = InputBuffer(self.cfg, self.source.samplerate)
         self.times = self.cfg.times.scale(self.source.samplerate)
         self.channel_writers = tuple(
             ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
@@ -66,7 +149,7 @@ class SourceRecorder(Runnables):
 
         self.input_stream = self.source.input_stream(
             sdtype=t.cast(SdType, self.cfg.audio.sdtype),
-            update_callback=self.queue.put,
+            update_callback=self.buffer.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)
 
@@ -75,14 +158,14 @@ class SourceRecorder(Runnables):
         ), self:
             while self.running and not self.stop_event.is_set():
                 try:
-                    self._receive_update(self.queue.get(timeout=POLL_TIMEOUT))
+                    self._receive_update(self.buffer.get(timeout=POLL_TIMEOUT))
                 except Empty:
                     if not self.input_stream.running:
                         break
 
         with contextlib.suppress(Empty):
             while True:
-                self._receive_update(self.queue.get(block=False))
+                self._receive_update(self.buffer.get(block=False))
 
     def _receive_update(self, u: Update) -> None:
         if Format.mp3 in self.cfg.audio.formats and u.array.dtype == np.float32:
@@ -99,12 +182,15 @@ class SourceRecorder(Runnables):
                 block, u.timestamp, should_record
             )
         files, file_records = self._new_files(u.array.dtype.itemsize * 8)
+        stats = self.buffer.stats.model_copy()
         self.connection.send(
             SourceUpdate(
                 channels=msgs,
                 files=files,
                 frames=len(u.array),
                 source_name=self.source.name,
+                buffer_stats=stats,
+                buffer_warnings=self.buffer.warnings(self.source.name, u.timestamp),
                 file_records=file_records,
             )
         )

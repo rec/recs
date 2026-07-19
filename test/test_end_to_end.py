@@ -237,8 +237,12 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
     for event in result.get('events', []):
         assert isinstance(event, dict)
+        event.pop('dropped_blocks')
+        event.pop('dropped_frames')
         event.pop('key')
         event.pop('label')
+        event.pop('max_queued_seconds')
+        event.pop('queued_seconds')
         event['timestamp'] = '<timestamp>'
         source = Path(str(event['source']))
         if source.is_absolute():

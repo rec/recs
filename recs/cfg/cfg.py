@@ -180,7 +180,10 @@ class Recording(BaseModel):
     #
     # Settings relating to times
     #
+    audio_buffer_seconds: float = 10.0
     band_mode: bool = True
+    buffer_status_period: float = 1.0
+    buffer_warning_fraction: float = 0.75
     infinite_length: bool = False
     longest_file_time: float = 0.0
     minimum_free_space: int = 0
@@ -192,6 +195,20 @@ class Recording(BaseModel):
     quiet_before_start: float = 1.0
     stop_after_quiet: float = 20.0
     total_run_time: float = 0.0
+
+    @field_validator('audio_buffer_seconds', 'buffer_status_period')
+    @classmethod
+    def validate_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError('must be positive')
+        return value
+
+    @field_validator('buffer_warning_fraction')
+    @classmethod
+    def validate_buffer_warning_fraction(cls, value: float) -> float:
+        if not 0 < value <= 1:
+            raise ValueError('must be between 0 and 1')
+        return value
 
     @field_validator('minimum_free_space')
     @classmethod

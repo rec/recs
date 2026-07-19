@@ -12,6 +12,8 @@ COLUMNS = [
     'device',
     'channel',
     'on',
+    'buffer',
+    'dropped',
     'recorded',
     'file_size',
     'file_count',
@@ -50,6 +52,10 @@ def _cell(value: object, column: str) -> Cell:
 
     if column in {'time', 'recorded'}:
         return Cell(text=_time_to_str(value))
+    if column == 'buffer':
+        return Cell(text=_buffer(value))
+    if column == 'dropped':
+        return Cell(text=_integer(value))
     if column == 'file_size':
         return Cell(text=_naturalsize(value))
     if column == 'channel':
@@ -59,7 +65,7 @@ def _cell(value: object, column: str) -> Cell:
     if column == 'volume':
         return _volume(value)
     if column == 'file_count':
-        return Cell(text=str(value))
+        return Cell(text=_integer(value))
     return Cell(text=str(value))
 
 
@@ -88,6 +94,18 @@ def _number(value: object) -> float:
     if isinstance(value, Real):
         return float(value)
     return 0.0
+
+
+def _integer(value: object) -> str:
+    if not isinstance(value, Real) or not value:
+        return ''
+    return str(int(_number(value)))
+
+
+def _buffer(value: object) -> str:
+    if not isinstance(value, Real) or value <= 0:
+        return ''
+    return f'{value:.3f}s'
 
 
 def to_percent(value: object) -> str:

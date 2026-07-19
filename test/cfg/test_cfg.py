@@ -70,6 +70,17 @@ def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
         Cfg(**{field: 0})
 
 
+@pytest.mark.parametrize('field', ['audio_buffer_seconds', 'buffer_status_period'])
+def test_buffer_times_must_be_positive(field: str, mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='must be positive'):
+        Cfg(**{field: 0})
+
+
+def test_buffer_warning_fraction_must_be_fraction(mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='must be between 0 and 1'):
+        Cfg(buffer_warning_fraction=2)
+
+
 def test_minimum_free_space_must_not_be_negative(mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='must be non-negative'):
         Cfg(minimum_free_space=-1)

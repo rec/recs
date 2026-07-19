@@ -19,10 +19,14 @@ class ManifestEvent(BaseModel):
 
     type: str
     timestamp: str
+    dropped_blocks: int | None = None
+    dropped_frames: int | None = None
     source: str | None = None
     track: str | None = None
     key: str | None = None
     label: str | None = None
+    max_queued_seconds: float | None = None
+    queued_seconds: float | None = None
 
 
 class ManifestFile(BaseModel):

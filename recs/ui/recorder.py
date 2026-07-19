@@ -28,7 +28,7 @@ from .session_manifest import (
     timestamp_to_json,
 )
 from .source_process import SourceProcess
-from .source_recorder import POLL_TIMEOUT, SourceFailure, SourceUpdate
+from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpdate
 from .source_tracks import source_tracks
 
 FRAME_CLOCK_GRACE = 5.0
@@ -57,6 +57,8 @@ class Recorder(Runnables):
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
+        self.buffer_stats: dict[str, BufferStats] = {}
+        self.buffer_drops_reported = dict.fromkeys(self.sources, 0)
         self.source_frames_at_start = dict.fromkeys(self.sources, 0)
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
@@ -103,7 +105,15 @@ class Recorder(Runnables):
         Runnable.start(self)
 
     def rows(self) -> t.Iterator[dict[str, t.Any]]:
-        return self.state.rows()
+        for row in self.state.rows():
+            if device := row.get('device'):
+                for source, name in self.state.source_names.items():
+                    if name == device and (stats := self.buffer_stats.get(source)):
+                        row |= {
+                            'buffer': stats.queued_seconds,
+                            'dropped': stats.dropped_frames,
+                        }
+            yield row
 
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():
@@ -345,6 +355,7 @@ class Recorder(Runnables):
 
     def _receive_update(self, update: SourceUpdate) -> None:
         self.frames[update.source_name] += update.frames
+        self._record_buffer_status(update)
         self.files_written.update(update.files)
         for file_record in update.file_records or []:
             record = ManifestFile(
@@ -374,6 +385,29 @@ class Recorder(Runnables):
             return
         if source.running and self._source_time_expired(source):
             source.stop()
+
+    def _record_buffer_status(self, update: SourceUpdate) -> None:
+        if update.buffer_stats is not None:
+            self.buffer_stats[update.source_name] = update.buffer_stats
+            reported = self.buffer_drops_reported[update.source_name]
+            if update.buffer_stats.dropped_frames > reported:
+                self._write_manifest_record(
+                    ManifestEvent(
+                        type='buffer_overflow',
+                        timestamp=timestamp_to_json(times.timestamp()),
+                        source=update.source_name,
+                        dropped_blocks=update.buffer_stats.dropped_blocks,
+                        dropped_frames=update.buffer_stats.dropped_frames,
+                        max_queued_seconds=update.buffer_stats.max_queued_seconds,
+                        queued_seconds=update.buffer_stats.queued_seconds,
+                    )
+                )
+                self.buffer_drops_reported[
+                    update.source_name
+                ] = update.buffer_stats.dropped_frames
+        for warning in update.buffer_warnings or []:
+            print(warning, file=sys.stderr)
+            self._record_warning(warning)
 
     def _source_frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
         if source.name not in self.hardware:
