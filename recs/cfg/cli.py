@@ -331,6 +331,13 @@ def recs(
             help='The noise floor in decibels',
         ),
     ],
+    preview_headroom: t.Annotated[
+        float,
+        tyro.conf.arg(
+            default=RECS.recording.preview_headroom,
+            help='Headroom in decibels to add to silence preview measurements',
+        ),
+    ],
     record_everything: t.Annotated[
         bool,
         tyro.conf.arg(

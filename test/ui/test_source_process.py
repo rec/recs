@@ -153,6 +153,44 @@ def test_source_process_applies_device_profile(
     assert recorder_cfg.recording.noise_floor == 42
 
 
+def test_source_process_uses_per_device_noise_floor(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def pipe() -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text(
+        '{"Mic": {"noise_floor": 42}, "Ext": {"recording": {"noise_floor": 68}}}'
+    )
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    mic = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    ext = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Ext',
+        }
+    )
+
+    SourceProcess(Cfg(noise_floor=80, profiles=profiles), [Track(mic, '1')]).start()
+    SourceProcess(Cfg(noise_floor=80, profiles=profiles), [Track(ext, '1')]).start()
+
+    first, second = FakeProcess.instances[-2:]
+    assert first.kwargs['cfg'].recording.noise_floor == 42
+    assert second.kwargs['cfg'].recording.noise_floor == 68
+
+
 def test_source_process_ignores_broken_connection_poll(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

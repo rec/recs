@@ -61,6 +61,8 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
             'int1',
             '--longest-file-time',
             '1:30',
+            '--preview-headroom',
+            '9',
             '--no-band-mode',
         ],
     )
@@ -69,4 +71,5 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert parsed['formats'] == [Format.wav]
     assert parsed['sdtype'] == SdType.int16
     assert parsed['longest_file_time'] == 90
+    assert parsed['preview_headroom'] == 9
     assert not parsed['band_mode']

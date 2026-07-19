@@ -662,21 +662,14 @@ def test_silence_preview_report_recommends_thresholds(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(silence_preview=True, include=['Mic'], silent=True))
+    rec = Recorder(
+        Cfg(silence_preview=True, include=['Mic'], preview_headroom=9, silent=True)
+    )
     rec.state.update({'Mic': {'1': ChannelState(max_amp=0.5, min_amp=-0.5)}})
 
     assert rec._silence_preview_report() == {
         'measurements': {'Mic - 1': 6.020599913279624, '(all)': 6.020599913279624},
-        'recommendations': {
-            'noise_floor': 12.0,
-            'quiet_before_start': 1.0,
-            'quiet_after_end': 2.0,
-        },
-        'flags': {
-            'noise_floor': '--noise-floor 12.0',
-            'quiet_before_start': '--quiet-before-start 1',
-            'quiet_after_end': '--quiet-after-end 2',
-        },
+        'profiles': {'Mic': {'noise_floor': 15.0}},
     }
 
 

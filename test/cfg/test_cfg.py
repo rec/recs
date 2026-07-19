@@ -48,6 +48,20 @@ def test_device_profiles_apply_to_matching_device(
     assert unprofiled.recording.noise_floor == 70
 
 
+def test_device_profile_noise_floor_overrides_global_default(
+    tmp_path: Path,
+    mock_devices: None,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"recording": {"noise_floor": 42}}}')
+
+    profiled = Cfg(noise_floor=80, profiles=profiles).with_device_profile('Mic')
+    unprofiled = Cfg(noise_floor=80, profiles=profiles).with_device_profile('Other')
+
+    assert profiled.recording.noise_floor == 42
+    assert unprofiled.recording.noise_floor == 80
+
+
 def test_unknown_device_profile_field_is_validation_error(
     tmp_path: Path,
     mock_devices: None,

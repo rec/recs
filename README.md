@@ -95,6 +95,27 @@ automatically when the channel receives a signal.
 Some care is taken to preserve the quiet before the start or after the end of a
 recording to prevent abrupt transitions.
 
+### Per-device noise floors
+
+`--noise-floor` sets the global threshold for starting and stopping recordings.
+To override it for one input device, pass a JSON profile file with `--profiles`:
+
+```
+{
+    "MacBook Pro Microphone": {
+        "noise_floor": 60
+    },
+    "FLOW 8 (Recording)": {
+        "recording": {
+            "noise_floor": 75
+        }
+    }
+}
+```
+
+The device-specific value wins for that input. Inputs without a matching profile
+keep the global `--noise-floor` value, or the default if none was supplied.
+
 
 #### Appendix A: Failure modes
 

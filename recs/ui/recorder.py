@@ -529,24 +529,18 @@ class Recorder(Runnables):
 
     def _silence_preview_report(self) -> dict[str, object]:
         measurements = self.state.db_ranges()
-        noise_floor = max(measurements.values(), default=0.0) + 6.0
+        profiles = {}
+        for source_name, source_state in self.state.state.items():
+            source_measurements = [state.db_range for state in source_state.values()]
+            noise_floor = max(source_measurements, default=0.0)
+            profiles[source_name] = {
+                'noise_floor': round(
+                    noise_floor + self.cfg.recording.preview_headroom, 1
+                )
+            }
         return {
             'measurements': measurements,
-            'recommendations': {
-                'noise_floor': round(noise_floor, 1),
-                'quiet_before_start': self.cfg.recording.quiet_before_start,
-                'quiet_after_end': self.cfg.recording.quiet_after_end,
-            },
-            'flags': {
-                'noise_floor': f'--noise-floor {noise_floor:.1f}',
-                'quiet_before_start': (
-                    f'--quiet-before-start '
-                    f'{self.cfg.recording.quiet_before_start:g}'
-                ),
-                'quiet_after_end': (
-                    f'--quiet-after-end {self.cfg.recording.quiet_after_end:g}'
-                ),
-            },
+            'profiles': profiles,
         }
 
     def _manifest_path(self) -> Path:
