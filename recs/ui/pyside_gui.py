@@ -17,6 +17,10 @@ COLORS = {
     '': (32, 32, 32),
     'active': (0, 112, 0),
     'offline': (176, 0, 0),
+    'signal-quiet': (128, 128, 128),
+    'signal-normal': (0, 112, 0),
+    'signal-hot': (160, 96, 0),
+    'signal-peak': (176, 0, 0),
     'volume-low': (0, 112, 0),
     'volume-high': (160, 96, 0),
 }

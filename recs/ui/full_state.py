@@ -63,13 +63,15 @@ class FullState:
             yield {'device': self.source_names[device_name], 'on': active}
 
             for c, s in device_state.items():
+                volume = len(s.volume) and sum(s.volume) / len(s.volume)
                 yield {
                     'channel': self.track_names[(device_name, c)],
                     'on': Active.active if s.is_active else Active.inactive,
                     'recorded': s.recorded_time,
                     'file_size': s.file_size,
                     'file_count': s.file_count,
-                    'volume': len(s.volume) and sum(s.volume) / len(s.volume),
+                    'signal': volume,
+                    'volume': volume,
                 }
 
     def db_ranges(self) -> dict[str, float]:

@@ -12,6 +12,7 @@ COLUMNS = [
     'device',
     'channel',
     'on',
+    'signal',
     'buffer',
     'dropped',
     'recorded',
@@ -62,6 +63,8 @@ def _cell(value: object, column: str) -> Cell:
         return Cell(text=_channel(value))
     if column == 'on':
         return _on(value)
+    if column == 'signal':
+        return _signal(value)
     if column == 'volume':
         return _volume(value)
     if column == 'file_count':
@@ -82,6 +85,17 @@ def _volume(value: object) -> Cell:
     if s < 0.001:
         return Cell()
     return Cell(text=to_percent(value), style=_volume_style(s))
+
+
+def _signal(value: object) -> Cell:
+    s = _number(value)
+    if s < 0.001:
+        return Cell(text='●', style='signal-quiet')
+    if s < 1 / 3:
+        return Cell(text='●', style='signal-normal')
+    if s < 0.9:
+        return Cell(text='●', style='signal-hot')
+    return Cell(text='●', style='signal-peak')
 
 
 def _volume_style(value: float) -> str:

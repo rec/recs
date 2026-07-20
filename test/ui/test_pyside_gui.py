@@ -27,11 +27,11 @@ def test_pyside_gui_updates_table_rows() -> None:
     )
 
     assert window.table.rowCount() == 1
-    assert window.table.columnCount() == 10
+    assert window.table.columnCount() == 11
     assert window.table.item(0, 1).text() == 'Mic'
     assert window.table.item(0, 2).text() == ' 1 '
     assert window.table.item(0, 3).text() == '•'
-    assert window.table.item(0, 9).text() == ' 50.0%'
+    assert window.table.item(0, 10).text() == ' 50.0%'
 
 
 def test_pyside_gui_records_key_press_and_release() -> None:

@@ -96,6 +96,14 @@ def _rich_text(cell: presentation.Cell) -> str:
         return _rgb(g=0xFF) + cell.text
     if cell.style == 'offline':
         return _rgb(r=0xFF) + cell.text
+    if cell.style == 'signal-quiet':
+        return _rgb(r=0x80, g=0x80, b=0x80) + cell.text
+    if cell.style == 'signal-normal':
+        return _rgb(g=0xFF) + cell.text
+    if cell.style == 'signal-hot':
+        return _rgb(r=0xFF, g=0x99) + cell.text
+    if cell.style == 'signal-peak':
+        return _rgb(r=0xFF) + cell.text
     if cell.style == 'volume-low':
         return _rgb(g=0xFF) + cell.text
     if cell.style == 'volume-high':
