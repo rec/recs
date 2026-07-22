@@ -1,9 +1,8 @@
-from test.conftest import DEVICES_FILE
-
 from recs.base.state import ChannelState
 from recs.base.types import Active
 from recs.cfg import Cfg, InputDevice, Track
 from recs.ui.full_state import FullState
+from test.conftest import DEVICES_FILE
 
 
 def test_offline_transition_preserves_cumulative_state() -> None:

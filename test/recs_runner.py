@@ -1,8 +1,6 @@
 import traceback
 import typing as t
 from pathlib import Path
-from test.conftest import BLOCK_SIZE, TIMESTAMP
-from test.mock_input_stream import InputStreamReporter
 
 import numpy as np
 import pytest
@@ -13,6 +11,8 @@ from threa import HasThread
 from recs.base import times
 from recs.base.types import Format
 from recs.cfg import Cfg, run_cli
+from test.conftest import BLOCK_SIZE, TIMESTAMP
+from test.mock_input_stream import InputStreamReporter
 
 DEVICE_OFFSET = 0.000_0237
 TRIES = 100

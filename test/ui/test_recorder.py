@@ -2,7 +2,6 @@ import json
 import typing as t
 from datetime import datetime
 from pathlib import Path
-from test.conftest import DEVICES, DEVICES_FILE
 
 import pytest
 from threa import Runnable
@@ -11,10 +10,12 @@ from recs.base import RecsError
 from recs.base.state import ChannelState
 from recs.cfg import Cfg
 from recs.cfg.track import Track
+from recs.daemon.gui_protocol import Command
 from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
+from test.conftest import DEVICES, DEVICES_FILE
 
 
 class DiskUsage(t.NamedTuple):
@@ -112,6 +113,40 @@ class FakeKeyRecorder:
 
     def stop(self) -> None:
         pass
+
+
+class FakeControlDisplay:
+    closed = False
+
+    def __init__(self, requests: list['FakeControlRequest']) -> None:
+        self.requests = requests
+
+    def take_key_events(self) -> list[KeyEvent]:
+        return []
+
+    def take_control_requests(self) -> list['FakeControlRequest']:
+        requests, self.requests = self.requests, []
+        return requests
+
+
+class FakeControlRequest:
+    def __init__(self) -> None:
+        self.command = Command(type='command', id='c1', command='calibrate')
+        self.replies: list[dict[str, object]] = []
+
+    def reply(
+        self,
+        *,
+        ok: bool,
+        result: dict[str, object] | None = None,
+        message: str | None = None,
+    ) -> None:
+        reply = {'ok': ok}
+        if result is not None:
+            reply['result'] = result
+        if message is not None:
+            reply['message'] = message
+        self.replies.append(reply)
 
 
 def test_recorder_fails(mock_devices):
@@ -671,6 +706,63 @@ def test_silence_preview_report_recommends_thresholds(
         'measurements': {'Mic - 1': 6.020599913279624, '(all)': 6.020599913279624},
         'profiles': {'Mic': {'noise_floor': 15.0}},
     }
+
+
+def test_calibrate_control_request_writes_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"recording": {"quiet_after_end": 5}}}')
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(
+        Cfg(profiles=profiles, include=['Mic'], preview_headroom=9, silent=True)
+    )
+    request = FakeControlRequest()
+    rec.live = FakeControlDisplay([request])
+    rec.state.update({'Mic': {'1': ChannelState(max_amp=0.5, min_amp=-0.5)}})
+
+    rec._receive_control_requests()
+
+    assert json.loads(profiles.read_text()) == {
+        'Mic': {'noise_floor': 15.0, 'recording': {'quiet_after_end': 5}}
+    }
+    assert all(source.cfg is rec.cfg for source in rec.sources.values())
+    assert request.replies == [
+        {
+            'ok': True,
+            'result': {
+                'measurements': {
+                    'Mic - 1': 6.020599913279624,
+                    '(all)': 6.020599913279624,
+                },
+                'profiles': {'Mic': {'noise_floor': 15.0}},
+                'profiles_path': str(profiles),
+            },
+        }
+    ]
+
+
+def test_calibrate_control_request_requires_profiles(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest()
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.replies == [
+        {
+            'ok': False,
+            'message': 'Cannot calibrate noise floor without --profiles',
+        }
+    ]
 
 
 def test_empty_template_output_directory_manifest_uses_time_template(

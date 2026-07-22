@@ -13,25 +13,19 @@ _CONNECTING_PIPES_LOCK = threading.Lock()
 
 
 class GuiConnection(t.Protocol):
-    def read_lines(self) -> t.Iterator[str]:
-        ...
+    def read_lines(self) -> t.Iterator[str]: ...
 
-    def write(self, message: str) -> bool:
-        ...
+    def write(self, message: str) -> bool: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
 
 class GuiServerBackend(t.Protocol):
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def accept(self) -> GuiConnection | None:
-        ...
+    def accept(self) -> GuiConnection | None: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
 
 def server_backend(endpoint: str | Path) -> GuiServerBackend:
@@ -172,9 +166,9 @@ def _connect_windows_pipe(endpoint: str) -> mp_connection.Connection:
             raise TimeoutError(f'Timed out connecting to {endpoint}')
         _CONNECTING_PIPES.add(endpoint)
 
-    results: queue.Queue[
-        mp_connection.Connection | OSError | ValueError
-    ] = queue.Queue()
+    results: queue.Queue[mp_connection.Connection | OSError | ValueError] = (
+        queue.Queue()
+    )
 
     def connect() -> None:
         try:

@@ -1,6 +1,5 @@
 import signal
 from pathlib import Path
-from test import conftest
 
 import numpy as np
 import pytest
@@ -14,6 +13,7 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
+from test import conftest
 
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
@@ -118,9 +118,10 @@ def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None
     files: list[Path] = []
 
     with pytest.raises(KeyboardInterrupt):
-        with raise_keyboard_interrupt_on_signal(), ChannelWriter(
-            cfg, times=times, track=track
-        ) as writer:
+        with (
+            raise_keyboard_interrupt_on_signal(),
+            ChannelWriter(cfg, times=times, track=track) as writer,
+        ):
             writer._receive_block(block, conftest.TIMESTAMP, True)
             files = list(writer.files_written)
             signal.raise_signal(signal.SIGTERM)

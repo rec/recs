@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess as sp
+import typing as t
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -20,7 +21,7 @@ class ServiceController:
         self,
         platform: Platform,
         home: Path | None = None,
-        runner: object | None = None,
+        runner: t.Callable[..., sp.CompletedProcess[str]] | None = None,
     ) -> None:
         self.platform = platform
         self.paths = paths.service_paths(platform, home)

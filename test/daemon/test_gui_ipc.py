@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from recs.base import RecsError
 from recs.cfg import Cfg
 from recs.daemon import gui_ipc
-from recs.daemon.gui_protocol import Hello, RowsMessage, parse_message
+from recs.daemon.gui_protocol import Command, Hello, RowsMessage, parse_message
 from recs.daemon.models import DaemonMetadata, Platform
 from recs.ui.key_events import KeyEvent
 
@@ -24,6 +24,13 @@ def test_protocol_parses_daemon_hello() -> None:
 
     assert isinstance(message, Hello)
     assert message.role == 'daemon'
+
+
+def test_protocol_parses_calibrate_command() -> None:
+    message = parse_message('{"type":"command","id":"c1","command":"calibrate"}')
+
+    assert isinstance(message, Command)
+    assert message.command == 'calibrate'
 
 
 def test_protocol_rejects_malformed_messages() -> None:
@@ -103,6 +110,29 @@ def test_gui_listener_accepts_key_events_after_hello() -> None:
     listener._read()
 
     assert events == [KeyEvent(type='key_pressed', key='g')]
+
+
+def test_gui_listener_queues_commands_after_hello() -> None:
+    requests: list[gui_ipc.ControlRequest] = []
+    connection = FakeConnection(
+        [
+            '{"type":"hello","role":"gui","version":1}\n',
+            '{"type":"command","id":"c1","command":"calibrate"}\n',
+        ]
+    )
+    listener = gui_ipc.GuiListener(connection, lambda event: None, requests.append)
+
+    listener._read()
+    requests[0].reply(ok=True, result={'profiles': {'Mic': {'noise_floor': 15.0}}})
+
+    assert requests[0].command.id == 'c1'
+    assert connection.sent == [
+        '{"type":"hello","role":"daemon","version":1}\n',
+        (
+            '{"type":"reply","id":"c1","ok":true,'
+            '"result":{"profiles":{"Mic":{"noise_floor":15.0}}}}\n'
+        ),
+    ]
 
 
 def test_gui_listener_rejects_key_events_before_hello() -> None:

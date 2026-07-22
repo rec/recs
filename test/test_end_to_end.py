@@ -101,7 +101,7 @@ def test_file_inputs(
     summary = capsys.readouterr().out
     assert summary.startswith('Recording time: ')
     assert summary.replace('\\', '/').endswith(
-        'Files written:\n' '  files/mono-1.wav\n' '  files/stereo-1.wav\n'
+        'Files written:\n  files/mono-1.wav\n  files/stereo-1.wav\n'
     )
 
 

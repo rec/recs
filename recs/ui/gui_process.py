@@ -97,6 +97,9 @@ class GuiProcess(Runnable):
             events, self.key_events = self.key_events, []
         return events
 
+    def take_control_requests(self) -> list[object]:
+        return []
+
     def _read_key_events(self) -> None:
         if self.process is None or self.process.stdout is None:
             return

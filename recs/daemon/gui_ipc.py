@@ -21,16 +21,42 @@ from .gui_backend import (
 )
 from .gui_protocol import (
     VERSION,
+    Command,
     Error,
     Hello,
     KeyPressed,
     KeyReleased,
+    Reply,
     RowsMessage,
     parse_message,
 )
 from .models import DaemonMetadata, DaemonStatus
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ControlRequest:
+    def __init__(self, listener: 'GuiListener', command: Command) -> None:
+        self.listener = listener
+        self.command = command
+
+    def reply(
+        self,
+        *,
+        ok: bool,
+        result: dict[str, object] | None = None,
+        message: str | None = None,
+    ) -> None:
+        self.listener.write(
+            Reply(
+                type='reply',
+                id=self.command.id,
+                ok=ok,
+                result=result,
+                message=message,
+            ).model_dump_json(exclude_none=True)
+            + '\n'
+        )
 
 
 class DaemonGuiServer(Runnable):
@@ -45,6 +71,7 @@ class DaemonGuiServer(Runnable):
         self.backend = server_backend(self.endpoint)
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
+        self.control_requests: list[ControlRequest] = []
         self.lock = threading.Lock()
         super().__init__()
 
@@ -88,6 +115,11 @@ class DaemonGuiServer(Runnable):
             events, self.key_events = self.key_events, []
         return events
 
+    def take_control_requests(self) -> list[ControlRequest]:
+        with self.lock:
+            requests, self.control_requests = self.control_requests, []
+        return requests
+
     def broadcast(self, rows: list[dict[str, object]]) -> None:
         message = RowsMessage(type='rows', rows=rows).model_dump_json() + '\n'
         with self.lock:
@@ -107,7 +139,11 @@ class DaemonGuiServer(Runnable):
             if (conn := self.backend.accept()) is None:
                 continue
 
-            listener = GuiListener(conn, self._append_key_event)
+            listener = GuiListener(
+                conn,
+                self._append_key_event,
+                self._append_control_request,
+            )
             with self.lock:
                 self.clients.append(listener)
             listener.start()
@@ -115,6 +151,10 @@ class DaemonGuiServer(Runnable):
     def _append_key_event(self, event: KeyEvent) -> None:
         with self.lock:
             self.key_events.append(event)
+
+    def _append_control_request(self, request: ControlRequest) -> None:
+        with self.lock:
+            self.control_requests.append(request)
 
     def _remove(self, listener: 'GuiListener') -> None:
         listener.close()
@@ -141,10 +181,14 @@ class DaemonGuiServer(Runnable):
 
 class GuiListener:
     def __init__(
-        self, conn: GuiConnection, append_key_event: t.Callable[[KeyEvent], None]
+        self,
+        conn: GuiConnection,
+        append_key_event: t.Callable[[KeyEvent], None],
+        append_control_request: t.Callable[[ControlRequest], None] | None = None,
     ) -> None:
         self.conn = conn
         self.append_key_event = append_key_event
+        self.append_control_request = append_control_request
         self.handshake_complete = False
         self.lock = threading.Lock()
 
@@ -174,6 +218,8 @@ class GuiListener:
                 return
             if isinstance(message, (KeyPressed, KeyReleased)):
                 self.append_key_event(KeyEvent(type=message.type, key=message.key))
+            elif isinstance(message, Command) and self.append_control_request:
+                self.append_control_request(ControlRequest(self, message))
 
     def _receive_hello(self, message: Hello) -> bool:
         if message.version != VERSION:

@@ -59,6 +59,9 @@ class Live(Runnable):
     def take_key_events(self) -> list[KeyEvent]:
         return []
 
+    def take_control_requests(self) -> list[object]:
+        return []
+
     @cached_property
     def live(self) -> live.Live:
         return live.Live(

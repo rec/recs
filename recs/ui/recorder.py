@@ -173,6 +173,7 @@ class Recorder(Runnables):
                     if self._disk_space_low():
                         break
                     self._receive_key_events()
+                    self._receive_control_requests()
                     self._poll_devices()
                     self._reap_sources()
                     self._stop_stalled_sources()
@@ -222,8 +223,7 @@ class Recorder(Runnables):
 
         if not self.disk_space_reported:
             warning = (
-                f'Free disk space {free} bytes is below '
-                f'minimum_free_space={minimum}'
+                f'Free disk space {free} bytes is below minimum_free_space={minimum}'
             )
             print(warning, file=sys.stderr)
             self._record_warning(warning)
@@ -331,6 +331,19 @@ class Recorder(Runnables):
         for event in self.live.take_key_events():
             self._record_key_event(event)
 
+    def _receive_control_requests(self) -> None:
+        if self.live is None:
+            return
+        requests = t.cast(
+            list[gui_ipc.ControlRequest], self.live.take_control_requests()
+        )
+        for request in requests:
+            if request.command.command == 'calibrate':
+                try:
+                    request.reply(ok=True, result=self._calibrate_noise_floor())
+                except RecsError as e:
+                    request.reply(ok=False, message=str(e))
+
     def _drain(self, conn: connection.Connection) -> None:
         while _connection_ready(conn):
             if not self._receive_connection(conn):
@@ -402,9 +415,9 @@ class Recorder(Runnables):
                         queued_seconds=update.buffer_stats.queued_seconds,
                     )
                 )
-                self.buffer_drops_reported[
-                    update.source_name
-                ] = update.buffer_stats.dropped_frames
+                self.buffer_drops_reported[update.source_name] = (
+                    update.buffer_stats.dropped_frames
+                )
         for warning in update.buffer_warnings or []:
             print(warning, file=sys.stderr)
             self._record_warning(warning)
@@ -543,6 +556,28 @@ class Recorder(Runnables):
             'profiles': profiles,
         }
 
+    def _calibrate_noise_floor(self) -> dict[str, object]:
+        profiles_path = self.cfg.device.profiles
+        if not profiles_path.name:
+            raise RecsError('Cannot calibrate noise floor without --profiles')
+
+        report = self._silence_preview_report()
+        profiles = self.cfg.device_profiles.copy()
+        for source_name, profile in t.cast(
+            dict[str, dict[str, object]], report['profiles']
+        ).items():
+            current = profiles.get(source_name, {})
+            profiles[source_name] = current | profile
+
+        _write_text_atomically(
+            profiles_path,
+            json.dumps(profiles, indent=2, sort_keys=True) + '\n',
+        )
+        self.cfg = type(self.cfg)(**self.cfg.model_dump())
+        for source in self.sources.values():
+            source.cfg = self.cfg
+        return report | {'profiles_path': str(profiles_path)}
+
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.files_written if path.exists())
         if paths:
@@ -615,6 +650,15 @@ def _existing_parent(path: Path) -> Path:
         if candidate.exists():
             return candidate
     return Path()
+
+
+def _write_text_atomically(path: Path, content: str) -> None:
+    tmp = path.with_name(f'.{path.name}.tmp')
+    with tmp.open('w') as fp:
+        fp.write(content)
+        fp.flush()
+        os.fsync(fp.fileno())
+    tmp.replace(path)
 
 
 def _open_folder(path: Path) -> None:

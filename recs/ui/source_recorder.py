@@ -85,8 +85,7 @@ class InputBuffer:
         if self.stats.dropped_frames > self.reported_dropped_frames:
             dropped = self.stats.dropped_frames - self.reported_dropped_frames
             warnings.append(
-                f'Device {source_name} audio buffer overflow: '
-                f'dropped {dropped} frames'
+                f'Device {source_name} audio buffer overflow: dropped {dropped} frames'
             )
             self.reported_dropped_frames = self.stats.dropped_frames
 
@@ -153,9 +152,11 @@ class SourceRecorder(Runnables):
         )
         super().__init__(self.input_stream, *self.channel_writers)
 
-        with raise_keyboard_interrupt_on_signal(), contextlib.suppress(
-            KeyboardInterrupt
-        ), self:
+        with (
+            raise_keyboard_interrupt_on_signal(),
+            contextlib.suppress(KeyboardInterrupt),
+            self,
+        ):
             while self.running and not self.stop_event.is_set():
                 try:
                     self._receive_update(self.buffer.get(timeout=POLL_TIMEOUT))

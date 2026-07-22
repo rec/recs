@@ -26,6 +26,20 @@ class KeyReleased(BaseModel):
     key: str
 
 
+class Command(BaseModel):
+    type: t.Literal['command']
+    id: str
+    command: t.Literal['calibrate']
+
+
+class Reply(BaseModel):
+    type: t.Literal['reply']
+    id: str
+    ok: bool
+    result: dict[str, object] | None = None
+    message: str | None = None
+
+
 class Shutdown(BaseModel):
     type: t.Literal['shutdown']
 
@@ -35,10 +49,14 @@ class Error(BaseModel):
     message: str
 
 
-MESSAGE = TypeAdapter(Hello | RowsMessage | KeyPressed | KeyReleased | Shutdown | Error)
+MESSAGE = TypeAdapter(
+    Hello | RowsMessage | KeyPressed | KeyReleased | Command | Reply | Shutdown | Error
+)
 
 
 def parse_message(
     line: str,
-) -> Hello | RowsMessage | KeyPressed | KeyReleased | Shutdown | Error:
+) -> (
+    Hello | RowsMessage | KeyPressed | KeyReleased | Command | Reply | Shutdown | Error
+):
     return MESSAGE.validate_json(line)
