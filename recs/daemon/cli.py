@@ -6,6 +6,7 @@ from recs.base import RecsError
 
 from . import paths, renderers
 from .controllers import ServiceController
+from .root_user import raise_if_root
 
 COMMANDS = {'install', 'uninstall', 'start', 'stop', 'restart', 'status'}
 INTERACTIVE_OPTIONS = {
@@ -36,6 +37,7 @@ def main(argv: list[str]) -> int:
     controller = ServiceController(platform)
 
     if command == 'install':
+        raise_if_root()
         _validate_install_args(args)
         metadata = renderers.metadata(_executable(), platform, args)
         result = controller.install(metadata)

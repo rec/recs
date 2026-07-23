@@ -6,12 +6,15 @@ from recs.base import RecsError
 from recs.base.types import Format, SdType
 from recs.cfg import device
 from recs.daemon import gui_ipc
+from recs.daemon.root_user import raise_if_root
 from recs.ui.recorder import Recorder
 
 from . import Cfg
 
 
 def run_cli(cfg: Cfg) -> None:
+    if gui_ipc.daemon_mode_enabled():
+        raise_if_root()
     if cfg.general.info:
         _info()
     elif cfg.general.list_types:

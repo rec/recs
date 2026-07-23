@@ -59,6 +59,17 @@ def test_daemon_install_rejects_interactive_options() -> None:
         cli.main(['install', '--remote'])
 
 
+def test_daemon_install_rejects_root_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
+    monkeypatch.setattr(cli, 'ServiceController', FakeController)
+    monkeypatch.setattr(cli, 'raise_if_root', lambda: _raise_root_error())
+
+    with pytest.raises(RecsError, match='recs daemon must not run as root'):
+        cli.main(['install'])
+
+
 def test_daemon_status(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -91,3 +102,7 @@ def test_daemon_status_rejects_unknown_options(
 
     with pytest.raises(RecsError, match='Unknown daemon status option'):
         cli.main(['status', '--brief'])
+
+
+def _raise_root_error() -> None:
+    raise RecsError('recs daemon must not run as root')

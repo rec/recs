@@ -76,3 +76,15 @@ def test_default_mode_does_not_check_for_daemon(
     run_cli.run_cli(Cfg(gui=True))
 
     assert calls == ['local']
+
+
+def test_daemon_runtime_rejects_root_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run_cli.gui_ipc, 'daemon_mode_enabled', lambda: True)
+    monkeypatch.setattr(run_cli, 'raise_if_root', lambda: _raise_root_error())
+
+    with pytest.raises(RecsError, match='recs daemon must not run as root'):
+        run_cli.run_cli(Cfg())
+
+
+def _raise_root_error() -> None:
+    raise RecsError('recs daemon must not run as root')
