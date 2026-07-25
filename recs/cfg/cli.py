@@ -89,6 +89,13 @@ def recs(
             help='Detect and print noise levels, do not record',
         ),
     ],
+    default_record_directory: t.Annotated[
+        str,
+        tyro.conf.arg(
+            default=RECS.general.default_record_directory,
+            help='Directory name to use for automatic daemon recordings',
+        ),
+    ],
     dry_run: t.Annotated[
         bool,
         tyro.conf.arg(

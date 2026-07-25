@@ -2,6 +2,7 @@ import json
 import typing as t
 from datetime import datetime
 from pathlib import Path
+from test.conftest import DEVICES, DEVICES_FILE
 
 import pytest
 from threa import Runnable
@@ -15,7 +16,6 @@ from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
-from test.conftest import DEVICES, DEVICES_FILE
 
 
 class DiskUsage(t.NamedTuple):
@@ -837,6 +837,51 @@ def test_default_output_directory_uses_collision_suffix(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
 
     assert rec.cfg.directory.output_directory == f'{expected}_1'
+
+
+def test_daemon_default_output_directory_uses_largest_external_disk(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    small = tmp_path / 'small'
+    large = tmp_path / 'large'
+    monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [small, large])
+    monkeypatch.setattr(
+        recorder.shutil,
+        'disk_usage',
+        lambda p: DiskUsage(100, 50, 10 if p == small else 90),
+    )
+
+    cfg = recorder._with_default_output_directory(
+        Cfg(default_record_directory='takes'),
+        0,
+    )
+
+    assert cfg.directory.output_directory == str(large / 'takes')
+
+
+def test_daemon_default_output_directory_falls_back_to_system_disk(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [])
+    monkeypatch.setattr(recorder.Path, 'home', lambda: tmp_path)
+
+    cfg = recorder._with_default_output_directory(Cfg(), 0)
+
+    assert cfg.directory.output_directory == str(tmp_path / 'recs')
+
+
+def test_daemon_default_output_directory_keeps_explicit_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
+
+    cfg = recorder._with_default_output_directory(Cfg(output_directory='manual'), 0)
+
+    assert cfg.directory.output_directory == 'manual'
 
 
 def test_windows_default_output_directory_avoids_colons(

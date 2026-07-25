@@ -415,9 +415,9 @@ class Recorder(Runnables):
                         queued_seconds=update.buffer_stats.queued_seconds,
                     )
                 )
-                self.buffer_drops_reported[update.source_name] = (
-                    update.buffer_stats.dropped_frames
-                )
+                self.buffer_drops_reported[
+                    update.source_name
+                ] = update.buffer_stats.dropped_frames
         for warning in update.buffer_warnings or []:
             print(warning, file=sys.stderr)
             self._record_warning(warning)
@@ -609,12 +609,64 @@ def _with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
     if cfg.directory.output_directory:
         return cfg
 
+    output_directory = _daemon_record_directory(cfg)
+    if output_directory is None:
+        output_directory = _available_session_directory(timestamp)
+
     directory = cfg.directory.model_copy(
-        update={'output_directory': str(_available_session_directory(timestamp))}
+        update={'output_directory': str(output_directory)}
     )
     result = cfg.model_copy(update={'directory': directory})
     result.__dict__.pop('output_path_pattern', None)
     return result
+
+
+def _daemon_record_directory(cfg: Cfg) -> Path | None:
+    if not gui_ipc.daemon_mode_enabled():
+        return None
+    path = Path(cfg.general.default_record_directory)
+    if path.is_absolute():
+        return path
+    return _record_disk() / path
+
+
+def _record_disk() -> Path:
+    disks = _mounted_record_disks()
+    if not disks:
+        return Path.home()
+    return max(disks, key=lambda p: shutil.disk_usage(p).free)
+
+
+def _mounted_record_disks() -> list[Path]:
+    if os.name == 'nt':
+        return _windows_record_disks()
+
+    disks: list[Path] = []
+    for parent in _record_disk_parents():
+        try:
+            children = list(parent.iterdir())
+        except OSError:
+            continue
+        disks.extend(p for p in children if p.is_dir() and p.is_mount())
+    return disks
+
+
+def _record_disk_parents() -> list[Path]:
+    parents = [Path('/Volumes'), Path('/media'), Path('/mnt')]
+    user = os.environ.get('USER')
+    if user:
+        parents.append(Path('/run/media') / user)
+    return parents
+
+
+def _windows_record_disks() -> list[Path]:
+    system = Path.home().anchor.lower()
+    disks = []
+    for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+        path = Path(f'{letter}:/')
+        if path.exists() and path.anchor.lower() != system:
+            disks.append(path)
+    return disks
 
 
 def _available_session_directory(timestamp: float) -> Path:

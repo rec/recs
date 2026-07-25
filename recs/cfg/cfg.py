@@ -43,6 +43,7 @@ class General(BaseModel):
     # General purpose settings
     #
     calibrate: bool = False
+    default_record_directory: str = 'recs'
     dry_run: bool = False
     verbose: bool = False
     info: bool = False
