@@ -1,11 +1,12 @@
 import random
+from test.conftest import BLOCK_SIZE, SLEEP_TIME
+from types import SimpleNamespace
 
 import numpy as np
 import sounddevice
 from threa import HasThread
 
 from recs.base import times
-from test.conftest import BLOCK_SIZE, SLEEP_TIME
 
 AMPLITUDE = 1 / 16
 
@@ -25,9 +26,19 @@ class InputStreamBase(sounddevice.InputStream):
         rng = np.random.default_rng(self.seed)
         array = rng.uniform(-AMPLITUDE, AMPLITUDE, size=shape)
         self._recs_array = array.astype(self.dtype)
+        self._timestamp = times.timestamp()
 
     def _recs_callback(self) -> None:
-        self.callback(self._recs_array, BLOCK_SIZE, 0, 0)
+        self.callback(
+            self._recs_array,
+            BLOCK_SIZE,
+            SimpleNamespace(
+                inputBufferAdcTime=self._timestamp,
+                currentTime=self._timestamp,
+            ),
+            0,
+        )
+        self._timestamp += BLOCK_SIZE / self.samplerate
 
 
 class ThreadInputStream(InputStreamBase):

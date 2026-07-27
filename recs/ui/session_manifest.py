@@ -19,6 +19,7 @@ class ManifestEvent(BaseModel):
 
     type: str
     timestamp: str
+    frame_count: int | None = None
     dropped_blocks: int | None = None
     dropped_frames: int | None = None
     source: str | None = None
@@ -34,6 +35,7 @@ class ManifestFile(BaseModel):
 
     type: str
     timestamp: str
+    frame_count: int | None = None
     path: str
     track: int
     channels: int

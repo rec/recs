@@ -44,6 +44,7 @@ class ChannelWriter(Runnable):
     longest_file_frames: int = 0
 
     timestamp: float = 0
+    timeline_frame: int = 0
 
     _sfs: t.Sequence[SoundFile] = ()
 
@@ -83,6 +84,10 @@ class ChannelWriter(Runnable):
             sdtype = SUBTYPE_TO_SDTYPE[track.source.subtype]
 
         self.files_written = file_list.FileList()
+        self.file_end_frames: dict[Path, int] = {}
+        self.file_end_timestamps: dict[Path, float] = {}
+        self.file_start_frames: dict[Path, int] = {}
+        self.file_start_timestamps: dict[Path, float] = {}
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
         self.longest_file_frames = times.longest_file_time
 
@@ -109,11 +114,15 @@ class ChannelWriter(Runnable):
         return Block(block=array[:, self.track.slice])
 
     def receive_update(
-        self, block: Block, timestamp: float, should_record: bool = False
+        self,
+        block: Block,
+        timestamp: float,
+        should_record: bool = False,
+        timeline_frame: int = 0,
     ) -> ChannelState:
         with self._lock:
             should_record = should_record or self.should_record(block)
-            return self._receive_block(block, timestamp, should_record)
+            return self._receive_block(block, timestamp, should_record, timeline_frame)
 
     def should_record(self, block: Block) -> bool:
         return (
@@ -140,7 +149,7 @@ class ChannelWriter(Runnable):
                     Path(sf.name).unlink()
 
     def _open(self, offset: int) -> t.Sequence[SoundFile]:
-        timestamp = self.timestamp - offset / self.track.source.samplerate
+        timestamp = self.timestamp + offset / self.track.source.samplerate
         date = datetime.fromtimestamp(timestamp).isoformat()
         index = 1 + len(self.files_written)
         metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
@@ -153,11 +162,21 @@ class ChannelWriter(Runnable):
             self.track, self.cfg.aliases, timestamp, index
         )
         sfs = [o.create(metadata, path) for o in self.openers]
-        self.files_written.extend(Path(sf.name) for sf in sfs)
+        paths = [Path(sf.name) for sf in sfs]
+        start_frame = self.timeline_frame + offset
+        self.file_start_frames.update(dict.fromkeys(paths, start_frame))
+        self.file_start_timestamps.update(dict.fromkeys(paths, timestamp))
+        self.file_end_frames.update(dict.fromkeys(paths, start_frame))
+        self.file_end_timestamps.update(dict.fromkeys(paths, timestamp))
+        self.files_written.extend(paths)
         return sfs
 
     def _receive_block(
-        self, block: Block, timestamp: float, should_record: bool
+        self,
+        block: Block,
+        timestamp: float,
+        should_record: bool,
+        timeline_frame: int = 0,
     ) -> ChannelState:
         saved_state = self._state(
             max_amp=max(block.max) / block.scale,
@@ -166,6 +185,8 @@ class ChannelWriter(Runnable):
 
         dt = self.timestamp - timestamp
         self.timestamp = timestamp
+        if timeline_frame:
+            self.timeline_frame = timeline_frame
         self._volume.accumulate(block)
 
         if not self.do_not_record and (self._sfs or not self.stopped):
@@ -236,6 +257,14 @@ class ChannelWriter(Runnable):
             for sf in self._sfs:
                 sf.write(b.block)
             offset += len(b)
+            end_frame = self.timeline_frame + offset
+            end_timestamp = self.timestamp + offset / self.track.source.samplerate
+            self.file_end_frames.update(
+                dict.fromkeys((Path(sf.name) for sf in self._sfs), end_frame)
+            )
+            self.file_end_timestamps.update(
+                dict.fromkeys((Path(sf.name) for sf in self._sfs), end_timestamp)
+            )
 
             self.frames_in_file += len(b)
             self.frames_written += len(b)

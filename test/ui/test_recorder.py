@@ -674,6 +674,72 @@ def test_live_input_manifest_omits_source(
     ]
 
 
+def test_manifest_records_source_frame_counts(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_manifest()
+    path = tmp_path / 'mic.wav'
+    path.touch()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState(is_active=True)},
+            files=[path],
+            frames=512,
+            source_name='Mic',
+            file_records=[
+                SourceFile(
+                    path=path,
+                    source_name='Mic',
+                    track=1,
+                    channels=1,
+                    sample_rate=48_000,
+                    bit_depth=64,
+                    start_frame=256,
+                )
+            ],
+            file_end_frames={path: 768},
+            frame_count=1024,
+        )
+    )
+    rec._finish_manifest()
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    for record in records:
+        record.pop('timestamp', None)
+    assert records[1:4] == [
+        {
+            'type': 'file_started',
+            'frame_count': 256,
+            'path': path.as_posix(),
+            'track': 1,
+            'channels': 1,
+            'sample_rate': 48_000,
+            'bit_depth': 64,
+        },
+        {
+            'type': 'track_started',
+            'frame_count': 1024,
+            'source': 'Mic',
+            'track': '1',
+        },
+        {
+            'type': 'file_finished',
+            'frame_count': 768,
+            'path': path.as_posix(),
+            'track': 1,
+            'channels': 1,
+            'sample_rate': 48_000,
+            'bit_depth': 64,
+        },
+    ]
+
+
 @pytest.mark.parametrize('field', ['dry_run', 'silence_preview'])
 def test_preview_modes_do_not_write_manifest(
     field: str,

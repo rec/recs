@@ -1,14 +1,54 @@
 import subprocess as sp
 import typing as t
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
+import sounddevice
 
+from recs.base import times
+from recs.base.types import SdType
 from recs.cfg import device
+from recs.cfg.source import Update
 
 
 def test_input_devices():
     if d := device.input_devices():
         print(next(iter(d.values())))
+
+
+def test_input_device_uses_sounddevice_adc_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    updates: list[Update] = []
+    monkeypatch.setattr(times, 'timestamp', lambda: 200.0)
+
+    class FakeInputStream:
+        def __init__(
+            self,
+            *,
+            callback: t.Callable[[np.ndarray, int, object, int], None],
+            channels: int,
+            device: str,
+            dtype: SdType,
+            samplerate: int,
+        ) -> None:
+            array = np.zeros((512, channels), dtype=dtype)
+            callback(
+                array,
+                len(array),
+                SimpleNamespace(inputBufferAdcTime=123.25, currentTime=124.0),
+                0,
+            )
+
+    monkeypatch.setattr(sounddevice, 'InputStream', FakeInputStream)
+    source = device.InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+
+    source.input_stream(SdType.float32, updates.append)
+
+    assert updates[0].timestamp == 199.25
 
 
 def test_query_device_failure_is_not_an_empty_device_list(

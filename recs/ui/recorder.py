@@ -63,6 +63,8 @@ class Recorder(Runnables):
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
+        self.manifest_file_end_frames: dict[Path, int] = {}
+        self.manifest_file_end_timestamps: dict[Path, float] = {}
         self.manifest_files: dict[Path, ManifestFile] = {}
         self.manifest: SessionManifestWriter | None = None
         self.key_recorder = make_key_recorder(cfg)
@@ -370,10 +372,15 @@ class Recorder(Runnables):
         self.frames[update.source_name] += update.frames
         self._record_buffer_status(update)
         self.files_written.update(update.files)
+        self.manifest_file_end_frames.update(update.file_end_frames or {})
+        self.manifest_file_end_timestamps.update(update.file_end_timestamps or {})
         for file_record in update.file_records or []:
             record = ManifestFile(
                 type='file_started',
-                timestamp=timestamp_to_json(times.timestamp()),
+                timestamp=timestamp_to_json(
+                    _timestamp_or_now(file_record.start_timestamp)
+                ),
+                frame_count=file_record.start_frame,
                 path=file_record.path.as_posix(),
                 source=self._manifest_source(file_record.source_name),
                 track=file_record.track,
@@ -389,7 +396,13 @@ class Recorder(Runnables):
             for track_name, state in self.state.state[update.source_name].items()
         }
         self.state.update({update.source_name: update.channels})
-        self._record_track_activity(update.source_name, previous, update.channels)
+        self._record_track_activity(
+            update.source_name,
+            previous,
+            update.channels,
+            update.frame_count,
+            update.timestamp,
+        )
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
         if source.running and not self._source_frame_clock_valid(source, now):
@@ -407,7 +420,9 @@ class Recorder(Runnables):
                 self._write_manifest_record(
                     ManifestEvent(
                         type='buffer_overflow',
-                        timestamp=timestamp_to_json(times.timestamp()),
+                        timestamp=timestamp_to_json(
+                            update.buffer_stats.last_drop_timestamp
+                        ),
                         source=update.source_name,
                         dropped_blocks=update.buffer_stats.dropped_blocks,
                         dropped_frames=update.buffer_stats.dropped_frames,
@@ -447,6 +462,8 @@ class Recorder(Runnables):
         source_name: str,
         previous: dict[str, bool],
         updates: t.Mapping[str, t.Any],
+        frame_count: int | None,
+        timestamp: float | None,
     ) -> None:
         for track_name in updates:
             active = self.state.state[source_name][track_name].is_active
@@ -454,7 +471,13 @@ class Recorder(Runnables):
             if active == was_active:
                 continue
             event_type = 'track_started' if active else 'track_stopped'
-            self._record_event(event_type, source=source_name, track=track_name)
+            self._record_event(
+                event_type,
+                source=source_name,
+                track=track_name,
+                frame_count=frame_count,
+                timestamp=timestamp,
+            )
 
     def _record_event(
         self,
@@ -462,13 +485,16 @@ class Recorder(Runnables):
         *,
         source: str,
         track: str | None = None,
+        frame_count: int | None = None,
+        timestamp: float | None = None,
     ) -> None:
         self._write_manifest_record(
             ManifestEvent(
-                timestamp=timestamp_to_json(times.timestamp()),
+                timestamp=timestamp_to_json(_timestamp_or_now(timestamp)),
                 type=event_type,
                 source=source,
                 track=track,
+                frame_count=frame_count,
             )
         )
 
@@ -507,7 +533,12 @@ class Recorder(Runnables):
                     file.model_copy(
                         update={
                             'type': 'file_finished',
-                            'timestamp': timestamp_to_json(times.timestamp()),
+                            'timestamp': timestamp_to_json(
+                                _timestamp_or_now(
+                                    self.manifest_file_end_timestamps.get(path)
+                                )
+                            ),
+                            'frame_count': self.manifest_file_end_frames.get(path),
                         }
                     )
                 )
@@ -635,6 +666,10 @@ def _record_disk() -> Path:
     if not disks:
         return Path.home()
     return max(disks, key=lambda p: shutil.disk_usage(p).free)
+
+
+def _timestamp_or_now(timestamp: float | None) -> float:
+    return times.timestamp() if timestamp is None else timestamp
 
 
 def _mounted_record_disks() -> list[Path]:

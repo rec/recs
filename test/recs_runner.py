@@ -1,6 +1,9 @@
 import traceback
 import typing as t
 from pathlib import Path
+from test.conftest import BLOCK_SIZE, TIMESTAMP
+from test.mock_input_stream import InputStreamReporter
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -11,8 +14,6 @@ from threa import HasThread
 from recs.base import times
 from recs.base.types import Format
 from recs.cfg import Cfg, run_cli
-from test.conftest import BLOCK_SIZE, TIMESTAMP
-from test.mock_input_stream import InputStreamReporter
 
 DEVICE_OFFSET = 0.000_0237
 TRIES = 100
@@ -32,6 +33,7 @@ class FixtureInputStream(BaseModel):
 
     _position: int = PrivateAttr(default=0)
     _report: list[str] = PrivateAttr(default_factory=list)
+    _timestamp: float = PrivateAttr(default=TIMESTAMP)
 
     def model_post_init(self, __context: object) -> None:
         self.dtype = np.dtype(str(self.dtype))
@@ -55,7 +57,16 @@ class FixtureInputStream(BaseModel):
         end = self._position + self.block_size
         array = self.audio[self._position : end]
         self._position = end
-        self.callback(array, len(array), None, 0)
+        self.callback(
+            array,
+            len(array),
+            SimpleNamespace(
+                inputBufferAdcTime=self._timestamp,
+                currentTime=self._timestamp,
+            ),
+            0,
+        )
+        self._timestamp += len(array) / self.samplerate
 
 
 class RecsRunnerOptions(BaseModel):
@@ -138,6 +149,7 @@ class RecsRunner(BaseModel):
             )
         else:
             s = InputStreamReporter(**ka)
+        s._timestamp = self.state.timestamp
         self.state.streams.append(s)
         return s
 
@@ -187,6 +199,7 @@ class RecsRunner(BaseModel):
             for offset, stream in sorted(self.events(), key=lambda event: event[0]):
                 if 'stop' not in stream._recs_report:
                     self.state.timestamp = TIMESTAMP + offset
+                    stream._timestamp = self.state.timestamp
                     stream._recs_callback()
 
     def _run_bounded(self) -> None:

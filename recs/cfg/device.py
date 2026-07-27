@@ -43,7 +43,8 @@ class InputDevice(Source):
             if status:  # pragma: no cover
                 print('Status', self, status, file=sys.stderr)
 
-            update_callback(Update(indata.copy(), times.timestamp()))
+            timestamp = times.timestamp() - (time.currentTime - time.inputBufferAdcTime)
+            update_callback(Update(indata.copy(), timestamp))
 
         stream = sounddevice.InputStream(
             callback=callback,
