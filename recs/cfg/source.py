@@ -15,6 +15,7 @@ def to_matrix(array: np.ndarray) -> np.ndarray:
 class Update(t.NamedTuple):
     array: np.ndarray
     timestamp: float
+    status: str = ''
 
 
 class Source(hash_cmp.HashCmp, abc.ABC):

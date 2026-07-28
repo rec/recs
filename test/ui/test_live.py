@@ -68,3 +68,28 @@ def test_live_display_is_enabled_for_supported_terminal(
     assert display.enabled
     assert display.live.transient
     assert capsys.readouterr() == ('', '')
+
+
+def test_live_renderable_includes_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    output = StringIO()
+    monkeypatch.setenv('TERM', 'xterm-256color')
+    monkeypatch.setattr(
+        live,
+        'CONSOLE',
+        Console(file=output, force_terminal=True),
+    )
+    display = live.Live(
+        lambda: iter([{'device': 'Mic'}]),
+        Cfg(),
+        errors=lambda: ['Device Mic failed'],
+    )
+
+    live.CONSOLE.print(display.renderable())
+
+    text = output.getvalue()
+    assert 'Mic' in text
+    assert 'Errors' in text
+    assert 'Device Mic failed' in text

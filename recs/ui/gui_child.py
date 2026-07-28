@@ -7,16 +7,17 @@ from pydantic import TypeAdapter, ValidationError
 
 from recs.cfg import Cfg
 
-from .gui_process import Rows
+from .gui_process import GuiPayload, Rows
 from .key_events import KeyEvent
 from .pyside_gui import Gui
 
 ROWS = TypeAdapter(Rows)
+PAYLOAD = TypeAdapter(GuiPayload)
 
 
 class StdinRows:
     def __init__(self) -> None:
-        self.latest: Rows = []
+        self.latest = GuiPayload()
         self.closed = False
         self.lock = threading.Lock()
 
@@ -25,17 +26,24 @@ class StdinRows:
 
     def rows(self) -> t.Iterator[t.Mapping[str, object]]:
         with self.lock:
-            rows = list(self.latest)
+            rows = list(self.latest.rows)
         return iter(rows)
+
+    def errors(self) -> list[str]:
+        with self.lock:
+            return list(self.latest.errors)
 
     def _read(self) -> None:
         for line in sys.stdin:
             try:
-                rows = ROWS.validate_json(line)
+                payload = PAYLOAD.validate_json(line)
             except ValidationError:
-                continue
+                try:
+                    payload = GuiPayload(rows=ROWS.validate_json(line))
+                except ValidationError:
+                    continue
             with self.lock:
-                self.latest = rows
+                self.latest = payload
         self.closed = True
 
 
@@ -49,6 +57,7 @@ def main() -> None:
     Gui(
         provider.rows,
         cfg,
+        errors=provider.errors,
         stop_when=lambda: provider.closed,
         record_key=_write_key_event,
     ).run()

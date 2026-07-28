@@ -32,6 +32,17 @@ def test_pyside_gui_updates_table_rows() -> None:
     assert window.table.item(0, 2).text() == ' 1 '
     assert window.table.item(0, 3).text() == '•'
     assert window.table.item(0, 10).text() == ' 50.0%'
+    assert window.errors_label.isHidden()
+
+
+def test_pyside_gui_updates_error_area() -> None:
+    _application()
+    window = pyside_gui.RecsWindow(Cfg(gui=True))
+
+    window.update_rows([], ['Device Mic failed'])
+
+    assert window.errors_label.text() == 'Device Mic failed'
+    assert not window.errors_label.isHidden()
 
 
 def test_pyside_gui_records_key_press_and_release() -> None:

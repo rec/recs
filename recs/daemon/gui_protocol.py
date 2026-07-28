@@ -1,6 +1,6 @@
 import typing as t
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 
 VERSION = 1
 
@@ -14,6 +14,7 @@ class Hello(BaseModel):
 class RowsMessage(BaseModel):
     type: t.Literal['rows']
     rows: list[dict[str, object]]
+    errors: list[str] = Field(default_factory=list)
 
 
 class KeyPressed(BaseModel):

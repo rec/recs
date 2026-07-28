@@ -35,10 +35,38 @@ def test_gui_process_writes_rows_to_subprocess_stdin(
     assert processes[0].kwargs['stdout'] == sp.PIPE
     assert processes[0].kwargs['text'] is True
     assert processes[0].kwargs['env']['RECS_GUI_REFRESH_RATE'] == '12.0'
-    assert json.loads(processes[0].stdin.text) == [
-        {'time': 1},
-        {'device': 'Mic'},
-    ]
+    assert json.loads(processes[0].stdin.text) == {
+        'rows': [
+            {'time': 1},
+            {'device': 'Mic'},
+        ],
+        'errors': [],
+    }
+
+
+def test_gui_process_writes_errors_to_subprocess_stdin(
+    monkeypatch: t.Any,
+) -> None:
+    processes: list[FakeProcess] = []
+
+    def make_process(*args: object, **kwargs: object) -> FakeProcess:
+        process = FakeProcess(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(gui_process.sp, 'Popen', make_process)
+
+    display = gui_process.GuiProcess(
+        lambda: iter(()),
+        Cfg(gui=True),
+        errors=lambda: ['Device Mic failed'],
+    )
+    display.start()
+
+    assert json.loads(processes[0].stdin.text) == {
+        'rows': [],
+        'errors': ['Device Mic failed'],
+    }
 
 
 def test_gui_process_stops_when_subprocess_exits(

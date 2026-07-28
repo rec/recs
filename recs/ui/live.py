@@ -4,7 +4,8 @@ import typing as t
 from functools import cached_property
 
 from rich import live
-from rich.console import Console
+from rich.console import Console, Group
+from rich.panel import Panel
 from rich.table import Table
 from threa import Runnable
 
@@ -34,10 +35,15 @@ class Live(Runnable):
     closed = False
 
     def __init__(
-        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]], cfg: Cfg
+        self,
+        rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]],
+        cfg: Cfg,
+        *,
+        errors: t.Callable[[], t.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg
+        self.errors = errors or tuple
         term = os.environ.get('TERM', '')
         self.enabled: bool = (
             not cfg.console.silent
@@ -54,7 +60,7 @@ class Live(Runnable):
 
     def update(self) -> None:
         if self.enabled:
-            self.live.update(self.table())
+            self.live.update(self.renderable())
 
     def take_key_events(self) -> list[KeyEvent]:
         return []
@@ -65,11 +71,18 @@ class Live(Runnable):
     @cached_property
     def live(self) -> live.Live:
         return live.Live(
-            self.table(),
+            self.renderable(),
             console=CONSOLE,
             refresh_per_second=self.cfg.console.ui_refresh_rate,
             transient=self.cfg.console.clear_terminal,
         )
+
+    def renderable(self) -> t.Any:
+        table = self.table()
+        errors = list(self.errors())
+        if not errors:
+            return table
+        return Group(table, Panel('\n'.join(errors), title='Errors', style='red'))
 
     def table(self) -> Table:
         table = Table(*presentation.COLUMNS)

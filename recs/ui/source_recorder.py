@@ -205,6 +205,11 @@ class SourceRecorder(Runnables):
             )
         files, file_records = self._new_files(update.array.dtype.itemsize * 8)
         stats = self.buffer.stats.model_copy()
+        buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
+        if update.status:
+            buffer_warnings.append(
+                f'Device {self.source.name} input status: {update.status}'
+            )
         self.connection.send(
             SourceUpdate(
                 channels=msgs,
@@ -213,9 +218,7 @@ class SourceRecorder(Runnables):
                 source_name=self.source.name,
                 timestamp=end_timestamp,
                 buffer_stats=stats,
-                buffer_warnings=self.buffer.warnings(
-                    self.source.name, update.timestamp
-                ),
+                buffer_warnings=buffer_warnings,
                 file_records=file_records,
                 file_end_frames=self._file_end_frames(),
                 file_end_timestamps=self._file_end_timestamps(),

@@ -1,6 +1,5 @@
 import json
 import subprocess as sp
-import sys
 import typing as t
 
 import numpy as np
@@ -40,11 +39,10 @@ class InputDevice(Source):
             time: t.Any,
             status: int,
         ) -> None:
-            if status:  # pragma: no cover
-                print('Status', self, status, file=sys.stderr)
-
             timestamp = times.timestamp() - (time.currentTime - time.inputBufferAdcTime)
-            update_callback(Update(indata.copy(), timestamp))
+            update_callback(
+                Update(indata.copy(), timestamp, str(status) if status else '')
+            )
 
         stream = sounddevice.InputStream(
             callback=callback,

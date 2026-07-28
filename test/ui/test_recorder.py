@@ -87,10 +87,15 @@ class ClosedDisplay(Runnable):
     closed = True
 
     def __init__(
-        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]], cfg: Cfg
+        self,
+        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        cfg: Cfg,
+        *,
+        errors: t.Callable[[], t.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg
+        self.errors = errors or tuple
         super().__init__()
 
     def update(self) -> None:
@@ -222,6 +227,28 @@ def test_recorder_stops_when_gui_display_closes(
     rec._run()
 
     assert rec.stopped
+
+
+def test_display_receives_recorder_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.live, 'Live', ClosedDisplay)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE)))
+    flower = rec.hardware['Flower 8']
+    rec.poller.snapshots = [{'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}]
+
+    rec._poll_devices()
+
+    assert rec.live is not None
+    assert rec.live.errors() == ['Flower 8 has 2 input channels; 10 required']
+    assert capsys.readouterr().err == (
+        'ERROR: Flower 8 has 2 input channels; 10 required\n'
+    )
+    assert not flower.started
 
 
 def test_gui_starts_sources_before_display_process(

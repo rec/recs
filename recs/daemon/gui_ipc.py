@@ -61,9 +61,14 @@ class ControlRequest:
 
 class DaemonGuiServer(Runnable):
     def __init__(
-        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]], cfg: Cfg
+        self,
+        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        cfg: Cfg,
+        *,
+        errors: t.Callable[[], t.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
+        self.errors = errors or tuple
         self.cfg = cfg
         self.enabled = daemon_mode_enabled()
         self.paths = paths.service_paths(paths.current_platform())
@@ -103,8 +108,9 @@ class DaemonGuiServer(Runnable):
         if not self.enabled:
             return
         rows = [dict(row) for row in self.rows()]
-        _write_status(self.paths.status, self._status(rows=rows))
-        self.broadcast(rows)
+        errors = list(self.errors())
+        _write_status(self.paths.status, self._status(rows=rows, errors=errors))
+        self.broadcast(rows, errors)
 
     @property
     def closed(self) -> bool:
@@ -120,8 +126,10 @@ class DaemonGuiServer(Runnable):
             requests, self.control_requests = self.control_requests, []
         return requests
 
-    def broadcast(self, rows: list[dict[str, object]]) -> None:
-        message = RowsMessage(type='rows', rows=rows).model_dump_json() + '\n'
+    def broadcast(self, rows: list[dict[str, object]], errors: list[str]) -> None:
+        message = (
+            RowsMessage(type='rows', rows=rows, errors=errors).model_dump_json() + '\n'
+        )
         with self.lock:
             listeners = list(self.clients)
         for listener in listeners:
@@ -167,11 +175,13 @@ class DaemonGuiServer(Runnable):
         *,
         gui_ipc_error: str | None = None,
         rows: list[dict[str, object]] | None = None,
+        errors: list[str] | None = None,
     ) -> DaemonStatus:
         with self.lock:
             client_count = len(self.clients)
         return DaemonStatus(
             client_count=client_count,
+            errors=errors or [],
             gui_ipc_error=gui_ipc_error,
             recording=True,
             rows=rows or [],
@@ -244,6 +254,7 @@ class RemoteGuiClient:
         self.endpoint = endpoint
         self.connection: GuiConnection | None = None
         self.latest: list[dict[str, object]] = []
+        self.latest_errors: list[str] = []
         self.closed = False
         self.lock = threading.Lock()
 
@@ -260,6 +271,10 @@ class RemoteGuiClient:
         with self.lock:
             rows = list(self.latest)
         return iter(rows)
+
+    def errors(self) -> list[str]:
+        with self.lock:
+            return list(self.latest_errors)
 
     def record_key(self, event: KeyEvent) -> None:
         self._write(event.model_dump_json() + '\n')
@@ -292,6 +307,7 @@ class RemoteGuiClient:
             if isinstance(message, RowsMessage):
                 with self.lock:
                     self.latest = message.rows
+                    self.latest_errors = message.errors
         self.closed = True
 
 
@@ -325,6 +341,7 @@ def run_remote_gui(metadata: DaemonMetadata, cfg: Cfg) -> None:
     Gui(
         client.rows,
         cfg,
+        errors=client.errors,
         stop_when=lambda: client.closed,
         record_key=client.record_key,
     ).run()

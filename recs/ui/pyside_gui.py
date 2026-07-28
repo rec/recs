@@ -51,10 +51,12 @@ class Gui(Runnable):
         rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
         cfg: Cfg,
         *,
+        errors: t.Callable[[], t.Iterable[str]] | None = None,
         stop_when: t.Callable[[], bool] | None = None,
         record_key: t.Callable[[KeyEvent], None] | None = None,
     ) -> None:
         self.rows = rows
+        self.errors = errors or tuple
         self.cfg = cfg
         self.stop_when = stop_when
         self.record_key = record_key
@@ -66,7 +68,7 @@ class Gui(Runnable):
 
     def update(self) -> None:
         if self.window is not None:
-            self.window.update_rows(self.rows())
+            self.window.update_rows(self.rows(), self.errors())
 
     def run(self) -> None:
         if not self.enabled:
@@ -78,7 +80,7 @@ class Gui(Runnable):
             app.setStyleSheet(STYLE)
             self.app = app
             self.window = RecsWindow(self.cfg, record_key=self.record_key)
-            self.window.update_rows(self.rows())
+            self.window.update_rows(self.rows(), self.errors())
             self.window.show()
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self._refresh)
@@ -133,11 +135,22 @@ class RecsWindow(QtWidgets.QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Stretch
         )
+        self.errors_label = QtWidgets.QLabel()
+        self.errors_label.setWordWrap(True)
+        self.errors_label.setStyleSheet(
+            'color: #b00000; background: #fff5f5; padding: 8px;'
+        )
+        self.errors_label.setVisible(False)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.addWidget(self.table)
+        layout.addWidget(self.errors_label)
 
-    def update_rows(self, rows: t.Iterable[t.Mapping[str, object]]) -> None:
+    def update_rows(
+        self,
+        rows: t.Iterable[t.Mapping[str, object]],
+        errors: t.Iterable[str] = (),
+    ) -> None:
         view = presentation.view_model(rows)
         self.table.setColumnCount(len(view.columns))
         self.table.setHorizontalHeaderLabels(view.columns)
@@ -149,6 +162,9 @@ class RecsWindow(QtWidgets.QWidget):
                     QtGui.QBrush(QtGui.QColor(*COLORS.get(cell.style, COLORS[''])))
                 )
                 self.table.setItem(row_number, column_number, item)
+        messages = list(errors)
+        self.errors_label.setText('\n'.join(messages))
+        self.errors_label.setVisible(bool(messages))
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         if (

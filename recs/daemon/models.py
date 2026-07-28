@@ -21,6 +21,7 @@ class DaemonMetadata(BaseModel):
 
 class DaemonStatus(BaseModel):
     client_count: int = 0
+    errors: list[str] = Field(default_factory=list)
     gui_ipc_error: str | None = None
     rows: list[dict[str, object]] = Field(default_factory=list)
     recording: bool = False

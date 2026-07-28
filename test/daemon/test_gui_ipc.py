@@ -17,6 +17,7 @@ def test_protocol_parses_valid_messages() -> None:
 
     assert isinstance(message, RowsMessage)
     assert message.rows == [{'device': 'Mic'}]
+    assert message.errors == []
 
 
 def test_protocol_parses_daemon_hello() -> None:
@@ -49,9 +50,11 @@ def test_daemon_publisher_broadcasts_rows_to_listeners() -> None:
     second = FakeListener()
     server.clients = [first, second]
 
-    server.broadcast([{'device': 'Mic'}])
+    server.broadcast([{'device': 'Mic'}], ['Device Mic failed'])
 
-    assert first.messages == ['{"type":"rows","rows":[{"device":"Mic"}]}\n']
+    assert first.messages == [
+        '{"type":"rows","rows":[{"device":"Mic"}],"errors":["Device Mic failed"]}\n'
+    ]
     assert second.messages == first.messages
 
 
@@ -61,7 +64,7 @@ def test_daemon_publisher_removes_broken_listeners() -> None:
     broken = FakeListener(broken=True)
     server.clients = [good, broken]
 
-    server.broadcast([{'device': 'Mic'}])
+    server.broadcast([{'device': 'Mic'}], [])
 
     assert server.clients == [good]
     assert broken.closed
@@ -79,13 +82,18 @@ def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
 
 
 def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
-    server = gui_ipc.DaemonGuiServer(lambda: iter([{'device': 'Mic'}]), Cfg())
+    server = gui_ipc.DaemonGuiServer(
+        lambda: iter([{'device': 'Mic'}]),
+        Cfg(),
+        errors=lambda: ['Device Mic failed'],
+    )
     server.enabled = True
     server.paths = server.paths.model_copy(update={'status': tmp_path / 'status.json'})
 
     server.update()
 
     assert '"rows":[{"device":"Mic"}]' in server.paths.status.read_text()
+    assert '"errors":["Device Mic failed"]' in server.paths.status.read_text()
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
@@ -173,6 +181,20 @@ def test_remote_row_provider_exposes_latest_rows(
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
     assert _eventually(lambda: list(client.rows()) == [{'device': 'Mic'}])
+
+
+def test_remote_row_provider_exposes_latest_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection(
+        ['{"type":"rows","rows":[],"errors":["Device Mic failed"]}\n']
+    )
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client.start()
+
+    assert _eventually(lambda: client.errors() == ['Device Mic failed'])
 
 
 def test_remote_row_provider_closes_on_protocol_error(

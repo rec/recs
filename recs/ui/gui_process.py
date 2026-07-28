@@ -1,10 +1,9 @@
-import json
 import os
 import subprocess as sp
 import threading
 import typing as t
 
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from threa import Runnable
 
 from recs.base import app_command
@@ -15,11 +14,21 @@ from .key_events import KeyEvent
 Rows = list[dict[str, object]]
 
 
+class GuiPayload(BaseModel):
+    rows: Rows = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
 class GuiProcess(Runnable):
     def __init__(
-        self, rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]], cfg: Cfg
+        self,
+        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        cfg: Cfg,
+        *,
+        errors: t.Callable[[], t.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
+        self.errors = errors or tuple
         self.cfg = cfg
         self.enabled = not cfg.console.silent
         self.process: sp.Popen[str] | None = None
@@ -36,7 +45,11 @@ class GuiProcess(Runnable):
             return
 
         try:
-            self.process.stdin.write(json.dumps([dict(row) for row in self.rows()]))
+            payload = GuiPayload(
+                rows=[dict(row) for row in self.rows()],
+                errors=list(self.errors()),
+            )
+            self.process.stdin.write(payload.model_dump_json())
             self.process.stdin.write('\n')
             self.process.stdin.flush()
         except ValueError:

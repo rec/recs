@@ -51,7 +51,11 @@ class Recorder(Runnables):
             display_type = gui_process.GuiProcess
         else:
             display_type = live.Live
-        self.live = display_type(self.rows, self.cfg) if display else None
+        self.live = (
+            display_type(self.rows, self.cfg, errors=self.error_messages)
+            if display
+            else None
+        )
         self.sources = {
             source.name: SourceProcess(self.cfg, tracks)
             for source, tracks in all_tracks
@@ -116,6 +120,9 @@ class Recorder(Runnables):
                             'dropped': stats.dropped_frames,
                         }
             yield row
+
+    def error_messages(self) -> list[str]:
+        return self.warnings.copy()
 
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():

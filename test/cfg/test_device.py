@@ -38,7 +38,7 @@ def test_input_device_uses_sounddevice_adc_time(
                 array,
                 len(array),
                 SimpleNamespace(inputBufferAdcTime=123.25, currentTime=124.0),
-                0,
+                'overflow',
             )
 
     monkeypatch.setattr(sounddevice, 'InputStream', FakeInputStream)
@@ -49,6 +49,7 @@ def test_input_device_uses_sounddevice_adc_time(
     source.input_stream(SdType.float32, updates.append)
 
     assert updates[0].timestamp == 199.25
+    assert updates[0].status == 'overflow'
 
 
 def test_query_device_failure_is_not_an_empty_device_list(
