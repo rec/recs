@@ -92,6 +92,27 @@ class PathPattern:
         )
         return Path(p)
 
+    def make_track_name_path(
+        self,
+        track_name: str,
+        track: track.Track,
+        aliases: aliases.Aliases,
+        timestamp: float,
+        index: int,
+    ) -> Path:
+        ts = datetime.fromtimestamp(timestamp)
+        directory = ts.strftime(self.raw_path).format(
+            channel=track.name,
+            device=aliases.display_name(track.source),
+            index=str(index),
+            track=aliases.display_name(track, short=False),
+            **{k: ts.strftime(v) for k, v in FIELD_TO_PSTRING.items()},
+        )
+        name = f'{track_name} + {ts.strftime("%Y%m%d-%H%M%S")}'
+        if directory:
+            return Path(directory) / name
+        return Path(name)
+
 
 DATE = {Req.year, Req.month, Req.day}
 TIME = {Req.hour, Req.minute, Req.second}

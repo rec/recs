@@ -6,7 +6,7 @@ import pytest
 from recs.cfg import Cfg, InputDevice, Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
-from recs.ui.source_recorder import SourceFailure
+from recs.ui.source_recorder import SourceControl, SourceFailure
 
 
 class FakeConnection:
@@ -151,6 +151,35 @@ def test_source_process_applies_device_profile(
 
     recorder_cfg = owner.process.kwargs['cfg']
     assert recorder_cfg.recording.noise_floor == 42
+
+
+def test_source_process_updates_track_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = FakeSendConnection()
+
+    def pipe() -> tuple[FakeSendConnection, FakeConnection]:
+        return parent, FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    track_names = {'Mic': {'Lead Vocal': 1}}
+    owner = SourceProcess(Cfg(), [Track(source, '1')], track_names=track_names)
+
+    owner.start()
+    owner.set_track_names({'Mic': {'Guitar': 1}})
+
+    assert owner.process.kwargs['track_names'] == track_names
+    assert parent.sent == [SourceControl(track_names={'Mic': {'Guitar': 1}})]
 
 
 def test_source_process_uses_per_device_noise_floor(

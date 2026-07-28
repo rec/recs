@@ -51,6 +51,16 @@ def test_protocol_parses_command_fields() -> None:
     assert message.noise_floor == 42.5
 
 
+def test_protocol_parses_track_names_command() -> None:
+    message = parse_message(
+        '{"type":"command","id":"c1","command":"set_track_names",'
+        '"track_names":{"Mic":{"Lead Vocal":1}}}'
+    )
+
+    assert isinstance(message, Command)
+    assert message.track_names == {'Mic': {'Lead Vocal': 1}}
+
+
 def test_protocol_parses_shutdown() -> None:
     message = parse_message('{"type":"shutdown"}')
 

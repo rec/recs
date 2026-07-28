@@ -15,6 +15,7 @@ from recs.base.state import ChannelState
 from recs.base.types import Format, SdType
 from recs.cfg import Cfg, Track
 from recs.cfg.source import Update
+from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
 DEFAULT_BLOCK_FRAMES = 512
@@ -46,6 +47,10 @@ class SourceUpdate(t.NamedTuple):
 class SourceFailure(t.NamedTuple):
     message: str
     source_name: str
+
+
+class SourceControl(t.NamedTuple):
+    track_names: DeviceTrackNames | None = None
 
 
 class SourceFile(t.NamedTuple):
@@ -148,6 +153,7 @@ class SourceRecorder(Runnables):
         connection: Connection,
         stop_event: t.Any,
         tracks: t.Sequence[Track],
+        track_names: DeviceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
         self.connection = connection
@@ -162,6 +168,7 @@ class SourceRecorder(Runnables):
         self.channel_writers = tuple(
             ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
         )
+        self._set_track_names(track_names or {})
         self.file_counts = [0] * len(self.channel_writers)
 
         self.input_stream = self.source.input_stream(
@@ -176,6 +183,7 @@ class SourceRecorder(Runnables):
             self,
         ):
             while self.running and not self.stop_event.is_set():
+                self._receive_control_messages()
                 try:
                     self._receive_update(self.buffer.get(timeout=POLL_TIMEOUT))
                 except Empty:
@@ -184,7 +192,18 @@ class SourceRecorder(Runnables):
 
         with contextlib.suppress(Empty):
             while True:
+                self._receive_control_messages()
                 self._receive_update(self.buffer.get(block=False))
+
+    def _set_track_names(self, track_names: DeviceTrackNames) -> None:
+        for writer in self.channel_writers:
+            writer.set_track_names(track_names)
+
+    def _receive_control_messages(self) -> None:
+        while self.connection.poll():
+            message = self.connection.recv()
+            if isinstance(message, SourceControl) and message.track_names is not None:
+                self._set_track_names(message.track_names)
 
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update

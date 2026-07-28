@@ -1,5 +1,6 @@
 import signal
 from pathlib import Path
+from test import conftest
 
 import numpy as np
 import pytest
@@ -13,7 +14,6 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
-from test import conftest
 
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
@@ -129,6 +129,27 @@ def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None
     assert len(files) == 1
     with soundfile.SoundFile(files[0]) as fp:
         assert fp.frames == len(block)
+
+
+@tdir
+def test_channel_writer_uses_track_name_for_new_files(mock_devices: None) -> None:
+    cfg = Cfg(formats=[Format.wav], output_directory='takes')
+    track = cfg.aliases.to_track('Ext + 1-2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=np.array(((1, -1), (1, -1)), dtype=SDTYPE))
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.set_track_names({'Ext': {'Stereo Pair': 2}})
+        writer._receive_block(block, conftest.TIMESTAMP, True)
+
+    files = list(writer.files_written)
+    assert len(files) == 1
+    assert files[0].match('takes/Stereo Pair + 20231015-164921.wav')
 
 
 def _on_and_off_segments(it):

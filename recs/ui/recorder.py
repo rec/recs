@@ -14,6 +14,7 @@ from recs.base import RecsError, times
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
 from recs.cfg.device import DeviceDict, get_input_devices
+from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import gui_ipc
 
 from . import gui_process, live
@@ -39,6 +40,7 @@ API_COMMANDS = [
     'calibrate',
     'capabilities',
     'disk_status',
+    'get_track_names',
     'list_devices',
     'mark',
     'pause_recording',
@@ -46,6 +48,7 @@ API_COMMANDS = [
     'resume_recording',
     'set_key_label',
     'set_noise_floor',
+    'set_track_names',
     'shutdown',
     'start_recording',
     'status_snapshot',
@@ -63,6 +66,7 @@ class Recorder(Runnables):
         self.no_channels_reported = False
         self.recording_paused = False
         self.recording_stopped = False
+        self.track_names: DeviceTrackNames = {}
         self.state = FullState(all_tracks, cfg.aliases)
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         if gui_ipc.daemon_mode_enabled():
@@ -77,7 +81,7 @@ class Recorder(Runnables):
             else None
         )
         self.sources = {
-            source.name: SourceProcess(self.cfg, tracks)
+            source.name: SourceProcess(self.cfg, tracks, track_names=self.track_names)
             for source, tracks in all_tracks
         }
         self.frames = dict.fromkeys(self.sources, 0)
@@ -340,7 +344,7 @@ class Recorder(Runnables):
         tracks: t.Sequence[Track],
         aliases: Aliases,
     ) -> None:
-        source_process = SourceProcess(self.cfg, tracks)
+        source_process = SourceProcess(self.cfg, tracks, track_names=self.track_names)
         self.sources[source.name] = source_process
         self.hardware[source.name] = source_process
         self.frames[source.name] = 0
@@ -455,6 +459,8 @@ class Recorder(Runnables):
             return {'commands': API_COMMANDS, 'version': gui_ipc.VERSION}
         if command.command == 'disk_status':
             return self._disk_status()
+        if command.command == 'get_track_names':
+            return {'track_names': self.track_names}
         if command.command == 'list_devices':
             return {'devices': self._device_status()}
         if command.command == 'mark':
@@ -469,6 +475,8 @@ class Recorder(Runnables):
             return self._set_key_label(command)
         if command.command == 'set_noise_floor':
             return self._set_noise_floor(command)
+        if command.command == 'set_track_names':
+            return self._set_track_names(command)
         if command.command == 'start_recording':
             return self._resume_recording('start_recording')
         if command.command == 'status_snapshot':
@@ -547,6 +555,20 @@ class Recorder(Runnables):
         for source in self.sources.values():
             source.cfg = self.cfg
         return {'source': command.source, 'noise_floor': command.noise_floor}
+
+    def _set_track_names(self, command: gui_ipc.Command) -> dict[str, object]:
+        if command.track_names is None:
+            raise RecsError('set_track_names requires track_names')
+        try:
+            track_names = validate_track_names(command.track_names)
+        except ValueError as e:
+            raise RecsError(str(e)) from None
+        self.track_names = {
+            device: dict(names) for device, names in track_names.items()
+        }
+        for source in self.sources.values():
+            source.set_track_names(self.track_names)
+        return {'track_names': self.track_names}
 
     def _reload_profiles(self) -> dict[str, object]:
         if not self.cfg.device.profiles.name:

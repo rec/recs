@@ -5,8 +5,9 @@ from multiprocessing import connection
 from threa import Runnable
 
 from recs.cfg import Cfg, Track
+from recs.cfg.track_names import DeviceTrackNames
 
-from .source_recorder import SourceFailure, SourceRecorder, SourceUpdate
+from .source_recorder import SourceControl, SourceFailure, SourceRecorder, SourceUpdate
 
 STOP_TIMEOUT = 2.0
 
@@ -16,11 +17,17 @@ class SourceProcess(Runnable):
     process: mp.Process
     stop_event: t.Any
 
-    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
+    def __init__(
+        self,
+        cfg: Cfg,
+        tracks: t.Sequence[Track],
+        track_names: DeviceTrackNames | None = None,
+    ) -> None:
         self.cfg = cfg
         self.name = tracks[0].source.name
         self.source = tracks[0].source
         self.tracks = tracks
+        self.track_names = track_names or {}
         self.started: bool = False
         self.pending_updates: list[SourceUpdate | SourceFailure] = []
 
@@ -47,6 +54,7 @@ class SourceProcess(Runnable):
             'connection': child,
             'stop_event': self.stop_event,
             'tracks': self.tracks,
+            'track_names': self.track_names,
         }
         self.process = mp.Process(target=_run_source_recorder, kwargs=kwargs)
         self.process.start()
@@ -62,6 +70,11 @@ class SourceProcess(Runnable):
 
     def finish(self) -> None:
         self.stop()
+
+    def set_track_names(self, track_names: DeviceTrackNames) -> None:
+        self.track_names = track_names
+        if self.started:
+            self.connection.send(SourceControl(track_names=track_names))
 
     def join(self, timeout: float | None = None) -> None:
         if not self.started:
@@ -92,6 +105,7 @@ def _run_source_recorder(
     connection: connection.Connection,
     stop_event: t.Any,
     tracks: t.Sequence[Track],
+    track_names: DeviceTrackNames | None = None,
 ) -> None:
     try:
         SourceRecorder(
@@ -99,6 +113,7 @@ def _run_source_recorder(
             connection=connection,
             stop_event=stop_event,
             tracks=tracks,
+            track_names=track_names,
         )
     except (OSError, RuntimeError, ValueError) as e:
         source_name = tracks[0].source.name

@@ -2,6 +2,8 @@ import typing as t
 
 from pydantic import BaseModel, Field, TypeAdapter
 
+from recs.cfg.track_names import DeviceTrackNames
+
 VERSION = 1
 
 
@@ -34,6 +36,7 @@ class Command(BaseModel):
         'calibrate',
         'capabilities',
         'disk_status',
+        'get_track_names',
         'list_devices',
         'mark',
         'pause_recording',
@@ -41,6 +44,7 @@ class Command(BaseModel):
         'resume_recording',
         'set_key_label',
         'set_noise_floor',
+        'set_track_names',
         'start_recording',
         'status_snapshot',
         'stop_recording',
@@ -49,6 +53,7 @@ class Command(BaseModel):
     label: str | None = None
     noise_floor: float | None = None
     source: str | None = None
+    track_names: DeviceTrackNames | None = None
 
 
 class Reply(BaseModel):

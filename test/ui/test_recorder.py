@@ -44,7 +44,12 @@ class FakeConnection:
 
 
 class FakeSourceProcess:
-    def __init__(self, cfg: Cfg, tracks: t.Sequence[Track]) -> None:
+    def __init__(
+        self,
+        cfg: Cfg,
+        tracks: t.Sequence[Track],
+        track_names: dict[str, dict[str, int]] | None = None,
+    ) -> None:
         self.name = tracks[0].source.name
         self.source = tracks[0].source
         self.connection = FakeConnection()
@@ -52,6 +57,7 @@ class FakeSourceProcess:
         self.running = False
         self.alive = False
         self.start_count = 0
+        self.track_names = track_names or {}
         self.pending_updates: list[SourceUpdate] = []
 
     @property
@@ -75,6 +81,9 @@ class FakeSourceProcess:
     def stop(self) -> None:
         self.running = False
         self.alive = False
+
+    def set_track_names(self, track_names: dict[str, dict[str, int]]) -> None:
+        self.track_names = track_names
 
     def take_updates(self) -> list[SourceUpdate]:
         updates, self.pending_updates = self.pending_updates, []
@@ -1091,6 +1100,61 @@ def test_control_request_reports_device_and_disk_status(
     assert result['disk'] == disk.replies[0]['result']
     assert result['devices'] == devices.replies[0]['result']['devices']
     assert result['recording'] == {'paused': False, 'stopped': False}
+
+
+def test_control_request_sets_and_gets_track_names(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    set_request = FakeControlRequest(
+        Command(
+            type='command',
+            id='set',
+            command='set_track_names',
+            track_names={'Mic': {'Lead Vocal': 1}},
+        )
+    )
+    get_request = FakeControlRequest(
+        Command(type='command', id='get', command='get_track_names')
+    )
+    rec.live = FakeControlDisplay([set_request, get_request])
+
+    rec._receive_control_requests()
+
+    expected = {'track_names': {'Mic': {'Lead Vocal': 1}}}
+    assert set_request.replies == [{'ok': True, 'result': expected}]
+    assert get_request.replies == [{'ok': True, 'result': expected}]
+    assert rec.sources['Mic'].track_names == {'Mic': {'Lead Vocal': 1}}
+
+
+def test_control_request_rejects_invalid_track_names(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        Command(
+            type='command',
+            id='set',
+            command='set_track_names',
+            track_names={'Mic': {'Lead Vocal': 0}},
+        )
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.replies == [
+        {
+            'ok': False,
+            'message': 'track_names channel values must be positive',
+        }
+    ]
 
 
 def test_control_request_sets_noise_floor(

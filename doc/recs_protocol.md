@@ -6,9 +6,10 @@ with a running `recs` daemon.
 Clients read the Recs daemon status file for low-rate status and can connect to
 the Recs GUI IPC endpoint for live row updates and control commands.
 
-The current control commands exposed to clients are live noise-floor
-calibration and daemon shutdown. Recs does not expose GUI IPC commands for
-starting recording or changing arbitrary recording configuration.
+The current control commands exposed to clients include status snapshots,
+recording lifecycle controls, markers, live noise-floor calibration, track-name
+updates, and daemon shutdown. Recs does not expose GUI IPC commands for changing
+arbitrary recording configuration.
 
 ## Status file
 
@@ -192,6 +193,7 @@ Current command names:
 - `calibrate`
 - `capabilities`
 - `disk_status`
+- `get_track_names`
 - `list_devices`
 - `mark`
 - `pause_recording`
@@ -199,6 +201,7 @@ Current command names:
 - `resume_recording`
 - `set_key_label`
 - `set_noise_floor`
+- `set_track_names`
 - `start_recording`
 - `status_snapshot`
 - `stop_recording`
@@ -453,6 +456,64 @@ Reloading requires `--profiles PATH`. It updates the parent daemon configuration
 used for future source starts. It does not restart active audio source
 processes.
 
+## Track-name commands
+
+Clients can set human-readable track names through the API:
+
+```json
+{
+  "type": "command",
+  "id": "c1",
+  "command": "set_track_names",
+  "track_names": {
+    "Mic": {
+      "Lead Vocal": 1
+    }
+  }
+}
+```
+
+`track_names` is required. Its shape is:
+
+```python
+dict[str, dict[str, int]]
+```
+
+The outer key is the device name. The inner key is the human-readable track name,
+and the integer value is the track channel. Stereo tracks match when either
+channel in the stereo pair has that integer value.
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c1",
+  "ok": true,
+  "result": {
+    "track_names": {
+      "Mic": {
+        "Lead Vocal": 1
+      }
+    }
+  }
+}
+```
+
+Clients can read the current API track names:
+
+```json
+{"type":"command","id":"c2","command":"get_track_names"}
+```
+
+When a track name changes, active files keep their existing paths. The next time
+Recs starts a new file for a matching channel, it uses only the track name and
+timestamp for the filename, under the configured output directory:
+
+```text
+Lead Vocal + 20260728-153000.wav
+```
+
 ## Key event messages
 
 Recs also accepts key event messages after the hello:
@@ -496,5 +557,4 @@ Clients should close the GUI session after receiving this message.
 
 The current Recs daemon does not expose GUI IPC messages for:
 
-- starting recording
 - changing arbitrary recording configuration

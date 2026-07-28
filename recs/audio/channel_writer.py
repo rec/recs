@@ -13,7 +13,8 @@ from threa import Runnable
 from recs.base.state import ChannelState
 from recs.base.type_conversions import SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, time_settings
+from recs.cfg import Cfg, Track, time_settings, track_names
+from recs.cfg.track_names import DeviceTrackNames
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -64,6 +65,7 @@ class ChannelWriter(Runnable):
         self.metadata = cfg.metadata_dict
         self.times = times
         self.track = track
+        self.track_names: DeviceTrackNames = {}
 
         self._blocks = Blocks()
         self._lock = Lock()
@@ -109,6 +111,9 @@ class ChannelWriter(Runnable):
             )
 
         self.largest_file_size = max(0, *(size(f) for f in self.formats))
+
+    def set_track_names(self, names: DeviceTrackNames) -> None:
+        self.track_names = names
 
     def to_block(self, array: NDArray) -> Block:
         return Block(block=array[:, self.track.slice])
@@ -158,9 +163,14 @@ class ChannelWriter(Runnable):
         self.bytes_in_file = max(header_size(metadata, f) for f in self.formats)
         self.frames_in_file = 0
 
-        path = self.cfg.output_path_pattern.make_path(
-            self.track, self.cfg.aliases, timestamp, index
-        )
+        if name := track_names.track_name(self.track_names, self.track):
+            path = self.cfg.output_path_pattern.make_track_name_path(
+                name, self.track, self.cfg.aliases, timestamp, index
+            )
+        else:
+            path = self.cfg.output_path_pattern.make_path(
+                self.track, self.cfg.aliases, timestamp, index
+            )
         sfs = [o.create(metadata, path) for o in self.openers]
         paths = [Path(sf.name) for sf in sfs]
         start_frame = self.timeline_frame + offset

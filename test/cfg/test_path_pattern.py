@@ -1,9 +1,10 @@
+from test.conftest import DEVICES, TIME, TIMESTAMP
+
 import pytest
 
 from recs.base import RecsError
 from recs.cfg import Cfg, device
 from recs.cfg.path_pattern import PathPattern
-from test.conftest import DEVICES, TIME, TIMESTAMP
 
 
 def test_empty(mock_devices):
@@ -136,6 +137,21 @@ def test_index(mock_devices):
     )
     expected = 'recording/Ext + 1/1'
     assert actual.match(expected)
+
+
+def test_track_name_path_uses_name_and_timestamp(mock_devices: None) -> None:
+    pp = PathPattern('{device}')
+    cfg = Cfg()
+
+    actual = pp.make_track_name_path(
+        'Lead Vocal',
+        cfg.aliases.to_track('Ext + 1'),
+        cfg.aliases,
+        TIMESTAMP,
+        1,
+    )
+
+    assert actual.match('Ext/Lead Vocal + 20231015-164921')
 
 
 def test_bad_field(mock_devices):
