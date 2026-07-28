@@ -1,4 +1,4 @@
-from recs.cfg import Cfg
+from recs.cfg import Cfg, device
 from recs.cfg.track import source_track
 from recs.ui.source_tracks import source_tracks
 
@@ -27,6 +27,12 @@ def test_empty__device_tracks(mock_devices):
         'mic': [to_track('mic + 1')],
     }
     assert actual == expected
+
+
+def test_no_devices_have_no_tracks(monkeypatch):
+    monkeypatch.setattr(device, 'query_devices', lambda: [])
+
+    assert list(source_tracks(Cfg())) == []
 
 
 def test_device_tracks_inc(mock_devices):

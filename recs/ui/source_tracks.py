@@ -1,14 +1,11 @@
 import typing as t
 
-from recs.base import RecsError
-from recs.cfg import Cfg, FileSource, Source, Track
+from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
+from recs.cfg.device import InputDevices
 from recs.cfg.track import source_track as _source_track
 
 
 def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
-    if not (cfg.input_devices or cfg.directory.files):
-        raise RecsError('No inputs were found')
-
     if cfg.directory.files:
         for file in cfg.directory.files:
             source = FileSource(file)
@@ -17,8 +14,19 @@ def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
             yield source, [track]
 
     else:
-        exc = cfg.aliases.to_tracks(cfg.selection.exclude)
-        inc = cfg.aliases.to_tracks(cfg.selection.include)
-        for d in cfg.input_devices.values():
-            if tracks := list(_source_track(d, exc, inc)):
-                yield d, tracks
+        yield from input_device_tracks(cfg, cfg.input_devices)
+
+
+def input_device_tracks(
+    cfg: Cfg,
+    input_devices: InputDevices,
+) -> t.Iterator[tuple[InputDevice, t.Sequence[Track]]]:
+    if not input_devices:
+        return
+
+    aliases = Aliases(cfg.device.alias, input_devices)
+    exc = aliases.to_tracks(cfg.selection.exclude)
+    inc = aliases.to_tracks(cfg.selection.include)
+    for d in input_devices.values():
+        if tracks := list(_source_track(d, exc, inc)):
+            yield d, tracks

@@ -7,9 +7,8 @@ from test.conftest import DEVICES, DEVICES_FILE
 import pytest
 from threa import Runnable
 
-from recs.base import RecsError
 from recs.base.state import ChannelState
-from recs.cfg import Cfg
+from recs.cfg import Cfg, device
 from recs.cfg.track import Track
 from recs.daemon.gui_protocol import Command
 from recs.ui import recorder
@@ -154,14 +153,61 @@ class FakeControlRequest:
         self.replies.append(reply)
 
 
-def test_recorder_fails(mock_devices):
-    with pytest.raises(RecsError) as e:
-        Recorder(Cfg(include=['e'], exclude=['e']))
-    assert e.value.args == ('No channels selected',)
+def test_recorder_reports_no_selected_channels(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+
+    rec = Recorder(Cfg(include=['e'], exclude=['e'], silent=True))
+
+    assert rec.warnings == ['No channels selected']
+    assert rec.error_messages() == ['No channels selected']
+    assert capsys.readouterr().err == 'ERROR: No channels selected\n'
+
+
+def test_recorder_runs_without_devices(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(device, 'query_devices', lambda: [])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+
+    rec = Recorder(Cfg(silent=True))
+
+    assert rec.hardware == {}
+    assert rec.poller is not None
+    assert rec.warnings == ['No input devices detected']
+    assert rec.error_messages() == ['No input devices detected']
+    assert capsys.readouterr().err == 'ERROR: No input devices detected\n'
+
+
+def test_recorder_adds_device_detected_after_start(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(device, 'query_devices', lambda: [])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    assert rec.poller is not None
+    rec.poller.snapshots = [{'Mic': mic_info}]
+    capsys.readouterr()
+
+    rec._poll_devices()
+
+    assert 'Mic' in rec.hardware
+    assert rec.hardware['Mic'].started
+    assert list(rec.state.state) == ['Mic']
 
 
 def test_recorder_replaces_returning_device(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -189,6 +235,8 @@ def test_recorder_replaces_returning_device(
     rec._poll_devices()
     rec._reap_sources()
     assert not mic.started
+    assert 'Device Mic went offline' in rec.warnings
+    assert 'ERROR: Device Mic went offline\n' in capsys.readouterr().err
 
     rec._poll_devices()
     assert mic.started
@@ -1052,6 +1100,11 @@ def test_manifest_records_source_and_track_lifecycle_events(
         },
         {
             'timestamp': '1970-01-01T00:01:48.000Z',
+            'type': 'warning',
+            'message': 'Device Mic went offline',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:49.000Z',
             'type': 'source_offline',
             'source': 'Mic',
         },

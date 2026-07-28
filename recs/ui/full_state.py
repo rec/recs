@@ -11,24 +11,36 @@ class FullState:
         tracks: t.Sequence[tuple[Source, t.Sequence[Track]]],
         aliases: Aliases | None = None,
     ) -> None:
-        def device_state(tr: t.Sequence[Track]) -> dict[str, state.ChannelState]:
-            return {i.name: state.ChannelState() for i in tr}
-
-        self.state = {k.name: device_state(v) for k, v in tracks}
-        self.source_names = {
-            source.name: aliases.display_name(source) if aliases else source.name
-            for source, _ in tracks
-        }
-        self.track_names = {
-            (source.name, track.name): (
-                aliases.display_name(track) if aliases else track.name
-            )
-            for source, source_tracks in tracks
-            for track in source_tracks
-        }
+        self.state: dict[str, dict[str, state.ChannelState]] = {}
+        self.source_names: dict[str, str] = {}
+        self.track_names: dict[tuple[str, str], str] = {}
         self.online: set[str] = set()
         self.total = state.ChannelState()
         self.start_time = times.timestamp()
+        for source, source_tracks in tracks:
+            self.add_source(source, source_tracks, aliases)
+
+    def add_source(
+        self,
+        source: Source,
+        tracks: t.Sequence[Track],
+        aliases: Aliases | None = None,
+    ) -> None:
+        def device_state(tr: t.Sequence[Track]) -> dict[str, state.ChannelState]:
+            return {i.name: state.ChannelState() for i in tr}
+
+        self.state[source.name] = device_state(tracks)
+        self.source_names[source.name] = (
+            aliases.display_name(source) if aliases else source.name
+        )
+        self.track_names.update(
+            {
+                (source.name, track.name): (
+                    aliases.display_name(track) if aliases else track.name
+                )
+                for track in tracks
+            }
+        )
 
     @property
     def elapsed_time(self) -> float:

@@ -12,7 +12,8 @@ from threa import HasThread, Runnable, Runnables
 
 from recs.base import RecsError, times
 from recs.base.signals import raise_keyboard_interrupt_on_signal
-from recs.cfg import Cfg, FileSource, InputDevice
+from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
+from recs.cfg.device import DeviceDict, get_input_devices
 from recs.daemon import gui_ipc
 
 from . import gui_process, live
@@ -29,7 +30,7 @@ from .session_manifest import (
 )
 from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpdate
-from .source_tracks import source_tracks
+from .source_tracks import input_device_tracks, source_tracks
 
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
@@ -40,9 +41,10 @@ class Recorder(Runnables):
     def __init__(self, cfg: Cfg, *, display: bool = True) -> None:
         super().__init__()
 
-        if not (all_tracks := list(source_tracks(cfg))):
-            raise RecsError('No channels selected')
-
+        all_tracks = list(source_tracks(cfg))
+        self.warnings: list[str] = []
+        self.no_devices_reported = False
+        self.no_channels_reported = False
         self.state = FullState(all_tracks, cfg.aliases)
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         if gui_ipc.daemon_mode_enabled():
@@ -72,7 +74,6 @@ class Recorder(Runnables):
         self.manifest_files: dict[Path, ManifestFile] = {}
         self.manifest: SessionManifestWriter | None = None
         self.key_recorder = make_key_recorder(cfg)
-        self.warnings: list[str] = []
         self.disk_space_reported = False
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
@@ -90,7 +91,7 @@ class Recorder(Runnables):
 
         runnables = tuple(self.files.values()) + (self.key_recorder,)
         self.poller = None
-        if self.hardware:
+        if self.hardware or not self.files:
             self.poller = DevicePoller(cfg.console.sleep_time_device)
             self.poller.poll()
             runnables += (self.poller,)
@@ -105,6 +106,7 @@ class Recorder(Runnables):
             runnables += live_thread, self.live
 
         self.runnables = runnables
+        self._record_startup_input_errors(all_tracks)
 
     def start(self) -> None:
         super().start()
@@ -123,6 +125,17 @@ class Recorder(Runnables):
 
     def error_messages(self) -> list[str]:
         return self.warnings.copy()
+
+    def _record_startup_input_errors(
+        self,
+        all_tracks: t.Sequence[tuple[Source, t.Sequence[Track]]],
+    ) -> None:
+        if self.files:
+            return
+        if not self.cfg.input_devices:
+            self._report_no_devices()
+        elif not all_tracks:
+            self._report_no_channels()
 
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():
@@ -243,10 +256,20 @@ class Recorder(Runnables):
         if self.poller is None or (snapshot := self.poller.latest()) is None:
             return
 
+        if snapshot:
+            self.no_devices_reported = False
+        elif not self.present:
+            self._report_no_devices()
+
+        self._add_detected_hardware(snapshot)
         compatible: set[str] = set()
         for name, source in self.hardware.items():
             info = snapshot.get(name)
             if info is None:
+                if name in self.present:
+                    warning = f'Device {name} went offline'
+                    print(f'ERROR: {warning}', file=sys.stderr)
+                    self._record_warning(warning)
                 self.failed.discard(name)
                 source.stop()
                 continue
@@ -279,6 +302,50 @@ class Recorder(Runnables):
 
         self._record_source_presence(compatible)
         self.present = compatible
+        if snapshot and not self.hardware:
+            self._report_no_channels()
+
+    def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> None:
+        if self.cfg.device.devices.name:
+            return
+        input_devices = get_input_devices(list(snapshot.values()))
+        aliases = Aliases(self.cfg.device.alias, input_devices)
+        for source, tracks in input_device_tracks(self.cfg, input_devices):
+            if source.name not in self.sources:
+                self._add_source(source, tracks, aliases)
+
+    def _add_source(
+        self,
+        source: InputDevice,
+        tracks: t.Sequence[Track],
+        aliases: Aliases,
+    ) -> None:
+        source_process = SourceProcess(self.cfg, tracks)
+        self.sources[source.name] = source_process
+        self.hardware[source.name] = source_process
+        self.frames[source.name] = 0
+        self.buffer_drops_reported[source.name] = 0
+        self.source_frames_at_start[source.name] = 0
+        self.source_start_times[source.name] = self.state.start_time
+        self.source_last_updates[source.name] = self.state.start_time
+        self.state.add_source(source, tracks, aliases)
+        self.no_channels_reported = False
+
+    def _report_no_devices(self) -> None:
+        if self.no_devices_reported:
+            return
+        warning = 'No input devices detected'
+        print(f'ERROR: {warning}', file=sys.stderr)
+        self._record_warning(warning)
+        self.no_devices_reported = True
+
+    def _report_no_channels(self) -> None:
+        if self.no_channels_reported:
+            return
+        warning = 'No channels selected'
+        print(f'ERROR: {warning}', file=sys.stderr)
+        self._record_warning(warning)
+        self.no_channels_reported = True
 
     def _record_source_presence(self, compatible: set[str]) -> None:
         for name in sorted(compatible - self.present):
