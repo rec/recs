@@ -24,6 +24,7 @@ The file contains one JSON object. Current fields are:
 ```json
 {
   "client_count": 0,
+  "errors": [],
   "gui_ipc_error": null,
   "rows": [],
   "recording": false,
@@ -34,6 +35,7 @@ The file contains one JSON object. Current fields are:
 Field meanings:
 
 - `client_count`: number of connected GUI IPC clients.
+- `errors`: current recorder errors and warnings shown by the Recs UI.
 - `gui_ipc_error`: latest GUI IPC startup error, or `null`.
 - `rows`: current display rows, described below.
 - `recording`: whether the daemon reports that recording is active.
@@ -157,10 +159,21 @@ connection:
 Recs sends live row updates:
 
 ```json
-{"type":"rows","rows":[{"device":"MacBook Pro Microphone","on":"active"}]}
+{
+  "type": "rows",
+  "rows": [
+    {
+      "device": "MacBook Pro Microphone",
+      "on": "active"
+    }
+  ],
+  "errors": []
+}
 ```
 
 The `rows` payload has the same shape as the status-file `rows` field.
+The `errors` payload contains the same current recorder errors and warnings as
+the status-file `errors` field.
 
 ## Calibration command sent from clients to Recs
 
@@ -226,6 +239,19 @@ Recs also accepts key event messages after the hello:
 
 Clients do not need to send key events for calibration, but they remain part of
 the GUI IPC protocol.
+
+## Shutdown message sent from Recs to clients
+
+When the daemon-side GUI IPC server is stopping, Recs sends a shutdown message
+to connected GUI clients before closing the connection:
+
+```json
+{"type":"shutdown"}
+```
+
+Clients should close the GUI session after receiving this message. It is a
+clean end-of-stream signal, not a command clients send to stop recording or stop
+the daemon.
 
 ## Commands not currently available
 

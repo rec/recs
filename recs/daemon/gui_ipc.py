@@ -28,6 +28,7 @@ from .gui_protocol import (
     KeyReleased,
     Reply,
     RowsMessage,
+    Shutdown,
     parse_message,
 )
 from .models import DaemonMetadata, DaemonStatus
@@ -137,9 +138,10 @@ class DaemonGuiServer(Runnable):
                 self._remove(listener)
 
     def stop(self) -> None:
-        self.backend.close()
         for listener in self.clients:
+            listener.write(Shutdown(type='shutdown').model_dump_json() + '\n')
             listener.close()
+        self.backend.close()
         super().stop()
 
     def _accept(self) -> None:
@@ -308,6 +310,9 @@ class RemoteGuiClient:
                 with self.lock:
                     self.latest = message.rows
                     self.latest_errors = message.errors
+            if isinstance(message, Shutdown):
+                self.closed = True
+                return
         self.closed = True
 
 

@@ -7,7 +7,13 @@ from pydantic import ValidationError
 from recs.base import RecsError
 from recs.cfg import Cfg
 from recs.daemon import gui_ipc
-from recs.daemon.gui_protocol import Command, Hello, RowsMessage, parse_message
+from recs.daemon.gui_protocol import (
+    Command,
+    Hello,
+    RowsMessage,
+    Shutdown,
+    parse_message,
+)
 from recs.daemon.models import DaemonMetadata, Platform
 from recs.ui.key_events import KeyEvent
 
@@ -32,6 +38,12 @@ def test_protocol_parses_calibrate_command() -> None:
 
     assert isinstance(message, Command)
     assert message.command == 'calibrate'
+
+
+def test_protocol_parses_shutdown() -> None:
+    message = parse_message('{"type":"shutdown"}')
+
+    assert isinstance(message, Shutdown)
 
 
 def test_protocol_rejects_malformed_messages() -> None:
@@ -68,6 +80,20 @@ def test_daemon_publisher_removes_broken_listeners() -> None:
 
     assert server.clients == [good]
     assert broken.closed
+
+
+def test_daemon_publisher_sends_shutdown_when_stopped() -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    first = FakeListener()
+    second = FakeListener()
+    server.clients = [first, second]
+
+    server.stop()
+
+    assert first.messages == ['{"type":"shutdown"}\n']
+    assert second.messages == first.messages
+    assert first.closed
+    assert second.closed
 
 
 def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
@@ -211,6 +237,18 @@ def test_remote_row_provider_closes_on_protocol_error(
 
     assert _eventually(lambda: client.closed)
     assert capsys.readouterr().err == 'GUI protocol version 2 is not supported\n'
+
+
+def test_remote_row_provider_closes_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection(['{"type":"shutdown"}\n'])
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+
+    client.start()
+
+    assert _eventually(lambda: client.closed)
 
 
 def test_remote_row_provider_sends_key_events(
