@@ -78,6 +78,7 @@ class DaemonGuiServer(Runnable):
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
         self.control_requests: list[ControlRequest] = []
+        self.shutdown_started = False
         self.lock = threading.Lock()
         super().__init__()
 
@@ -115,7 +116,7 @@ class DaemonGuiServer(Runnable):
 
     @property
     def closed(self) -> bool:
-        return False
+        return self.shutdown_started
 
     def take_key_events(self) -> list[KeyEvent]:
         with self.lock:
@@ -138,8 +139,18 @@ class DaemonGuiServer(Runnable):
                 self._remove(listener)
 
     def stop(self) -> None:
-        for listener in self.clients:
-            listener.write(Shutdown(type='shutdown').model_dump_json() + '\n')
+        self.request_shutdown()
+
+    def request_shutdown(self) -> None:
+        with self.lock:
+            if self.shutdown_started:
+                return
+            self.shutdown_started = True
+            listeners = list(self.clients)
+
+        message = Shutdown(type='shutdown').model_dump_json() + '\n'
+        for listener in listeners:
+            listener.write(message)
             listener.close()
         self.backend.close()
         super().stop()
@@ -153,6 +164,7 @@ class DaemonGuiServer(Runnable):
                 conn,
                 self._append_key_event,
                 self._append_control_request,
+                self.request_shutdown,
             )
             with self.lock:
                 self.clients.append(listener)
@@ -197,10 +209,12 @@ class GuiListener:
         conn: GuiConnection,
         append_key_event: t.Callable[[KeyEvent], None],
         append_control_request: t.Callable[[ControlRequest], None] | None = None,
+        request_shutdown: t.Callable[[], None] | None = None,
     ) -> None:
         self.conn = conn
         self.append_key_event = append_key_event
         self.append_control_request = append_control_request
+        self.request_shutdown = request_shutdown
         self.handshake_complete = False
         self.lock = threading.Lock()
 
@@ -232,6 +246,8 @@ class GuiListener:
                 self.append_key_event(KeyEvent(type=message.type, key=message.key))
             elif isinstance(message, Command) and self.append_control_request:
                 self.append_control_request(ControlRequest(self, message))
+            elif isinstance(message, Shutdown) and self.request_shutdown:
+                self.request_shutdown()
 
     def _receive_hello(self, message: Hello) -> bool:
         if message.version != VERSION:
@@ -280,6 +296,9 @@ class RemoteGuiClient:
 
     def record_key(self, event: KeyEvent) -> None:
         self._write(event.model_dump_json() + '\n')
+
+    def shutdown(self) -> None:
+        self._write(Shutdown(type='shutdown').model_dump_json() + '\n')
 
     def _write(self, message: str) -> bool:
         if self.connection is None:

@@ -96,6 +96,18 @@ def test_daemon_publisher_sends_shutdown_when_stopped() -> None:
     assert second.closed
 
 
+def test_daemon_publisher_ignores_second_shutdown() -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    listener = FakeListener()
+    server.clients = [listener]
+
+    server.request_shutdown()
+    server.request_shutdown()
+
+    assert listener.messages == ['{"type":"shutdown"}\n']
+    assert listener.closed
+
+
 def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     server.enabled = True
@@ -167,6 +179,35 @@ def test_gui_listener_queues_commands_after_hello() -> None:
             '"result":{"profiles":{"Mic":{"noise_floor":15.0}}}}\n'
         ),
     ]
+
+
+def test_client_shutdown_propagates_to_all_listeners() -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    first = FakeConnection(
+        [
+            '{"type":"hello","role":"gui","version":1}\n',
+            '{"type":"shutdown"}\n',
+            '{"type":"shutdown"}\n',
+        ]
+    )
+    second = FakeListener()
+    first_listener = gui_ipc.GuiListener(
+        first,
+        lambda event: None,
+        request_shutdown=server.request_shutdown,
+    )
+    server.clients = [first_listener, second]
+
+    first_listener._read()
+
+    assert server.closed
+    assert first.sent == [
+        '{"type":"hello","role":"daemon","version":1}\n',
+        '{"type":"shutdown"}\n',
+    ]
+    assert first.closed
+    assert second.messages == ['{"type":"shutdown"}\n']
+    assert second.closed
 
 
 def test_gui_listener_rejects_key_events_before_hello() -> None:
@@ -262,6 +303,19 @@ def test_remote_row_provider_sends_key_events(
     client.record_key(KeyEvent(type='key_pressed', key='g'))
 
     assert '{"type":"key_pressed","key":"g"}\n' in connection.sent
+
+
+def test_remote_row_provider_sends_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection()
+    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+
+    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client.start()
+    client.shutdown()
+
+    assert '{"type":"shutdown"}\n' in connection.sent
 
 
 def test_remote_row_provider_fails_when_hello_cannot_be_sent(

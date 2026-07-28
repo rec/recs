@@ -6,9 +6,9 @@ with a running `recs` daemon.
 Clients read the Recs daemon status file for low-rate status and can connect to
 the Recs GUI IPC endpoint for live row updates and control commands.
 
-The current control command exposed to clients is live noise-floor calibration.
-Recs does not expose GUI IPC commands for starting recording, stopping
-recording, or changing arbitrary recording configuration.
+The current control commands exposed to clients are live noise-floor
+calibration and daemon shutdown. Recs does not expose GUI IPC commands for
+starting recording or changing arbitrary recording configuration.
 
 ## Status file
 
@@ -240,23 +240,36 @@ Recs also accepts key event messages after the hello:
 Clients do not need to send key events for calibration, but they remain part of
 the GUI IPC protocol.
 
-## Shutdown message sent from Recs to clients
+## Shutdown message
 
-When the daemon-side GUI IPC server is stopping, Recs sends a shutdown message
-to connected GUI clients before closing the connection:
+After the hello succeeds, clients can ask Recs to stop the running daemon:
 
 ```json
 {"type":"shutdown"}
 ```
 
-Clients should close the GUI session after receiving this message. It is a
-clean end-of-stream signal, not a command clients send to stop recording or stop
-the daemon.
+The first shutdown message starts daemon shutdown. Recs ignores any later
+shutdown messages after shutdown has started.
+
+When shutdown starts, Recs propagates the same shutdown message to connected GUI
+clients before closing their connections:
+
+```json
+{"type":"shutdown"}
+```
+
+Recs also sends shutdown to connected GUI clients when the daemon-side GUI IPC
+server is stopping for another reason:
+
+```json
+{"type":"shutdown"}
+```
+
+Clients should close the GUI session after receiving this message.
 
 ## Commands not currently available
 
 The current Recs daemon does not expose GUI IPC messages for:
 
 - starting recording
-- stopping recording
 - changing arbitrary recording configuration
