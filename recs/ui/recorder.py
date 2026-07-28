@@ -35,6 +35,22 @@ from .source_tracks import input_device_tracks, source_tracks
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
 SOURCE_STALL_TIMEOUT = 10.0
+API_COMMANDS = [
+    'calibrate',
+    'capabilities',
+    'disk_status',
+    'list_devices',
+    'mark',
+    'pause_recording',
+    'reload_profiles',
+    'resume_recording',
+    'set_key_label',
+    'set_noise_floor',
+    'shutdown',
+    'start_recording',
+    'status_snapshot',
+    'stop_recording',
+]
 
 
 class Recorder(Runnables):
@@ -45,6 +61,8 @@ class Recorder(Runnables):
         self.warnings: list[str] = []
         self.no_devices_reported = False
         self.no_channels_reported = False
+        self.recording_paused = False
+        self.recording_stopped = False
         self.state = FullState(all_tracks, cfg.aliases)
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         if gui_ipc.daemon_mode_enabled():
@@ -293,6 +311,8 @@ class Recorder(Runnables):
             if (
                 not source.started
                 and name not in self.failed
+                and not self.recording_paused
+                and not self.recording_stopped
                 and not self._invocation_expired()
             ):
                 source.start()
@@ -418,11 +438,162 @@ class Recorder(Runnables):
             list[gui_ipc.ControlRequest], self.live.take_control_requests()
         )
         for request in requests:
-            if request.command.command == 'calibrate':
-                try:
-                    request.reply(ok=True, result=self._calibrate_noise_floor())
-                except RecsError as e:
-                    request.reply(ok=False, message=str(e))
+            try:
+                result = self._handle_control_request(request.command)
+            except RecsError as e:
+                request.reply(ok=False, message=str(e))
+            else:
+                request.reply(ok=True, result=result)
+
+    def _handle_control_request(
+        self,
+        command: gui_ipc.Command,
+    ) -> dict[str, object]:
+        if command.command == 'calibrate':
+            return self._calibrate_noise_floor()
+        if command.command == 'capabilities':
+            return {'commands': API_COMMANDS, 'version': gui_ipc.VERSION}
+        if command.command == 'disk_status':
+            return self._disk_status()
+        if command.command == 'list_devices':
+            return {'devices': self._device_status()}
+        if command.command == 'mark':
+            return self._mark(command)
+        if command.command == 'pause_recording':
+            return self._pause_recording('pause_recording')
+        if command.command == 'reload_profiles':
+            return self._reload_profiles()
+        if command.command == 'resume_recording':
+            return self._resume_recording('resume_recording')
+        if command.command == 'set_key_label':
+            return self._set_key_label(command)
+        if command.command == 'set_noise_floor':
+            return self._set_noise_floor(command)
+        if command.command == 'start_recording':
+            return self._resume_recording('start_recording')
+        if command.command == 'status_snapshot':
+            return self._status_snapshot()
+        if command.command == 'stop_recording':
+            return self._stop_recording()
+        raise RecsError(f'Unsupported command: {command.command}')
+
+    def _mark(self, command: gui_ipc.Command) -> dict[str, object]:
+        if not command.label:
+            raise RecsError('mark requires label')
+        self._write_manifest_record(
+            ManifestEvent(
+                timestamp=timestamp_to_json(times.timestamp()),
+                type='mark',
+                label=command.label,
+            )
+        )
+        return {'label': command.label}
+
+    def _pause_recording(self, reason: str) -> dict[str, object]:
+        self.recording_paused = True
+        for source in self.hardware.values():
+            if source.running:
+                source.stop()
+        self._write_manifest_record(
+            ManifestEvent(
+                timestamp=timestamp_to_json(times.timestamp()),
+                type='recording_paused',
+                label=reason,
+            )
+        )
+        return self._recording_state()
+
+    def _resume_recording(self, reason: str) -> dict[str, object]:
+        self.recording_paused = False
+        self.recording_stopped = False
+        self._write_manifest_record(
+            ManifestEvent(
+                timestamp=timestamp_to_json(times.timestamp()),
+                type='recording_resumed',
+                label=reason,
+            )
+        )
+        return self._recording_state()
+
+    def _stop_recording(self) -> dict[str, object]:
+        result = self._pause_recording('stop_recording')
+        self.recording_stopped = True
+        return result | self._recording_state()
+
+    def _set_key_label(self, command: gui_ipc.Command) -> dict[str, object]:
+        if not command.key:
+            raise RecsError('set_key_label requires key')
+        if not command.label:
+            raise RecsError('set_key_label requires label')
+        self.cfg.keys.labels[command.key] = command.label
+        return {'key': command.key, 'label': command.label}
+
+    def _set_noise_floor(self, command: gui_ipc.Command) -> dict[str, object]:
+        if not command.source:
+            raise RecsError('set_noise_floor requires source')
+        if command.noise_floor is None:
+            raise RecsError('set_noise_floor requires noise_floor')
+        profiles_path = self.cfg.device.profiles
+        if not profiles_path.name:
+            raise RecsError('Cannot set noise floor without --profiles')
+        profiles = self.cfg.device_profiles.copy()
+        current = profiles.get(command.source, {})
+        profiles[command.source] = current | {'noise_floor': command.noise_floor}
+        _write_text_atomically(
+            profiles_path,
+            json.dumps(profiles, indent=2, sort_keys=True) + '\n',
+        )
+        self.cfg.__dict__.pop('device_profiles', None)
+        for source in self.sources.values():
+            source.cfg = self.cfg
+        return {'source': command.source, 'noise_floor': command.noise_floor}
+
+    def _reload_profiles(self) -> dict[str, object]:
+        if not self.cfg.device.profiles.name:
+            raise RecsError('Cannot reload profiles without --profiles')
+        self.cfg.__dict__.pop('device_profiles', None)
+        for source in self.sources.values():
+            source.cfg = self.cfg
+        return {'profiles_path': str(self.cfg.device.profiles)}
+
+    def _status_snapshot(self) -> dict[str, object]:
+        return {
+            'disk': self._disk_status(),
+            'devices': self._device_status(),
+            'errors': self.error_messages(),
+            'recording': self._recording_state(),
+            'rows': list(self.rows()),
+        }
+
+    def _disk_status(self) -> dict[str, object]:
+        path = _existing_parent(self._manifest_path()).resolve()
+        usage = shutil.disk_usage(path)
+        return {
+            'free_bytes': usage.free,
+            'path': str(path),
+            'total_bytes': usage.total,
+            'used_bytes': usage.used,
+        }
+
+    def _device_status(self) -> list[dict[str, object]]:
+        devices: list[dict[str, object]] = []
+        for name, source in sorted(self.sources.items()):
+            device = source.source
+            devices.append(
+                {
+                    'channels': device.channels,
+                    'name': name,
+                    'online': name in self.present,
+                    'sample_rate': device.samplerate,
+                }
+            )
+        return devices
+
+    def _recording_state(self) -> dict[str, object]:
+        return {
+            'paused': self.recording_paused,
+            'stopped': self.recording_stopped,
+        }
 
     def _drain(self, conn: connection.Connection) -> None:
         while _connection_ready(conn):

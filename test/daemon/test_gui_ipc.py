@@ -40,6 +40,17 @@ def test_protocol_parses_calibrate_command() -> None:
     assert message.command == 'calibrate'
 
 
+def test_protocol_parses_command_fields() -> None:
+    message = parse_message(
+        '{"type":"command","id":"c1","command":"set_noise_floor",'
+        '"source":"Mic","noise_floor":42.5}'
+    )
+
+    assert isinstance(message, Command)
+    assert message.source == 'Mic'
+    assert message.noise_floor == 42.5
+
+
 def test_protocol_parses_shutdown() -> None:
     message = parse_message('{"type":"shutdown"}')
 

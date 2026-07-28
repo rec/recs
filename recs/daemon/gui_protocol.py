@@ -30,7 +30,25 @@ class KeyReleased(BaseModel):
 class Command(BaseModel):
     type: t.Literal['command']
     id: str
-    command: t.Literal['calibrate']
+    command: t.Literal[
+        'calibrate',
+        'capabilities',
+        'disk_status',
+        'list_devices',
+        'mark',
+        'pause_recording',
+        'reload_profiles',
+        'resume_recording',
+        'set_key_label',
+        'set_noise_floor',
+        'start_recording',
+        'status_snapshot',
+        'stop_recording',
+    ]
+    key: str | None = None
+    label: str | None = None
+    noise_floor: float | None = None
+    source: str | None = None
 
 
 class Reply(BaseModel):

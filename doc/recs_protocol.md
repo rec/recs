@@ -175,17 +175,218 @@ The `rows` payload has the same shape as the status-file `rows` field.
 The `errors` payload contains the same current recorder errors and warnings as
 the status-file `errors` field.
 
-## Calibration command sent from clients to Recs
+## Request/reply commands sent from clients to Recs
 
-After the hello succeeds, clients can ask Recs to calibrate per-device noise
-floors from the audio observed so far:
+After the hello succeeds, clients can send request/reply commands:
 
 ```json
 {"type":"command","id":"c1","command":"calibrate"}
 ```
 
 The `id` field is an arbitrary client-chosen string. Recs echoes the same `id`
-in the reply.
+in the reply. Successful replies have `ok: true` and a command-specific
+`result` object. Failed replies have `ok: false` and a `message`.
+
+Current command names:
+
+- `calibrate`
+- `capabilities`
+- `disk_status`
+- `list_devices`
+- `mark`
+- `pause_recording`
+- `reload_profiles`
+- `resume_recording`
+- `set_key_label`
+- `set_noise_floor`
+- `start_recording`
+- `status_snapshot`
+- `stop_recording`
+
+The `shutdown` message is separate from request/reply commands and is described
+below.
+
+## Capabilities command
+
+Clients can request protocol version and supported command names:
+
+```json
+{"type":"command","id":"c1","command":"capabilities"}
+```
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c1",
+  "ok": true,
+  "result": {
+    "version": 1,
+    "commands": ["calibrate", "capabilities"]
+  }
+}
+```
+
+The `commands` list is abbreviated above. Clients should use the actual reply
+rather than assuming this document is exhaustive for future protocol versions.
+
+## Status snapshot command
+
+Clients can request one IPC snapshot instead of combining the status file and
+live row stream:
+
+```json
+{"type":"command","id":"c1","command":"status_snapshot"}
+```
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c1",
+  "ok": true,
+  "result": {
+    "disk": {
+      "path": "/home/user/recs",
+      "total_bytes": 1000000000,
+      "used_bytes": 400000000,
+      "free_bytes": 600000000
+    },
+    "devices": [],
+    "errors": [],
+    "recording": {
+      "paused": false,
+      "stopped": false
+    },
+    "rows": []
+  }
+}
+```
+
+## Recording lifecycle commands
+
+Clients can pause or stop active source recorders while keeping the daemon
+alive:
+
+```json
+{"type":"command","id":"c1","command":"pause_recording"}
+{"type":"command","id":"c2","command":"stop_recording"}
+```
+
+Both commands stop currently running source recorders. `stop_recording` also
+sets `stopped: true` in the recording state. The daemon remains alive and
+continues device and IPC monitoring.
+
+Clients can allow recording to start again:
+
+```json
+{"type":"command","id":"c3","command":"resume_recording"}
+{"type":"command","id":"c4","command":"start_recording"}
+```
+
+Both commands clear the paused and stopped state. Matching devices are started
+again on the next device poll.
+
+Lifecycle commands write manifest events:
+
+- `recording_paused`
+- `recording_resumed`
+
+The event `label` identifies the command reason, such as `pause_recording`,
+`stop_recording`, `resume_recording`, or `start_recording`.
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c1",
+  "ok": true,
+  "result": {
+    "paused": true,
+    "stopped": false
+  }
+}
+```
+
+## Device and disk status commands
+
+Clients can request current source/device status:
+
+```json
+{"type":"command","id":"c1","command":"list_devices"}
+```
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c1",
+  "ok": true,
+  "result": {
+    "devices": [
+      {
+        "name": "Mic",
+        "channels": 1,
+        "sample_rate": 48000,
+        "online": true
+      }
+    ]
+  }
+}
+```
+
+Clients can request current output disk status:
+
+```json
+{"type":"command","id":"c2","command":"disk_status"}
+```
+
+Successful reply:
+
+```json
+{
+  "type": "reply",
+  "id": "c2",
+  "ok": true,
+  "result": {
+    "path": "/home/user/recs",
+    "total_bytes": 1000000000,
+    "used_bytes": 400000000,
+    "free_bytes": 600000000
+  }
+}
+```
+
+## Marker and key-label commands
+
+Clients can write a generic marker into the session manifest:
+
+```json
+{"type":"command","id":"c1","command":"mark","label":"guitar solo"}
+```
+
+`label` is required. Recs writes a `mark` manifest event.
+
+Clients can set or replace a key label used for later key events:
+
+```json
+{"type":"command","id":"c2","command":"set_key_label","key":"g","label":"guitar solo"}
+```
+
+Both `key` and `label` are required.
+
+## Noise-floor commands
+
+Clients can ask Recs to calibrate per-device noise floors from the audio
+observed so far:
+
+```json
+{"type":"command","id":"c1","command":"calibrate"}
+```
 
 Calibration requires that the daemon was started with `--profiles PATH`.
 Without a profiles file, Recs cannot persist the calibration and returns an
@@ -226,6 +427,30 @@ Failure reply when no profiles file is configured:
 
 Recs writes the profile file atomically. Calibration updates the parent daemon
 configuration for future source starts. It does not restart active audio source
+processes.
+
+Clients can also set a specific source noise floor:
+
+```json
+{
+  "type": "command",
+  "id": "c2",
+  "command": "set_noise_floor",
+  "source": "Mic",
+  "noise_floor": 42.5
+}
+```
+
+`source` and `noise_floor` are required. This also requires `--profiles PATH`.
+
+Clients can reload profiles from disk for future source starts:
+
+```json
+{"type":"command","id":"c3","command":"reload_profiles"}
+```
+
+Reloading requires `--profiles PATH`. It updates the parent daemon configuration
+used for future source starts. It does not restart active audio source
 processes.
 
 ## Key event messages

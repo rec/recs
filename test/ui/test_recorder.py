@@ -134,8 +134,8 @@ class FakeControlDisplay:
 
 
 class FakeControlRequest:
-    def __init__(self) -> None:
-        self.command = Command(type='command', id='c1', command='calibrate')
+    def __init__(self, command: Command | None = None) -> None:
+        self.command = command or Command(type='command', id='c1', command='calibrate')
         self.replies: list[dict[str, object]] = []
 
     def reply(
@@ -904,6 +904,244 @@ def test_calibrate_control_request_requires_profiles(
             'message': 'Cannot calibrate noise floor without --profiles',
         }
     ]
+
+
+def test_control_request_reports_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        Command(type='command', id='c1', command='capabilities')
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    result = request.replies[0]['result']
+    assert isinstance(result, dict)
+    assert result['version'] == 1
+    assert 'status_snapshot' in result['commands']
+    assert 'shutdown' in result['commands']
+
+
+def test_control_request_marks_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    request = FakeControlRequest(
+        Command(type='command', id='c1', command='mark', label='guitar solo')
+    )
+    rec.live = FakeControlDisplay([request])
+    rec._start_manifest()
+
+    rec._receive_control_requests()
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert request.replies == [{'ok': True, 'result': {'label': 'guitar solo'}}]
+    assert records[1] == {
+        'type': 'mark',
+        'timestamp': records[1]['timestamp'],
+        'label': 'guitar solo',
+    }
+
+
+def test_control_request_requires_mark_label(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(Command(type='command', id='c1', command='mark'))
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.replies == [{'ok': False, 'message': 'mark requires label'}]
+
+
+def test_control_request_sets_key_label(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        Command(
+            type='command',
+            id='c1',
+            command='set_key_label',
+            key='g',
+            label='guitar solo',
+        )
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert rec.cfg.keys.labels['g'] == 'guitar solo'
+    assert request.replies == [
+        {'ok': True, 'result': {'key': 'g', 'label': 'guitar solo'}}
+    ]
+
+
+def test_control_request_pauses_and_resumes_recording(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    assert rec.poller is not None
+    rec.poller.snapshots = [{'Mic': mic_info}]
+    rec._poll_devices()
+    assert rec.hardware['Mic'].running
+    pause = FakeControlRequest(
+        Command(type='command', id='pause', command='pause_recording')
+    )
+    resume = FakeControlRequest(
+        Command(type='command', id='resume', command='resume_recording')
+    )
+    rec.live = FakeControlDisplay([pause, resume])
+    rec._start_manifest()
+
+    rec._receive_control_requests()
+
+    assert not rec.recording_paused
+    assert not rec.recording_stopped
+    assert not rec.hardware['Mic'].running
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1]['type'] == 'recording_paused'
+    assert records[2]['type'] == 'recording_resumed'
+
+
+def test_control_request_stops_and_starts_recording(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    stop = FakeControlRequest(
+        Command(type='command', id='stop', command='stop_recording')
+    )
+    start = FakeControlRequest(
+        Command(type='command', id='start', command='start_recording')
+    )
+    rec.live = FakeControlDisplay([stop, start])
+
+    rec._receive_control_requests()
+
+    assert stop.replies == [{'ok': True, 'result': {'paused': True, 'stopped': True}}]
+    assert start.replies == [
+        {'ok': True, 'result': {'paused': False, 'stopped': False}}
+    ]
+
+
+def test_control_request_reports_device_and_disk_status(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(
+        recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 40, 60)
+    )
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    devices = FakeControlRequest(
+        Command(type='command', id='devices', command='list_devices')
+    )
+    disk = FakeControlRequest(Command(type='command', id='disk', command='disk_status'))
+    status = FakeControlRequest(
+        Command(type='command', id='status', command='status_snapshot')
+    )
+    rec.live = FakeControlDisplay([devices, disk, status])
+
+    rec._receive_control_requests()
+
+    assert devices.replies[0]['result'] == {
+        'devices': [
+            {
+                'channels': 1,
+                'name': 'Mic',
+                'online': False,
+                'sample_rate': 48000,
+            }
+        ]
+    }
+    assert disk.replies[0]['result'] == {
+        'free_bytes': 60,
+        'path': str(tmp_path),
+        'total_bytes': 100,
+        'used_bytes': 40,
+    }
+    result = status.replies[0]['result']
+    assert isinstance(result, dict)
+    assert result['disk'] == disk.replies[0]['result']
+    assert result['devices'] == devices.replies[0]['result']['devices']
+    assert result['recording'] == {'paused': False, 'stopped': False}
+
+
+def test_control_request_sets_noise_floor(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"recording": {"quiet_after_end": 5}}}')
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(profiles=profiles, include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        Command(
+            type='command',
+            id='c1',
+            command='set_noise_floor',
+            source='Mic',
+            noise_floor=42.5,
+        )
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert json.loads(profiles.read_text()) == {
+        'Mic': {'noise_floor': 42.5, 'recording': {'quiet_after_end': 5}}
+    }
+    assert request.replies == [
+        {'ok': True, 'result': {'source': 'Mic', 'noise_floor': 42.5}}
+    ]
+
+
+def test_control_request_reload_profiles(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"noise_floor": 42.5}}')
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(profiles=profiles, include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        Command(type='command', id='c1', command='reload_profiles')
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.replies == [{'ok': True, 'result': {'profiles_path': str(profiles)}}]
 
 
 def test_empty_template_output_directory_manifest_uses_time_template(
