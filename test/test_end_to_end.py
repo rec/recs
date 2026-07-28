@@ -243,6 +243,8 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         event.pop('label')
         event.pop('max_queued_seconds')
         event.pop('queued_seconds')
+        if event.get('start_frame') is None:
+            event.pop('start_frame')
         event['timestamp'] = '<timestamp>'
         source = Path(str(event['source']))
         if source.is_absolute():

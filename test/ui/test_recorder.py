@@ -1059,7 +1059,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
     )
     rec._start_manifest()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    rec.poller.snapshots = [{'Mic': mic_info}, {}]
+    rec.poller.snapshots = [{'Mic': mic_info}, {}, {'Mic': mic_info}]
 
     rec._poll_devices()
     rec._receive_update(
@@ -1079,12 +1079,15 @@ def test_manifest_records_source_and_track_lifecycle_events(
         )
     )
     rec._poll_devices()
+    rec._reap_sources()
+    rec._poll_devices()
     records = read_jsonl(tmp_path / 'recs-session.jsonl')
     assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:43.000Z',
             'type': 'source_online',
             'source': 'Mic',
+            'start_frame': 0,
         },
         {
             'timestamp': '1970-01-01T00:01:44.000Z',
@@ -1107,6 +1110,12 @@ def test_manifest_records_source_and_track_lifecycle_events(
             'timestamp': '1970-01-01T00:01:49.000Z',
             'type': 'source_offline',
             'source': 'Mic',
+        },
+        {
+            'timestamp': '1970-01-01T00:01:51.000Z',
+            'type': 'source_online',
+            'source': 'Mic',
+            'start_frame': 288000,
         },
     ]
 

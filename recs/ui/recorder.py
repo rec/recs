@@ -349,7 +349,11 @@ class Recorder(Runnables):
 
     def _record_source_presence(self, compatible: set[str]) -> None:
         for name in sorted(compatible - self.present):
-            self._record_event('source_online', source=name)
+            self._record_event(
+                'source_online',
+                source=name,
+                start_frame=self.source_frames_at_start[name],
+            )
         for name in sorted(self.present - compatible):
             self._record_active_tracks_stopped(name)
             self._record_event('source_offline', source=name)
@@ -560,6 +564,7 @@ class Recorder(Runnables):
         source: str,
         track: str | None = None,
         frame_count: int | None = None,
+        start_frame: int | None = None,
         timestamp: float | None = None,
     ) -> None:
         self._write_manifest_record(
@@ -569,6 +574,7 @@ class Recorder(Runnables):
                 source=source,
                 track=track,
                 frame_count=frame_count,
+                start_frame=start_frame,
             )
         )
 

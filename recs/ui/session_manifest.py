@@ -20,6 +20,7 @@ class ManifestEvent(BaseModel):
     type: str
     timestamp: str
     frame_count: int | None = None
+    start_frame: int | None = None
     dropped_blocks: int | None = None
     dropped_frames: int | None = None
     source: str | None = None
