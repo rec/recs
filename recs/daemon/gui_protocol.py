@@ -32,23 +32,7 @@ class KeyReleased(BaseModel):
 class Command(BaseModel):
     type: t.Literal['command']
     id: str
-    command: t.Literal[
-        'calibrate',
-        'capabilities',
-        'disk_status',
-        'get_track_names',
-        'list_devices',
-        'mark',
-        'pause_recording',
-        'reload_profiles',
-        'resume_recording',
-        'set_key_label',
-        'set_noise_floor',
-        'set_track_names',
-        'start_recording',
-        'status_snapshot',
-        'stop_recording',
-    ]
+    command: str
     key: str | None = None
     label: str | None = None
     noise_floor: float | None = None

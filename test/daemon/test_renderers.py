@@ -2,7 +2,7 @@ import plistlib
 from pathlib import Path
 
 from recs.daemon import paths, renderers
-from recs.daemon.models import Platform
+from recs.daemon.models import Platform, ServiceSpec
 
 
 def test_daemon_args_adds_silent() -> None:
@@ -45,6 +45,29 @@ def test_macos_launch_agent() -> None:
     assert plist['KeepAlive'] is True
 
 
+def test_paths_support_custom_service_identity() -> None:
+    service = ServiceSpec(
+        name='lyte',
+        display_name='lyte',
+        description='lyte lighting daemon',
+        launchd_label='com.swirly.lyte',
+        daemon_env_var='LYTE_DAEMON',
+        windows_pipe=r'\\.\pipe\lyte',
+    )
+
+    linux = paths.service_paths(Platform.linux, Path('/home/tom'), service)
+    macos = paths.service_paths(Platform.macos, Path('/Users/tom'), service)
+    windows = paths.service_paths(Platform.windows, Path('C:/Users/tom'), service)
+
+    assert linux.metadata == Path('/home/tom/.config/lyte/daemon.json')
+    assert linux.service == Path('/home/tom/.config/systemd/user/lyte.service')
+    assert linux.gui_endpoint == Path('/home/tom/.local/state/lyte/gui.sock')
+    assert macos.service == Path(
+        '/Users/tom/Library/LaunchAgents/com.swirly.lyte.plist'
+    )
+    assert windows.gui_endpoint == r'\\.\pipe\lyte'
+
+
 def test_linux_systemd_unit() -> None:
     service_paths = paths.service_paths(Platform.linux, Path('/home/tom'))
     metadata = renderers.metadata(
@@ -58,6 +81,31 @@ def test_linux_systemd_unit() -> None:
     assert 'Environment=RECS_DAEMON=1' in definition.content
     assert 'Restart=always' in definition.content
     assert 'WantedBy=default.target' in definition.content
+
+
+def test_linux_systemd_unit_supports_custom_service_identity() -> None:
+    service = ServiceSpec(
+        name='lyte',
+        display_name='lyte',
+        description='lyte lighting daemon',
+        launchd_label='com.swirly.lyte',
+        daemon_env_var='LYTE_DAEMON',
+        windows_pipe=r'\\.\pipe\lyte',
+    )
+    service_paths = paths.service_paths(Platform.linux, Path('/home/tom'), service)
+    metadata = renderers.service_metadata(
+        Path('/opt/lyte/bin/lyte'),
+        Platform.linux,
+        ['run-daemon'],
+        service_paths,
+    )
+
+    definition = renderers.linux_systemd_unit(metadata, service_paths, service)
+
+    assert definition.path == Path('/home/tom/.config/systemd/user/lyte.service')
+    assert 'Description=lyte lighting daemon' in definition.content
+    assert 'ExecStart=/opt/lyte/bin/lyte run-daemon' in definition.content
+    assert 'Environment=LYTE_DAEMON=1' in definition.content
 
 
 def test_linux_xdg_autostart() -> None:

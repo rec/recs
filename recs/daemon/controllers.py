@@ -12,8 +12,10 @@ from .models import (
     DaemonStatus,
     Platform,
     ServiceDefinition,
+    ServiceSpec,
     StatusResult,
 )
+from .spec import RECS_SERVICE
 
 
 class ServiceController:
@@ -22,15 +24,19 @@ class ServiceController:
         platform: Platform,
         home: Path | None = None,
         runner: t.Callable[..., sp.CompletedProcess[str]] | None = None,
+        service: ServiceSpec = RECS_SERVICE,
     ) -> None:
         self.platform = platform
-        self.paths = paths.service_paths(platform, home)
+        self.service = service
+        self.paths = paths.service_paths(platform, home, service)
         self.runner = runner or sp.run
 
     def install(self, metadata: DaemonMetadata) -> StatusResult:
         self._write_metadata(metadata)
         if self.platform == Platform.macos:
-            self._write_definition(renderers.macos_launch_agent(metadata, self.paths))
+            self._write_definition(
+                renderers.macos_launch_agent(metadata, self.paths, self.service)
+            )
             self._run(
                 [
                     'launchctl',
@@ -50,10 +56,12 @@ class ServiceController:
                 ]
             )
         else:
-            self._write_definition(renderers.linux_systemd_unit(metadata, self.paths))
+            self._write_definition(
+                renderers.linux_systemd_unit(metadata, self.paths, self.service)
+            )
             self._run(['systemctl', '--user', 'daemon-reload'])
-            self._run(['systemctl', '--user', 'enable', 'recs.service'])
-            self._run(['systemctl', '--user', 'start', 'recs.service'])
+            self._run(['systemctl', '--user', 'enable', self.service.systemd_unit])
+            self._run(['systemctl', '--user', 'start', self.service.systemd_unit])
         return StatusResult(installed=True, running=True)
 
     def uninstall(self) -> StatusResult:
@@ -73,13 +81,19 @@ class ServiceController:
                     'powershell',
                     '-NoProfile',
                     '-Command',
-                    "Unregister-ScheduledTask -TaskName 'recs' -Confirm:$false",
+                    _unregister_windows_task_command(self.service.name),
                 ],
                 check=False,
             )
         else:
-            self._run(['systemctl', '--user', 'stop', 'recs.service'], check=False)
-            self._run(['systemctl', '--user', 'disable', 'recs.service'], check=False)
+            self._run(
+                ['systemctl', '--user', 'stop', self.service.systemd_unit],
+                check=False,
+            )
+            self._run(
+                ['systemctl', '--user', 'disable', self.service.systemd_unit],
+                check=False,
+            )
             self._run(['systemctl', '--user', 'daemon-reload'], check=False)
 
         for path in [self.paths.service, self.paths.metadata, self.paths.status]:
@@ -102,11 +116,11 @@ class ServiceController:
                     'powershell',
                     '-NoProfile',
                     '-Command',
-                    "Start-ScheduledTask -TaskName 'recs'",
+                    _start_windows_task_command(self.service.name),
                 ]
             )
         else:
-            self._run(['systemctl', '--user', 'start', 'recs.service'])
+            self._run(['systemctl', '--user', 'start', self.service.systemd_unit])
         return StatusResult(installed=True, running=True)
 
     def stop(self) -> StatusResult:
@@ -120,11 +134,11 @@ class ServiceController:
                     'powershell',
                     '-NoProfile',
                     '-Command',
-                    "Stop-ScheduledTask -TaskName 'recs'",
+                    _stop_windows_task_command(self.service.name),
                 ]
             )
         else:
-            self._run(['systemctl', '--user', 'stop', 'recs.service'])
+            self._run(['systemctl', '--user', 'stop', self.service.systemd_unit])
         return StatusResult(installed=True, running=False)
 
     def restart(self) -> StatusResult:
@@ -135,7 +149,7 @@ class ServiceController:
         installed = self.paths.metadata.exists() or self.paths.service.exists()
         if self.platform == Platform.macos:
             result = self._run(
-                ['launchctl', 'print', f'gui/{_uid()}/com.swirly.recs'],
+                ['launchctl', 'print', f'gui/{_uid()}/{self.service.launchd_label}'],
                 check=False,
                 capture_output=True,
             )
@@ -145,14 +159,14 @@ class ServiceController:
                     'powershell',
                     '-NoProfile',
                     '-Command',
-                    "Get-ScheduledTask -TaskName 'recs'",
+                    _get_windows_task_command(self.service.name),
                 ],
                 check=False,
                 capture_output=True,
             )
         else:
             result = self._run(
-                ['systemctl', '--user', 'is-active', 'recs.service'],
+                ['systemctl', '--user', 'is-active', self.service.systemd_unit],
                 check=False,
                 capture_output=True,
             )
@@ -181,7 +195,7 @@ class ServiceController:
         self.paths.stdout_log.parent.mkdir(parents=True, exist_ok=True)
 
     def _write_windows_task(self, metadata: DaemonMetadata) -> None:
-        task = renderers.windows_task(metadata, self.paths)
+        task = renderers.windows_task(metadata, self.paths, self.service)
         self.paths.service.parent.mkdir(parents=True, exist_ok=True)
         self.paths.service.write_text(
             json.dumps(task.model_dump(mode='json'), indent=2) + '\n'
@@ -219,8 +233,29 @@ def _register_windows_task_command(path: Path) -> str:
     )
 
 
+def _unregister_windows_task_command(name: str) -> str:
+    task_name = _powershell_value(name)
+    return f'Unregister-ScheduledTask -TaskName {task_name} -Confirm:$false'
+
+
+def _start_windows_task_command(name: str) -> str:
+    return f'Start-ScheduledTask -TaskName {_powershell_value(name)}'
+
+
+def _stop_windows_task_command(name: str) -> str:
+    return f'Stop-ScheduledTask -TaskName {_powershell_value(name)}'
+
+
+def _get_windows_task_command(name: str) -> str:
+    return f'Get-ScheduledTask -TaskName {_powershell_value(name)}'
+
+
 def _powershell_string(path: Path) -> str:
     return "'" + str(path).replace("'", "''") + "'"
+
+
+def _powershell_value(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _uid() -> int:

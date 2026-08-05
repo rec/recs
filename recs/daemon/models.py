@@ -11,6 +11,47 @@ class Platform(StrEnum):
     windows = auto()
 
 
+class ServiceSpec(BaseModel):
+    name: str
+    display_name: str
+    description: str
+    launchd_label: str
+    daemon_env_var: str
+    windows_pipe: str
+
+    @property
+    def systemd_unit(self) -> str:
+        return f'{self.name}.service'
+
+    @property
+    def desktop_file(self) -> str:
+        return f'{self.name}.desktop'
+
+    @property
+    def metadata_file(self) -> str:
+        return f'{self.name}/daemon.json'
+
+    @property
+    def status_file(self) -> str:
+        return f'{self.name}/status.json'
+
+    @property
+    def scheduled_task_file(self) -> str:
+        return f'{self.name}/{self.name}-scheduled-task.json'
+
+    @property
+    def socket_file(self) -> str:
+        return f'{self.name}/gui.sock'
+
+    @property
+    def stdout_log_file(self) -> str:
+        return f'{self.name}/{self.name}.out.log'
+
+    @property
+    def stderr_log_file(self) -> str:
+        return f'{self.name}/{self.name}.err.log'
+
+
 class DaemonMetadata(BaseModel):
     version: int = 1
     argv: list[str] = Field(default_factory=list)

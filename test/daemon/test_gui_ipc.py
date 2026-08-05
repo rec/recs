@@ -40,6 +40,13 @@ def test_protocol_parses_calibrate_command() -> None:
     assert message.command == 'calibrate'
 
 
+def test_protocol_parses_app_specific_command_names() -> None:
+    message = parse_message('{"type":"command","id":"c1","command":"reload_config"}')
+
+    assert isinstance(message, Command)
+    assert message.command == 'reload_config'
+
+
 def test_protocol_parses_command_fields() -> None:
     message = parse_message(
         '{"type":"command","id":"c1","command":"set_noise_floor",'

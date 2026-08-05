@@ -5,7 +5,7 @@ import pytest
 
 from recs.daemon import controllers
 from recs.daemon.controllers import ServiceController
-from recs.daemon.models import DaemonMetadata, DaemonStatus, Platform
+from recs.daemon.models import DaemonMetadata, DaemonStatus, Platform, ServiceSpec
 from recs.daemon.renderers import metadata
 
 
@@ -47,6 +47,36 @@ def test_linux_controller_installs_user_service(tmp_path: Path) -> None:
         ['systemctl', '--user', 'daemon-reload'],
         ['systemctl', '--user', 'enable', 'recs.service'],
         ['systemctl', '--user', 'start', 'recs.service'],
+    ]
+
+
+def test_linux_controller_supports_custom_service_identity(tmp_path: Path) -> None:
+    service = ServiceSpec(
+        name='lyte',
+        display_name='lyte',
+        description='lyte lighting daemon',
+        launchd_label='com.swirly.lyte',
+        daemon_env_var='LYTE_DAEMON',
+        windows_pipe=r'\\.\pipe\lyte',
+    )
+    runner = FakeRunner()
+    controller = ServiceController(Platform.linux, tmp_path, runner, service)
+    service_paths = controller.paths
+    daemon_metadata = controllers.renderers.service_metadata(
+        Path('/opt/lyte/bin/lyte'),
+        Platform.linux,
+        ['run-daemon'],
+        service_paths,
+    )
+
+    result = controller.install(daemon_metadata)
+
+    assert result.installed
+    assert controller.paths.service == tmp_path / '.config/systemd/user/lyte.service'
+    assert runner.commands == [
+        ['systemctl', '--user', 'daemon-reload'],
+        ['systemctl', '--user', 'enable', 'lyte.service'],
+        ['systemctl', '--user', 'start', 'lyte.service'],
     ]
 
 
