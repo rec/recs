@@ -20,6 +20,7 @@ dependencies = [
     "tomli",
     "pydantic>=2.13.4",
     "pyside6>=6.11.1",
+    "reccy",
 ]
 
 [project.scripts]
@@ -65,6 +66,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.10"
+
+[tool.uv.sources]
+reccy = { path = "../reccy", editable = true }
 
 
 [build-system]
