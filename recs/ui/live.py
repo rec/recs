@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from threa import Runnable
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 from . import presentation
 from .key_events import KeyEvent

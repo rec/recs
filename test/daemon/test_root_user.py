@@ -1,6 +1,6 @@
 import pytest
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 from recs.daemon import root_user
 
 

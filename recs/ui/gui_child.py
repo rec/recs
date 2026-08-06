@@ -5,7 +5,7 @@ import typing as t
 
 from pydantic import TypeAdapter, ValidationError
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 from .gui_process import GuiPayload, Rows
 from .key_events import KeyEvent

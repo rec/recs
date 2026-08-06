@@ -11,7 +11,8 @@ from threa import HasThread
 
 from recs.base import times
 from recs.base.types import Format
-from recs.cfg import Cfg, device, run_cli
+from recs.cfg import device, run_cli
+from recs.cfg.cfg import Cfg
 from recs.ui import session_manifest
 
 from .conftest import BLOCK_SIZE, DEVICES, DEVICES_FILE

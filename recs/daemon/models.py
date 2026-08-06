@@ -3,28 +3,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from reccy import models
 
-Platform = models.Platform
-ServiceDefinition = models.ServiceDefinition
-ServiceSpec = models.ServiceSpec
-WindowsTaskDefinition = models.WindowsTaskDefinition
-
-__all__ = [
-    'DaemonMetadata',
-    'DaemonStatus',
-    'Platform',
-    'ServiceDefinition',
-    'ServicePaths',
-    'ServiceSpec',
-    'StatusResult',
-    'WindowsTaskDefinition',
-]
-
 
 class DaemonMetadata(BaseModel):
     version: int = 1
     argv: list[str] = Field(default_factory=list)
     executable: Path
-    platform: Platform
+    platform: models.Platform
     gui_endpoint: str
 
 

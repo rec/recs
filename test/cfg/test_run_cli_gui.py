@@ -1,10 +1,12 @@
 from pathlib import Path
 
 import pytest
+from reccy.models import Platform
 
-from recs.base import RecsError
-from recs.cfg import Cfg, run_cli
-from recs.daemon.models import DaemonMetadata, Platform
+from recs.base.errors import RecsError
+from recs.cfg import run_cli
+from recs.cfg.cfg import Cfg
+from recs.daemon.models import DaemonMetadata
 
 
 def test_remote_selects_daemon_when_endpoint_is_reachable(

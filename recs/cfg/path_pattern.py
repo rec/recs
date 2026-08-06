@@ -4,10 +4,10 @@ from datetime import datetime
 from enum import IntEnum, auto
 from pathlib import Path
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 from recs.cfg import aliases, track
 
-findall_strftime = re.compile('%.').findall
+STRFTIME_FIELDS = re.compile('%.')
 
 
 def parse_fields(s: str) -> list[str]:
@@ -29,7 +29,7 @@ class PathPattern:
     def __init__(self, path: str, short_file_names: bool = False) -> None:
         self.raw_path = path
         str_parts = parse_fields(path)
-        time_parts = findall_strftime(path)
+        time_parts = STRFTIME_FIELDS.findall(path)
         parts = set(time_parts + str_parts)
 
         if bad := parts - FIELDS:

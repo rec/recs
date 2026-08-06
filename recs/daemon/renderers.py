@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
 
-from reccy import renderers
-from reccy.models import DaemonMetadata, ServicePaths
+from reccy import models, renderers
 
-from . import models
+from .models import DaemonMetadata, ServicePaths
 from .paths import service_paths
 from .spec import RECS_SERVICE
 
@@ -13,8 +12,8 @@ def metadata(
     executable: Path,
     platform: models.Platform,
     recording_args: list[str],
-    paths: models.ServicePaths | None = None,
-) -> models.DaemonMetadata:
+    paths: ServicePaths | None = None,
+) -> DaemonMetadata:
     paths = paths or service_paths(platform)
     return service_metadata(executable, platform, daemon_args(recording_args), paths)
 
@@ -23,9 +22,9 @@ def service_metadata(
     executable: Path,
     platform: models.Platform,
     daemon_argv: list[str],
-    paths: models.ServicePaths,
-) -> models.DaemonMetadata:
-    return models.DaemonMetadata(
+    paths: ServicePaths,
+) -> DaemonMetadata:
+    return DaemonMetadata(
         argv=daemon_argv,
         executable=executable,
         platform=platform,
@@ -39,13 +38,13 @@ def daemon_args(recording_args: list[str]) -> list[str]:
     return ['--silent', *recording_args]
 
 
-def metadata_json(value: models.DaemonMetadata) -> str:
+def metadata_json(value: DaemonMetadata) -> str:
     return json.dumps(value.model_dump(mode='json'), indent=2) + '\n'
 
 
 def macos_launch_agent(
-    value: models.DaemonMetadata,
-    paths: models.ServicePaths,
+    value: DaemonMetadata,
+    paths: ServicePaths,
     service: models.ServiceSpec = RECS_SERVICE,
 ) -> models.ServiceDefinition:
     return renderers.macos_launch_agent(
@@ -54,8 +53,8 @@ def macos_launch_agent(
 
 
 def linux_systemd_unit(
-    value: models.DaemonMetadata,
-    paths: models.ServicePaths,
+    value: DaemonMetadata,
+    paths: ServicePaths,
     service: models.ServiceSpec = RECS_SERVICE,
 ) -> models.ServiceDefinition:
     return renderers.linux_systemd_unit(
@@ -64,7 +63,7 @@ def linux_systemd_unit(
 
 
 def linux_xdg_autostart(
-    value: models.DaemonMetadata,
+    value: DaemonMetadata,
     home: Path | None = None,
     service: models.ServiceSpec = RECS_SERVICE,
 ) -> models.ServiceDefinition:
@@ -73,15 +72,15 @@ def linux_xdg_autostart(
 
 
 def windows_task(
-    value: models.DaemonMetadata,
-    paths: models.ServicePaths,
+    value: DaemonMetadata,
+    paths: ServicePaths,
     service: models.ServiceSpec = RECS_SERVICE,
 ) -> models.WindowsTaskDefinition:
     return renderers.windows_task(_reccy_metadata(value), _reccy_paths(paths), service)
 
 
-def _reccy_metadata(value: models.DaemonMetadata) -> DaemonMetadata:
-    return DaemonMetadata(
+def _reccy_metadata(value: DaemonMetadata) -> models.DaemonMetadata:
+    return models.DaemonMetadata(
         version=value.version,
         argv=value.argv,
         executable=value.executable,
@@ -90,8 +89,8 @@ def _reccy_metadata(value: models.DaemonMetadata) -> DaemonMetadata:
     )
 
 
-def _reccy_paths(value: models.ServicePaths) -> ServicePaths:
-    return ServicePaths(
+def _reccy_paths(value: ServicePaths) -> models.ServicePaths:
+    return models.ServicePaths(
         metadata=value.metadata,
         service=value.service,
         status=value.status,

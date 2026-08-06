@@ -2,7 +2,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 
 from . import paths, renderers
 from .controllers import ServiceController

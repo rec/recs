@@ -1,6 +1,6 @@
 import os
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 
 ROOT_DAEMON_ERROR = 'recs daemon must not run as root'
 

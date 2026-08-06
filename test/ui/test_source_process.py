@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from recs.cfg import Cfg, InputDevice, Track
+from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
+from recs.cfg.track import Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
 from recs.ui.source_recorder import SourceControl, SourceFailure

@@ -1,4 +1,4 @@
-from .models import ServiceSpec
+from reccy.models import ServiceSpec
 
 RECS_SERVICE = ServiceSpec(
     name='recs',

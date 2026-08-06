@@ -5,21 +5,22 @@ import sys
 import tyro
 from pydantic import ValidationError
 
-from recs.base import RecsError
 from recs.base._query_device import _query_devices
+from recs.base.errors import RecsError
 from recs.cfg import cli
-from recs.daemon import cli as daemon_cli
 
 
 def run() -> int:
     mp.freeze_support()
     try:
         if len(sys.argv) > 1 and sys.argv[1] == 'daemon':
-            return daemon_cli.main(sys.argv[2:])
-        if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
-            from recs.ui.gui_child import main as gui_child
+            from recs.daemon.cli import main
 
-            gui_child()
+            return main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
+            from recs.ui.gui_child import main
+
+            main()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
             print(json.dumps(_query_devices(), indent=4))

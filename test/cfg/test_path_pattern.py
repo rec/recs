@@ -2,8 +2,9 @@ from test.conftest import DEVICES, TIME, TIMESTAMP
 
 import pytest
 
-from recs.base import RecsError
-from recs.cfg import Cfg, device
+from recs.base.errors import RecsError
+from recs.cfg import device
+from recs.cfg.cfg import Cfg
 from recs.cfg.path_pattern import PathPattern
 
 

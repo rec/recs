@@ -1,7 +1,7 @@
 import pytest
 
-from recs.base import RecsError
-from recs.cfg import Cfg
+from recs.base.errors import RecsError
+from recs.cfg.cfg import Cfg
 
 
 def _Aliases(*aliases):

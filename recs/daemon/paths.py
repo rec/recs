@@ -1,21 +1,21 @@
 from pathlib import Path
 
-from reccy import paths as reccy_paths
+from reccy import models, paths
 
-from .models import Platform, ServicePaths, ServiceSpec
+from .models import ServicePaths
 from .spec import RECS_SERVICE
 
 
-def current_platform() -> Platform:
-    return reccy_paths.current_platform()
+def current_platform() -> models.Platform:
+    return paths.current_platform()
 
 
 def service_paths(
-    platform: Platform,
+    platform: models.Platform,
     home: Path | None = None,
-    service: ServiceSpec = RECS_SERVICE,
+    service: models.ServiceSpec = RECS_SERVICE,
 ) -> ServicePaths:
-    value = reccy_paths.service_paths(service, platform, home)
+    value = paths.service_paths(service, platform, home)
     return ServicePaths(
         metadata=value.metadata,
         service=value.service,

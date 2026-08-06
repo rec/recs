@@ -3,11 +3,12 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from reccy.models import Platform
 
-from recs.base import RecsError
-from recs.cfg import Cfg
+from recs.base.errors import RecsError
+from recs.cfg.cfg import Cfg
 from recs.daemon import gui_backend, gui_ipc, gui_protocol
-from recs.daemon.models import DaemonMetadata, Platform
+from recs.daemon.models import DaemonMetadata
 from recs.ui.key_events import KeyEvent
 
 

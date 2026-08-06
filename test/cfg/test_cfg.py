@@ -1,11 +1,12 @@
 from pathlib import Path
+from test.conftest import DEVICES_FILE
 
 import pytest
 from pydantic import ValidationError
 
 from recs.base.types import RecordKeys
-from recs.cfg import Cfg, cfg
-from test.conftest import DEVICES_FILE
+from recs.cfg import cfg
+from recs.cfg.cfg import Cfg
 
 
 def test_sdtype(mock_devices):

@@ -4,7 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from recs.base.types import Format, SdType, Subtype
-from recs.cfg import Cfg, run_cli
+from recs.cfg import run_cli
+from recs.cfg.cfg import Cfg
 
 
 def test_list_types(capsys):

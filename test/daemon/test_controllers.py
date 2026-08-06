@@ -1,12 +1,13 @@
-import subprocess as sp
+import subprocess
 from pathlib import Path
 
 import pytest
+from reccy import service
+from reccy.models import Platform, ServiceSpec
 
-from recs.daemon import controllers
 from recs.daemon.controllers import ServiceController
-from recs.daemon.models import DaemonMetadata, DaemonStatus, Platform, ServiceSpec
-from recs.daemon.renderers import metadata
+from recs.daemon.models import DaemonMetadata, DaemonStatus
+from recs.daemon.renderers import metadata, service_metadata
 
 
 class FakeRunner:
@@ -20,9 +21,9 @@ class FakeRunner:
         check: bool,
         text: bool,
         capture_output: bool,
-    ) -> sp.CompletedProcess[str]:
+    ) -> subprocess.CompletedProcess[str]:
         self.commands.append(command)
-        return sp.CompletedProcess(
+        return subprocess.CompletedProcess(
             args=command,
             returncode=0,
             stdout='active\n' if capture_output else '',
@@ -62,7 +63,7 @@ def test_linux_controller_supports_custom_service_identity(tmp_path: Path) -> No
     runner = FakeRunner()
     controller = ServiceController(Platform.linux, tmp_path, runner, service)
     service_paths = controller.paths
-    daemon_metadata = controllers.renderers.service_metadata(
+    daemon_metadata = service_metadata(
         Path('/opt/lyte/bin/lyte'),
         Platform.linux,
         ['run-daemon'],
@@ -84,7 +85,7 @@ def test_macos_controller_installs_launch_agent(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     runner = FakeRunner()
-    monkeypatch.setattr(controllers.reccy_service, '_uid', lambda: 501)
+    monkeypatch.setattr(service, '_uid', lambda: 501)
     controller = ServiceController(Platform.macos, tmp_path, runner)
     daemon_metadata = metadata(
         Path('/opt/recs/bin/recs'), Platform.macos, ['--include', 'Mic']

@@ -5,7 +5,7 @@ import numpy as np
 import soundfile
 from pydantic import BaseModel, Field
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 from .recorder import Recorder
 

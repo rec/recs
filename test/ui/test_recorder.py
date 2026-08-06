@@ -2,19 +2,20 @@ import json
 import typing
 from datetime import datetime
 from pathlib import Path
+from test.conftest import DEVICES, DEVICES_FILE
 
 import pytest
 from threa import Runnable
 
 from recs.base.state import ChannelState
-from recs.cfg import Cfg, device
+from recs.cfg import device
+from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon.gui_protocol import Command
 from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
-from test.conftest import DEVICES, DEVICES_FILE
 
 
 class DiskUsage(typing.NamedTuple):

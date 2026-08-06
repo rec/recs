@@ -7,13 +7,15 @@ from pydantic import BaseModel
 from threa import Runnable
 
 from recs.base.types import RecordKeys
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 
 class Listener(t.Protocol):
-    def start(self) -> None: ...
+    def start(self) -> None:
+        ...
 
-    def stop(self) -> None: ...
+    def stop(self) -> None:
+        ...
 
 
 class KeyEvent(BaseModel):

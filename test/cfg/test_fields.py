@@ -3,7 +3,8 @@ import typing as t
 import pytest
 import tyro
 
-from recs.cfg import Cfg, cfg, cli, run_cli
+from recs.cfg import cfg, cli, run_cli
+from recs.cfg.cfg import Cfg
 
 
 def test_fields(monkeypatch: pytest.MonkeyPatch) -> None:

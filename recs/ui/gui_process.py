@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 from threa import Runnable
 
 from recs.base import app_command
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 from .key_events import KeyEvent
 

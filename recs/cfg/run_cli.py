@@ -2,14 +2,14 @@ import json
 
 import soundfile
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 from recs.base.types import Format, SdType
 from recs.cfg import device
 from recs.daemon import gui_ipc
 from recs.daemon.root_user import raise_if_root
 from recs.ui.recorder import Recorder
 
-from . import Cfg
+from .cfg import Cfg
 
 
 def run_cli(cfg: Cfg) -> None:

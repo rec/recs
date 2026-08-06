@@ -10,10 +10,15 @@ from pathlib import Path
 
 from threa import HasThread, Runnable, Runnables
 
-from recs.base import RecsError, times
+from recs.base import times
+from recs.base.errors import RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
-from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
-from recs.cfg.device import DeviceDict, get_input_devices
+from recs.cfg.aliases import Aliases
+from recs.cfg.cfg import Cfg
+from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
+from recs.cfg.file_source import FileSource
+from recs.cfg.source import Source
+from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import gui_ipc, gui_protocol
 
@@ -693,9 +698,9 @@ class Recorder(Runnables):
                         queued_seconds=update.buffer_stats.queued_seconds,
                     )
                 )
-                self.buffer_drops_reported[update.source_name] = (
-                    update.buffer_stats.dropped_frames
-                )
+                self.buffer_drops_reported[
+                    update.source_name
+                ] = update.buffer_stats.dropped_frames
         for warning in update.buffer_warnings or []:
             print(warning, file=sys.stderr)
             self._record_warning(warning)

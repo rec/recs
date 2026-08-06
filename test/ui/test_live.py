@@ -3,7 +3,7 @@ from io import StringIO
 import pytest
 from rich.console import Console
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 from recs.ui import live
 
 

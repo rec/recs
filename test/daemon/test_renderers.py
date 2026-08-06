@@ -1,8 +1,9 @@
 import plistlib
 from pathlib import Path
 
+from reccy.models import Platform, ServiceSpec
+
 from recs.daemon import paths, renderers
-from recs.daemon.models import Platform, ServiceSpec
 
 
 def test_daemon_args_adds_silent() -> None:

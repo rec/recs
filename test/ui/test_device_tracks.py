@@ -1,4 +1,5 @@
-from recs.cfg import Cfg, device
+from recs.cfg import device
+from recs.cfg.cfg import Cfg
 from recs.cfg.track import source_track
 from recs.ui.source_tracks import source_tracks
 

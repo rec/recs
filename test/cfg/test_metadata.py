@@ -6,7 +6,7 @@ import pytest
 import soundfile
 import tdir
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 from recs.base.types import Format
 from recs.cfg import metadata
 

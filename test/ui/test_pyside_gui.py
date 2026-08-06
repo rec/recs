@@ -5,7 +5,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
 from recs.base.types import Active, RecordKeys  # noqa: E402
-from recs.cfg import Cfg  # noqa: E402
+from recs.cfg.cfg import Cfg  # noqa: E402
 from recs.ui import pyside_gui  # noqa: E402
 from recs.ui.key_events import KeyEvent  # noqa: E402
 

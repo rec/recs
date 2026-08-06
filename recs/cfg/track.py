@@ -1,12 +1,10 @@
 import typing as t
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 
 from . import hash_cmp
 from .device import InputDevice
 from .source import Source
-
-__all__ = ('Track',)
 
 
 class Track(hash_cmp.HashCmp):

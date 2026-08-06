@@ -12,7 +12,7 @@ from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
 
 SAMPLERATE = 44_100

@@ -2,7 +2,8 @@ import typing as t
 
 import soundfile
 
-from recs.base import RecsError, prefix_dict
+from recs.base import prefix_dict
+from recs.base.errors import RecsError
 from recs.base.types import Format
 
 RECS_USES = {'date', 'software', 'tracknumber'}

@@ -13,7 +13,8 @@ from threa import HasThread
 
 from recs.base import times
 from recs.base.types import Format
-from recs.cfg import Cfg, run_cli
+from recs.cfg import run_cli
+from recs.cfg.cfg import Cfg
 
 DEVICE_OFFSET = 0.000_0237
 TRIES = 100

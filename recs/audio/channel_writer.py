@@ -13,7 +13,9 @@ from threa import Runnable
 from recs.base.state import ChannelState
 from recs.base.type_conversions import SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import Cfg, Track, time_settings, track_names
+from recs.cfg import time_settings, track_names
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
 from recs.misc import counter, file_list
 

@@ -9,8 +9,8 @@ from pydantic import BaseModel, ValidationError
 from reccy import ipc
 from threa import Runnable
 
-from recs.base import RecsError
-from recs.cfg import Cfg
+from recs.base.errors import RecsError
+from recs.cfg.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
 from . import gui_backend, gui_protocol, paths
@@ -189,7 +189,7 @@ class DaemonGuiServer(Runnable):
 class GuiListener:
     def __init__(
         self,
-        conn: gui_backend.GuiConnection,
+        conn: ipc.Connection,
         append_key_event: typing.Callable[[KeyEvent], None],
         append_control_request: typing.Callable[[ControlRequest], None] | None = None,
         request_shutdown: typing.Callable[[], None] | None = None,
@@ -236,7 +236,7 @@ class GuiListener:
 class RemoteGuiClient:
     def __init__(self, endpoint: str | Path) -> None:
         self.endpoint = endpoint
-        self.connection: gui_backend.GuiConnection | None = None
+        self.connection: ipc.Connection | None = None
         self.latest: list[dict[str, object]] = []
         self.latest_errors: list[str] = []
         self.closed = False

@@ -10,13 +10,13 @@ from recs.daemon import gui_backend
 def test_backend_selects_unix_socket_for_path() -> None:
     backend = gui_backend.server_backend(Path('/tmp/recs.sock'))
 
-    assert isinstance(backend, gui_backend.UnixSocketServerBackend)
+    assert isinstance(backend, ipc.UnixSocketServerBackend)
 
 
 def test_backend_selects_windows_pipe_for_string() -> None:
     backend = gui_backend.server_backend(gui_backend.WINDOWS_PIPE)
 
-    assert isinstance(backend, gui_backend.WindowsPipeServerBackend)
+    assert isinstance(backend, ipc.WindowsPipeServerBackend)
 
 
 def test_windows_pipe_server_accepts_connections(
@@ -28,7 +28,7 @@ def test_windows_pipe_server_accepts_connections(
         'Listener',
         lambda endpoint, family: listener,
     )
-    backend = gui_backend.WindowsPipeServerBackend(gui_backend.WINDOWS_PIPE)
+    backend = ipc.WindowsPipeServerBackend(gui_backend.WINDOWS_PIPE)
 
     backend.start()
     connection = backend.accept()
@@ -51,7 +51,7 @@ def test_windows_pipe_client_uses_named_pipe_family(
         return pipe
 
     monkeypatch.setattr(ipc.connection, 'Client', connect)
-    connection = gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
+    connection = ipc.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
 
     connection.write('hello\n')
 
@@ -74,15 +74,15 @@ def test_windows_pipe_client_times_out(
     monkeypatch.setattr(ipc.connection, 'Client', connect)
 
     with pytest.raises(TimeoutError, match='Timed out connecting'):
-        gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
+        ipc.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
     with pytest.raises(TimeoutError, match='Timed out connecting'):
-        gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
+        ipc.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
     assert calls == 1
 
 
 def test_windows_pipe_connection_reads_until_closed() -> None:
     pipe = FakePipe(['first\n', 'second\n'])
-    connection = gui_backend.WindowsPipeConnection(pipe)
+    connection = ipc.WindowsPipeConnection(pipe)
 
     assert list(connection.read_lines()) == ['first\n', 'second\n']
 

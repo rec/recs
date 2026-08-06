@@ -13,9 +13,9 @@ from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Format, RecordKeys, SdType, Subtype
 
-from . import device as device_module
 from . import metadata, path_pattern, time_settings
 from .aliases import Aliases
+from .device import InputDevices, get_input_devices, input_devices
 from .track import source_track
 
 
@@ -332,15 +332,15 @@ class Cfg(BaseModel):
         object.__setattr__(self, '__pydantic_fields_set__', fields_set)
 
     @cached_property
-    def input_devices(self) -> device_module.InputDevices:
+    def input_devices(self) -> InputDevices:
         if self.directory.files:
             return PrefixDict()
 
         if self.device.devices.name:
             devices = json.loads(self.device.devices.read_text())
-            return device_module.get_input_devices(devices)
+            return get_input_devices(devices)
 
-        return device_module.input_devices()
+        return input_devices()
 
     @cached_property
     def aliases(self) -> Aliases:

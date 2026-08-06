@@ -4,17 +4,10 @@ from reccy import ipc
 
 WINDOWS_PIPE = r'\\.\pipe\recs'
 
-GuiConnection = ipc.Connection
-GuiServerBackend = ipc.ServerBackend
-UnixSocketServerBackend = ipc.UnixSocketServerBackend
-UnixSocketConnection = ipc.UnixSocketConnection
-WindowsPipeServerBackend = ipc.WindowsPipeServerBackend
-WindowsPipeConnection = ipc.WindowsPipeConnection
 
-
-def server_backend(endpoint: str | Path) -> GuiServerBackend:
+def server_backend(endpoint: str | Path) -> ipc.ServerBackend:
     return ipc.server_backend(endpoint)
 
 
-def client_connection(endpoint: str | Path) -> GuiConnection:
+def client_connection(endpoint: str | Path) -> ipc.Connection:
     return ipc.client_connection(endpoint)

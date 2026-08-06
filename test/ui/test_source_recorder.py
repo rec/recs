@@ -1,6 +1,6 @@
 import numpy as np
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.ui.source_recorder import InputBuffer
 

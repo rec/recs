@@ -1,6 +1,6 @@
 import pytest
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 OK = 'flow', 'f', 'e', 'f + 9-10', 'f + 8', 'f + 8-9'
 KEY_ERRORS = 'flaw', 'a'

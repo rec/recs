@@ -4,7 +4,8 @@ from multiprocessing import connection
 
 from threa import Runnable
 
-from recs.cfg import Cfg, Track
+from recs.cfg.cfg import Cfg
+from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
 
 from .source_recorder import SourceControl, SourceFailure, SourceRecorder, SourceUpdate

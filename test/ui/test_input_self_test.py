@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 from recs.ui import input_self_test
 
 

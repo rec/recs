@@ -1,7 +1,12 @@
 import time
 
-sleep = time.sleep
-timestamp = time.time
+
+def sleep(seconds: float) -> None:
+    time.sleep(seconds)
+
+
+def timestamp() -> float:
+    return time.time()
 
 
 def to_time(t: str) -> float:

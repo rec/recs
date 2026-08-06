@@ -1,8 +1,11 @@
 import typing as t
 
-from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
-from recs.cfg.device import InputDevices
-from recs.cfg.track import source_track as _source_track
+from recs.cfg.aliases import Aliases
+from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice, InputDevices
+from recs.cfg.file_source import FileSource
+from recs.cfg.source import Source
+from recs.cfg.track import Track, source_track
 
 
 def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
@@ -28,5 +31,5 @@ def input_device_tracks(
     exc = aliases.to_tracks(cfg.selection.exclude)
     inc = aliases.to_tracks(cfg.selection.include)
     for d in input_devices.values():
-        if tracks := list(_source_track(d, exc, inc)):
+        if tracks := list(source_track(d, exc, inc)):
             yield d, tracks

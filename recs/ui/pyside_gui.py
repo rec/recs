@@ -5,7 +5,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from threa import Runnable
 
 from recs.base.types import RecordKeys
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 from . import presentation
 from .key_events import KeyEvent

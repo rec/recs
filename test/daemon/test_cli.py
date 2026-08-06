@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from recs.base import RecsError
+from recs.base.errors import RecsError
 from recs.daemon import cli
 from recs.daemon.models import StatusResult
 

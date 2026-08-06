@@ -3,7 +3,7 @@ import subprocess as sp
 import typing as t
 from io import StringIO
 
-from recs.cfg import Cfg
+from recs.cfg.cfg import Cfg
 from recs.ui import gui_process
 
 

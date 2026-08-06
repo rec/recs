@@ -1,32 +1,27 @@
-import subprocess as sp
-import typing as t
+import subprocess
+import typing
 from pathlib import Path
 
-from reccy import service as reccy_service
-from reccy.models import DaemonMetadata as ReccyDaemonMetadata
-from reccy.models import StatusResult as ReccyStatusResult
-from reccy.service import ServiceController as ReccyServiceController
+from reccy import models, service
 
-from . import paths, renderers
-from .models import DaemonMetadata, DaemonStatus, Platform, ServiceSpec, StatusResult
+from . import paths
+from .models import DaemonMetadata, DaemonStatus, StatusResult
 from .spec import RECS_SERVICE
-
-__all__ = ['ServiceController', 'reccy_service', 'renderers']
 
 
 class ServiceController:
     def __init__(
         self,
-        platform: Platform,
+        platform: models.Platform,
         home: Path | None = None,
-        runner: t.Callable[..., sp.CompletedProcess[str]] | None = None,
-        service: ServiceSpec = RECS_SERVICE,
+        runner: typing.Callable[..., subprocess.CompletedProcess[str]] | None = None,
+        service_definition: models.ServiceSpec = RECS_SERVICE,
     ) -> None:
         self.platform = platform
-        self.service = service
-        self.paths = paths.service_paths(platform, home, service)
-        self._controller = ReccyServiceController(
-            service,
+        self.service = service_definition
+        self.paths = paths.service_paths(platform, home, service_definition)
+        self._controller = service.ServiceController(
+            service_definition,
             platform,
             home,
             runner,
@@ -37,7 +32,7 @@ class ServiceController:
 
     def install(self, metadata: DaemonMetadata) -> StatusResult:
         return _status_result(
-            self._controller.install(t.cast(ReccyDaemonMetadata, metadata))
+            self._controller.install(typing.cast(models.DaemonMetadata, metadata))
         )
 
     def uninstall(self) -> StatusResult:
@@ -56,9 +51,9 @@ class ServiceController:
         return _status_result(self._controller.status())
 
 
-def _status_result(value: ReccyStatusResult) -> StatusResult:
+def _status_result(value: models.StatusResult) -> StatusResult:
     return StatusResult(
-        health=t.cast(DaemonStatus | None, value.health),
+        health=typing.cast(DaemonStatus | None, value.health),
         installed=value.installed,
         running=value.running,
         details=value.details,

@@ -13,8 +13,9 @@ from recs.audio.channel_writer import ChannelWriter
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
 from recs.base.types import Format, SdType
-from recs.cfg import Cfg, Track
+from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
+from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
