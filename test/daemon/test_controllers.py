@@ -84,7 +84,7 @@ def test_macos_controller_installs_launch_agent(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     runner = FakeRunner()
-    monkeypatch.setattr(controllers, '_uid', lambda: 501)
+    monkeypatch.setattr(controllers.reccy_service, '_uid', lambda: 501)
     controller = ServiceController(Platform.macos, tmp_path, runner)
     daemon_metadata = metadata(
         Path('/opt/recs/bin/recs'), Platform.macos, ['--include', 'Mic']

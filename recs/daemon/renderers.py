@@ -1,8 +1,9 @@
 import json
-import plistlib
-import shlex
-import subprocess as sp
 from pathlib import Path
+
+from reccy import renderers as reccy_renderers
+from reccy.models import DaemonMetadata as ReccyDaemonMetadata
+from reccy.models import ServicePaths as ReccyServicePaths
 
 from . import paths as paths_module
 from .models import (
@@ -55,18 +56,9 @@ def macos_launch_agent(
     paths: ServicePaths,
     service: ServiceSpec = RECS_SERVICE,
 ) -> ServiceDefinition:
-    plist = {
-        'KeepAlive': True,
-        'Label': service.launchd_label,
-        'ProgramArguments': [_posix(value.executable), *value.argv],
-        'RunAtLoad': True,
-        'StandardErrorPath': _posix(paths.stderr_log),
-        'StandardOutPath': _posix(paths.stdout_log),
-        'WorkingDirectory': str(Path.home()),
-        'EnvironmentVariables': {service.daemon_env_var: '1'},
-    }
-    content = plistlib.dumps(plist, sort_keys=True).decode()
-    return ServiceDefinition(path=paths.service, content=content)
+    return reccy_renderers.macos_launch_agent(
+        _reccy_metadata(value), _reccy_paths(paths), service
+    )
 
 
 def linux_systemd_unit(
@@ -74,28 +66,9 @@ def linux_systemd_unit(
     paths: ServicePaths,
     service: ServiceSpec = RECS_SERVICE,
 ) -> ServiceDefinition:
-    command = shlex.join([_posix(value.executable), *value.argv])
-    content = '\n'.join(
-        [
-            '[Unit]',
-            f'Description={service.description}',
-            'After=default.target',
-            '',
-            '[Service]',
-            f'ExecStart={command}',
-            f'Environment={service.daemon_env_var}=1',
-            'Restart=always',
-            'RestartSec=5',
-            'WorkingDirectory=%h',
-            f'StandardOutput=append:{_posix(paths.stdout_log)}',
-            f'StandardError=append:{_posix(paths.stderr_log)}',
-            '',
-            '[Install]',
-            'WantedBy=default.target',
-            '',
-        ]
+    return reccy_renderers.linux_systemd_unit(
+        _reccy_metadata(value), _reccy_paths(paths), service
     )
-    return ServiceDefinition(path=paths.service, content=content)
 
 
 def linux_xdg_autostart(
@@ -104,21 +77,7 @@ def linux_xdg_autostart(
     service: ServiceSpec = RECS_SERVICE,
 ) -> ServiceDefinition:
     home = home or Path.home()
-    command = shlex.join([_posix(value.executable), *value.argv])
-    path = home / '.config/autostart' / service.desktop_file
-    content = '\n'.join(
-        [
-            '[Desktop Entry]',
-            'Type=Application',
-            f'Name={service.display_name}',
-            f'Comment={service.description}',
-            f'Exec={command}',
-            'Terminal=false',
-            'X-GNOME-Autostart-enabled=true',
-            '',
-        ]
-    )
-    return ServiceDefinition(path=path, content=content)
+    return reccy_renderers.linux_xdg_autostart(_reccy_metadata(value), home, service)
 
 
 def windows_task(
@@ -126,16 +85,27 @@ def windows_task(
     paths: ServicePaths,
     service: ServiceSpec = RECS_SERVICE,
 ) -> WindowsTaskDefinition:
-    return WindowsTaskDefinition(
-        task_name=service.name,
-        executable=value.executable,
-        arguments=value.argv,
-        argument_string=sp.list2cmdline(value.argv),
-        working_directory=Path.home(),
-        stdout_log=paths.stdout_log,
-        stderr_log=paths.stderr_log,
+    return reccy_renderers.windows_task(
+        _reccy_metadata(value), _reccy_paths(paths), service
     )
 
 
-def _posix(path: Path) -> str:
-    return path.as_posix()
+def _reccy_metadata(value: DaemonMetadata) -> ReccyDaemonMetadata:
+    return ReccyDaemonMetadata(
+        version=value.version,
+        argv=value.argv,
+        executable=value.executable,
+        platform=value.platform,
+        control_endpoint=value.gui_endpoint,
+    )
+
+
+def _reccy_paths(value: ServicePaths) -> ReccyServicePaths:
+    return ReccyServicePaths(
+        metadata=value.metadata,
+        service=value.service,
+        status=value.status,
+        stdout_log=value.stdout_log,
+        stderr_log=value.stderr_log,
+        control_endpoint=value.gui_endpoint,
+    )
