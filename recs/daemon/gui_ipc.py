@@ -5,7 +5,8 @@ import time
 import typing as t
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
+from reccy import ipc
 from threa import Runnable
 
 from recs.base import RecsError
@@ -48,15 +49,15 @@ class ControlRequest:
         result: dict[str, object] | None = None,
         message: str | None = None,
     ) -> None:
-        self.listener.write(
+        self.listener.write_model(
             Reply(
                 type='reply',
                 id=self.command.id,
                 ok=ok,
                 result=result,
                 message=message,
-            ).model_dump_json(exclude_none=True)
-            + '\n'
+            ),
+            exclude_none=True,
         )
 
 
@@ -129,9 +130,7 @@ class DaemonGuiServer(Runnable):
         return requests
 
     def broadcast(self, rows: list[dict[str, object]], errors: list[str]) -> None:
-        message = (
-            RowsMessage(type='rows', rows=rows, errors=errors).model_dump_json() + '\n'
-        )
+        message = ipc.message_json(RowsMessage(type='rows', rows=rows, errors=errors))
         with self.lock:
             listeners = list(self.clients)
         for listener in listeners:
@@ -148,7 +147,7 @@ class DaemonGuiServer(Runnable):
             self.shutdown_started = True
             listeners = list(self.clients)
 
-        message = Shutdown(type='shutdown').model_dump_json() + '\n'
+        message = ipc.message_json(Shutdown(type='shutdown'))
         for listener in listeners:
             listener.write(message)
             listener.close()
@@ -211,60 +210,43 @@ class GuiListener:
         append_control_request: t.Callable[[ControlRequest], None] | None = None,
         request_shutdown: t.Callable[[], None] | None = None,
     ) -> None:
-        self.conn = conn
         self.append_key_event = append_key_event
         self.append_control_request = append_control_request
-        self.request_shutdown = request_shutdown
-        self.handshake_complete = False
-        self.lock = threading.Lock()
+        self.protocol = ipc.ProtocolListener(
+            conn,
+            parse=parse_message,
+            version=VERSION,
+            peer_role='GUI',
+            local_role='daemon',
+            on_message=self._handle_message,
+            request_shutdown=request_shutdown,
+            logger=LOGGER,
+        )
 
     def start(self) -> None:
         threading.Thread(target=self._read, daemon=True, name='DaemonGuiClient').start()
 
     def write(self, message: str) -> bool:
-        with self.lock:
-            return self.conn.write(message)
+        return self.protocol.write(message)
+
+    def write_model(self, message: BaseModel, *, exclude_none: bool = False) -> bool:
+        return self.protocol.write_model(message, exclude_none=exclude_none)
 
     def close(self) -> None:
-        self.conn.close()
+        self.protocol.close()
 
     def _read(self) -> None:
-        for line in self.conn.read_lines():
-            try:
-                message = parse_message(line)
-            except ValidationError:
-                LOGGER.warning('Ignoring malformed GUI message')
-                continue
-            if isinstance(message, Hello):
-                if not self._receive_hello(message):
-                    return
-                continue
-            if not self.handshake_complete:
-                self._reject('GUI hello required before other messages')
-                return
-            if isinstance(message, (KeyPressed, KeyReleased)):
-                self.append_key_event(KeyEvent(type=message.type, key=message.key))
-            elif isinstance(message, Command) and self.append_control_request:
-                self.append_control_request(ControlRequest(self, message))
-            elif isinstance(message, Shutdown) and self.request_shutdown:
-                self.request_shutdown()
+        self.protocol.read()
 
-    def _receive_hello(self, message: Hello) -> bool:
-        if message.version != VERSION:
-            self._reject(
-                f'GUI protocol version {message.version} is not supported; '
-                f'daemon requires {VERSION}'
-            )
-            return False
-        self.handshake_complete = True
-        self.write(
-            Hello(type='hello', role='daemon', version=VERSION).model_dump_json() + '\n'
-        )
-        return True
-
-    def _reject(self, message: str) -> None:
-        self.write(Error(type='error', message=message).model_dump_json() + '\n')
-        self.close()
+    def _handle_message(
+        self,
+        listener: ipc.ProtocolListener,
+        message: object,
+    ) -> None:
+        if isinstance(message, (KeyPressed, KeyReleased)):
+            self.append_key_event(KeyEvent(type=message.type, key=message.key))
+        elif isinstance(message, Command) and self.append_control_request:
+            self.append_control_request(ControlRequest(self, message))
 
 
 class RemoteGuiClient:
@@ -279,7 +261,7 @@ class RemoteGuiClient:
     def start(self) -> None:
         self.connection = client_connection(self.endpoint)
         if not self._write(
-            Hello(type='hello', role='gui', version=VERSION).model_dump_json() + '\n'
+            ipc.message_json(Hello(type='hello', role='gui', version=VERSION))
         ):
             self.closed = True
             raise BrokenPipeError('Could not send GUI hello')
@@ -295,10 +277,10 @@ class RemoteGuiClient:
             return list(self.latest_errors)
 
     def record_key(self, event: KeyEvent) -> None:
-        self._write(event.model_dump_json() + '\n')
+        self._write(ipc.message_json(event))
 
     def shutdown(self) -> None:
-        self._write(Shutdown(type='shutdown').model_dump_json() + '\n')
+        self._write(ipc.message_json(Shutdown(type='shutdown')))
 
     def _write(self, message: str) -> bool:
         if self.connection is None:

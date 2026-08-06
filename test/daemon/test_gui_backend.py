@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 
 import pytest
+from reccy import ipc
 
 from recs.daemon import gui_backend
 
@@ -23,7 +24,7 @@ def test_windows_pipe_server_accepts_connections(
 ) -> None:
     listener = FakeListener(gui_backend.WINDOWS_PIPE, family='AF_PIPE')
     monkeypatch.setattr(
-        gui_backend.mp_connection,
+        ipc.mp_connection,
         'Listener',
         lambda endpoint, family: listener,
     )
@@ -49,7 +50,7 @@ def test_windows_pipe_client_uses_named_pipe_family(
         calls.append((endpoint, family))
         return pipe
 
-    monkeypatch.setattr(gui_backend.mp_connection, 'Client', connect)
+    monkeypatch.setattr(ipc.mp_connection, 'Client', connect)
     connection = gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)
 
     connection.write('hello\n')
@@ -69,8 +70,8 @@ def test_windows_pipe_client_times_out(
         time.sleep(0.1)
         return FakePipe()
 
-    monkeypatch.setattr(gui_backend, 'PIPE_CONNECT_TIMEOUT', 0.01)
-    monkeypatch.setattr(gui_backend.mp_connection, 'Client', connect)
+    monkeypatch.setattr(ipc, 'PIPE_CONNECT_TIMEOUT', 0.01)
+    monkeypatch.setattr(ipc.mp_connection, 'Client', connect)
 
     with pytest.raises(TimeoutError, match='Timed out connecting'):
         gui_backend.WindowsPipeConnection.connect(gui_backend.WINDOWS_PIPE)

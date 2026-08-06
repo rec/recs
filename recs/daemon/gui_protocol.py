@@ -1,13 +1,14 @@
 import typing as t
 
 from pydantic import BaseModel, Field, TypeAdapter
+from reccy import ipc
 
 from recs.cfg.track_names import DeviceTrackNames
 
 VERSION = 1
 
 
-class Hello(BaseModel):
+class Hello(ipc.Hello):
     type: t.Literal['hello']
     role: t.Literal['daemon', 'gui']
     version: int = VERSION
@@ -40,7 +41,7 @@ class Command(BaseModel):
     track_names: DeviceTrackNames | None = None
 
 
-class Reply(BaseModel):
+class Reply(ipc.Reply):
     type: t.Literal['reply']
     id: str
     ok: bool
@@ -48,11 +49,11 @@ class Reply(BaseModel):
     message: str | None = None
 
 
-class Shutdown(BaseModel):
+class Shutdown(ipc.Shutdown):
     type: t.Literal['shutdown']
 
 
-class Error(BaseModel):
+class Error(ipc.Error):
     type: t.Literal['error']
     message: str
 
