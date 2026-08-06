@@ -1,8 +1,7 @@
 import copy
 import json
-import multiprocessing.dummy
 from datetime import datetime, timedelta
-from multiprocessing import connection
+from multiprocessing import connection, dummy
 from pathlib import Path
 
 import pytest
@@ -33,7 +32,7 @@ def wait(connections, timeout=None):
 @pytest.fixture
 def mock_mp(monkeypatch):
     monkeypatch.setattr(connection, 'wait', wait)
-    monkeypatch.setattr(source_process, 'mp', multiprocessing.dummy)
+    monkeypatch.setattr(source_process, 'mp', dummy)
 
 
 @pytest.fixture

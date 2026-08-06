@@ -8,28 +8,24 @@ import tdir
 
 from recs.base import RecsError
 from recs.base.types import Format
-from recs.cfg.metadata import (
-    ALLOWS_METADATA,
-    RECS_USES,
-    UNUSABLE,
-    USABLE,
-    get_metadata,
-    to_dict,
-)
+from recs.cfg import metadata
 
 CHANGED = {'license', 'software'}
 WAV_FILE = 'metadata.wav'
-METADATA = {k: k.capitalize() for k in USABLE | RECS_USES}
+METADATA = {k: k.capitalize() for k in metadata.USABLE | metadata.RECS_USES}
 
 
 def test_unchanged():
-    assert set(soundfile._str_types) == RECS_USES | USABLE | UNUSABLE
-    assert not (CHANGED & USABLE)
+    assert (
+        set(soundfile._str_types)
+        == metadata.RECS_USES | metadata.USABLE | metadata.UNUSABLE
+    )
+    assert not (CHANGED & metadata.USABLE)
 
 
 def write_metadata(
     filename=WAV_FILE,
-    metadata=METADATA,
+    metadata_values=METADATA,
     channels=2,
     samplerate=48_000,
     subtype='PCM_32',
@@ -38,19 +34,19 @@ def write_metadata(
     fp = soundfile.SoundFile(
         filename, mode='w', channels=channels, samplerate=samplerate, subtype=subtype
     )
-    for k, v in metadata.items():
+    for k, v in metadata_values.items():
         assert k in soundfile._str_types
         setattr(fp, k, v)
 
     with fp:
         fp.write(np.empty(shape=(samplerate, channels), dtype=dtype))
-        return get_metadata(fp)
+        return metadata.get_metadata(fp)
 
 
 @pytest.mark.parametrize('format', Format)
 @tdir
 def test_writing_metadata(format: Format):
-    if format not in ALLOWS_METADATA:
+    if format not in metadata.ALLOWS_METADATA:
         return
 
     filename = f'metadata.{format:s}'
@@ -73,14 +69,19 @@ def test_writing_metadata(format: Format):
 
 
 def test_to_dict():
-    assert to_dict([]) == {}
-    assert to_dict(['album = Mr Bungle ']) == {'album': 'Mr Bungle'}
-    assert to_dict(['album = Alb', 'title=Oof']) == {'album': 'Alb', 'title': 'Oof'}
+    assert metadata.to_dict([]) == {}
+    assert metadata.to_dict(['album = Mr Bungle ']) == {'album': 'Mr Bungle'}
+    assert metadata.to_dict(['album = Alb', 'title=Oof']) == {
+        'album': 'Alb',
+        'title': 'Oof',
+    }
 
 
 def test_to_dict_error():
     with pytest.raises(RecsError) as e:
-        to_dict('albom=x album=y album title=tt title=tt license=Artistic'.split())
+        metadata.to_dict(
+            'albom=x album=y album title=tt title=tt license=Artistic'.split()
+        )
     print(*e.value.args)
 
     msg = (

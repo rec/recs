@@ -2,7 +2,7 @@ import logging
 import sys
 import threading
 import time
-import typing as t
+import typing
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -13,32 +13,14 @@ from recs.base import RecsError
 from recs.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
-from . import paths
-from .gui_backend import (
-    WINDOWS_PIPE,
-    GuiConnection,
-    client_connection,
-    server_backend,
-)
-from .gui_protocol import (
-    VERSION,
-    Command,
-    Error,
-    Hello,
-    KeyPressed,
-    KeyReleased,
-    Reply,
-    RowsMessage,
-    Shutdown,
-    parse_message,
-)
+from . import gui_backend, gui_protocol, paths
 from .models import DaemonMetadata, DaemonStatus
 
 LOGGER = logging.getLogger(__name__)
 
 
 class ControlRequest:
-    def __init__(self, listener: 'GuiListener', command: Command) -> None:
+    def __init__(self, listener: 'GuiListener', command: gui_protocol.Command) -> None:
         self.listener = listener
         self.command = command
 
@@ -50,7 +32,7 @@ class ControlRequest:
         message: str | None = None,
     ) -> None:
         self.listener.write_model(
-            Reply(
+            gui_protocol.Reply(
                 type='reply',
                 id=self.command.id,
                 ok=ok,
@@ -64,10 +46,10 @@ class ControlRequest:
 class DaemonGuiServer(Runnable):
     def __init__(
         self,
-        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        rows: typing.Callable[[], typing.Iterator[typing.Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: t.Callable[[], t.Iterable[str]] | None = None,
+        errors: typing.Callable[[], typing.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple
@@ -75,7 +57,7 @@ class DaemonGuiServer(Runnable):
         self.enabled = daemon_mode_enabled()
         self.paths = paths.service_paths(paths.current_platform())
         self.endpoint = self.paths.gui_endpoint
-        self.backend = server_backend(self.endpoint)
+        self.backend = gui_backend.server_backend(self.endpoint)
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
         self.control_requests: list[ControlRequest] = []
@@ -130,7 +112,9 @@ class DaemonGuiServer(Runnable):
         return requests
 
     def broadcast(self, rows: list[dict[str, object]], errors: list[str]) -> None:
-        message = ipc.message_json(RowsMessage(type='rows', rows=rows, errors=errors))
+        message = ipc.message_json(
+            gui_protocol.RowsMessage(type='rows', rows=rows, errors=errors)
+        )
         with self.lock:
             listeners = list(self.clients)
         for listener in listeners:
@@ -147,7 +131,7 @@ class DaemonGuiServer(Runnable):
             self.shutdown_started = True
             listeners = list(self.clients)
 
-        message = ipc.message_json(Shutdown(type='shutdown'))
+        message = ipc.message_json(gui_protocol.Shutdown(type='shutdown'))
         for listener in listeners:
             listener.write(message)
             listener.close()
@@ -205,17 +189,17 @@ class DaemonGuiServer(Runnable):
 class GuiListener:
     def __init__(
         self,
-        conn: GuiConnection,
-        append_key_event: t.Callable[[KeyEvent], None],
-        append_control_request: t.Callable[[ControlRequest], None] | None = None,
-        request_shutdown: t.Callable[[], None] | None = None,
+        conn: gui_backend.GuiConnection,
+        append_key_event: typing.Callable[[KeyEvent], None],
+        append_control_request: typing.Callable[[ControlRequest], None] | None = None,
+        request_shutdown: typing.Callable[[], None] | None = None,
     ) -> None:
         self.append_key_event = append_key_event
         self.append_control_request = append_control_request
         self.protocol = ipc.ProtocolListener(
             conn,
-            parse=parse_message,
-            version=VERSION,
+            parse=gui_protocol.parse_message,
+            version=gui_protocol.VERSION,
             peer_role='GUI',
             local_role='daemon',
             on_message=self._handle_message,
@@ -243,31 +227,37 @@ class GuiListener:
         listener: ipc.ProtocolListener,
         message: object,
     ) -> None:
-        if isinstance(message, (KeyPressed, KeyReleased)):
+        if isinstance(message, (gui_protocol.KeyPressed, gui_protocol.KeyReleased)):
             self.append_key_event(KeyEvent(type=message.type, key=message.key))
-        elif isinstance(message, Command) and self.append_control_request:
+        elif isinstance(message, gui_protocol.Command) and self.append_control_request:
             self.append_control_request(ControlRequest(self, message))
 
 
 class RemoteGuiClient:
     def __init__(self, endpoint: str | Path) -> None:
         self.endpoint = endpoint
-        self.connection: GuiConnection | None = None
+        self.connection: gui_backend.GuiConnection | None = None
         self.latest: list[dict[str, object]] = []
         self.latest_errors: list[str] = []
         self.closed = False
         self.lock = threading.Lock()
 
     def start(self) -> None:
-        self.connection = client_connection(self.endpoint)
+        self.connection = gui_backend.client_connection(self.endpoint)
         if not self._write(
-            ipc.message_json(Hello(type='hello', role='gui', version=VERSION))
+            ipc.message_json(
+                gui_protocol.Hello(
+                    type='hello',
+                    role='gui',
+                    version=gui_protocol.VERSION,
+                )
+            )
         ):
             self.closed = True
             raise BrokenPipeError('Could not send GUI hello')
         threading.Thread(target=self._read, daemon=True, name='RemoteGuiRows').start()
 
-    def rows(self) -> t.Iterator[t.Mapping[str, object]]:
+    def rows(self) -> typing.Iterator[typing.Mapping[str, object]]:
         with self.lock:
             rows = list(self.latest)
         return iter(rows)
@@ -280,7 +270,7 @@ class RemoteGuiClient:
         self._write(ipc.message_json(event))
 
     def shutdown(self) -> None:
-        self._write(ipc.message_json(Shutdown(type='shutdown')))
+        self._write(ipc.message_json(gui_protocol.Shutdown(type='shutdown')))
 
     def _write(self, message: str) -> bool:
         if self.connection is None:
@@ -292,26 +282,29 @@ class RemoteGuiClient:
             return
         for line in self.connection.read_lines():
             try:
-                message = parse_message(line)
+                message = gui_protocol.parse_message(line)
             except ValidationError:
                 continue
-            if isinstance(message, Error):
+            if isinstance(message, gui_protocol.Error):
                 print(message.message, file=sys.stderr)
                 self.closed = True
                 return
-            if isinstance(message, Hello) and message.version != VERSION:
+            if (
+                isinstance(message, gui_protocol.Hello)
+                and message.version != gui_protocol.VERSION
+            ):
                 print(
                     f'Daemon GUI protocol version {message.version} is not supported; '
-                    f'client requires {VERSION}',
+                    f'client requires {gui_protocol.VERSION}',
                     file=sys.stderr,
                 )
                 self.closed = True
                 return
-            if isinstance(message, RowsMessage):
+            if isinstance(message, gui_protocol.RowsMessage):
                 with self.lock:
                     self.latest = message.rows
                     self.latest_errors = message.errors
-            if isinstance(message, Shutdown):
+            if isinstance(message, gui_protocol.Shutdown):
                 self.closed = True
                 return
         self.closed = True
@@ -319,7 +312,7 @@ class RemoteGuiClient:
 
 def endpoint_reachable(metadata: DaemonMetadata) -> bool:
     try:
-        connection = client_connection(_endpoint(metadata.gui_endpoint))
+        connection = gui_backend.client_connection(_endpoint(metadata.gui_endpoint))
     except (OSError, ValueError):
         return False
     connection.close()
@@ -354,7 +347,7 @@ def run_remote_gui(metadata: DaemonMetadata, cfg: Cfg) -> None:
 
 
 def _endpoint(endpoint: str) -> Path | str:
-    if endpoint == WINDOWS_PIPE:
+    if endpoint == gui_backend.WINDOWS_PIPE:
         return endpoint
     return Path(endpoint)
 

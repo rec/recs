@@ -1,8 +1,7 @@
 import json
-import typing as t
+import typing
 from datetime import datetime
 from pathlib import Path
-from test.conftest import DEVICES, DEVICES_FILE
 
 import pytest
 from threa import Runnable
@@ -15,9 +14,10 @@ from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
+from test.conftest import DEVICES, DEVICES_FILE
 
 
-class DiskUsage(t.NamedTuple):
+class DiskUsage(typing.NamedTuple):
     total: int
     used: int
     free: int
@@ -25,16 +25,16 @@ class DiskUsage(t.NamedTuple):
 
 class FakePoller(Runnable):
     def __init__(self, interval: float) -> None:
-        self.snapshots: list[dict[str, t.Any] | None] = []
+        self.snapshots: list[dict[str, typing.Any] | None] = []
 
-    def latest(self) -> dict[str, t.Any] | None:
+    def latest(self) -> dict[str, typing.Any] | None:
         return self.snapshots.pop(0) if self.snapshots else None
 
     def poll(self) -> None:
         pass
 
 
-def read_jsonl(path: Path) -> list[dict[str, t.Any]]:
+def read_jsonl(path: Path) -> list[dict[str, typing.Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
@@ -47,7 +47,7 @@ class FakeSourceProcess:
     def __init__(
         self,
         cfg: Cfg,
-        tracks: t.Sequence[Track],
+        tracks: typing.Sequence[Track],
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
         self.name = tracks[0].source.name
@@ -96,10 +96,10 @@ class ClosedDisplay(Runnable):
 
     def __init__(
         self,
-        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        rows: typing.Callable[[], typing.Iterator[typing.Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: t.Callable[[], t.Iterable[str]] | None = None,
+        errors: typing.Callable[[], typing.Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg
@@ -693,7 +693,7 @@ def test_open_folder_uses_platform_file_manager(
     commands: list[list[str]] = []
     monkeypatch.setattr(recorder.sys, 'platform', 'darwin')
     monkeypatch.setattr(
-        recorder.sp,
+        recorder.subprocess,
         'run',
         lambda command, check: commands.append(command),
     )

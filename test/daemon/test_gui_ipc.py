@@ -1,4 +1,4 @@
-import typing as t
+import typing
 from pathlib import Path
 
 import pytest
@@ -6,82 +6,79 @@ from pydantic import ValidationError
 
 from recs.base import RecsError
 from recs.cfg import Cfg
-from recs.daemon import gui_ipc
-from recs.daemon.gui_protocol import (
-    Command,
-    Hello,
-    RowsMessage,
-    Shutdown,
-    parse_message,
-)
+from recs.daemon import gui_backend, gui_ipc, gui_protocol
 from recs.daemon.models import DaemonMetadata, Platform
 from recs.ui.key_events import KeyEvent
 
 
 def test_protocol_parses_valid_messages() -> None:
-    message = parse_message('{"type":"rows","rows":[{"device":"Mic"}]}')
+    message = gui_protocol.parse_message('{"type":"rows","rows":[{"device":"Mic"}]}')
 
-    assert isinstance(message, RowsMessage)
+    assert isinstance(message, gui_protocol.RowsMessage)
     assert message.rows == [{'device': 'Mic'}]
     assert message.errors == []
 
 
 def test_protocol_parses_daemon_hello() -> None:
-    message = parse_message('{"type":"hello","role":"daemon","version":1}')
+    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":1}')
 
-    assert isinstance(message, Hello)
+    assert isinstance(message, gui_protocol.Hello)
     assert message.role == 'daemon'
 
 
 def test_protocol_parses_calibrate_command() -> None:
-    message = parse_message('{"type":"command","id":"c1","command":"calibrate"}')
+    message = gui_protocol.parse_message(
+        '{"type":"command","id":"c1","command":"calibrate"}'
+    )
 
-    assert isinstance(message, Command)
+    assert isinstance(message, gui_protocol.Command)
     assert message.command == 'calibrate'
 
 
 def test_protocol_parses_app_specific_command_names() -> None:
-    message = parse_message('{"type":"command","id":"c1","command":"reload_config"}')
+    message = gui_protocol.parse_message(
+        '{"type":"command","id":"c1","command":"reload_config"}'
+    )
 
-    assert isinstance(message, Command)
+    assert isinstance(message, gui_protocol.Command)
     assert message.command == 'reload_config'
 
 
 def test_protocol_parses_command_fields() -> None:
-    message = parse_message(
+    message = gui_protocol.parse_message(
         '{"type":"command","id":"c1","command":"set_noise_floor",'
         '"source":"Mic","noise_floor":42.5}'
     )
 
-    assert isinstance(message, Command)
+    assert isinstance(message, gui_protocol.Command)
     assert message.source == 'Mic'
     assert message.noise_floor == 42.5
 
 
 def test_protocol_parses_track_names_command() -> None:
-    message = parse_message(
+    message = gui_protocol.parse_message(
         '{"type":"command","id":"c1","command":"set_track_names",'
         '"track_names":{"Mic":{"Lead Vocal":1}}}'
     )
 
-    assert isinstance(message, Command)
+    assert isinstance(message, gui_protocol.Command)
     assert message.track_names == {'Mic': {'Lead Vocal': 1}}
 
 
 def test_protocol_parses_shutdown() -> None:
-    message = parse_message('{"type":"shutdown"}')
+    message = gui_protocol.parse_message('{"type":"shutdown"}')
 
-    assert isinstance(message, Shutdown)
+    assert isinstance(message, gui_protocol.Shutdown)
 
 
 def test_protocol_rejects_malformed_messages() -> None:
     with pytest.raises(ValidationError):
-        parse_message('{"type":"rows"}')
+        gui_protocol.parse_message('{"type":"rows"}')
 
 
 def test_protocol_rejects_unknown_key_messages() -> None:
     with pytest.raises(ValidationError):
-        parse_message('{"type":"unknown","key":"g"}')
+        gui_protocol.parse_message('{"type":"unknown","key":"g"}')
 
 
 def test_daemon_publisher_broadcasts_rows_to_listeners() -> None:
@@ -271,7 +268,7 @@ def test_remote_row_provider_exposes_latest_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection(['{"type":"rows","rows":[{"device":"Mic"}]}\n'])
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
@@ -284,7 +281,7 @@ def test_remote_row_provider_exposes_latest_errors(
     connection = FakeConnection(
         ['{"type":"rows","rows":[],"errors":["Device Mic failed"]}\n']
     )
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
@@ -299,7 +296,7 @@ def test_remote_row_provider_closes_on_protocol_error(
     connection = FakeConnection(
         ['{"type":"error","message":"GUI protocol version 2 is not supported"}\n']
     )
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
 
     client.start()
@@ -312,7 +309,7 @@ def test_remote_row_provider_closes_on_shutdown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection(['{"type":"shutdown"}\n'])
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
 
     client.start()
@@ -324,7 +321,7 @@ def test_remote_row_provider_sends_key_events(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection()
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
@@ -337,7 +334,7 @@ def test_remote_row_provider_sends_shutdown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection()
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
     client.start()
@@ -350,7 +347,7 @@ def test_remote_row_provider_fails_when_hello_cannot_be_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection(broken=True)
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
 
@@ -370,7 +367,7 @@ def test_endpoint_reachable_checks_metadata_socket(
         gui_endpoint='/tmp/recs.sock',
     )
 
-    monkeypatch.setattr(gui_ipc, 'client_connection', lambda endpoint: connection)
+    monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
     assert gui_ipc.endpoint_reachable(metadata)
     assert connection.closed
@@ -383,16 +380,16 @@ def test_endpoint_reachable_checks_windows_pipe(
     metadata = DaemonMetadata(
         executable=Path('/opt/recs/bin/recs'),
         platform=Platform.windows,
-        gui_endpoint=gui_ipc.WINDOWS_PIPE,
+        gui_endpoint=gui_backend.WINDOWS_PIPE,
     )
 
     def connect(endpoint: str | Path) -> FakeConnection:
-        assert endpoint == gui_ipc.WINDOWS_PIPE
+        assert endpoint == gui_backend.WINDOWS_PIPE
         connection = FakeConnection()
         connections.append(connection)
         return connection
 
-    monkeypatch.setattr(gui_ipc, 'client_connection', connect)
+    monkeypatch.setattr(gui_backend, 'client_connection', connect)
 
     assert gui_ipc.endpoint_reachable(metadata)
     assert connections[0].closed
@@ -410,7 +407,7 @@ def test_run_remote_gui_reports_connection_failure(
     def connect(endpoint: str | Path) -> FakeConnection:
         raise OSError('connection refused')
 
-    monkeypatch.setattr(gui_ipc, 'client_connection', connect)
+    monkeypatch.setattr(gui_backend, 'client_connection', connect)
 
     with pytest.raises(RecsError, match='Could not connect to daemon GUI'):
         gui_ipc.run_remote_gui(metadata, Cfg(gui=True))
@@ -453,7 +450,7 @@ class FakeConnection:
         self.received = received or []
         self.sent: list[str] = []
 
-    def read_lines(self) -> t.Iterator[str]:
+    def read_lines(self) -> typing.Iterator[str]:
         return iter(self.received)
 
     def write(self, message: str) -> bool:
@@ -464,7 +461,7 @@ class FakeConnection:
         self.closed = True
 
 
-def _eventually(check: t.Callable[[], bool]) -> bool:
+def _eventually(check: typing.Callable[[], bool]) -> bool:
     import time
 
     deadline = time.monotonic() + 1

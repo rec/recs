@@ -1,12 +1,12 @@
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from reccy.models import (
-    Platform,
-    ServiceDefinition,
-    ServiceSpec,
-    WindowsTaskDefinition,
-)
+from reccy import models
+
+Platform = models.Platform
+ServiceDefinition = models.ServiceDefinition
+ServiceSpec = models.ServiceSpec
+WindowsTaskDefinition = models.WindowsTaskDefinition
 
 __all__ = [
     'DaemonMetadata',

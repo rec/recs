@@ -1,9 +1,9 @@
 import json
 import os
 import shutil
-import subprocess as sp
+import subprocess
 import sys
-import typing as t
+import typing
 from datetime import datetime
 from multiprocessing import connection
 from pathlib import Path
@@ -15,20 +15,12 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import Aliases, Cfg, FileSource, InputDevice, Source, Track
 from recs.cfg.device import DeviceDict, get_input_devices
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
-from recs.daemon import gui_ipc
+from recs.daemon import gui_ipc, gui_protocol
 
-from . import gui_process, live
+from . import gui_process, live, session_manifest
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .key_events import KeyEvent, make_key_recorder
-from .session_manifest import (
-    ManifestEvent,
-    ManifestFile,
-    ManifestFooter,
-    ManifestWarning,
-    SessionManifestWriter,
-    timestamp_to_json,
-)
 from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpdate
 from .source_tracks import input_device_tracks, source_tracks
@@ -93,8 +85,8 @@ class Recorder(Runnables):
         self.files_written: set[Path] = set()
         self.manifest_file_end_frames: dict[Path, int] = {}
         self.manifest_file_end_timestamps: dict[Path, float] = {}
-        self.manifest_files: dict[Path, ManifestFile] = {}
-        self.manifest: SessionManifestWriter | None = None
+        self.manifest_files: dict[Path, session_manifest.ManifestFile] = {}
+        self.manifest: session_manifest.SessionManifestWriter | None = None
         self.key_recorder = make_key_recorder(cfg)
         self.disk_space_reported = False
         self.failed: set[str] = set()
@@ -134,7 +126,7 @@ class Recorder(Runnables):
         super().start()
         Runnable.start(self)
 
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+    def rows(self) -> typing.Iterator[dict[str, typing.Any]]:
         for row in self.state.rows():
             if device := row.get('device'):
                 for source, name in self.state.source_names.items():
@@ -150,7 +142,7 @@ class Recorder(Runnables):
 
     def _record_startup_input_errors(
         self,
-        all_tracks: t.Sequence[tuple[Source, t.Sequence[Track]]],
+        all_tracks: typing.Sequence[tuple[Source, typing.Sequence[Track]]],
     ) -> None:
         if self.files:
             return
@@ -235,14 +227,14 @@ class Recorder(Runnables):
                         times.sleep(POLL_TIMEOUT)
                         continue
                     for c in connection.wait(connections, timeout=POLL_TIMEOUT):
-                        self._receive_connection(t.cast(connection.Connection, c))
+                        self._receive_connection(typing.cast(connection.Connection, c))
             finally:
                 for source in self.hardware.values():
                     source.stop()
                 for source in self.hardware.values():
                     source.join()
 
-    def _done(self, sources: t.Sequence[SourceProcess]) -> bool:
+    def _done(self, sources: typing.Sequence[SourceProcess]) -> bool:
         if self.files and not self.hardware:
             return not sources
         return self._invocation_expired() and not any(
@@ -341,7 +333,7 @@ class Recorder(Runnables):
     def _add_source(
         self,
         source: InputDevice,
-        tracks: t.Sequence[Track],
+        tracks: typing.Sequence[Track],
         aliases: Aliases,
     ) -> None:
         source_process = SourceProcess(self.cfg, tracks, track_names=self.track_names)
@@ -438,7 +430,7 @@ class Recorder(Runnables):
     def _receive_control_requests(self) -> None:
         if self.live is None:
             return
-        requests = t.cast(
+        requests = typing.cast(
             list[gui_ipc.ControlRequest], self.live.take_control_requests()
         )
         for request in requests:
@@ -451,12 +443,12 @@ class Recorder(Runnables):
 
     def _handle_control_request(
         self,
-        command: gui_ipc.Command,
+        command: gui_protocol.Command,
     ) -> dict[str, object]:
         if command.command == 'calibrate':
             return self._calibrate_noise_floor()
         if command.command == 'capabilities':
-            return {'commands': API_COMMANDS, 'version': gui_ipc.VERSION}
+            return {'commands': API_COMMANDS, 'version': gui_protocol.VERSION}
         if command.command == 'disk_status':
             return self._disk_status()
         if command.command == 'get_track_names':
@@ -485,12 +477,12 @@ class Recorder(Runnables):
             return self._stop_recording()
         raise RecsError(f'Unsupported command: {command.command}')
 
-    def _mark(self, command: gui_ipc.Command) -> dict[str, object]:
+    def _mark(self, command: gui_protocol.Command) -> dict[str, object]:
         if not command.label:
             raise RecsError('mark requires label')
         self._write_manifest_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='mark',
                 label=command.label,
             )
@@ -503,8 +495,8 @@ class Recorder(Runnables):
             if source.running:
                 source.stop()
         self._write_manifest_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='recording_paused',
                 label=reason,
             )
@@ -515,8 +507,8 @@ class Recorder(Runnables):
         self.recording_paused = False
         self.recording_stopped = False
         self._write_manifest_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='recording_resumed',
                 label=reason,
             )
@@ -528,7 +520,7 @@ class Recorder(Runnables):
         self.recording_stopped = True
         return result | self._recording_state()
 
-    def _set_key_label(self, command: gui_ipc.Command) -> dict[str, object]:
+    def _set_key_label(self, command: gui_protocol.Command) -> dict[str, object]:
         if not command.key:
             raise RecsError('set_key_label requires key')
         if not command.label:
@@ -536,7 +528,7 @@ class Recorder(Runnables):
         self.cfg.keys.labels[command.key] = command.label
         return {'key': command.key, 'label': command.label}
 
-    def _set_noise_floor(self, command: gui_ipc.Command) -> dict[str, object]:
+    def _set_noise_floor(self, command: gui_protocol.Command) -> dict[str, object]:
         if not command.source:
             raise RecsError('set_noise_floor requires source')
         if command.noise_floor is None:
@@ -556,7 +548,7 @@ class Recorder(Runnables):
             source.cfg = self.cfg
         return {'source': command.source, 'noise_floor': command.noise_floor}
 
-    def _set_track_names(self, command: gui_ipc.Command) -> dict[str, object]:
+    def _set_track_names(self, command: gui_protocol.Command) -> dict[str, object]:
         if command.track_names is None:
             raise RecsError('set_track_names requires track_names')
         try:
@@ -627,7 +619,7 @@ class Recorder(Runnables):
             msg = conn.recv()
         except (EOFError, OSError):
             return False
-        self._receive_source_message(t.cast(SourceUpdate | SourceFailure, msg))
+        self._receive_source_message(typing.cast(SourceUpdate | SourceFailure, msg))
         return True
 
     def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
@@ -646,9 +638,9 @@ class Recorder(Runnables):
         self.manifest_file_end_frames.update(update.file_end_frames or {})
         self.manifest_file_end_timestamps.update(update.file_end_timestamps or {})
         for file_record in update.file_records or []:
-            record = ManifestFile(
+            record = session_manifest.ManifestFile(
                 type='file_started',
-                timestamp=timestamp_to_json(
+                timestamp=session_manifest.timestamp_to_json(
                     _timestamp_or_now(file_record.start_timestamp)
                 ),
                 frame_count=file_record.start_frame,
@@ -689,9 +681,9 @@ class Recorder(Runnables):
             reported = self.buffer_drops_reported[update.source_name]
             if update.buffer_stats.dropped_frames > reported:
                 self._write_manifest_record(
-                    ManifestEvent(
+                    session_manifest.ManifestEvent(
                         type='buffer_overflow',
-                        timestamp=timestamp_to_json(
+                        timestamp=session_manifest.timestamp_to_json(
                             update.buffer_stats.last_drop_timestamp
                         ),
                         source=update.source_name,
@@ -701,9 +693,9 @@ class Recorder(Runnables):
                         queued_seconds=update.buffer_stats.queued_seconds,
                     )
                 )
-                self.buffer_drops_reported[
-                    update.source_name
-                ] = update.buffer_stats.dropped_frames
+                self.buffer_drops_reported[update.source_name] = (
+                    update.buffer_stats.dropped_frames
+                )
         for warning in update.buffer_warnings or []:
             print(warning, file=sys.stderr)
             self._record_warning(warning)
@@ -732,7 +724,7 @@ class Recorder(Runnables):
         self,
         source_name: str,
         previous: dict[str, bool],
-        updates: t.Mapping[str, t.Any],
+        updates: typing.Mapping[str, typing.Any],
         frame_count: int | None,
         timestamp: float | None,
     ) -> None:
@@ -761,8 +753,10 @@ class Recorder(Runnables):
         timestamp: float | None = None,
     ) -> None:
         self._write_manifest_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(_timestamp_or_now(timestamp)),
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(
+                    _timestamp_or_now(timestamp)
+                ),
                 type=event_type,
                 source=source,
                 track=track,
@@ -773,8 +767,8 @@ class Recorder(Runnables):
 
     def _record_key_event(self, event: KeyEvent) -> None:
         self._write_manifest_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type=event.type,
                 key=event.key,
                 label=self.cfg.keys.labels.get(event.key),
@@ -792,9 +786,9 @@ class Recorder(Runnables):
     def _start_manifest(self) -> None:
         if self.cfg.general.dry_run or self.cfg.general.silence_preview:
             return
-        self.manifest = SessionManifestWriter(
+        self.manifest = session_manifest.SessionManifestWriter(
             self._manifest_path(),
-            started_at=timestamp_to_json(self.state.start_time),
+            started_at=session_manifest.timestamp_to_json(self.state.start_time),
         )
 
     def _finish_manifest(self) -> None:
@@ -806,7 +800,7 @@ class Recorder(Runnables):
                     file.model_copy(
                         update={
                             'type': 'file_finished',
-                            'timestamp': timestamp_to_json(
+                            'timestamp': session_manifest.timestamp_to_json(
                                 _timestamp_or_now(
                                     self.manifest_file_end_timestamps.get(path)
                                 )
@@ -816,8 +810,8 @@ class Recorder(Runnables):
                     )
                 )
         self._write_manifest_record(
-            ManifestFooter(
-                ended_at=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestFooter(
+                ended_at=session_manifest.timestamp_to_json(times.timestamp()),
                 duration=self.state.elapsed_time,
             )
         )
@@ -826,15 +820,18 @@ class Recorder(Runnables):
     def _record_warning(self, warning: str) -> None:
         self.warnings.append(warning)
         self._write_manifest_record(
-            ManifestWarning(
-                timestamp=timestamp_to_json(times.timestamp()),
+            session_manifest.ManifestWarning(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 message=warning,
             )
         )
 
     def _write_manifest_record(
         self,
-        record: ManifestEvent | ManifestFile | ManifestFooter | ManifestWarning,
+        record: session_manifest.ManifestEvent
+        | session_manifest.ManifestFile
+        | session_manifest.ManifestFooter
+        | session_manifest.ManifestWarning,
     ) -> None:
         if self.manifest is not None:
             self.manifest.write(record)
@@ -867,7 +864,7 @@ class Recorder(Runnables):
 
         report = self._silence_preview_report()
         profiles = self.cfg.device_profiles.copy()
-        for source_name, profile in t.cast(
+        for source_name, profile in typing.cast(
             dict[str, dict[str, object]], report['profiles']
         ).items():
             current = profiles.get(source_name, {})
@@ -1027,7 +1024,7 @@ def _open_folder(path: Path) -> None:
         'win32': ['explorer', str(path)],
     }
     command = commands.get(sys.platform, ['xdg-open', str(path)])
-    sp.run(command, check=False)
+    subprocess.run(command, check=False)
 
 
 def _manifest_times(ts: datetime) -> dict[str, str]:
