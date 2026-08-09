@@ -8,7 +8,9 @@ import tdir
 from pytest_regressions.file_regression import FileRegressionFixture
 
 from recs.cfg import device
+from recs.ui import device_poller
 
+from .conftest import FakeDeviceQueryStream
 from .recs_runner import RecsRunner
 
 SAMPLERATE = 48_000
@@ -47,6 +49,7 @@ def test_hardware_recording_regression(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(device, 'query_devices', query_devices)
+    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
     first = _run(monkeypatch, tmp_path / 'first')
     second = _run(monkeypatch, tmp_path / 'second')
 

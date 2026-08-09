@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from recs.cfg import device
-from recs.ui import source_process, source_recorder
+from recs.ui import device_poller, source_process, source_recorder
 
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
@@ -25,6 +25,17 @@ def query_devices(kind=None):
     return copy.deepcopy(DEVICES)
 
 
+class FakeDeviceQueryStream:
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def devices(self) -> list[device.DeviceDict]:
+        return device.query_devices()
+
+
 def wait(connections, timeout=None):
     return [c for c in connections if c.poll(source_recorder.POLL_TIMEOUT)]
 
@@ -33,11 +44,13 @@ def wait(connections, timeout=None):
 def mock_mp(monkeypatch):
     monkeypatch.setattr(connection, 'wait', wait)
     monkeypatch.setattr(source_process, 'mp', dummy)
+    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
 
 
 @pytest.fixture
 def mock_devices(monkeypatch):
     monkeypatch.setattr(device, 'query_devices', query_devices)
+    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
 
 
 @pytest.fixture

@@ -1,11 +1,10 @@
-import json
 import multiprocessing as mp
 import sys
 
 import tyro
 from pydantic import ValidationError
 
-from recs.base._query_device import _query_devices
+from recs.base._query_device import devices_json, stream_devices
 from recs.base.errors import RecsError
 from recs.cfg import cli
 
@@ -23,7 +22,10 @@ def run() -> int:
             main()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
-            print(json.dumps(_query_devices(), indent=4))
+            print(devices_json())
+            return 0
+        if len(sys.argv) > 1 and sys.argv[1] == 'query-devices-stream':
+            stream_devices()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'sessions':
             from recs.ui import session_browser

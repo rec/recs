@@ -1,11 +1,22 @@
 """
 Print the current devices as JSON without loading any other part of recs.
-
-Called repeatedly as a subprocess to detect devices going off- and online.
 """
 
 import json
+import time
 import typing as t
+
+STREAM_INTERVAL = 0.1
+
+
+def devices_json() -> str:
+    return json.dumps(_query_devices(), indent=4)
+
+
+def stream_devices() -> None:
+    while True:
+        print(json.dumps(_query_devices()), flush=True)
+        time.sleep(STREAM_INTERVAL)
 
 
 def _query_devices() -> t.Any:
@@ -18,4 +29,4 @@ def _query_devices() -> t.Any:
 
 
 if __name__ == '__main__':
-    print(json.dumps(_query_devices(), indent=4))
+    print(devices_json())
