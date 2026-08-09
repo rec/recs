@@ -25,16 +25,3 @@ out quiet, and stores the results in named, organized files.
 
 The main runtime flow is `recs.__main__` -> `recs.cfg.cli` -> `Cfg` ->
 `Recorder` -> `SourceRecorder` -> `ChannelWriter`.
-
-## 4. How to Verify Your Work
-
-Before commiting:
-1. Run test suite: `pytest`
-2. Code formatting: `ruff check --fix --select B,E,F,I recs test*`
-3. Type checking: `ty check recs`
-4. pyupgrade:
-```
-version=$(cat .python-version)
-version=${version//./}
-find test $project -name \*.py | xargs pyupgrade --py${version}-plus
-```
