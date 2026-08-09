@@ -1,4 +1,6 @@
+import ctypes
 import multiprocessing as mp
+import sys
 import typing as t
 from multiprocessing import connection
 
@@ -11,6 +13,8 @@ from recs.cfg.track_names import DeviceTrackNames
 from .source_recorder import SourceControl, SourceFailure, SourceRecorder, SourceUpdate
 
 STOP_TIMEOUT = 2.0
+LINUX_PROCESS_NAME_LIMIT = 15
+PR_SET_NAME = 15
 
 
 class SourceProcess(Runnable):
@@ -50,14 +54,20 @@ class SourceProcess(Runnable):
         assert not self.started
         self.connection, child = mp.Pipe()
         self.stop_event = mp.Event()
+        process_name = _source_process_name(self.name)
         kwargs = {
             'cfg': self.recorder_cfg,
             'connection': child,
+            'process_name': process_name,
             'stop_event': self.stop_event,
             'tracks': self.tracks,
             'track_names': self.track_names,
         }
-        self.process = mp.Process(target=_run_source_recorder, kwargs=kwargs)
+        self.process = mp.Process(
+            target=_run_source_recorder,
+            kwargs=kwargs,
+            name=process_name,
+        )
         self.process.start()
         self.started = True
         self.stopped = False
@@ -107,7 +117,9 @@ def _run_source_recorder(
     stop_event: t.Any,
     tracks: t.Sequence[Track],
     track_names: DeviceTrackNames | None = None,
+    process_name: str | None = None,
 ) -> None:
+    _set_process_name(process_name)
     try:
         SourceRecorder(
             cfg=cfg,
@@ -128,3 +140,21 @@ def _connection_ready(conn: connection.Connection) -> bool:
         return conn.poll()
     except OSError:
         return False
+
+
+def _source_process_name(source_name: str) -> str:
+    source = ''.join(
+        c if c.isascii() and c.isalnum() else '-' for c in source_name
+    ).strip('-')
+    return f'recs-src-{source or "source"}'
+
+
+def _set_process_name(name: str | None) -> None:
+    if name is None or not sys.platform.startswith('linux'):
+        return
+
+    encoded = name.encode()[:LINUX_PROCESS_NAME_LIMIT]
+    try:
+        ctypes.CDLL(None).prctl(PR_SET_NAME, ctypes.c_char_p(encoded), 0, 0, 0)
+    except (AttributeError, OSError):
+        return

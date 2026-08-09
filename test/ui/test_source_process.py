@@ -47,9 +47,15 @@ class FakeEvent:
 class FakeProcess:
     instances: list['FakeProcess'] = []
 
-    def __init__(self, target: t.Any, kwargs: dict[str, t.Any]) -> None:
+    def __init__(
+        self,
+        target: t.Any,
+        kwargs: dict[str, t.Any],
+        name: str | None = None,
+    ) -> None:
         self.alive = False
         self.kwargs = kwargs
+        self.name = name
         self.terminated = False
         self.instances.append(self)
 
@@ -125,6 +131,31 @@ def test_source_process_starts_recorder_with_gui_disabled(
     recorder_cfg = owner.process.kwargs['cfg']
     assert recorder_cfg.console.gui is False
     assert owner.cfg.console.gui is True
+
+
+def test_source_process_names_recorder_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def pipe() -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic 1',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
+
+    owner.start()
+
+    assert owner.process.name == 'recs-src-Mic-1'
+    assert owner.process.kwargs['process_name'] == 'recs-src-Mic-1'
 
 
 def test_source_process_applies_device_profile(
