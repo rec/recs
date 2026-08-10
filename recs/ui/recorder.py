@@ -65,6 +65,12 @@ class Recorder(Runnables):
         self.recording_stopped = False
         self.track_names: DeviceTrackNames = {}
         self.state = FullState(all_tracks, cfg.aliases)
+        self.session_start_time = self.state.start_time
+        self.daemon_record_directory = (
+            _daemon_record_directory(cfg)
+            if not cfg.directory.output_directory
+            else None
+        )
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         if gui_ipc.daemon_mode_enabled():
             display_type = gui_ipc.DaemonGuiServer
@@ -88,10 +94,12 @@ class Recorder(Runnables):
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
         self.files_written: set[Path] = set()
+        self.session_files_written: set[Path] = set()
         self.manifest_file_end_frames: dict[Path, int] = {}
         self.manifest_file_end_timestamps: dict[Path, float] = {}
         self.manifest_files: dict[Path, session_manifest.ManifestFile] = {}
         self.manifest: session_manifest.SessionManifestWriter | None = None
+        self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
         self.disk_space_reported = False
         self.failed: set[str] = set()
@@ -509,6 +517,8 @@ class Recorder(Runnables):
         return self._recording_state()
 
     def _resume_recording(self, reason: str) -> dict[str, object]:
+        if self.session_stopped:
+            self._start_recording_session()
         self.recording_paused = False
         self.recording_stopped = False
         self._write_manifest_record(
@@ -521,8 +531,16 @@ class Recorder(Runnables):
         return self._recording_state()
 
     def _stop_recording(self) -> dict[str, object]:
+        if self.recording_stopped:
+            return self._recording_state()
         result = self._pause_recording('stop_recording')
         self.recording_stopped = True
+        self.session_stopped = self.manifest is not None
+        if self.session_stopped:
+            for source in self.hardware.values():
+                source.join()
+            self._receive_pending_updates()
+            self._finish_manifest()
         return result | self._recording_state()
 
     def _set_key_label(self, command: gui_protocol.Command) -> dict[str, object]:
@@ -640,6 +658,7 @@ class Recorder(Runnables):
         self.frames[update.source_name] += update.frames
         self._record_buffer_status(update)
         self.files_written.update(update.files)
+        self.session_files_written.update(update.files)
         self.manifest_file_end_frames.update(update.file_end_frames or {})
         self.manifest_file_end_timestamps.update(update.file_end_timestamps or {})
         for file_record in update.file_records or []:
@@ -793,7 +812,7 @@ class Recorder(Runnables):
             return
         self.manifest = session_manifest.SessionManifestWriter(
             self._manifest_path(),
-            started_at=session_manifest.timestamp_to_json(self.state.start_time),
+            started_at=session_manifest.timestamp_to_json(self.session_start_time),
         )
 
     def _finish_manifest(self) -> None:
@@ -814,13 +833,36 @@ class Recorder(Runnables):
                         }
                     )
                 )
+        ended_at = times.timestamp()
         self._write_manifest_record(
             session_manifest.ManifestFooter(
-                ended_at=session_manifest.timestamp_to_json(times.timestamp()),
-                duration=self.state.elapsed_time,
+                ended_at=session_manifest.timestamp_to_json(ended_at),
+                duration=ended_at - self.session_start_time,
             )
         )
         self.manifest.close()
+        self.manifest = None
+
+    def _start_recording_session(self) -> None:
+        self.session_start_time = times.timestamp()
+        self.session_files_written = set()
+        self.manifest_file_end_frames = {}
+        self.manifest_file_end_timestamps = {}
+        self.manifest_files = {}
+        if self.daemon_record_directory is not None:
+            output_directory = _available_directory(
+                self.daemon_record_directory
+                / _daemon_session_directory_name(self.session_start_time)
+            )
+            directory = self.cfg.directory.model_copy(
+                update={'output_directory': str(output_directory)}
+            )
+            self.cfg = self.cfg.model_copy(update={'directory': directory})
+            self.cfg.__dict__.pop('output_path_pattern', None)
+            for source in self.sources.values():
+                source.cfg = self.cfg
+        self._start_manifest()
+        self.session_stopped = False
 
     def _record_warning(self, warning: str) -> None:
         self.warnings.append(warning)
@@ -885,14 +927,14 @@ class Recorder(Runnables):
         return report | {'profiles_path': str(profiles_path)}
 
     def _manifest_path(self) -> Path:
-        paths = sorted(path for path in self.files_written if path.exists())
+        paths = sorted(path for path in self.session_files_written if path.exists())
         if paths:
             parent = Path(os.path.commonpath([path.parent for path in paths]))
             return parent / 'recs-session.jsonl'
 
         output_directory = self.cfg.directory.output_directory
         if output_directory:
-            return _manifest_directory(output_directory, self.state.start_time) / (
+            return _manifest_directory(output_directory, self.session_start_time) / (
                 'recs-session.jsonl'
             )
         return Path('recs-session.jsonl')
@@ -915,9 +957,14 @@ def _with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
     if cfg.directory.output_directory:
         return cfg
 
-    output_directory = _daemon_record_directory(cfg)
-    if output_directory is None:
-        output_directory = _available_session_directory(timestamp)
+    if (record_directory := _daemon_record_directory(cfg)) is not None:
+        output_directory = _available_directory(
+            record_directory / _daemon_session_directory_name(timestamp)
+        )
+    else:
+        output_directory = _available_directory(
+            Path(_session_directory_name(timestamp))
+        )
 
     directory = cfg.directory.model_copy(
         update={'output_directory': str(output_directory)}
@@ -979,8 +1026,7 @@ def _windows_record_disks() -> list[Path]:
     return disks
 
 
-def _available_session_directory(timestamp: float) -> Path:
-    path = Path(_session_directory_name(timestamp))
+def _available_directory(path: Path) -> Path:
     if not path.exists():
         return path
 
@@ -996,6 +1042,10 @@ def _session_directory_name(timestamp: float) -> str:
     if os.name == 'nt':
         return datetime.fromtimestamp(timestamp).strftime('recs %Y-%m-%d %H-%M-%S')
     return datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+
+
+def _daemon_session_directory_name(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def _manifest_directory(output_directory: str, timestamp: float) -> Path:

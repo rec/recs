@@ -279,8 +279,9 @@ alive:
 ```
 
 Both commands stop currently running source recorders. `stop_recording` also
-sets `stopped: true` in the recording state. The daemon remains alive and
-continues device and IPC monitoring.
+sets `stopped: true`, drains the source recorders, and finishes the current
+session manifest. The daemon remains alive and continues device and IPC
+monitoring.
 
 Clients can allow recording to start again:
 
@@ -289,8 +290,10 @@ Clients can allow recording to start again:
 {"type":"command","id":"c4","command":"start_recording"}
 ```
 
-Both commands clear the paused and stopped state. Matching devices are started
-again on the next device poll.
+Both commands clear the paused and stopped state. After `stop_recording`, they
+start a new session and manifest before matching devices start again on the
+next device poll. Automatic daemon sessions use a new timestamped directory
+under the configured recording directory.
 
 Lifecycle commands write manifest events:
 

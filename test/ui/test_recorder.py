@@ -618,7 +618,9 @@ def test_recorder_summarizes_interrupt(
     second = tmp_path / 'second.wav'
     first.touch()
     second.touch()
-    rec.files_written.update((second, tmp_path / 'deleted.wav', first))
+    files = (second, tmp_path / 'deleted.wav', first)
+    rec.files_written.update(files)
+    rec.session_files_written.update(files)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 165.25)
 
     def interrupt() -> None:
@@ -1038,7 +1040,9 @@ def test_control_request_pauses_and_resumes_recording(
 def test_control_request_stops_and_starts_recording(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
+    tmp_path: Path,
 ) -> None:
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], silent=True))
@@ -1056,6 +1060,34 @@ def test_control_request_stops_and_starts_recording(
     assert start.replies == [
         {'ok': True, 'result': {'paused': False, 'stopped': False}}
     ]
+
+
+def test_daemon_start_after_stop_uses_new_session_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    first = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    second = datetime(2026, 6, 23, 21, 34, 10).timestamp()
+    times = iter([first, first, first, second, second])
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: next(times))
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [tmp_path])
+
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec._start_manifest()
+    first_manifest = tmp_path / 'recs' / '2026-06-23 20:34:10' / 'recs-session.jsonl'
+
+    rec._stop_recording()
+    rec._stop_recording()
+    rec._resume_recording('start_recording')
+
+    second_manifest = tmp_path / 'recs' / '2026-06-23 21:34:10' / 'recs-session.jsonl'
+    assert first_manifest.exists()
+    assert read_jsonl(first_manifest)[-1]['type'] == 'footer'
+    assert second_manifest.exists()
 
 
 def test_control_request_reports_device_and_disk_status(
@@ -1297,12 +1329,14 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
         lambda p: DiskUsage(100, 50, 10 if p == small else 90),
     )
 
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
     cfg = recorder._with_default_output_directory(
-        Cfg(default_record_directory='takes'),
-        0,
+        Cfg(default_record_directory='takes'), timestamp
     )
 
-    assert cfg.directory.output_directory == str(large / 'takes')
+    assert cfg.directory.output_directory == str(
+        large / 'takes' / '2026-06-23 20:34:10'
+    )
 
 
 def test_daemon_default_output_directory_falls_back_to_system_disk(
@@ -1313,9 +1347,12 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [])
     monkeypatch.setattr(recorder.Path, 'home', lambda: tmp_path)
 
-    cfg = recorder._with_default_output_directory(Cfg(), 0)
+    timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    cfg = recorder._with_default_output_directory(Cfg(), timestamp)
 
-    assert cfg.directory.output_directory == str(tmp_path / 'recs')
+    assert cfg.directory.output_directory == str(
+        tmp_path / 'recs' / '2026-06-23 20:34:10'
+    )
 
 
 def test_daemon_default_output_directory_keeps_explicit_directory(
