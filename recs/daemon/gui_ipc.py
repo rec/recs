@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import threading
 import time
@@ -360,4 +361,10 @@ def daemon_mode_enabled() -> bool:
 
 def _write_status(path: Path, status: DaemonStatus) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(status.model_dump_json() + '\n')
+    content = status.model_dump_json() + '\n'
+    tmp = path.with_name(f'.{path.name}.tmp')
+    with tmp.open('w') as fp:
+        fp.write(content)
+        fp.flush()
+        os.fsync(fp.fileno())
+    tmp.replace(path)

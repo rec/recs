@@ -1,3 +1,4 @@
+import json
 import typing
 from pathlib import Path
 
@@ -156,8 +157,11 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
 
     server.update()
 
-    assert '"rows":[{"device":"Mic"}]' in server.paths.status.read_text()
-    assert '"errors":["Device Mic failed"]' in server.paths.status.read_text()
+    content = server.paths.status.read_text()
+    json.loads(content)
+    assert '"rows":[{"device":"Mic"}]' in content
+    assert '"errors":["Device Mic failed"]' in content
+    assert not server.paths.status.with_name('.status.json.tmp').exists()
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
