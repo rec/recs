@@ -1,5 +1,6 @@
 import contextlib
 import math
+import threading
 import typing as t
 from multiprocessing.connection import Connection
 from pathlib import Path
@@ -20,6 +21,7 @@ from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
 DEFAULT_BLOCK_FRAMES = 512
+UPDATE_DRAIN_TIMEOUT = 0.1
 
 
 class BufferStats(BaseModel):
@@ -53,6 +55,62 @@ class SourceFailure(t.NamedTuple):
 class SourceControl(t.NamedTuple):
     cfg: Cfg | None = None
     track_names: DeviceTrackNames | None = None
+
+
+class SourceUpdateTransport:
+    def __init__(self, connection: Connection) -> None:
+        self.connection = connection
+        self.lock = threading.Lock()
+        self.message: SourceUpdate | SourceFailure | None = None
+        self.available = threading.Event()
+        self.idle = threading.Event()
+        self.idle.set()
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(
+            target=self._send,
+            daemon=True,
+            name='SourceUpdates',
+        )
+
+    def start(self) -> None:
+        self.thread.start()
+
+    def publish(self, message: SourceUpdate | SourceFailure) -> None:
+        with self.lock:
+            if isinstance(self.message, SourceUpdate) and isinstance(
+                message, SourceUpdate
+            ):
+                self.message = _merge_updates(self.message, message)
+            else:
+                self.message = message
+            self.available.set()
+            self.idle.clear()
+
+    def stop(self) -> None:
+        self.stopped.set()
+        self.available.set()
+
+    def finish(self) -> None:
+        self.idle.wait(UPDATE_DRAIN_TIMEOUT)
+        self.stop()
+
+    def _send(self) -> None:
+        while not self.stopped.is_set():
+            self.available.wait()
+            self.available.clear()
+            with self.lock:
+                message, self.message = self.message, None
+            if message is None:
+                continue
+            try:
+                self.connection.send(message)
+            except (BrokenPipeError, EOFError, OSError):
+                return
+            with self.lock:
+                if self.message is None:
+                    self.idle.set()
+                else:
+                    self.available.set()
 
 
 class SourceFile(t.NamedTuple):
@@ -152,14 +210,16 @@ class SourceRecorder(Runnables):
     def __init__(
         self,
         cfg: Cfg,
-        connection: Connection,
+        control_connection: Connection,
         stop_event: t.Any,
         tracks: t.Sequence[Track],
+        update_transport: SourceUpdateTransport,
         track_names: DeviceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
-        self.connection = connection
+        self.control_connection = control_connection
         self.stop_event = stop_event
+        self.update_transport = update_transport
 
         self.source = tracks[0].source
         assert all(t.source == self.source for t in tracks)
@@ -212,8 +272,11 @@ class SourceRecorder(Runnables):
             writer.set_cfg(cfg, self.times)
 
     def _receive_control_messages(self) -> None:
-        while self.connection.poll():
-            message = self.connection.recv()
+        while self.control_connection.poll():
+            try:
+                message = self.control_connection.recv()
+            except (EOFError, OSError):
+                return
             if not isinstance(message, SourceControl):
                 continue
             if message.cfg is not None:
@@ -245,7 +308,7 @@ class SourceRecorder(Runnables):
             buffer_warnings.append(
                 f'Device {self.source.name} input status: {update.status}'
             )
-        self.connection.send(
+        self.update_transport.publish(
             SourceUpdate(
                 channels=msgs,
                 files=files,
@@ -298,3 +361,25 @@ class SourceRecorder(Runnables):
         for writer in self.channel_writers:
             result.update(writer.file_end_timestamps)
         return result
+
+
+def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
+    file_records = {r.path: r for r in first.file_records or []}
+    file_records.update({r.path: r for r in second.file_records or []})
+    return SourceUpdate(
+        channels=second.channels,
+        files=list(dict.fromkeys([*first.files, *second.files])),
+        frames=first.frames + second.frames,
+        source_name=second.source_name,
+        timestamp=second.timestamp,
+        buffer_stats=second.buffer_stats,
+        buffer_warnings=[
+            *(first.buffer_warnings or []),
+            *(second.buffer_warnings or []),
+        ],
+        file_records=list(file_records.values()),
+        file_end_frames=(first.file_end_frames or {}) | (second.file_end_frames or {}),
+        file_end_timestamps=(first.file_end_timestamps or {})
+        | (second.file_end_timestamps or {}),
+        frame_count=second.frame_count,
+    )

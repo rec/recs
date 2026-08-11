@@ -1,3 +1,5 @@
+import threading
+import time
 import typing as t
 from pathlib import Path
 
@@ -14,11 +16,17 @@ from recs.ui.source_recorder import SourceControl, SourceFailure
 class FakeConnection:
     closed: bool = False
 
+    def __init__(self) -> None:
+        self.sent: list[object] = []
+
     def close(self) -> None:
         self.closed = True
 
     def poll(self) -> bool:
         return False
+
+    def send(self, message: object) -> None:
+        self.sent.append(message)
 
 
 class BrokenPollConnection(FakeConnection):
@@ -28,10 +36,12 @@ class BrokenPollConnection(FakeConnection):
 
 class FakeSendConnection(FakeConnection):
     def __init__(self) -> None:
-        self.sent: list[object] = []
+        super().__init__()
+        self.sent_event = threading.Event()
 
     def send(self, message: object) -> None:
-        self.sent.append(message)
+        super().send(message)
+        self.sent_event.set()
 
 
 class FakeEvent:
@@ -42,6 +52,18 @@ class FakeEvent:
 
     def set(self) -> None:
         self._is_set = True
+
+
+class BlockingSendConnection(FakeConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def send(self, message: object) -> None:
+        self.started.set()
+        self.release.wait()
+        super().send(message)
 
 
 class FakeProcess:
@@ -77,7 +99,7 @@ class FakeProcess:
 def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
     connections: list[FakeConnection] = []
 
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         parent = FakeConnection()
         connections.append(parent)
         return parent, FakeConnection()
@@ -110,7 +132,7 @@ def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None
 def test_source_process_starts_recorder_with_gui_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         return FakeConnection(), FakeConnection()
 
     monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
@@ -136,7 +158,7 @@ def test_source_process_starts_recorder_with_gui_disabled(
 def test_source_process_names_recorder_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         return FakeConnection(), FakeConnection()
 
     monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
@@ -162,7 +184,7 @@ def test_source_process_applies_device_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         return FakeConnection(), FakeConnection()
 
     profiles = tmp_path / 'profiles.json'
@@ -190,9 +212,12 @@ def test_source_process_updates_track_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = FakeSendConnection()
+    calls = 0
 
-    def pipe() -> tuple[FakeSendConnection, FakeConnection]:
-        return parent, FakeConnection()
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
+        nonlocal calls
+        calls += 1
+        return (FakeConnection(), parent) if calls == 2 else (FakeConnection(), parent)
 
     monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
     monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
@@ -212,14 +237,51 @@ def test_source_process_updates_track_names(
     owner.set_track_names({'Mic': {'Guitar': 1}})
 
     assert owner.process.kwargs['track_names'] == track_names
+    assert parent.sent_event.wait(0.1)
     assert parent.sent == [SourceControl(track_names={'Mic': {'Guitar': 1}})]
+
+
+def test_source_controls_do_not_block_recorder_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = BlockingSendConnection()
+    calls = 0
+
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            return FakeConnection(), parent
+        return FakeConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner.start()
+
+    start = time.monotonic()
+    owner.set_track_names({'Mic': {'Guitar': 1}})
+
+    assert time.monotonic() - start < 0.1
+    assert parent.started.wait(0.1)
+    parent.release.set()
+    owner.stop()
+    owner.join()
 
 
 def test_source_process_uses_per_device_noise_floor(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         return FakeConnection(), FakeConnection()
 
     profiles = tmp_path / 'profiles.json'
@@ -256,7 +318,7 @@ def test_source_process_uses_per_device_noise_floor(
 def test_source_process_ignores_broken_connection_poll(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def pipe() -> tuple[FakeConnection, FakeConnection]:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
         return BrokenPollConnection(), FakeConnection()
 
     monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
@@ -285,7 +347,7 @@ def test_source_process_reports_recorder_start_failure(
     def fail(**kwargs: object) -> None:
         raise ValueError('no input device')
 
-    monkeypatch.setattr(source_process, 'SourceRecorder', fail)
+    monkeypatch.setattr(source_process.source_recorder, 'SourceRecorder', fail)
     source = InputDevice(
         {
             'default_samplerate': 48_000,
@@ -297,9 +359,10 @@ def test_source_process_reports_recorder_start_failure(
 
     source_process._run_source_recorder(
         cfg=Cfg(),
-        connection=connection,
+        control_connection=FakeConnection(),
         stop_event=FakeEvent(),
         tracks=[Track(source, '1')],
+        update_connection=connection,
     )
 
     assert connection.sent == [

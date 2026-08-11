@@ -1,8 +1,12 @@
+import threading
+import time
+
 import numpy as np
 
+from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
-from recs.ui.source_recorder import InputBuffer
+from recs.ui.source_recorder import InputBuffer, SourceUpdate, SourceUpdateTransport
 
 
 def test_input_buffer_drops_updates_when_full() -> None:
@@ -52,3 +56,38 @@ def test_input_buffer_reports_overflow_and_pressure_once() -> None:
         'Device Mic audio buffer pressure: 0.011 seconds queued',
     ]
     assert buffer.warnings('Mic', 10.5) == []
+
+
+def test_source_updates_do_not_block_when_parent_read_blocks() -> None:
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    first = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=[],
+        frames=512,
+        source_name='Mic',
+    )
+    second = first._replace(frames=256)
+    transport.start()
+    transport.publish(first)
+    assert connection.started.wait(0.1)
+
+    start = time.monotonic()
+    transport.publish(second)
+
+    assert time.monotonic() - start < 0.1
+    connection.release.set()
+    assert connection.finished.wait(0.1)
+    transport.stop()
+
+
+class BlockingConnection:
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.finished = threading.Event()
+
+    def send(self, message: object) -> None:
+        self.started.set()
+        self.release.wait()
+        self.finished.set()
