@@ -1,5 +1,7 @@
 import traceback
 import typing as t
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from test.conftest import BLOCK_SIZE, TIMESTAMP
 from test.mock_input_stream import InputStreamReporter
@@ -172,13 +174,14 @@ class RecsRunner(BaseModel):
         return self.state.timestamp
 
     def run_cli(self) -> None:
-        try:
-            run_cli.run_cli(self.cfg)
-        except ValueError as e:
-            if 'Invalid file object' not in str(e):
+        with redirect_stdout(StringIO()):
+            try:
+                run_cli.run_cli(self.cfg)
+            except ValueError as e:
+                if 'Invalid file object' not in str(e):
+                    self.state.error = traceback.format_exc()
+            except Exception:
                 self.state.error = traceback.format_exc()
-        except Exception:
-            self.state.error = traceback.format_exc()
 
     def run(self) -> None:
         self.state.error = ''
@@ -202,6 +205,9 @@ class RecsRunner(BaseModel):
                     self.state.timestamp = TIMESTAMP + offset
                     stream._timestamp = self.state.timestamp
                     stream._recs_callback()
+            self.state.timestamp = (
+                max(stream._timestamp for stream in self.state.streams) + DELAY
+            )
 
     def _run_bounded(self) -> None:
         thread = HasThread(self.run_cli, name='RunCli')
@@ -211,10 +217,9 @@ class RecsRunner(BaseModel):
             self._send_events()
             self._wait_until_stopped()
         finally:
-            thread.stop()
             thread.join(timeout=1)
 
-        if thread.running:
+        if thread.thread.is_alive():
             raise AssertionError('run_cli thread did not stop')
         if self.state.error:
             raise AssertionError(self.state.error)
@@ -276,6 +281,9 @@ class RecsRunner(BaseModel):
             if 'stop' not in stream._recs_report:
                 self.state.timestamp = TIMESTAMP + offset
                 stream._recs_callback()
+        self.state.timestamp = (
+            max(stream._timestamp for stream in self.state.streams) + DELAY
+        )
 
     def _wait_until_ready(self) -> None:
         for _ in range(TRIES):
