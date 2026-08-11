@@ -22,6 +22,7 @@ stream, or UI objects that are created during startup.
   - `band_mode`
   - `buffer_status_period`
   - `buffer_warning_fraction`
+  - `channel_noise_floors`
   - `longest_file_time`
   - `minimum_free_space`
   - `noise_floor`

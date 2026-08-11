@@ -27,6 +27,7 @@ def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
         'recording.band_mode',
         'recording.buffer_status_period',
         'recording.buffer_warning_fraction',
+        'recording.channel_noise_floors',
         'recording.longest_file_time',
         'recording.minimum_free_space',
         'recording.noise_floor',

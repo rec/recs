@@ -212,12 +212,9 @@ def test_source_process_updates_track_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = FakeSendConnection()
-    calls = 0
 
     def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
-        nonlocal calls
-        calls += 1
-        return (FakeConnection(), parent) if calls == 2 else (FakeConnection(), parent)
+        return FakeConnection(), parent
 
     monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
     monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
@@ -239,6 +236,36 @@ def test_source_process_updates_track_names(
     assert owner.process.kwargs['track_names'] == track_names
     assert parent.sent_event.wait(0.1)
     assert parent.sent == [SourceControl(track_names={'Mic': {'Guitar': 1}})]
+
+
+def test_source_process_requests_calibration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = FakeSendConnection()
+    calls = 0
+
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
+        nonlocal calls
+        calls += 1
+        return (FakeConnection(), parent) if calls == 2 else (FakeConnection(), parent)
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
+
+    owner.start()
+    owner.calibrate(['1'])
+
+    assert parent.sent_event.wait(0.1)
+    assert parent.sent == [SourceControl(calibration_tracks=['1'])]
 
 
 def test_source_controls_do_not_block_recorder_loop(

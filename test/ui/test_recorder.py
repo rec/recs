@@ -40,8 +40,14 @@ def read_jsonl(path: Path) -> list[dict[str, typing.Any]]:
 
 
 class FakeConnection:
+    def __init__(self) -> None:
+        self.messages: list[SourceUpdate] = []
+
     def poll(self) -> bool:
-        return False
+        return bool(self.messages)
+
+    def recv(self) -> SourceUpdate:
+        return self.messages.pop(0)
 
 
 class FakeSourceProcess:
@@ -53,6 +59,7 @@ class FakeSourceProcess:
     ) -> None:
         self.name = tracks[0].source.name
         self.source = tracks[0].source
+        self.tracks = tracks
         self.connection = FakeConnection()
         self.started = False
         self.running = False
@@ -89,6 +96,17 @@ class FakeSourceProcess:
 
     def set_cfg(self, cfg: Cfg) -> None:
         self.cfg = cfg
+
+    def calibrate(self, tracks: list[str]) -> None:
+        self.connection.messages.append(
+            SourceUpdate(
+                channels={},
+                files=[],
+                frames=0,
+                source_name=self.name,
+                calibration=dict.fromkeys(tracks, 6.0),
+            )
+        )
 
     def take_updates(self) -> list[SourceUpdate]:
         updates, self.pending_updates = self.pending_updates, []
@@ -854,39 +872,36 @@ def test_silence_preview_report_recommends_thresholds(
     }
 
 
-def test_calibrate_control_request_writes_profile(
+def test_calibrate_control_request_sets_channel_noise_floor(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
-    tmp_path: Path,
 ) -> None:
-    profiles = tmp_path / 'profiles.json'
-    profiles.write_text('{"Mic": {"recording": {"quiet_after_end": 5}}}')
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(
-        Cfg(profiles=profiles, include=['Mic'], preview_headroom=9, silent=True)
+    monkeypatch.setattr(
+        recorder.connection,
+        'wait',
+        lambda c, timeout: [i for i in c if i.poll()],
     )
+    rec = Recorder(Cfg(include=['Mic'], preview_headroom=9, silent=True))
+    rec.hardware['Mic'].start()
     request = FakeControlRequest()
     rec.live = FakeControlDisplay([request])
-    rec.state.update({'Mic': {'1': ChannelState(max_amp=0.5, min_amp=-0.5)}})
 
     rec._receive_control_requests()
 
-    assert json.loads(profiles.read_text()) == {
-        'Mic': {'noise_floor': 15.0, 'recording': {'quiet_after_end': 5}}
-    }
     assert all(source.cfg is rec.cfg for source in rec.sources.values())
+    assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 15.0}}
     assert request.responses == [
         gui_protocol.Calibrated(
             type='calibrated',
-            measurements={'Mic - 1': 6.020599913279624, '(all)': 6.020599913279624},
-            profiles={'Mic': {'noise_floor': 15.0}},
-            profiles_path=str(profiles),
+            measurements={'Mic - 1': 6.0},
+            noise_floors={'Mic': {'1': 15.0}},
         )
     ]
 
 
-def test_calibrate_control_request_requires_profiles(
+def test_calibrate_control_request_requires_online_channels(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
 ) -> None:
@@ -900,9 +915,21 @@ def test_calibrate_control_request_requires_profiles(
 
     assert request.responses == [
         gui_protocol.Error(
-            type='error', message='Cannot calibrate noise floor without --profiles'
+            type='error', message='No online audio channels to calibrate'
         )
     ]
+
+
+def test_calibration_selects_both_stereo_channels(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Ext'], silent=True))
+    rec.hardware['Ext'].start()
+
+    assert rec._calibration_tracks({'Ext': [1]}) == {'Ext': ['1-2']}
 
 
 def test_control_request_reports_capabilities(
@@ -1232,28 +1259,23 @@ def test_control_request_rejects_invalid_track_names(
 def test_control_request_sets_noise_floor(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
-    tmp_path: Path,
 ) -> None:
-    profiles = tmp_path / 'profiles.json'
-    profiles.write_text('{"Mic": {"recording": {"quiet_after_end": 5}}}')
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(profiles=profiles, include=['Mic'], silent=True))
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
     request = FakeControlRequest(
         gui_protocol.SetNoiseFloor(
-            type='set_noise_floor', source='Mic', noise_floor=42.5
+            type='set_noise_floor', source='Mic', channel=1, noise_floor=42.5
         )
     )
     rec.live = FakeControlDisplay([request])
 
     rec._receive_control_requests()
 
-    assert json.loads(profiles.read_text()) == {
-        'Mic': {'noise_floor': 42.5, 'recording': {'quiet_after_end': 5}}
-    }
+    assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 42.5}}
     assert request.responses == [
         gui_protocol.NoiseFloorSet(
-            type='noise_floor_set', source='Mic', noise_floor=42.5
+            type='noise_floor_set', source='Mic', channel=1, noise_floor=42.5
         )
     ]
 

@@ -12,8 +12,9 @@ The target workflow is:
 1. Boot the Raspberry Pi with the normal recording drive attached.
 2. Set mixer and channel levels for the show.
 3. Insert a dedicated command USB stick.
-4. `recs` detects the command stick and runs silence preview calibration.
-5. `recs` writes per-device noise-floor profiles.
+4. `recs` detects the command stick and requests calibration.
+5. `recs` measures each selected track for 500 ms and updates its per-track
+   noise-floor override in the running configuration.
 6. `recs` writes a result file back to the command stick.
 
 ## Physical interface
@@ -70,11 +71,14 @@ appears:
 
 1. Ignore the configured recording/output drive.
 2. Look for `RECS_CALIBRATE`.
-3. If found, run silence preview for a configured duration.
-4. Compute per-device noise-floor recommendations using `preview_headroom`.
-5. Write those recommendations to the daemon's profile/config file.
+3. If found, request calibration for all online tracks.
+4. Measure each track for 500 ms and add `preview_headroom` to its individual
+   noise-floor result.
+5. Apply those values to `recording.channel_noise_floors` through the normal
+   runtime configuration update path.
 6. Write `RECS_CALIBRATE_DONE` or `RECS_CALIBRATE_FAILED` to the command stick.
-7. Record a manifest/session event saying calibration happened.
+7. Record calibration events and the resulting configuration update in the
+   session manifest.
 
 The operation should be one-shot per insertion. Leaving the command stick inserted
 should not repeatedly recalibrate unless the marker or insertion state changes in

@@ -32,6 +32,7 @@ class KeyReleased(BaseModel):
 
 class Calibrate(BaseModel):
     type: typing.Literal['calibrate']
+    channels: dict[str, list[int]] = Field(default_factory=dict)
 
 
 class Capabilities(BaseModel):
@@ -91,7 +92,8 @@ class SetKeyLabel(BaseModel):
 class SetNoiseFloor(BaseModel):
     type: typing.Literal['set_noise_floor']
     source: str
-    noise_floor: float
+    channel: int
+    noise_floor: float | None
 
 
 class SetTrackNames(BaseModel):
@@ -114,8 +116,7 @@ class StopRecording(BaseModel):
 class Calibrated(BaseModel):
     type: typing.Literal['calibrated']
     measurements: dict[str, float]
-    profiles: dict[str, dict[str, float]]
-    profiles_path: str
+    noise_floors: dict[str, dict[str, float]]
 
 
 class CapabilitiesResult(BaseModel):
@@ -167,7 +168,8 @@ class MutableAttributesResult(BaseModel):
 
 class NoiseFloorSet(BaseModel):
     type: typing.Literal['noise_floor_set']
-    noise_floor: float
+    channel: int
+    noise_floor: float | None
     source: str
 
 

@@ -182,11 +182,11 @@ There are two useful control paths:
 1. Phone/tablet button in `stage-control`.
 2. Dedicated command USB stick as a fallback physical trigger.
 
-The current `silence_preview` direction is:
+The calibration direction is:
 
-- measure current channel/source levels;
+- measure each selected channel or stereo pair for 500 ms;
 - add `preview_headroom`;
-- write per-device `noise_floor` recommendations;
+- update per-track `channel_noise_floors`;
 - do not change the global `--noise-floor`;
 - do not recommend quiet-before or quiet-after values.
 

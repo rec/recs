@@ -300,6 +300,13 @@ def recs(
             help='Warn when the audio buffer reaches this fraction full',
         ),
     ],
+    channel_noise_floors: t.Annotated[
+        dict[str, dict[str, float | None]],
+        tyro.conf.arg(
+            default=RECS.recording.channel_noise_floors,
+            help='Per-device mono or stereo track noise floor overrides',
+        ),
+    ],
     infinite_length: t.Annotated[
         bool,
         tyro.conf.arg(

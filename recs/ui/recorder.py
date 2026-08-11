@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import typing
 from datetime import datetime
 from multiprocessing import connection
@@ -33,6 +34,7 @@ from .source_tracks import input_device_tracks, source_tracks
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
 SOURCE_STALL_TIMEOUT = 10.0
+CALIBRATION_TIMEOUT = 15.0
 API_COMMANDS = [
     'calibrate',
     'capabilities',
@@ -107,6 +109,7 @@ class Recorder(Runnables):
         self.disk_space_reported = False
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
+        self.calibration_results: dict[str, dict[str, float]] = {}
         self.present: set[str] = set()
         self.hardware = {
             name: source
@@ -462,7 +465,7 @@ class Recorder(Runnables):
         request: gui_protocol.Request,
     ) -> gui_protocol.Response:
         if isinstance(request, gui_protocol.Calibrate):
-            return self._calibrate_noise_floor()
+            return self._calibrate_noise_floor(request)
         if isinstance(request, gui_protocol.Capabilities):
             return gui_protocol.CapabilitiesResult(
                 type='capabilities_result',
@@ -570,22 +573,17 @@ class Recorder(Runnables):
     def _set_noise_floor(
         self, request: gui_protocol.SetNoiseFloor
     ) -> gui_protocol.NoiseFloorSet:
-        profiles_path = self.cfg.device.profiles
-        if not profiles_path.name:
-            raise RecsError('Cannot set noise floor without --profiles')
-        profiles = self.cfg.device_profiles.copy()
-        current = profiles.get(request.source, {})
-        profiles[request.source] = current | {'noise_floor': request.noise_floor}
-        _write_text_atomically(
-            profiles_path,
-            json.dumps(profiles, indent=2, sort_keys=True) + '\n',
-        )
-        self.cfg.__dict__.pop('device_profiles', None)
-        for source in self.sources.values():
-            source.cfg = self.cfg
+        track = self._track_for_channel(request.source, request.channel)
+        floors = {
+            source: dict(channels)
+            for source, channels in self.cfg.recording.channel_noise_floors.items()
+        }
+        floors.setdefault(request.source, {})[track.name] = request.noise_floor
+        self._set_cfg_value('recording.channel_noise_floors', floors)
         return gui_protocol.NoiseFloorSet(
             type='noise_floor_set',
             source=request.source,
+            channel=request.channel,
             noise_floor=request.noise_floor,
         )
 
@@ -621,22 +619,26 @@ class Recorder(Runnables):
         )
 
     def _set_cfg(self, request: gui_protocol.SetCfg) -> gui_protocol.CfgSet:
+        value = self._set_cfg_value(request.address, request.value)
+        return gui_protocol.CfgSet(type='cfg_set', address=request.address, value=value)
+
+    def _set_cfg_value(self, address: str, value: object) -> object:
         try:
-            self.cfg = self.cfg.set_attr(request.address, request.value)
+            self.cfg = self.cfg.set_attr(address, value)
         except ValueError as e:
             raise RecsError(str(e)) from None
-        value = self.cfg.get_attr(request.address)
+        value = self.cfg.get_attr(address)
         for source in self.sources.values():
             source.set_cfg(self.cfg)
         self._write_manifest_record(
             session_manifest.ManifestEvent(
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='cfg_set',
-                address=request.address,
+                address=address,
                 value=value,
             )
         )
-        return gui_protocol.CfgSet(type='cfg_set', address=request.address, value=value)
+        return value
 
     def _reload_profiles(self) -> gui_protocol.ProfilesReloaded:
         if not self.cfg.device.profiles.name:
@@ -750,6 +752,8 @@ class Recorder(Runnables):
         )
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
+        if update.calibration is not None:
+            self.calibration_results[update.source_name] = update.calibration
         if source.running and not self._source_frame_clock_valid(source, now):
             source.stop()
             self.failed.add(update.source_name)
@@ -833,6 +837,7 @@ class Recorder(Runnables):
         frame_count: int | None = None,
         start_frame: int | None = None,
         timestamp: float | None = None,
+        value: object | None = None,
     ) -> None:
         self._write_manifest_record(
             session_manifest.ManifestEvent(
@@ -844,6 +849,7 @@ class Recorder(Runnables):
                 track=track,
                 frame_count=frame_count,
                 start_frame=start_frame,
+                value=value,
             )
         )
 
@@ -962,34 +968,109 @@ class Recorder(Runnables):
             'profiles': profiles,
         }
 
-    def _calibrate_noise_floor(self) -> gui_protocol.Calibrated:
-        profiles_path = self.cfg.device.profiles
-        if not profiles_path.name:
-            raise RecsError('Cannot calibrate noise floor without --profiles')
+    def _calibrate_noise_floor(
+        self, request: gui_protocol.Calibrate
+    ) -> gui_protocol.Calibrated:
+        selected = self._calibration_tracks(request.channels)
+        self.calibration_results = {
+            name: result
+            for name, result in self.calibration_results.items()
+            if name not in selected
+        }
+        for name, tracks in selected.items():
+            self.hardware[name].calibrate(tracks)
+            for track in tracks:
+                self._record_event('calibration_started', source=name, track=track)
 
-        report = self._silence_preview_report()
-        profiles = self.cfg.device_profiles.copy()
-        for source_name, profile in typing.cast(
-            dict[str, dict[str, object]], report['profiles']
-        ).items():
-            current = profiles.get(source_name, {})
-            profiles[source_name] = current | profile
+        deadline = time.monotonic() + CALIBRATION_TIMEOUT
+        while selected.keys() - self.calibration_results.keys():
+            sources = [
+                self.hardware[name] for name in selected if self.hardware[name].is_alive
+            ]
+            if not sources:
+                break
+            timeout = max(0.0, deadline - time.monotonic())
+            if not timeout:
+                break
+            connections = [source.connection for source in sources]
+            for conn in connection.wait(connections, timeout=timeout):
+                self._receive_connection(typing.cast(connection.Connection, conn))
 
-        _write_text_atomically(
-            profiles_path,
-            json.dumps(profiles, indent=2, sort_keys=True) + '\n',
-        )
-        self.cfg = type(self.cfg)(**self.cfg.model_dump())
-        for source in self.sources.values():
-            source.cfg = self.cfg
-        measurements = typing.cast(dict[str, float], report['measurements'])
-        values = typing.cast(dict[str, dict[str, float]], report['profiles'])
+        missing = selected.keys() - self.calibration_results.keys()
+        if missing:
+            names = ', '.join(sorted(missing))
+            raise RecsError(f'Calibration did not complete for: {names}')
+
+        floors = {
+            source: dict(channels)
+            for source, channels in self.cfg.recording.channel_noise_floors.items()
+        }
+        measurements: dict[str, float] = {}
+        noise_floors: dict[str, dict[str, float]] = {}
+        for source, tracks in selected.items():
+            result = self.calibration_results[source]
+            selected_measurements = {track: result[track] for track in tracks}
+            measurements.update(
+                {
+                    f'{source} - {track}': value
+                    for track, value in selected_measurements.items()
+                }
+            )
+            values = {
+                track: round(value + self.cfg.recording.preview_headroom, 1)
+                for track, value in selected_measurements.items()
+            }
+            floors.setdefault(source, {}).update(values)
+            noise_floors[source] = values
+            for track, value in values.items():
+                self._record_event(
+                    'calibrated', source=source, track=track, value=value
+                )
+
+        self._set_cfg_value('recording.channel_noise_floors', floors)
         return gui_protocol.Calibrated(
             type='calibrated',
             measurements=measurements,
-            profiles=values,
-            profiles_path=str(profiles_path),
+            noise_floors=noise_floors,
         )
+
+    def _calibration_tracks(
+        self, channels: dict[str, list[int]]
+    ) -> dict[str, list[str]]:
+        result: dict[str, list[str]] = {}
+        for source_name, source in self.hardware.items():
+            if not source.running:
+                continue
+            if not channels:
+                result[source_name] = [track.name for track in source.tracks]
+                continue
+            if requested := channels.get(source_name):
+                tracks = [
+                    self._track_for_channel(source_name, channel)
+                    for channel in requested
+                ]
+                result[source_name] = list(
+                    dict.fromkeys(track.name for track in tracks)
+                )
+
+        unknown = channels.keys() - self.hardware.keys()
+        if unknown:
+            names = ', '.join(sorted(unknown))
+            raise RecsError(f'Unknown input device: {names}')
+        if not result:
+            raise RecsError('No online audio channels to calibrate')
+        return result
+
+    def _track_for_channel(self, source_name: str, channel: int) -> Track:
+        source = self.hardware.get(source_name)
+        if source is None:
+            raise RecsError(f'Unknown input device: {source_name}')
+        if channel <= 0:
+            raise RecsError('Channel must be positive')
+        for track in source.tracks:
+            if channel in track.channels:
+                return track
+        raise RecsError(f'Device {source_name} has no selected channel {channel}')
 
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.session_files_written if path.exists())

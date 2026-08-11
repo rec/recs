@@ -10,10 +10,12 @@ import numpy as np
 from pydantic import BaseModel
 from threa import Runnables
 
+from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
 from recs.base.types import Format, SdType
+from recs.cfg import time_settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
@@ -45,6 +47,7 @@ class SourceUpdate(t.NamedTuple):
     file_end_frames: dict[Path, int] | None = None
     file_end_timestamps: dict[Path, float] | None = None
     frame_count: int | None = None
+    calibration: dict[str, float] | None = None
 
 
 class SourceFailure(t.NamedTuple):
@@ -55,6 +58,7 @@ class SourceFailure(t.NamedTuple):
 class SourceControl(t.NamedTuple):
     cfg: Cfg | None = None
     track_names: DeviceTrackNames | None = None
+    calibration_tracks: list[str] | None = None
 
 
 class SourceUpdateTransport:
@@ -232,6 +236,9 @@ class SourceRecorder(Runnables):
         )
         self._set_track_names(track_names or {})
         self.file_counts = [0] * len(self.channel_writers)
+        self.calibration_remaining: dict[str, int] = {}
+        self.calibration_maximums: dict[str, float] = {}
+        self.calibration_minimums: dict[str, float] = {}
 
         self.input_stream = self.source.input_stream(
             sdtype=t.cast(SdType, self.cfg.audio.sdtype),
@@ -283,6 +290,14 @@ class SourceRecorder(Runnables):
                 self._set_cfg(message.cfg)
             if message.track_names is not None:
                 self._set_track_names(message.track_names)
+            if message.calibration_tracks is not None:
+                self._start_calibration(message.calibration_tracks)
+
+    def _start_calibration(self, tracks: list[str]) -> None:
+        frames = max(1, round(self.source.samplerate / 2))
+        self.calibration_remaining = dict.fromkeys(tracks, frames)
+        self.calibration_maximums = dict.fromkeys(tracks, float('-inf'))
+        self.calibration_minimums = dict.fromkeys(tracks, float('inf'))
 
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
@@ -301,6 +316,7 @@ class SourceRecorder(Runnables):
             msgs[writer.track.name] = writer.receive_update(
                 block, end_timestamp, should_record, u.end_frame
             )
+        calibration = self._calibration_update(cb)
         files, file_records = self._new_files(update.array.dtype.itemsize * 8)
         stats = self.buffer.stats.model_copy()
         buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
@@ -321,12 +337,45 @@ class SourceRecorder(Runnables):
                 file_end_frames=self._file_end_frames(),
                 file_end_timestamps=self._file_end_timestamps(),
                 frame_count=u.end_frame,
+                calibration=calibration,
             )
         )
 
         self.sample_count += len(update.array)
         if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False
+
+    def _calibration_update(
+        self, blocks: dict[ChannelWriter, Block]
+    ) -> dict[str, float] | None:
+        for writer, block in blocks.items():
+            name = writer.track.name
+            remaining = self.calibration_remaining.get(name)
+            if remaining is None or remaining <= 0:
+                continue
+            measured = block[:remaining]
+            scale = measured.scale
+            self.calibration_maximums[name] = max(
+                self.calibration_maximums[name], max(measured.max) / scale
+            )
+            self.calibration_minimums[name] = min(
+                self.calibration_minimums[name], min(measured.min) / scale
+            )
+            self.calibration_remaining[name] = remaining - len(measured)
+
+        if not self.calibration_remaining or any(self.calibration_remaining.values()):
+            return None
+
+        measurements = {
+            name: time_settings.amplitude_to_db(
+                (maximum - self.calibration_minimums[name]) / 2
+            )
+            for name, maximum in self.calibration_maximums.items()
+        }
+        self.calibration_remaining = {}
+        self.calibration_maximums = {}
+        self.calibration_minimums = {}
+        return measurements
 
     def _new_files(self, bit_depth: int) -> tuple[list[Path], list[SourceFile]]:
         result: list[Path] = []
@@ -382,4 +431,5 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         file_end_timestamps=(first.file_end_timestamps or {})
         | (second.file_end_timestamps or {}),
         frame_count=second.frame_count,
+        calibration=first.calibration or second.calibration,
     )

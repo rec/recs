@@ -43,6 +43,11 @@ class SourceControlTransport:
                     if control.track_names is not None
                     else self.control.track_names
                 ),
+                calibration_tracks=(
+                    control.calibration_tracks
+                    if control.calibration_tracks is not None
+                    else self.control.calibration_tracks
+                ),
             )
             self.available.set()
 
@@ -149,6 +154,12 @@ class SourceProcess(Runnable):
         if self.started:
             self.control_transport.publish(
                 source_recorder.SourceControl(cfg=self.recorder_cfg)
+            )
+
+    def calibrate(self, tracks: list[str]) -> None:
+        if self.started:
+            self.control_transport.publish(
+                source_recorder.SourceControl(calibration_tracks=tracks)
             )
 
     def join(self, timeout: float | None = None) -> None:

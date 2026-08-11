@@ -3,10 +3,19 @@ import time
 
 import numpy as np
 
+from recs.audio.block import Block
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
-from recs.ui.source_recorder import InputBuffer, SourceUpdate, SourceUpdateTransport
+from recs.cfg.time_settings import amplitude_to_db
+from recs.cfg.track import Track
+from recs.ui.source_recorder import (
+    InputBuffer,
+    SourceRecorder,
+    SourceUpdate,
+    SourceUpdateTransport,
+)
 
 
 def test_input_buffer_drops_updates_when_full() -> None:
@@ -79,6 +88,36 @@ def test_source_updates_do_not_block_when_parent_read_blocks() -> None:
     connection.release.set()
     assert connection.finished.wait(0.1)
     transport.stop()
+
+
+def test_source_calibration_measures_exactly_half_a_second() -> None:
+    source = InputDevice(
+        {
+            'default_samplerate': 1_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    track = Track(source, '1')
+    recorder = object.__new__(SourceRecorder)
+    recorder.source = source
+    recorder._start_calibration(['1'])
+    writer = CalibrationWriter(track)
+    quiet = np.tile(np.array([-0.1, 0.1]), (400, 1))
+    measured = np.tile(np.array([-0.2, 0.2]), (100, 1))
+    ignored = np.tile(np.array([-0.9, 0.9]), (300, 1))
+
+    assert recorder._calibration_update({writer: Block(block=quiet)}) is None
+    result = recorder._calibration_update(
+        {writer: Block(block=np.concatenate((measured, ignored)))}
+    )
+
+    assert result == {'1': amplitude_to_db(0.2)}
+
+
+class CalibrationWriter:
+    def __init__(self, track: Track) -> None:
+        self.track = track
 
 
 class BlockingConnection:

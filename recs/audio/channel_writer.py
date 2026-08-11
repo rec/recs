@@ -67,6 +67,7 @@ class ChannelWriter(Runnable):
         self.metadata = cfg.metadata_dict
         self.times = times
         self.track = track
+        self.noise_floor = _noise_floor(cfg, track)
         self.track_names: DeviceTrackNames = {}
 
         self._blocks = Blocks()
@@ -124,6 +125,7 @@ class ChannelWriter(Runnable):
         )
         self.metadata = cfg.metadata_dict
         self.times = times
+        self.noise_floor = _noise_floor(cfg, self.track)
         self.longest_file_frames = times.longest_file_time
 
     def to_block(self, array: NDArray) -> Block:
@@ -143,7 +145,7 @@ class ChannelWriter(Runnable):
     def should_record(self, block: Block) -> bool:
         return (
             self.times.record_everything
-            or block.volume >= self.times.noise_floor_amplitude
+            or block.volume >= time_settings.db_to_amplitude(self.noise_floor)
         )
 
     @override
@@ -290,3 +292,10 @@ class ChannelWriter(Runnable):
             self.frames_in_file += len(b)
             self.frames_written += len(b)
             self.bytes_in_file += len(b) * self.frame_size
+
+
+def _noise_floor(cfg: Cfg, track: Track) -> float:
+    floors = cfg.recording.channel_noise_floors.get(track.source.name, {})
+    if (noise_floor := floors.get(track.name)) is not None:
+        return noise_floor
+    return cfg.recording.noise_floor

@@ -186,6 +186,9 @@ class Recording(BaseModel):
     band_mode: Annotated[bool, Mutable] = False
     buffer_status_period: Annotated[float, Mutable] = 1.0
     buffer_warning_fraction: Annotated[float, Mutable] = 0.75
+    channel_noise_floors: Annotated[
+        dict[str, dict[str, float | None]], Mutable
+    ] = Field(default_factory=dict)
     infinite_length: bool = False
     longest_file_time: Annotated[float, Mutable] = 0.0
     minimum_free_space: Annotated[int, Mutable] = 0

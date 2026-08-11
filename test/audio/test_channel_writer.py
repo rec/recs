@@ -104,6 +104,21 @@ def test_channel_writer(case, mock_devices):
             assert fp.software.startswith('https://github.com/rec/recs')
 
 
+def test_channel_noise_floor_overrides_global_floor(mock_devices: None) -> None:
+    cfg = Cfg(noise_floor=30, channel_noise_floors={'Ext': {'1-2': 20}})
+    track = cfg.aliases.to_track('Ext+1-2')
+    block = Block(block=np.tile(np.array([[-0.05, -0.05], [0.05, 0.05]]), (50, 1)))
+
+    writer = ChannelWriter(cfg, cfg.times.scale(track.source.samplerate), track)
+
+    assert not writer.should_record(block)
+    writer.set_cfg(
+        Cfg(noise_floor=30, channel_noise_floors={'Ext': {'1-2': None}}),
+        cfg.times.scale(track.source.samplerate),
+    )
+    assert writer.should_record(block)
+
+
 @tdir
 def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None:
     cfg = Cfg(formats=[Format.wav])

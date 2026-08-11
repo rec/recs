@@ -32,6 +32,16 @@ def test_protocol_parses_calibrate_request() -> None:
     message = gui_protocol.parse_message('{"type":"calibrate"}')
 
     assert isinstance(message, gui_protocol.Calibrate)
+    assert message.channels == {}
+
+
+def test_protocol_parses_selected_calibration_request() -> None:
+    message = gui_protocol.parse_message(
+        '{"type":"calibrate","channels":{"Mic":[1,3]}}'
+    )
+
+    assert isinstance(message, gui_protocol.Calibrate)
+    assert message.channels == {'Mic': [1, 3]}
 
 
 def test_protocol_rejects_unknown_requests() -> None:
@@ -41,11 +51,12 @@ def test_protocol_rejects_unknown_requests() -> None:
 
 def test_protocol_parses_set_noise_floor_request() -> None:
     message = gui_protocol.parse_message(
-        '{"type":"set_noise_floor","source":"Mic","noise_floor":42.5}'
+        '{"type":"set_noise_floor","source":"Mic","channel":1,"noise_floor":42.5}'
     )
 
     assert isinstance(message, gui_protocol.SetNoiseFloor)
     assert message.source == 'Mic'
+    assert message.channel == 1
     assert message.noise_floor == 42.5
 
 
@@ -191,8 +202,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
             gui_protocol.Calibrated(
                 type='calibrated',
                 measurements={},
-                profiles={'Mic': {'noise_floor': 15.0}},
-                profiles_path='/tmp/profiles.json',
+                noise_floors={'Mic': {'1': 15.0}},
             )
         )
 
@@ -210,8 +220,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
         '{"type":"hello","role":"daemon","version":2}\n',
         (
             '{"type":"calibrated","measurements":{},'
-            '"profiles":{"Mic":{"noise_floor":15.0}},'
-            '"profiles_path":"/tmp/profiles.json"}\n'
+            '"noise_floors":{"Mic":{"1":15.0}}}\n'
         ),
     ]
 
