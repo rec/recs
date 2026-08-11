@@ -13,6 +13,10 @@ def test_sdtype(mock_devices):
     Cfg(formats=['wav'], subtype='pcm_16', sdtype='int32')
 
 
+def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
+    assert not Cfg().recording.band_mode
+
+
 def test_missing_files(mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='Non-existent file: unknown.wav'):
         Cfg(files=['unknown.wav'])

@@ -182,7 +182,7 @@ class Recording(BaseModel):
     # Settings relating to times
     #
     audio_buffer_seconds: float = 10.0
-    band_mode: bool = True
+    band_mode: bool = False
     buffer_status_period: float = 1.0
     buffer_warning_fraction: float = 0.75
     infinite_length: bool = False
