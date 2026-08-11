@@ -38,6 +38,7 @@ Errors use:
 | `{"type":"get_track_names"}` | `track_names` with `track_names` |
 | `{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}}}` | `track_names` with `track_names` |
 | `{"type":"list_devices"}` | `devices` with `devices` |
+| `{"type":"mutable_attributes"}` | `mutable_attributes_result` with `mutable_attributes` |
 | `{"type":"mark","label":"guitar solo"}` | `marked` with `label` |
 | `{"type":"pause_recording"}` | `recording_state` with `paused` and `stopped` |
 | `{"type":"resume_recording"}` | `recording_state` with `paused` and `stopped` |

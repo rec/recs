@@ -55,6 +55,10 @@ class ListDevices(BaseModel):
     type: typing.Literal['list_devices']
 
 
+class MutableAttributes(BaseModel):
+    type: typing.Literal['mutable_attributes']
+
+
 class Mark(BaseModel):
     type: typing.Literal['mark']
     label: str
@@ -156,6 +160,11 @@ class Marked(BaseModel):
     label: str
 
 
+class MutableAttributesResult(BaseModel):
+    type: typing.Literal['mutable_attributes_result']
+    mutable_attributes: list[str]
+
+
 class NoiseFloorSet(BaseModel):
     type: typing.Literal['noise_floor_set']
     noise_floor: float
@@ -203,6 +212,7 @@ Request = (
     | GetCfg
     | GetTrackNames
     | ListDevices
+    | MutableAttributes
     | Mark
     | PauseRecording
     | ReloadProfiles
@@ -225,6 +235,7 @@ Response = (
     | Devices
     | KeyLabelSet
     | Marked
+    | MutableAttributesResult
     | NoiseFloorSet
     | ProfilesReloaded
     | RecordingState

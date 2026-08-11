@@ -14,7 +14,7 @@ from recs.base import times
 from recs.base.errors import RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg.aliases import Aliases
-from recs.cfg.cfg import Cfg, cfg_value, set_cfg_value
+from recs.cfg.cfg import Cfg
 from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
@@ -40,6 +40,7 @@ API_COMMANDS = [
     'get_cfg',
     'get_track_names',
     'list_devices',
+    'mutable_attributes',
     'mark',
     'pause_recording',
     'reload_profiles',
@@ -478,6 +479,11 @@ class Recorder(Runnables):
             )
         if isinstance(request, gui_protocol.ListDevices):
             return gui_protocol.Devices(type='devices', devices=self._device_status())
+        if isinstance(request, gui_protocol.MutableAttributes):
+            return gui_protocol.MutableAttributesResult(
+                type='mutable_attributes_result',
+                mutable_attributes=sorted(self.cfg.mutable_attributes),
+            )
         if isinstance(request, gui_protocol.Mark):
             return self._mark(request)
         if isinstance(request, gui_protocol.PauseRecording):
@@ -599,7 +605,7 @@ class Recorder(Runnables):
 
     def _get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
         try:
-            value = cfg_value(self.cfg, request.address)
+            value = self.cfg.get_attr(request.address)
         except ValueError as e:
             raise RecsError(str(e)) from None
         self._write_manifest_record(
@@ -616,10 +622,10 @@ class Recorder(Runnables):
 
     def _set_cfg(self, request: gui_protocol.SetCfg) -> gui_protocol.CfgSet:
         try:
-            self.cfg = set_cfg_value(self.cfg, request.address, request.value)
+            self.cfg = self.cfg.set_attr(request.address, request.value)
         except ValueError as e:
             raise RecsError(str(e)) from None
-        value = cfg_value(self.cfg, request.address)
+        value = self.cfg.get_attr(request.address)
         for source in self.sources.values():
             source.set_cfg(self.cfg)
         self._write_manifest_record(

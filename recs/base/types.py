@@ -1,9 +1,13 @@
-import typing as t
+import typing
 from enum import auto
 
 from strenum import StrEnum
 
-Stop = t.Callable[[], None]
+Stop = typing.Callable[[], None]
+
+
+class Mutable:
+    pass
 
 
 class Active(StrEnum):

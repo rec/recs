@@ -1160,6 +1160,52 @@ def test_control_request_sets_and_gets_cfg(
     assert [record['type'] for record in records[1:3]] == ['cfg_set', 'cfg_get']
 
 
+def test_control_request_reports_mutable_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        gui_protocol.MutableAttributes(type='mutable_attributes')
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.responses == [
+        gui_protocol.MutableAttributesResult(
+            type='mutable_attributes_result',
+            mutable_attributes=sorted(rec.cfg.mutable_attributes),
+        )
+    ]
+
+
+def test_control_request_rejects_immutable_cfg(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    request = FakeControlRequest(
+        gui_protocol.SetCfg(
+            type='set_cfg', address='recording.audio_buffer_seconds', value=4
+        )
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert request.responses == [
+        gui_protocol.Error(
+            type='error',
+            message='Immutable configuration attribute: recording.audio_buffer_seconds',
+        )
+    ]
+
+
 def test_control_request_rejects_invalid_track_names(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

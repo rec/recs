@@ -4,6 +4,7 @@ import warnings
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
+from typing import Annotated
 
 import soundfile
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -11,7 +12,7 @@ from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from recs.base.types import SDTYPE, Format, RecordKeys, SdType, Subtype
+from recs.base.types import SDTYPE, Format, Mutable, RecordKeys, SdType, Subtype
 
 from . import metadata, path_pattern, time_settings
 from .aliases import Aliases
@@ -25,8 +26,8 @@ class Directory(BaseModel):
     # Directory settings
     #
     files: list[Path] = Field(default_factory=list)
-    output_directory: str = ''
-    short_file_names: bool = True
+    output_directory: Annotated[str, Mutable] = ''
+    short_file_names: Annotated[bool, Mutable] = True
 
     @field_validator('files')
     @classmethod
@@ -57,7 +58,7 @@ class Device(BaseModel):
     #
     alias: list[str] = Field(default_factory=list)
     devices: Path = Path()
-    profiles: Path = Path()
+    profiles: Annotated[Path, Mutable] = Path()
 
     @field_validator('devices')
     @classmethod
@@ -95,7 +96,7 @@ class Audio(BaseModel):
     # Audio file format and subtype
     #
     formats: list[Format] = Field(default_factory=list)
-    metadata: list[str] = Field(default_factory=list)
+    metadata: Annotated[list[str], Mutable] = Field(default_factory=list)
     sdtype: SdType | None = None
     subtype: Subtype | None = None
 
@@ -155,7 +156,7 @@ class Key(BaseModel):
     #
     # Keyboard event recording
     #
-    key_label: list[str] = Field(default_factory=list)
+    key_label: Annotated[list[str], Mutable] = Field(default_factory=list)
     record_keys: RecordKeys | None = None
     record_key_all_apps: bool | None = None
 
@@ -182,21 +183,21 @@ class Recording(BaseModel):
     # Settings relating to times
     #
     audio_buffer_seconds: float = 10.0
-    band_mode: bool = False
-    buffer_status_period: float = 1.0
-    buffer_warning_fraction: float = 0.75
+    band_mode: Annotated[bool, Mutable] = False
+    buffer_status_period: Annotated[float, Mutable] = 1.0
+    buffer_warning_fraction: Annotated[float, Mutable] = 0.75
     infinite_length: bool = False
-    longest_file_time: float = 0.0
-    minimum_free_space: int = 0
+    longest_file_time: Annotated[float, Mutable] = 0.0
+    minimum_free_space: Annotated[int, Mutable] = 0
     moving_average_time: float = 1.0
-    noise_floor: float = 70.0
-    preview_headroom: float = 6.0
-    record_everything: bool = False
-    shortest_file_time: float = 1.0
-    quiet_after_end: float = 2.0
-    quiet_before_start: float = 1.0
-    stop_after_quiet: float = 20.0
-    total_run_time: float = 0.0
+    noise_floor: Annotated[float, Mutable] = 70.0
+    preview_headroom: Annotated[float, Mutable] = 6.0
+    record_everything: Annotated[bool, Mutable] = False
+    shortest_file_time: Annotated[float, Mutable] = 1.0
+    quiet_after_end: Annotated[float, Mutable] = 2.0
+    quiet_before_start: Annotated[float, Mutable] = 1.0
+    stop_after_quiet: Annotated[float, Mutable] = 20.0
+    total_run_time: Annotated[float, Mutable] = 0.0
 
     @field_validator('audio_buffer_seconds', 'buffer_status_period')
     @classmethod
@@ -301,6 +302,25 @@ class Cfg(BaseModel):
             logging.basicConfig(level=logging.DEBUG)
         self._configure_keys()
 
+    @cached_property
+    def mutable_attributes(self) -> frozenset[str]:
+        return frozenset(_mutable_attributes(type(self)))
+
+    def get_attr(self, address: str) -> object:
+        part, field = _cfg_address(address)
+        value = getattr(self, part).model_dump(mode='json')
+        return value[field]
+
+    def set_attr(self, address: str, value: object) -> Self:
+        part, field = _cfg_address(address)
+        if address not in self.mutable_attributes:
+            raise ValueError(f'Immutable configuration attribute: {address}')
+        data = self.model_dump(mode='json')
+        section = data[part]
+        assert isinstance(section, dict)
+        section[field] = value
+        return type(self)(**data)
+
     def _configure_keys(self) -> None:
         fields_set = set(self.model_fields_set)
         record_keys = self.keys.record_keys
@@ -403,19 +423,16 @@ class Cfg(BaseModel):
         return time_settings.TimeSettings(**d)
 
 
-def cfg_value(cfg: Cfg, address: str) -> object:
-    part, field = _cfg_address(address)
-    value = getattr(cfg, part).model_dump(mode='json')
-    return value[field]
-
-
-def set_cfg_value(cfg: Cfg, address: str, value: object) -> Cfg:
-    part, field = _cfg_address(address)
-    data = cfg.model_dump(mode='json')
-    section = data[part]
-    assert isinstance(section, dict)
-    section[field] = value
-    return Cfg(**data)
+def _mutable_attributes(model_type: type[BaseModel], prefix: str = '') -> list[str]:
+    result: list[str] = []
+    for name, field in model_type.model_fields.items():
+        address = f'{prefix}.{name}' if prefix else name
+        annotation = field.annotation
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            result.extend(_mutable_attributes(annotation, address))
+        elif Mutable in field.metadata:
+            result.append(address)
+    return result
 
 
 def _cfg_address(address: str) -> tuple[str, str]:

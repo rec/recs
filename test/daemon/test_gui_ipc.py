@@ -58,6 +58,12 @@ def test_protocol_parses_set_track_names_request() -> None:
     assert message.track_names == {'Mic': {'Lead Vocal': 1}}
 
 
+def test_protocol_parses_mutable_attributes_request() -> None:
+    message = gui_protocol.parse_message('{"type":"mutable_attributes"}')
+
+    assert isinstance(message, gui_protocol.MutableAttributes)
+
+
 def test_protocol_parses_shutdown() -> None:
     message = gui_protocol.parse_message('{"type":"shutdown"}')
 

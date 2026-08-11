@@ -17,6 +17,37 @@ def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
     assert not Cfg().recording.band_mode
 
 
+def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
+    assert Cfg().mutable_attributes == {
+        'audio.metadata',
+        'device.profiles',
+        'directory.output_directory',
+        'directory.short_file_names',
+        'keys.key_label',
+        'recording.band_mode',
+        'recording.buffer_status_period',
+        'recording.buffer_warning_fraction',
+        'recording.longest_file_time',
+        'recording.minimum_free_space',
+        'recording.noise_floor',
+        'recording.preview_headroom',
+        'recording.quiet_after_end',
+        'recording.quiet_before_start',
+        'recording.record_everything',
+        'recording.shortest_file_time',
+        'recording.stop_after_quiet',
+        'recording.total_run_time',
+    }
+
+
+def test_cfg_rejects_immutable_attribute_changes(mock_devices: None) -> None:
+    with pytest.raises(
+        ValueError,
+        match='Immutable configuration attribute: recording.audio_buffer_seconds',
+    ):
+        Cfg().set_attr('recording.audio_buffer_seconds', 4)
+
+
 def test_missing_files(mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='Non-existent file: unknown.wav'):
         Cfg(files=['unknown.wav'])
