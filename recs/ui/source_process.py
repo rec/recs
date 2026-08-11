@@ -87,6 +87,11 @@ class SourceProcess(Runnable):
         if self.started:
             self.connection.send(SourceControl(track_names=track_names))
 
+    def set_cfg(self, cfg: Cfg) -> None:
+        self.cfg = cfg
+        if self.started:
+            self.connection.send(SourceControl(cfg=self.recorder_cfg))
+
     def join(self, timeout: float | None = None) -> None:
         if not self.started:
             return

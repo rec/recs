@@ -22,48 +22,39 @@ def test_protocol_parses_valid_messages() -> None:
 
 
 def test_protocol_parses_daemon_hello() -> None:
-    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":1}')
+    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":2}')
 
     assert isinstance(message, gui_protocol.Hello)
     assert message.role == 'daemon'
 
 
-def test_protocol_parses_calibrate_command() -> None:
+def test_protocol_parses_calibrate_request() -> None:
+    message = gui_protocol.parse_message('{"type":"calibrate"}')
+
+    assert isinstance(message, gui_protocol.Calibrate)
+
+
+def test_protocol_rejects_unknown_requests() -> None:
+    with pytest.raises(ValidationError):
+        gui_protocol.parse_message('{"type":"reload_config"}')
+
+
+def test_protocol_parses_set_noise_floor_request() -> None:
     message = gui_protocol.parse_message(
-        '{"type":"command","id":"c1","command":"calibrate"}'
+        '{"type":"set_noise_floor","source":"Mic","noise_floor":42.5}'
     )
 
-    assert isinstance(message, gui_protocol.Command)
-    assert message.command == 'calibrate'
-
-
-def test_protocol_parses_app_specific_command_names() -> None:
-    message = gui_protocol.parse_message(
-        '{"type":"command","id":"c1","command":"reload_config"}'
-    )
-
-    assert isinstance(message, gui_protocol.Command)
-    assert message.command == 'reload_config'
-
-
-def test_protocol_parses_command_fields() -> None:
-    message = gui_protocol.parse_message(
-        '{"type":"command","id":"c1","command":"set_noise_floor",'
-        '"source":"Mic","noise_floor":42.5}'
-    )
-
-    assert isinstance(message, gui_protocol.Command)
+    assert isinstance(message, gui_protocol.SetNoiseFloor)
     assert message.source == 'Mic'
     assert message.noise_floor == 42.5
 
 
-def test_protocol_parses_track_names_command() -> None:
+def test_protocol_parses_set_track_names_request() -> None:
     message = gui_protocol.parse_message(
-        '{"type":"command","id":"c1","command":"set_track_names",'
-        '"track_names":{"Mic":{"Lead Vocal":1}}}'
+        '{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}}}'
     )
 
-    assert isinstance(message, gui_protocol.Command)
+    assert isinstance(message, gui_protocol.SetTrackNames)
     assert message.track_names == {'Mic': {'Lead Vocal': 1}}
 
 
@@ -165,19 +156,19 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
-    connection = FakeConnection(['{"type":"hello","role":"gui","version":1}\n'])
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":2}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
 
     listener._read()
 
-    assert connection.sent == ['{"type":"hello","role":"daemon","version":1}\n']
+    assert connection.sent == ['{"type":"hello","role":"daemon","version":2}\n']
 
 
 def test_gui_listener_accepts_key_events_after_hello() -> None:
     events: list[KeyEvent] = []
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":1}\n',
+            '{"type":"hello","role":"gui","version":2}\n',
             '{"type":"key_pressed","key":"g"}\n',
         ]
     )
@@ -188,25 +179,33 @@ def test_gui_listener_accepts_key_events_after_hello() -> None:
     assert events == [KeyEvent(type='key_pressed', key='g')]
 
 
-def test_gui_listener_queues_commands_after_hello() -> None:
-    requests: list[gui_ipc.ControlRequest] = []
+def test_gui_listener_returns_direct_response_after_hello() -> None:
+    def respond(request: gui_ipc.ControlRequest) -> None:
+        request.respond(
+            gui_protocol.Calibrated(
+                type='calibrated',
+                measurements={},
+                profiles={'Mic': {'noise_floor': 15.0}},
+                profiles_path='/tmp/profiles.json',
+            )
+        )
+
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":1}\n',
-            '{"type":"command","id":"c1","command":"calibrate"}\n',
+            '{"type":"hello","role":"gui","version":2}\n',
+            '{"type":"calibrate"}\n',
         ]
     )
-    listener = gui_ipc.GuiListener(connection, lambda event: None, requests.append)
+    listener = gui_ipc.GuiListener(connection, lambda event: None, respond)
 
     listener._read()
-    requests[0].reply(ok=True, result={'profiles': {'Mic': {'noise_floor': 15.0}}})
 
-    assert requests[0].command.id == 'c1'
     assert connection.sent == [
-        '{"type":"hello","role":"daemon","version":1}\n',
+        '{"type":"hello","role":"daemon","version":2}\n',
         (
-            '{"type":"reply","id":"c1","ok":true,'
-            '"result":{"profiles":{"Mic":{"noise_floor":15.0}}}}\n'
+            '{"type":"calibrated","measurements":{},'
+            '"profiles":{"Mic":{"noise_floor":15.0}},'
+            '"profiles_path":"/tmp/profiles.json"}\n'
         ),
     ]
 
@@ -215,7 +214,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     first = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":1}\n',
+            '{"type":"hello","role":"gui","version":2}\n',
             '{"type":"shutdown"}\n',
             '{"type":"shutdown"}\n',
         ]
@@ -232,7 +231,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
 
     assert server.closed
     assert first.sent == [
-        '{"type":"hello","role":"daemon","version":1}\n',
+        '{"type":"hello","role":"daemon","version":2}\n',
         '{"type":"shutdown"}\n',
     ]
     assert first.closed
@@ -255,15 +254,15 @@ def test_gui_listener_rejects_key_events_before_hello() -> None:
 
 
 def test_gui_listener_rejects_unsupported_hello() -> None:
-    connection = FakeConnection(['{"type":"hello","role":"gui","version":2}\n'])
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":1}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
 
     listener._read()
 
     assert connection.sent == [
         (
-            '{"type":"error","message":"GUI protocol version 2 is not supported; '
-            'daemon requires 1"}\n'
+            '{"type":"error","message":"GUI protocol version 1 is not supported; '
+            'daemon requires 2"}\n'
         )
     ]
     assert connection.closed

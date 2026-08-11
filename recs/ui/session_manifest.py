@@ -27,6 +27,8 @@ class ManifestEvent(BaseModel):
     track: str | None = None
     key: str | None = None
     label: str | None = None
+    address: str | None = None
+    value: object | None = None
     max_queued_seconds: float | None = None
     queued_seconds: float | None = None
 

@@ -51,6 +51,7 @@ class SourceFailure(t.NamedTuple):
 
 
 class SourceControl(t.NamedTuple):
+    cfg: Cfg | None = None
     track_names: DeviceTrackNames | None = None
 
 
@@ -184,26 +185,40 @@ class SourceRecorder(Runnables):
             self,
         ):
             while self.running and not self.stop_event.is_set():
-                self._receive_control_messages()
                 try:
-                    self._receive_update(self.buffer.get(timeout=POLL_TIMEOUT))
+                    update = self.buffer.get(timeout=POLL_TIMEOUT)
                 except Empty:
                     if not self.input_stream.running:
                         break
+                else:
+                    self._receive_control_messages()
+                    self._receive_update(update)
 
         with contextlib.suppress(Empty):
             while True:
+                update = self.buffer.get(block=False)
                 self._receive_control_messages()
-                self._receive_update(self.buffer.get(block=False))
+                self._receive_update(update)
 
     def _set_track_names(self, track_names: DeviceTrackNames) -> None:
         for writer in self.channel_writers:
             writer.set_track_names(track_names)
 
+    def _set_cfg(self, cfg: Cfg) -> None:
+        self.cfg = cfg
+        self.buffer.cfg = cfg
+        self.times = cfg.times.scale(self.source.samplerate)
+        for writer in self.channel_writers:
+            writer.set_cfg(cfg, self.times)
+
     def _receive_control_messages(self) -> None:
         while self.connection.poll():
             message = self.connection.recv()
-            if isinstance(message, SourceControl) and message.track_names is not None:
+            if not isinstance(message, SourceControl):
+                continue
+            if message.cfg is not None:
+                self._set_cfg(message.cfg)
+            if message.track_names is not None:
                 self._set_track_names(message.track_names)
 
     def _receive_update(self, u: BufferedUpdate) -> None:

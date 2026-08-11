@@ -1,71 +1,242 @@
-import typing as t
+import typing
 
 from pydantic import BaseModel, Field, TypeAdapter
 from reccy import ipc
 
 from recs.cfg.track_names import DeviceTrackNames
 
-VERSION = 1
+VERSION = 2
 
 
 class Hello(ipc.Hello):
-    type: t.Literal['hello']
-    role: t.Literal['daemon', 'gui']
+    type: typing.Literal['hello']
+    role: typing.Literal['daemon', 'gui']
     version: int = VERSION
 
 
 class RowsMessage(BaseModel):
-    type: t.Literal['rows']
+    type: typing.Literal['rows']
     rows: list[dict[str, object]]
     errors: list[str] = Field(default_factory=list)
 
 
 class KeyPressed(BaseModel):
-    type: t.Literal['key_pressed']
+    type: typing.Literal['key_pressed']
     key: str
 
 
 class KeyReleased(BaseModel):
-    type: t.Literal['key_released']
+    type: typing.Literal['key_released']
     key: str
 
 
-class Command(BaseModel):
-    type: t.Literal['command']
-    id: str
-    command: str
-    key: str | None = None
-    label: str | None = None
-    noise_floor: float | None = None
-    source: str | None = None
-    track_names: DeviceTrackNames | None = None
+class Calibrate(BaseModel):
+    type: typing.Literal['calibrate']
 
 
-class Reply(ipc.Reply):
-    type: t.Literal['reply']
-    id: str
-    ok: bool
-    result: dict[str, object] | None = None
-    message: str | None = None
+class Capabilities(BaseModel):
+    type: typing.Literal['capabilities']
+
+
+class DiskStatusRequest(BaseModel):
+    type: typing.Literal['disk_status']
+
+
+class GetCfg(BaseModel):
+    type: typing.Literal['get_cfg']
+    address: str
+
+
+class GetTrackNames(BaseModel):
+    type: typing.Literal['get_track_names']
+
+
+class ListDevices(BaseModel):
+    type: typing.Literal['list_devices']
+
+
+class Mark(BaseModel):
+    type: typing.Literal['mark']
+    label: str
+
+
+class PauseRecording(BaseModel):
+    type: typing.Literal['pause_recording']
+
+
+class ReloadProfiles(BaseModel):
+    type: typing.Literal['reload_profiles']
+
+
+class ResumeRecording(BaseModel):
+    type: typing.Literal['resume_recording']
+
+
+class SetCfg(BaseModel):
+    type: typing.Literal['set_cfg']
+    address: str
+    value: object
+
+
+class SetKeyLabel(BaseModel):
+    type: typing.Literal['set_key_label']
+    key: str
+    label: str
+
+
+class SetNoiseFloor(BaseModel):
+    type: typing.Literal['set_noise_floor']
+    source: str
+    noise_floor: float
+
+
+class SetTrackNames(BaseModel):
+    type: typing.Literal['set_track_names']
+    track_names: DeviceTrackNames
+
+
+class StartRecording(BaseModel):
+    type: typing.Literal['start_recording']
+
+
+class StatusSnapshotRequest(BaseModel):
+    type: typing.Literal['status_snapshot']
+
+
+class StopRecording(BaseModel):
+    type: typing.Literal['stop_recording']
+
+
+class Calibrated(BaseModel):
+    type: typing.Literal['calibrated']
+    measurements: dict[str, float]
+    profiles: dict[str, dict[str, float]]
+    profiles_path: str
+
+
+class CapabilitiesResult(BaseModel):
+    type: typing.Literal['capabilities_result']
+    commands: list[str]
+    version: int
+
+
+class CfgSet(BaseModel):
+    type: typing.Literal['cfg_set']
+    address: str
+    value: object
+
+
+class CfgValue(BaseModel):
+    type: typing.Literal['cfg_value']
+    address: str
+    value: object
+
+
+class DiskStatus(BaseModel):
+    type: typing.Literal['disk_status_result']
+    free_bytes: int
+    path: str
+    total_bytes: int
+    used_bytes: int
+
+
+class Devices(BaseModel):
+    type: typing.Literal['devices']
+    devices: list[dict[str, object]]
+
+
+class KeyLabelSet(BaseModel):
+    type: typing.Literal['key_label_set']
+    key: str
+    label: str
+
+
+class Marked(BaseModel):
+    type: typing.Literal['marked']
+    label: str
+
+
+class NoiseFloorSet(BaseModel):
+    type: typing.Literal['noise_floor_set']
+    noise_floor: float
+    source: str
+
+
+class ProfilesReloaded(BaseModel):
+    type: typing.Literal['profiles_reloaded']
+    profiles_path: str
+
+
+class RecordingState(BaseModel):
+    type: typing.Literal['recording_state']
+    paused: bool
+    stopped: bool
+
+
+class StatusSnapshot(BaseModel):
+    type: typing.Literal['status_snapshot_result']
+    devices: list[dict[str, object]]
+    disk: dict[str, object]
+    errors: list[str]
+    recording: dict[str, bool]
+    rows: list[dict[str, object]]
+
+
+class TrackNames(BaseModel):
+    type: typing.Literal['track_names']
+    track_names: DeviceTrackNames
 
 
 class Shutdown(ipc.Shutdown):
-    type: t.Literal['shutdown']
+    type: typing.Literal['shutdown']
 
 
 class Error(ipc.Error):
-    type: t.Literal['error']
+    type: typing.Literal['error']
     message: str
 
 
-MESSAGE = TypeAdapter(
-    Hello | RowsMessage | KeyPressed | KeyReleased | Command | Reply | Shutdown | Error
+Request = (
+    Calibrate
+    | Capabilities
+    | DiskStatusRequest
+    | GetCfg
+    | GetTrackNames
+    | ListDevices
+    | Mark
+    | PauseRecording
+    | ReloadProfiles
+    | ResumeRecording
+    | SetCfg
+    | SetKeyLabel
+    | SetNoiseFloor
+    | SetTrackNames
+    | StartRecording
+    | StatusSnapshotRequest
+    | StopRecording
 )
 
+Response = (
+    Calibrated
+    | CapabilitiesResult
+    | CfgSet
+    | CfgValue
+    | DiskStatus
+    | Devices
+    | KeyLabelSet
+    | Marked
+    | NoiseFloorSet
+    | ProfilesReloaded
+    | RecordingState
+    | StatusSnapshot
+    | TrackNames
+    | Error
+)
 
-def parse_message(
-    line: str,
-) -> (
-    Hello | RowsMessage | KeyPressed | KeyReleased | Command | Reply | Shutdown | Error
-):
+Message = Hello | RowsMessage | KeyPressed | KeyReleased | Request | Response | Shutdown
+
+MESSAGE = TypeAdapter(Message)
+
+
+def parse_message(line: str) -> Message:
     return MESSAGE.validate_json(line)

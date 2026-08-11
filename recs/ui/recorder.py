@@ -14,7 +14,7 @@ from recs.base import times
 from recs.base.errors import RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg.aliases import Aliases
-from recs.cfg.cfg import Cfg
+from recs.cfg.cfg import Cfg, cfg_value, set_cfg_value
 from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
@@ -37,6 +37,7 @@ API_COMMANDS = [
     'calibrate',
     'capabilities',
     'disk_status',
+    'get_cfg',
     'get_track_names',
     'list_devices',
     'mark',
@@ -46,6 +47,7 @@ API_COMMANDS = [
     'set_key_label',
     'set_noise_floor',
     'set_track_names',
+    'set_cfg',
     'shutdown',
     'start_recording',
     'status_snapshot',
@@ -448,61 +450,69 @@ class Recorder(Runnables):
         )
         for request in requests:
             try:
-                result = self._handle_control_request(request.command)
+                response = self._handle_control_request(request.request)
             except RecsError as e:
-                request.reply(ok=False, message=str(e))
+                request.respond(gui_protocol.Error(type='error', message=str(e)))
             else:
-                request.reply(ok=True, result=result)
+                request.respond(response)
 
     def _handle_control_request(
         self,
-        command: gui_protocol.Command,
-    ) -> dict[str, object]:
-        if command.command == 'calibrate':
+        request: gui_protocol.Request,
+    ) -> gui_protocol.Response:
+        if isinstance(request, gui_protocol.Calibrate):
             return self._calibrate_noise_floor()
-        if command.command == 'capabilities':
-            return {'commands': API_COMMANDS, 'version': gui_protocol.VERSION}
-        if command.command == 'disk_status':
+        if isinstance(request, gui_protocol.Capabilities):
+            return gui_protocol.CapabilitiesResult(
+                type='capabilities_result',
+                commands=API_COMMANDS,
+                version=gui_protocol.VERSION,
+            )
+        if isinstance(request, gui_protocol.DiskStatusRequest):
             return self._disk_status()
-        if command.command == 'get_track_names':
-            return {'track_names': self.track_names}
-        if command.command == 'list_devices':
-            return {'devices': self._device_status()}
-        if command.command == 'mark':
-            return self._mark(command)
-        if command.command == 'pause_recording':
+        if isinstance(request, gui_protocol.GetCfg):
+            return self._get_cfg(request)
+        if isinstance(request, gui_protocol.GetTrackNames):
+            return gui_protocol.TrackNames(
+                type='track_names', track_names=self.track_names
+            )
+        if isinstance(request, gui_protocol.ListDevices):
+            return gui_protocol.Devices(type='devices', devices=self._device_status())
+        if isinstance(request, gui_protocol.Mark):
+            return self._mark(request)
+        if isinstance(request, gui_protocol.PauseRecording):
             return self._pause_recording('pause_recording')
-        if command.command == 'reload_profiles':
+        if isinstance(request, gui_protocol.ReloadProfiles):
             return self._reload_profiles()
-        if command.command == 'resume_recording':
+        if isinstance(request, gui_protocol.ResumeRecording):
             return self._resume_recording('resume_recording')
-        if command.command == 'set_key_label':
-            return self._set_key_label(command)
-        if command.command == 'set_noise_floor':
-            return self._set_noise_floor(command)
-        if command.command == 'set_track_names':
-            return self._set_track_names(command)
-        if command.command == 'start_recording':
+        if isinstance(request, gui_protocol.SetCfg):
+            return self._set_cfg(request)
+        if isinstance(request, gui_protocol.SetKeyLabel):
+            return self._set_key_label(request)
+        if isinstance(request, gui_protocol.SetNoiseFloor):
+            return self._set_noise_floor(request)
+        if isinstance(request, gui_protocol.SetTrackNames):
+            return self._set_track_names(request)
+        if isinstance(request, gui_protocol.StartRecording):
             return self._resume_recording('start_recording')
-        if command.command == 'status_snapshot':
+        if isinstance(request, gui_protocol.StatusSnapshotRequest):
             return self._status_snapshot()
-        if command.command == 'stop_recording':
+        if isinstance(request, gui_protocol.StopRecording):
             return self._stop_recording()
-        raise RecsError(f'Unsupported command: {command.command}')
+        raise RecsError(f'Unsupported request: {request.type}')
 
-    def _mark(self, command: gui_protocol.Command) -> dict[str, object]:
-        if not command.label:
-            raise RecsError('mark requires label')
+    def _mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         self._write_manifest_record(
             session_manifest.ManifestEvent(
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='mark',
-                label=command.label,
+                label=request.label,
             )
         )
-        return {'label': command.label}
+        return gui_protocol.Marked(type='marked', label=request.label)
 
-    def _pause_recording(self, reason: str) -> dict[str, object]:
+    def _pause_recording(self, reason: str) -> gui_protocol.RecordingState:
         self.recording_paused = True
         for source in self.hardware.values():
             if source.running:
@@ -516,7 +526,7 @@ class Recorder(Runnables):
         )
         return self._recording_state()
 
-    def _resume_recording(self, reason: str) -> dict[str, object]:
+    def _resume_recording(self, reason: str) -> gui_protocol.RecordingState:
         if self.session_stopped:
             self._start_recording_session()
         self.recording_paused = False
@@ -530,10 +540,10 @@ class Recorder(Runnables):
         )
         return self._recording_state()
 
-    def _stop_recording(self) -> dict[str, object]:
+    def _stop_recording(self) -> gui_protocol.RecordingState:
         if self.recording_stopped:
             return self._recording_state()
-        result = self._pause_recording('stop_recording')
+        self._pause_recording('stop_recording')
         self.recording_stopped = True
         self.session_stopped = self.manifest is not None
         if self.session_stopped:
@@ -541,27 +551,25 @@ class Recorder(Runnables):
                 source.join()
             self._receive_pending_updates()
             self._finish_manifest()
-        return result | self._recording_state()
+        return self._recording_state()
 
-    def _set_key_label(self, command: gui_protocol.Command) -> dict[str, object]:
-        if not command.key:
-            raise RecsError('set_key_label requires key')
-        if not command.label:
-            raise RecsError('set_key_label requires label')
-        self.cfg.keys.labels[command.key] = command.label
-        return {'key': command.key, 'label': command.label}
+    def _set_key_label(
+        self, request: gui_protocol.SetKeyLabel
+    ) -> gui_protocol.KeyLabelSet:
+        self.cfg.keys.labels[request.key] = request.label
+        return gui_protocol.KeyLabelSet(
+            type='key_label_set', key=request.key, label=request.label
+        )
 
-    def _set_noise_floor(self, command: gui_protocol.Command) -> dict[str, object]:
-        if not command.source:
-            raise RecsError('set_noise_floor requires source')
-        if command.noise_floor is None:
-            raise RecsError('set_noise_floor requires noise_floor')
+    def _set_noise_floor(
+        self, request: gui_protocol.SetNoiseFloor
+    ) -> gui_protocol.NoiseFloorSet:
         profiles_path = self.cfg.device.profiles
         if not profiles_path.name:
             raise RecsError('Cannot set noise floor without --profiles')
         profiles = self.cfg.device_profiles.copy()
-        current = profiles.get(command.source, {})
-        profiles[command.source] = current | {'noise_floor': command.noise_floor}
+        current = profiles.get(request.source, {})
+        profiles[request.source] = current | {'noise_floor': request.noise_floor}
         _write_text_atomically(
             profiles_path,
             json.dumps(profiles, indent=2, sort_keys=True) + '\n',
@@ -569,13 +577,17 @@ class Recorder(Runnables):
         self.cfg.__dict__.pop('device_profiles', None)
         for source in self.sources.values():
             source.cfg = self.cfg
-        return {'source': command.source, 'noise_floor': command.noise_floor}
+        return gui_protocol.NoiseFloorSet(
+            type='noise_floor_set',
+            source=request.source,
+            noise_floor=request.noise_floor,
+        )
 
-    def _set_track_names(self, command: gui_protocol.Command) -> dict[str, object]:
-        if command.track_names is None:
-            raise RecsError('set_track_names requires track_names')
+    def _set_track_names(
+        self, request: gui_protocol.SetTrackNames
+    ) -> gui_protocol.TrackNames:
         try:
-            track_names = validate_track_names(command.track_names)
+            track_names = validate_track_names(request.track_names)
         except ValueError as e:
             raise RecsError(str(e)) from None
         self.track_names = {
@@ -583,34 +595,73 @@ class Recorder(Runnables):
         }
         for source in self.sources.values():
             source.set_track_names(self.track_names)
-        return {'track_names': self.track_names}
+        return gui_protocol.TrackNames(type='track_names', track_names=self.track_names)
 
-    def _reload_profiles(self) -> dict[str, object]:
+    def _get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
+        try:
+            value = cfg_value(self.cfg, request.address)
+        except ValueError as e:
+            raise RecsError(str(e)) from None
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                type='cfg_get',
+                address=request.address,
+                value=value,
+            )
+        )
+        return gui_protocol.CfgValue(
+            type='cfg_value', address=request.address, value=value
+        )
+
+    def _set_cfg(self, request: gui_protocol.SetCfg) -> gui_protocol.CfgSet:
+        try:
+            self.cfg = set_cfg_value(self.cfg, request.address, request.value)
+        except ValueError as e:
+            raise RecsError(str(e)) from None
+        value = cfg_value(self.cfg, request.address)
+        for source in self.sources.values():
+            source.set_cfg(self.cfg)
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                type='cfg_set',
+                address=request.address,
+                value=value,
+            )
+        )
+        return gui_protocol.CfgSet(type='cfg_set', address=request.address, value=value)
+
+    def _reload_profiles(self) -> gui_protocol.ProfilesReloaded:
         if not self.cfg.device.profiles.name:
             raise RecsError('Cannot reload profiles without --profiles')
         self.cfg.__dict__.pop('device_profiles', None)
         for source in self.sources.values():
             source.cfg = self.cfg
-        return {'profiles_path': str(self.cfg.device.profiles)}
+        return gui_protocol.ProfilesReloaded(
+            type='profiles_reloaded', profiles_path=str(self.cfg.device.profiles)
+        )
 
-    def _status_snapshot(self) -> dict[str, object]:
-        return {
-            'disk': self._disk_status(),
-            'devices': self._device_status(),
-            'errors': self.error_messages(),
-            'recording': self._recording_state(),
-            'rows': list(self.rows()),
-        }
+    def _status_snapshot(self) -> gui_protocol.StatusSnapshot:
+        return gui_protocol.StatusSnapshot(
+            type='status_snapshot_result',
+            disk=self._disk_status().model_dump(exclude={'type'}),
+            devices=self._device_status(),
+            errors=self.error_messages(),
+            recording=self._recording_state().model_dump(exclude={'type'}),
+            rows=list(self.rows()),
+        )
 
-    def _disk_status(self) -> dict[str, object]:
+    def _disk_status(self) -> gui_protocol.DiskStatus:
         path = _existing_parent(self._manifest_path()).resolve()
         usage = shutil.disk_usage(path)
-        return {
-            'free_bytes': usage.free,
-            'path': str(path),
-            'total_bytes': usage.total,
-            'used_bytes': usage.used,
-        }
+        return gui_protocol.DiskStatus(
+            type='disk_status_result',
+            free_bytes=usage.free,
+            path=str(path),
+            total_bytes=usage.total,
+            used_bytes=usage.used,
+        )
 
     def _device_status(self) -> list[dict[str, object]]:
         devices: list[dict[str, object]] = []
@@ -626,11 +677,12 @@ class Recorder(Runnables):
             )
         return devices
 
-    def _recording_state(self) -> dict[str, object]:
-        return {
-            'paused': self.recording_paused,
-            'stopped': self.recording_stopped,
-        }
+    def _recording_state(self) -> gui_protocol.RecordingState:
+        return gui_protocol.RecordingState(
+            type='recording_state',
+            paused=self.recording_paused,
+            stopped=self.recording_stopped,
+        )
 
     def _drain(self, conn: connection.Connection) -> None:
         while _connection_ready(conn):
@@ -904,7 +956,7 @@ class Recorder(Runnables):
             'profiles': profiles,
         }
 
-    def _calibrate_noise_floor(self) -> dict[str, object]:
+    def _calibrate_noise_floor(self) -> gui_protocol.Calibrated:
         profiles_path = self.cfg.device.profiles
         if not profiles_path.name:
             raise RecsError('Cannot calibrate noise floor without --profiles')
@@ -924,7 +976,14 @@ class Recorder(Runnables):
         self.cfg = type(self.cfg)(**self.cfg.model_dump())
         for source in self.sources.values():
             source.cfg = self.cfg
-        return report | {'profiles_path': str(profiles_path)}
+        measurements = typing.cast(dict[str, float], report['measurements'])
+        values = typing.cast(dict[str, dict[str, float]], report['profiles'])
+        return gui_protocol.Calibrated(
+            type='calibrated',
+            measurements=measurements,
+            profiles=values,
+            profiles_path=str(profiles_path),
+        )
 
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.session_files_written if path.exists())

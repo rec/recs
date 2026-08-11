@@ -403,5 +403,29 @@ class Cfg(BaseModel):
         return time_settings.TimeSettings(**d)
 
 
+def cfg_value(cfg: Cfg, address: str) -> object:
+    part, field = _cfg_address(address)
+    value = getattr(cfg, part).model_dump(mode='json')
+    return value[field]
+
+
+def set_cfg_value(cfg: Cfg, address: str, value: object) -> Cfg:
+    part, field = _cfg_address(address)
+    data = cfg.model_dump(mode='json')
+    section = data[part]
+    assert isinstance(section, dict)
+    section[field] = value
+    return Cfg(**data)
+
+
+def _cfg_address(address: str) -> tuple[str, str]:
+    part, separator, field = address.partition('.')
+    if not separator or not part or not field or '.' in field:
+        raise ValueError(f'Invalid configuration address: {address}')
+    if part not in CFG_MODEL_TYPES or field not in CFG_MODEL_TYPES[part].model_fields:
+        raise ValueError(f'Unknown configuration address: {address}')
+    return part, field
+
+
 def _pynput_available() -> bool:
     return find_spec('pynput') is not None

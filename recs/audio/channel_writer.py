@@ -117,6 +117,15 @@ class ChannelWriter(Runnable):
     def set_track_names(self, names: DeviceTrackNames) -> None:
         self.track_names = names
 
+    def set_cfg(self, cfg: Cfg, times: time_settings.TimeSettings[int]) -> None:
+        self.cfg = cfg
+        self.do_not_record = (
+            cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
+        )
+        self.metadata = cfg.metadata_dict
+        self.times = times
+        self.longest_file_frames = times.longest_file_time
+
     def to_block(self, array: NDArray) -> Block:
         return Block(block=array[:, self.track.slice])
 

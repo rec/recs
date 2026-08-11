@@ -21,27 +21,19 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ControlRequest:
-    def __init__(self, listener: 'GuiListener', command: gui_protocol.Command) -> None:
-        self.listener = listener
-        self.command = command
+    def __init__(self, request: gui_protocol.Request) -> None:
+        self.request = request
+        self.response: gui_protocol.Response | None = None
+        self.ready = threading.Event()
 
-    def reply(
-        self,
-        *,
-        ok: bool,
-        result: dict[str, object] | None = None,
-        message: str | None = None,
-    ) -> None:
-        self.listener.write_model(
-            gui_protocol.Reply(
-                type='reply',
-                id=self.command.id,
-                ok=ok,
-                result=result,
-                message=message,
-            ),
-            exclude_none=True,
-        )
+    def respond(self, response: gui_protocol.Response) -> None:
+        self.response = response
+        self.ready.set()
+
+    def wait_for_response(self) -> gui_protocol.Response:
+        self.ready.wait()
+        assert self.response is not None
+        return self.response
 
 
 class DaemonGuiServer(Runnable):
@@ -230,8 +222,10 @@ class GuiListener:
     ) -> None:
         if isinstance(message, (gui_protocol.KeyPressed, gui_protocol.KeyReleased)):
             self.append_key_event(KeyEvent(type=message.type, key=message.key))
-        elif isinstance(message, gui_protocol.Command) and self.append_control_request:
-            self.append_control_request(ControlRequest(self, message))
+        elif isinstance(message, gui_protocol.Request) and self.append_control_request:
+            request = ControlRequest(message)
+            self.append_control_request(request)
+            self.write_model(request.wait_for_response(), exclude_none=True)
 
 
 class RemoteGuiClient:
