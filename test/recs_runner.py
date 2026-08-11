@@ -1,11 +1,12 @@
 import traceback
-import typing as t
+from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from test.conftest import BLOCK_SIZE, TIMESTAMP
 from test.mock_input_stream import InputStreamReporter
 from types import SimpleNamespace
+from typing import cast
 
 import numpy as np
 import pytest
@@ -28,7 +29,7 @@ class FixtureInputStream(BaseModel):
 
     audio: np.ndarray
     block_size: int
-    callback: t.Callable[[np.ndarray, int, object, int], None]
+    callback: Callable[[np.ndarray, int, object, int], None]
     channels: int
     device: str
     dtype: object
@@ -135,18 +136,18 @@ class RecsRunner(BaseModel):
     def make_input_stream(
         self, **ka: object
     ) -> InputStreamReporter | FixtureInputStream:
-        device = t.cast(str, ka['device'])
+        device = cast(str, ka['device'])
         audio = self.state.input_audio.get(device)
         if audio is not None:
             s = FixtureInputStream(
-                callback=t.cast(
-                    t.Callable[[np.ndarray, int, object, int], None],
+                callback=cast(
+                    Callable[[np.ndarray, int, object, int], None],
                     ka['callback'],
                 ),
-                channels=t.cast(int, ka['channels']),
+                channels=cast(int, ka['channels']),
                 device=device,
                 dtype=ka['dtype'],
-                samplerate=t.cast(int, ka['samplerate']),
+                samplerate=cast(int, ka['samplerate']),
                 audio=audio,
                 block_size=self.options.block_size,
             )
@@ -158,7 +159,7 @@ class RecsRunner(BaseModel):
 
     def events(
         self,
-    ) -> t.Iterator[tuple[float, InputStreamReporter | FixtureInputStream]]:
+    ) -> Iterator[tuple[float, InputStreamReporter | FixtureInputStream]]:
         for stream in self.state.streams:
             offset = stream.channels * self.options.device_offset
             block_time = self.options.block_size / stream.samplerate

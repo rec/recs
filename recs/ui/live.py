@@ -1,7 +1,8 @@
 import os
 import sys
-import typing as t
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from functools import cached_property
+from typing import Any
 
 from rich import live
 from rich.console import Console, Group
@@ -36,10 +37,10 @@ class Live(Runnable):
 
     def __init__(
         self,
-        rows: t.Callable[[], t.Iterator[t.Mapping[str, t.Any]]],
+        rows: Callable[[], Iterator[Mapping[str, Any]]],
         cfg: Cfg,
         *,
-        errors: t.Callable[[], t.Iterable[str]] | None = None,
+        errors: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg
@@ -77,7 +78,7 @@ class Live(Runnable):
             transient=self.cfg.console.clear_terminal,
         )
 
-    def renderable(self) -> t.Any:
+    def renderable(self) -> Any:
         table = self.table()
         errors = list(self.errors())
         if not errors:

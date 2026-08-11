@@ -3,7 +3,7 @@ import os
 import sys
 import threading
 import time
-import typing
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -39,10 +39,10 @@ class ControlRequest:
 class DaemonGuiServer(Runnable):
     def __init__(
         self,
-        rows: typing.Callable[[], typing.Iterator[typing.Mapping[str, object]]],
+        rows: Callable[[], Iterator[Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: typing.Callable[[], typing.Iterable[str]] | None = None,
+        errors: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple
@@ -183,9 +183,9 @@ class GuiListener:
     def __init__(
         self,
         conn: ipc.Connection,
-        append_key_event: typing.Callable[[KeyEvent], None],
-        append_control_request: typing.Callable[[ControlRequest], None] | None = None,
-        request_shutdown: typing.Callable[[], None] | None = None,
+        append_key_event: Callable[[KeyEvent], None],
+        append_control_request: Callable[[ControlRequest], None] | None = None,
+        request_shutdown: Callable[[], None] | None = None,
     ) -> None:
         self.append_key_event = append_key_event
         self.append_control_request = append_control_request
@@ -252,7 +252,7 @@ class RemoteGuiClient:
             raise BrokenPipeError('Could not send GUI hello')
         threading.Thread(target=self._read, daemon=True, name='RemoteGuiRows').start()
 
-    def rows(self) -> typing.Iterator[typing.Mapping[str, object]]:
+    def rows(self) -> Iterator[Mapping[str, object]]:
         with self.lock:
             rows = list(self.latest)
         return iter(rows)

@@ -1,14 +1,14 @@
 import json
 import subprocess as sp
-import typing as t
 from io import StringIO
+from typing import Any
 
 from recs.cfg.cfg import Cfg
 from recs.ui import gui_process
 
 
 def test_gui_process_writes_rows_to_subprocess_stdin(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -45,7 +45,7 @@ def test_gui_process_writes_rows_to_subprocess_stdin(
 
 
 def test_gui_process_writes_errors_to_subprocess_stdin(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -70,7 +70,7 @@ def test_gui_process_writes_errors_to_subprocess_stdin(
 
 
 def test_gui_process_stops_when_subprocess_exits(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -91,7 +91,7 @@ def test_gui_process_stops_when_subprocess_exits(
 
 
 def test_gui_process_closes_stdin_on_stop(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -110,7 +110,7 @@ def test_gui_process_closes_stdin_on_stop(
 
 
 def test_gui_process_update_ignores_closed_stdin(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -129,7 +129,7 @@ def test_gui_process_update_ignores_closed_stdin(
 
 
 def test_gui_process_update_ignores_stdin_closed_during_write(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 
@@ -147,7 +147,7 @@ def test_gui_process_update_ignores_stdin_closed_during_write(
 
 
 def test_gui_process_reads_key_events_from_subprocess_stdout(
-    monkeypatch: t.Any,
+    monkeypatch: Any,
 ) -> None:
     processes: list[FakeProcess] = []
 

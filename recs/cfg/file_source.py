@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Callable
 from pathlib import Path
 
 import soundfile
@@ -34,7 +34,7 @@ class FileSource(Source):
 
     @override
     def input_stream(
-        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
+        self, sdtype: SdType, update_callback: Callable[[Update], None]
     ) -> Runnable:
         result: Runnable
 

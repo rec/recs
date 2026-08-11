@@ -1,6 +1,7 @@
 import json
-import typing as t
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -264,7 +265,7 @@ class DeviceSchedule:
 
     def __call__(self) -> list[device.DeviceDict]:
         return [
-            t.cast(device.DeviceDict, info.copy())
+            cast(device.DeviceDict, info.copy())
             for info in DEVICES
             if info['name'] in self.names
         ]
@@ -309,12 +310,12 @@ def _multi_track_blocks(
 
 
 def _send_blocks(
-    runner: RecsRunner, streams: t.Sequence[object], block_count: int
+    runner: RecsRunner, streams: Sequence[object], block_count: int
 ) -> None:
     for _ in range(block_count):
         runner.state.timestamp += BLOCK_TIME
         for stream in streams:
-            report = t.cast(list[str], stream._recs_report)
+            report = cast(list[str], stream._recs_report)
             if 'stop' not in report:
                 stream._recs_callback()
         times.sleep(0.001)

@@ -1,10 +1,11 @@
 import contextlib
 import math
 import threading
-import typing as t
+from collections.abc import Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Full, Queue
+from typing import Any, NamedTuple, cast
 
 import numpy as np
 from pydantic import BaseModel
@@ -35,7 +36,7 @@ class BufferStats(BaseModel):
     last_drop_timestamp: float = 0.0
 
 
-class SourceUpdate(t.NamedTuple):
+class SourceUpdate(NamedTuple):
     channels: dict[str, ChannelState]
     files: list[Path]
     frames: int
@@ -51,12 +52,12 @@ class SourceUpdate(t.NamedTuple):
     track_layout: list[str] | None = None
 
 
-class SourceFailure(t.NamedTuple):
+class SourceFailure(NamedTuple):
     message: str
     source_name: str
 
 
-class SourceControl(t.NamedTuple):
+class SourceControl(NamedTuple):
     cfg: Cfg | None = None
     track_names: DeviceTrackNames | None = None
     calibration_tracks: list[str] | None = None
@@ -119,7 +120,7 @@ class SourceUpdateTransport:
                     self.available.set()
 
 
-class SourceFile(t.NamedTuple):
+class SourceFile(NamedTuple):
     path: Path
     source_name: str
     track: int
@@ -130,7 +131,7 @@ class SourceFile(t.NamedTuple):
     start_timestamp: float | None = None
 
 
-class BufferedUpdate(t.NamedTuple):
+class BufferedUpdate(NamedTuple):
     update: Update
     start_frame: int
     end_frame: int
@@ -217,8 +218,8 @@ class SourceRecorder(Runnables):
         self,
         cfg: Cfg,
         control_connection: Connection,
-        stop_event: t.Any,
-        tracks: t.Sequence[Track],
+        stop_event: Any,
+        tracks: Sequence[Track],
         update_transport: SourceUpdateTransport,
         track_names: DeviceTrackNames | None = None,
     ) -> None:
@@ -247,7 +248,7 @@ class SourceRecorder(Runnables):
         self.calibration_minimums: dict[str, float] = {}
 
         self.input_stream = self.source.input_stream(
-            sdtype=t.cast(SdType, self.cfg.audio.sdtype),
+            sdtype=cast(SdType, self.cfg.audio.sdtype),
             update_callback=self.buffer.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)

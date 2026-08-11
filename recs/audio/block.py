@@ -1,7 +1,7 @@
 # mypy: disable-error-code="no-any-return, type-arg"
 
 import numbers
-import typing as t
+from collections.abc import Sequence
 from functools import cached_property
 
 import numpy as np
@@ -90,7 +90,7 @@ class Blocks(BaseModel):
         self.duration = 0
         self.blocks.clear()
 
-    def clip(self, sample_length: int, from_start: bool) -> t.Sequence[Block]:
+    def clip(self, sample_length: int, from_start: bool) -> Sequence[Block]:
         clipped = []
         assert sample_length >= 0
         while self.duration > sample_length:

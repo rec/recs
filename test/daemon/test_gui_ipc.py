@@ -1,5 +1,5 @@
 import json
-import typing
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -483,7 +483,7 @@ class FakeConnection:
         self.received = received or []
         self.sent: list[str] = []
 
-    def read_lines(self) -> typing.Iterator[str]:
+    def read_lines(self) -> Iterator[str]:
         return iter(self.received)
 
     def write(self, message: str) -> bool:
@@ -494,7 +494,7 @@ class FakeConnection:
         self.closed = True
 
 
-def _eventually(check: typing.Callable[[], bool]) -> bool:
+def _eventually(check: Callable[[], bool]) -> bool:
     import time
 
     deadline = time.monotonic() + 1

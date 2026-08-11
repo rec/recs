@@ -1,4 +1,5 @@
-import typing as t
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import Any
 
 from recs.base import state, times
 from recs.base.types import Active
@@ -10,7 +11,7 @@ from recs.cfg.track import Track
 class FullState:
     def __init__(
         self,
-        tracks: t.Sequence[tuple[Source, t.Sequence[Track]]],
+        tracks: Sequence[tuple[Source, Sequence[Track]]],
         aliases: Aliases | None = None,
     ) -> None:
         self.state: dict[str, dict[str, state.ChannelState]] = {}
@@ -25,10 +26,10 @@ class FullState:
     def add_source(
         self,
         source: Source,
-        tracks: t.Sequence[Track],
+        tracks: Sequence[Track],
         aliases: Aliases | None = None,
     ) -> None:
-        def device_state(tr: t.Sequence[Track]) -> dict[str, state.ChannelState]:
+        def device_state(tr: Sequence[Track]) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in tr}
 
         self.state[source.name] = device_state(tracks)
@@ -47,7 +48,7 @@ class FullState:
     def replace_source(
         self,
         source: Source,
-        tracks: t.Sequence[Track],
+        tracks: Sequence[Track],
         aliases: Aliases | None = None,
     ) -> None:
         self.track_names = {
@@ -69,7 +70,7 @@ class FullState:
     def elapsed_time(self) -> float:
         return times.timestamp() - self.start_time
 
-    def update(self, state: t.Mapping[str, t.Mapping[str, state.ChannelState]]) -> None:
+    def update(self, state: Mapping[str, Mapping[str, state.ChannelState]]) -> None:
         for device_name, device_state in state.items():
             for channel_name, channel_state in device_state.items():
                 self.state[device_name][channel_name] += channel_state
@@ -78,14 +79,14 @@ class FullState:
                     # This is a stereo channel, so count it again
                     self.total.recorded_time += channel_state.recorded_time
 
-    def set_online(self, devices: t.Iterable[str]) -> None:
+    def set_online(self, devices: Iterable[str]) -> None:
         self.online = set(devices) & self.state.keys()
         for device_name in self.state.keys() - self.online:
             for channel_state in self.state[device_name].values():
                 channel_state.is_active = False
                 channel_state.volume = []
 
-    def rows(self) -> t.Iterator[dict[str, t.Any]]:
+    def rows(self) -> Iterator[dict[str, Any]]:
         yield {
             'time': self.elapsed_time,
             'recorded': self.total.recorded_time,

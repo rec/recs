@@ -1,5 +1,5 @@
-import typing as t
 from pathlib import Path
+from typing import Annotated, TypeVar
 
 import tyro
 from tyro.constructors import PrimitiveConstructorSpec
@@ -25,7 +25,7 @@ HELP = '\n\n'.join(LINES)
 RECS = cfg.Cfg.raw_defaults()
 # Reading configs and environment variables would go here
 
-_T = t.TypeVar('_T')
+_T = TypeVar('_T')
 
 
 def _prefix_spec(values: PrefixDict[_T], metavar: str) -> PrimitiveConstructorSpec[_T]:
@@ -59,7 +59,7 @@ TIME_SPEC = PrimitiveConstructorSpec[float](
 
 
 def recs(
-    files: t.Annotated[
+    files: Annotated[
         list[str],
         tyro.conf.Positional,
         tyro.conf.arg(
@@ -67,7 +67,7 @@ def recs(
             help='One or more files to split for silence',
         ),
     ],
-    output_directory: t.Annotated[
+    output_directory: Annotated[
         str,
         tyro.conf.arg(
             aliases=('-o',),
@@ -75,28 +75,28 @@ def recs(
             help='Path or output_directory pattern for recorded file locations',
         ),
     ],
-    short_file_names: t.Annotated[
+    short_file_names: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.directory.short_file_names,
             help='Omit the device from generated names when there is only one',
         ),
     ],
-    calibrate: t.Annotated[
+    calibrate: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.general.calibrate,
             help='Detect and print noise levels, do not record',
         ),
     ],
-    default_record_directory: t.Annotated[
+    default_record_directory: Annotated[
         str,
         tyro.conf.arg(
             default=RECS.general.default_record_directory,
             help='Directory name to use for automatic daemon recordings',
         ),
     ],
-    dry_run: t.Annotated[
+    dry_run: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-n',),
@@ -104,31 +104,31 @@ def recs(
             help='Display levels only, do not record',
         ),
     ],
-    verbose: t.Annotated[
+    verbose: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-v',), default=RECS.general.verbose, help='Print more stuff'
         ),
     ],
-    info: t.Annotated[
+    info: Annotated[
         bool,
         tyro.conf.arg(default=RECS.general.info, help='Display device info as JSON'),
     ],
-    list_types: t.Annotated[
+    list_types: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.general.list_types,
             help='List all subtypes for each format as JSON',
         ),
     ],
-    silence_preview: t.Annotated[
+    silence_preview: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.general.silence_preview,
             help='Show live silence measurements and suggested recording thresholds',
         ),
     ],
-    alias: t.Annotated[
+    alias: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-a',),
@@ -136,21 +136,21 @@ def recs(
             help='Set aliases for devices or channels',
         ),
     ],
-    devices: t.Annotated[
+    devices: Annotated[
         Path,
         tyro.conf.arg(
             default=RECS.device.devices,
             help='A path to a JSON file with device definitions',
         ),
     ],
-    profiles: t.Annotated[
+    profiles: Annotated[
         Path,
         tyro.conf.arg(
             default=RECS.device.profiles,
             help='A JSON file with per-device default profiles',
         ),
     ],
-    exclude: t.Annotated[
+    exclude: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-e',),
@@ -158,7 +158,7 @@ def recs(
             help='Exclude devices or channels',
         ),
     ],
-    include: t.Annotated[
+    include: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-i',),
@@ -166,13 +166,13 @@ def recs(
             help='Only include these devices or channels',
         ),
     ],
-    formats: t.Annotated[
-        tyro.conf.UseAppendAction[list[t.Annotated[types.Format, FORMAT_SPEC]]],
+    formats: Annotated[
+        tyro.conf.UseAppendAction[list[Annotated[types.Format, FORMAT_SPEC]]],
         tyro.conf.arg(
             aliases=('-f',), default=RECS.audio.formats, help='Audio file formats'
         ),
     ],
-    metadata: t.Annotated[
+    metadata: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             aliases=('-m',),
@@ -180,23 +180,23 @@ def recs(
             help='Metadata fields to add to output files',
         ),
     ],
-    sdtype: t.Annotated[
-        t.Annotated[types.SdType, SDTYPE_SPEC] | None,
+    sdtype: Annotated[
+        Annotated[types.SdType, SDTYPE_SPEC] | None,
         tyro.conf.arg(
             aliases=('-d',),
             default=RECS.audio.sdtype,
             help='Integer or float number type for recording',
         ),
     ],
-    subtype: t.Annotated[
-        t.Annotated[types.Subtype, SUBTYPE_SPEC] | None,
+    subtype: Annotated[
+        Annotated[types.Subtype, SUBTYPE_SPEC] | None,
         tyro.conf.arg(
             aliases=('-u',),
             default=RECS.audio.subtype,
             help='Audio file subtype',
         ),
     ],
-    clear_terminal: t.Annotated[
+    clear_terminal: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-r',),
@@ -204,28 +204,28 @@ def recs(
             help='Clear display on shutdown',
         ),
     ],
-    gui: t.Annotated[
+    gui: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.console.gui,
             help='Display live updates in a PySide6 window',
         ),
     ],
-    open_output_folder: t.Annotated[
+    open_output_folder: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.console.open_output_folder,
             help='Open the output folder when recording finishes',
         ),
     ],
-    remote: t.Annotated[
+    remote: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.console.remote,
             help='Connect to an already-running recs daemon instead of recording',
         ),
     ],
-    silent: t.Annotated[
+    silent: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-s',),
@@ -233,7 +233,7 @@ def recs(
             help='Do not display live updates',
         ),
     ],
-    sleep_time_device: t.Annotated[
+    sleep_time_device: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -241,35 +241,35 @@ def recs(
             help='How long to sleep between checking device',
         ),
     ],
-    ui_refresh_rate: t.Annotated[
+    ui_refresh_rate: Annotated[
         float,
         tyro.conf.arg(
             default=RECS.console.ui_refresh_rate,
             help='How many UI refreshes per second',
         ),
     ],
-    key_label: t.Annotated[
+    key_label: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
             default=RECS.keys.key_label,
             help='Add a manifest label for a key, for example g=guitar too soft',
         ),
     ],
-    record_keys: t.Annotated[
-        t.Annotated[types.RecordKeys, RECORD_KEYS_SPEC] | None,
+    record_keys: Annotated[
+        Annotated[types.RecordKeys, RECORD_KEYS_SPEC] | None,
         tyro.conf.arg(
             default=RECS.keys.record_keys,
             help='Record keys in the session manifest: none, press, or all',
         ),
     ],
-    record_key_all_apps: t.Annotated[
+    record_key_all_apps: Annotated[
         bool | None,
         tyro.conf.arg(
             default=RECS.keys.record_key_all_apps,
             help='Record key events from all applications when supported',
         ),
     ],
-    audio_buffer_seconds: t.Annotated[
+    audio_buffer_seconds: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -277,7 +277,7 @@ def recs(
             help='How much captured audio to buffer while disk writes catch up',
         ),
     ],
-    band_mode: t.Annotated[
+    band_mode: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-B',),
@@ -285,7 +285,7 @@ def recs(
             help='Band mode: any track starting starts them all',
         ),
     ],
-    buffer_status_period: t.Annotated[
+    buffer_status_period: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -293,28 +293,28 @@ def recs(
             help='How often to repeat buffer pressure warnings',
         ),
     ],
-    buffer_warning_fraction: t.Annotated[
+    buffer_warning_fraction: Annotated[
         float,
         tyro.conf.arg(
             default=RECS.recording.buffer_warning_fraction,
             help='Warn when the audio buffer reaches this fraction full',
         ),
     ],
-    channel_noise_floors: t.Annotated[
+    channel_noise_floors: Annotated[
         dict[str, dict[str, float | None]],
         tyro.conf.arg(
             default=RECS.recording.channel_noise_floors,
             help='Per-device mono or stereo track noise floor overrides',
         ),
     ],
-    infinite_length: t.Annotated[
+    infinite_length: Annotated[
         bool,
         tyro.conf.arg(
             default=RECS.recording.infinite_length,
             help='Ignore file size limit: 4G on .wav',
         ),
     ],
-    longest_file_time: t.Annotated[
+    longest_file_time: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -322,14 +322,14 @@ def recs(
             help='Longest amount of time per file: 0 means infinite',
         ),
     ],
-    minimum_free_space: t.Annotated[
+    minimum_free_space: Annotated[
         int,
         tyro.conf.arg(
             default=RECS.recording.minimum_free_space,
             help='Stop recording when output disk free space is below this many bytes',
         ),
     ],
-    moving_average_time: t.Annotated[
+    moving_average_time: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -337,7 +337,7 @@ def recs(
             help='How long to average the volume display over',
         ),
     ],
-    noise_floor: t.Annotated[
+    noise_floor: Annotated[
         float,
         tyro.conf.arg(
             aliases=('-z',),
@@ -345,14 +345,14 @@ def recs(
             help='The noise floor in decibels',
         ),
     ],
-    preview_headroom: t.Annotated[
+    preview_headroom: Annotated[
         float,
         tyro.conf.arg(
             default=RECS.recording.preview_headroom,
             help='Headroom in decibels to add to silence preview measurements',
         ),
     ],
-    record_everything: t.Annotated[
+    record_everything: Annotated[
         bool,
         tyro.conf.arg(
             aliases=('-R',),
@@ -360,7 +360,7 @@ def recs(
             help='Start immediately, record everything until end',
         ),
     ],
-    shortest_file_time: t.Annotated[
+    shortest_file_time: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -368,7 +368,7 @@ def recs(
             help='Files shorter than this duration get deleted',
         ),
     ],
-    quiet_after_end: t.Annotated[
+    quiet_after_end: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -377,7 +377,7 @@ def recs(
             help='How much quiet after the end',
         ),
     ],
-    quiet_before_start: t.Annotated[
+    quiet_before_start: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -386,7 +386,7 @@ def recs(
             help='How much quiet before a recording',
         ),
     ],
-    stop_after_quiet: t.Annotated[
+    stop_after_quiet: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
@@ -394,7 +394,7 @@ def recs(
             help='How much quiet before stopping a recording',
         ),
     ],
-    total_run_time: t.Annotated[
+    total_run_time: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(

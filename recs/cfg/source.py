@@ -1,5 +1,6 @@
 import abc
-import typing as t
+from collections.abc import Callable
+from typing import NamedTuple
 
 import numpy as np
 from threa import Runnable
@@ -12,7 +13,7 @@ def to_matrix(array: np.ndarray) -> np.ndarray:
     return array.reshape(*array.shape, 1) if len(array.shape) == 1 else array
 
 
-class Update(t.NamedTuple):
+class Update(NamedTuple):
     array: np.ndarray
     timestamp: float
     status: str = ''
@@ -38,6 +39,6 @@ class Source(hash_cmp.HashCmp, abc.ABC):
 
     @abc.abstractmethod
     def input_stream(
-        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
+        self, sdtype: SdType, update_callback: Callable[[Update], None]
     ) -> Runnable:
         pass

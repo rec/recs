@@ -2,8 +2,9 @@ import ctypes
 import multiprocessing as mp
 import sys
 import threading
-import typing as t
+from collections.abc import Sequence
 from multiprocessing import connection
+from typing import Any, cast
 
 from threa import Runnable
 
@@ -77,12 +78,12 @@ class SourceProcess(Runnable):
     control_connection: connection.Connection
     control_transport: SourceControlTransport
     process: mp.Process
-    stop_event: t.Any
+    stop_event: Any
 
     def __init__(
         self,
         cfg: Cfg,
-        tracks: t.Sequence[Track],
+        tracks: Sequence[Track],
         track_names: DeviceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
@@ -190,7 +191,7 @@ class SourceProcess(Runnable):
             except (EOFError, OSError):
                 break
             self.pending_updates.append(
-                t.cast(
+                cast(
                     source_recorder.SourceUpdate | source_recorder.SourceFailure,
                     update,
                 )
@@ -212,8 +213,8 @@ class SourceProcess(Runnable):
 def _run_source_recorder(
     cfg: Cfg,
     control_connection: connection.Connection,
-    stop_event: t.Any,
-    tracks: t.Sequence[Track],
+    stop_event: Any,
+    tracks: Sequence[Track],
     update_connection: connection.Connection,
     track_names: DeviceTrackNames | None = None,
     process_name: str | None = None,

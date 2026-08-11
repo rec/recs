@@ -1,4 +1,4 @@
-import typing as t
+from typing import Any
 
 import pytest
 import tyro
@@ -8,13 +8,13 @@ from recs.cfg.cfg import Cfg
 
 
 def test_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    parsed: dict[str, t.Any] = {}
+    parsed: dict[str, Any] = {}
 
-    def make_cfg(**kwargs: t.Any) -> dict[str, t.Any]:
+    def make_cfg(**kwargs: Any) -> dict[str, Any]:
         parsed.update(kwargs)
         return parsed
 
-    def consume(cfg: t.Any) -> None:
+    def consume(cfg: Any) -> None:
         assert cfg is parsed
 
     monkeypatch.setattr(cli.cfg, 'Cfg', make_cfg)

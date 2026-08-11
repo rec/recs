@@ -1,6 +1,7 @@
 import subprocess
-import typing
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 from reccy import models, service
 
@@ -14,7 +15,7 @@ class ServiceController:
         self,
         platform: models.Platform,
         home: Path | None = None,
-        runner: typing.Callable[..., subprocess.CompletedProcess[str]] | None = None,
+        runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
         service_definition: models.ServiceSpec = RECS_SERVICE,
     ) -> None:
         self.platform = platform
@@ -32,7 +33,7 @@ class ServiceController:
 
     def install(self, metadata: DaemonMetadata) -> StatusResult:
         return _status_result(
-            self._controller.install(typing.cast(models.DaemonMetadata, metadata))
+            self._controller.install(cast(models.DaemonMetadata, metadata))
         )
 
     def uninstall(self) -> StatusResult:
@@ -53,7 +54,7 @@ class ServiceController:
 
 def _status_result(value: models.StatusResult) -> StatusResult:
     return StatusResult(
-        health=typing.cast(DaemonStatus | None, value.health),
+        health=cast(DaemonStatus | None, value.health),
         installed=value.installed,
         running=value.running,
         details=value.details,

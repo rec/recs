@@ -1,4 +1,4 @@
-import typing
+from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 from reccy import ipc
@@ -9,88 +9,88 @@ VERSION = 2
 
 
 class Hello(ipc.Hello):
-    type: typing.Literal['hello']
-    role: typing.Literal['daemon', 'gui']
+    type: Literal['hello']
+    role: Literal['daemon', 'gui']
     version: int = VERSION
 
 
 class RowsMessage(BaseModel):
-    type: typing.Literal['rows']
+    type: Literal['rows']
     rows: list[dict[str, object]]
     errors: list[str] = Field(default_factory=list)
 
 
 class KeyPressed(BaseModel):
-    type: typing.Literal['key_pressed']
+    type: Literal['key_pressed']
     key: str
 
 
 class KeyReleased(BaseModel):
-    type: typing.Literal['key_released']
+    type: Literal['key_released']
     key: str
 
 
 class Calibrate(BaseModel):
-    type: typing.Literal['calibrate']
+    type: Literal['calibrate']
     channels: dict[str, list[int]] = Field(default_factory=dict)
 
 
 class Capabilities(BaseModel):
-    type: typing.Literal['capabilities']
+    type: Literal['capabilities']
 
 
 class DiskStatusRequest(BaseModel):
-    type: typing.Literal['disk_status']
+    type: Literal['disk_status']
 
 
 class GetCfg(BaseModel):
-    type: typing.Literal['get_cfg']
+    type: Literal['get_cfg']
     address: str
 
 
 class GetTrackNames(BaseModel):
-    type: typing.Literal['get_track_names']
+    type: Literal['get_track_names']
 
 
 class ListDevices(BaseModel):
-    type: typing.Literal['list_devices']
+    type: Literal['list_devices']
 
 
 class MutableAttributes(BaseModel):
-    type: typing.Literal['mutable_attributes']
+    type: Literal['mutable_attributes']
 
 
 class Mark(BaseModel):
-    type: typing.Literal['mark']
+    type: Literal['mark']
     label: str
 
 
 class PauseRecording(BaseModel):
-    type: typing.Literal['pause_recording']
+    type: Literal['pause_recording']
 
 
 class ReloadProfiles(BaseModel):
-    type: typing.Literal['reload_profiles']
+    type: Literal['reload_profiles']
 
 
 class ResumeRecording(BaseModel):
-    type: typing.Literal['resume_recording']
+    type: Literal['resume_recording']
 
 
 class SetCfg(BaseModel):
-    type: typing.Literal['set_cfg']
+    type: Literal['set_cfg']
     address: str
     value: object
 
 
 class SetKeyLabel(BaseModel):
-    type: typing.Literal['set_key_label']
+    type: Literal['set_key_label']
     key: str
     label: str
 
 
 class SetNoiseFloor(BaseModel):
-    type: typing.Literal['set_noise_floor']
+    type: Literal['set_noise_floor']
     source: str
     channel: int
     noise_floor: float | None
@@ -102,54 +102,54 @@ class ChannelTrack(BaseModel):
 
 
 class SetTrackNames(BaseModel):
-    type: typing.Literal['set_track_names']
+    type: Literal['set_track_names']
     track_names: DeviceTrackNames
 
 
 class SetTracks(BaseModel):
-    type: typing.Literal['set_tracks']
+    type: Literal['set_tracks']
     source: str
     tracks: list[ChannelTrack]
 
 
 class StartRecording(BaseModel):
-    type: typing.Literal['start_recording']
+    type: Literal['start_recording']
 
 
 class StatusSnapshotRequest(BaseModel):
-    type: typing.Literal['status_snapshot']
+    type: Literal['status_snapshot']
 
 
 class StopRecording(BaseModel):
-    type: typing.Literal['stop_recording']
+    type: Literal['stop_recording']
 
 
 class Calibrated(BaseModel):
-    type: typing.Literal['calibrated']
+    type: Literal['calibrated']
     measurements: dict[str, float]
     noise_floors: dict[str, dict[str, float]]
 
 
 class CapabilitiesResult(BaseModel):
-    type: typing.Literal['capabilities_result']
+    type: Literal['capabilities_result']
     commands: list[str]
     version: int
 
 
 class CfgSet(BaseModel):
-    type: typing.Literal['cfg_set']
+    type: Literal['cfg_set']
     address: str
     value: object
 
 
 class CfgValue(BaseModel):
-    type: typing.Literal['cfg_value']
+    type: Literal['cfg_value']
     address: str
     value: object
 
 
 class DiskStatus(BaseModel):
-    type: typing.Literal['disk_status_result']
+    type: Literal['disk_status_result']
     free_bytes: int
     path: str
     total_bytes: int
@@ -157,46 +157,46 @@ class DiskStatus(BaseModel):
 
 
 class Devices(BaseModel):
-    type: typing.Literal['devices']
+    type: Literal['devices']
     devices: list[dict[str, object]]
 
 
 class KeyLabelSet(BaseModel):
-    type: typing.Literal['key_label_set']
+    type: Literal['key_label_set']
     key: str
     label: str
 
 
 class Marked(BaseModel):
-    type: typing.Literal['marked']
+    type: Literal['marked']
     label: str
 
 
 class MutableAttributesResult(BaseModel):
-    type: typing.Literal['mutable_attributes_result']
+    type: Literal['mutable_attributes_result']
     mutable_attributes: list[str]
 
 
 class NoiseFloorSet(BaseModel):
-    type: typing.Literal['noise_floor_set']
+    type: Literal['noise_floor_set']
     channel: int
     noise_floor: float | None
     source: str
 
 
 class ProfilesReloaded(BaseModel):
-    type: typing.Literal['profiles_reloaded']
+    type: Literal['profiles_reloaded']
     profiles_path: str
 
 
 class RecordingState(BaseModel):
-    type: typing.Literal['recording_state']
+    type: Literal['recording_state']
     paused: bool
     stopped: bool
 
 
 class StatusSnapshot(BaseModel):
-    type: typing.Literal['status_snapshot_result']
+    type: Literal['status_snapshot_result']
     devices: list[dict[str, object]]
     disk: dict[str, object]
     errors: list[str]
@@ -205,22 +205,22 @@ class StatusSnapshot(BaseModel):
 
 
 class TrackNames(BaseModel):
-    type: typing.Literal['track_names']
+    type: Literal['track_names']
     track_names: DeviceTrackNames
 
 
 class TracksSet(BaseModel):
-    type: typing.Literal['tracks_set']
+    type: Literal['tracks_set']
     source: str
     tracks: list[ChannelTrack]
 
 
 class Shutdown(ipc.Shutdown):
-    type: typing.Literal['shutdown']
+    type: Literal['shutdown']
 
 
 class Error(ipc.Error):
-    type: typing.Literal['error']
+    type: Literal['error']
     message: str
 
 

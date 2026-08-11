@@ -1,7 +1,7 @@
 import importlib
 import sys
 import threading
-import typing as t
+from typing import Any, Protocol, cast
 
 from pydantic import BaseModel
 from threa import Runnable
@@ -10,7 +10,7 @@ from recs.base.types import RecordKeys
 from recs.cfg.cfg import Cfg
 
 
-class Listener(t.Protocol):
+class Listener(Protocol):
     def start(self) -> None:
         ...
 
@@ -32,7 +32,7 @@ class TerminalKeyRecorder(Runnable):
     def __init__(self) -> None:
         super().__init__()
         self.events: list[KeyEvent] = []
-        self.original_termios: t.Any | None = None
+        self.original_termios: Any | None = None
 
     def start(self) -> None:
         if sys.platform == 'win32':
@@ -82,7 +82,7 @@ class PynputKeyRecorder(Runnable):
     def start(self) -> None:
         keyboard = importlib.import_module('pynput.keyboard')
         release = self._on_release if self.record_keys == RecordKeys.all else None
-        self.listener = t.cast(
+        self.listener = cast(
             Listener,
             keyboard.Listener(
                 on_press=self._on_press,

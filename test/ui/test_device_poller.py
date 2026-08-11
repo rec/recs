@@ -1,5 +1,5 @@
 import subprocess
-import typing
+from typing import cast
 
 import pytest
 
@@ -104,7 +104,7 @@ def test_query_stream_restarts_when_process_exits(
 ) -> None:
     restarted = False
     stream = DeviceQueryStream()
-    stream.process = typing.cast(subprocess.Popen[str], FakeDeadProcess())
+    stream.process = cast(subprocess.Popen[str], FakeDeadProcess())
 
     def restart() -> None:
         nonlocal restarted
@@ -121,7 +121,7 @@ def test_query_stream_restarts_when_updates_stop(
 ) -> None:
     restarted = False
     stream = DeviceQueryStream()
-    stream.process = typing.cast(subprocess.Popen[str], FakeLiveProcess())
+    stream.process = cast(subprocess.Popen[str], FakeLiveProcess())
     stream.last_update = 0
 
     def restart() -> None:
@@ -138,7 +138,7 @@ def test_query_stream_restarts_when_updates_stop(
 def test_query_stream_kills_unresponsive_process() -> None:
     stream = DeviceQueryStream()
     process = FakeUnresponsiveProcess()
-    stream.process = typing.cast(subprocess.Popen[str], process)
+    stream.process = cast(subprocess.Popen[str], process)
 
     stream.stop()
 

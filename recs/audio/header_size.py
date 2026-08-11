@@ -1,9 +1,9 @@
-import typing as t
+from collections.abc import Mapping
 
 from recs.base.types import Format
 
 
-def header_size(metadata: t.Mapping[str, str], format: Format) -> int:
+def header_size(metadata: Mapping[str, str], format: Format) -> int:
     if format != Format.wav:
         return 0
 

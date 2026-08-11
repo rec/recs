@@ -1,6 +1,7 @@
 import subprocess as sp
-import typing as t
+from collections.abc import Callable
 from types import SimpleNamespace
+from typing import Any, NoReturn
 
 import numpy as np
 import pytest
@@ -27,7 +28,7 @@ def test_input_device_uses_sounddevice_adc_time(
         def __init__(
             self,
             *,
-            callback: t.Callable[[np.ndarray, int, object, int], None],
+            callback: Callable[[np.ndarray, int, object, int], None],
             channels: int,
             device: str,
             dtype: SdType,
@@ -57,7 +58,7 @@ def test_query_device_failure_is_not_an_empty_device_list(
 ) -> None:
     error = sp.CalledProcessError(1, ['recs', 'query-devices'])
 
-    def fail(*args: t.Any, **kwargs: t.Any) -> t.NoReturn:
+    def fail(*args: Any, **kwargs: Any) -> NoReturn:
         raise error
 
     monkeypatch.setattr(sp, 'run', fail)
@@ -71,9 +72,9 @@ def test_query_device_failure_is_not_an_empty_device_list(
 def test_query_device_does_not_receive_terminal_interrupts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    kwargs: dict[str, t.Any] = {}
+    kwargs: dict[str, Any] = {}
 
-    def run(*args: t.Any, **run_kwargs: t.Any) -> sp.CompletedProcess[str]:
+    def run(*args: Any, **run_kwargs: Any) -> sp.CompletedProcess[str]:
         kwargs.update(run_kwargs)
         return sp.CompletedProcess(args, 0, stdout='[]')
 
@@ -87,7 +88,7 @@ def test_query_device_does_not_receive_terminal_interrupts(
 def test_query_device_timeout_is_empty_device_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def timeout(*args: t.Any, **kwargs: t.Any) -> t.NoReturn:
+    def timeout(*args: Any, **kwargs: Any) -> NoReturn:
         raise sp.TimeoutExpired(['recs', 'query-devices'], timeout=5)
 
     monkeypatch.setattr(sp, 'run', timeout)

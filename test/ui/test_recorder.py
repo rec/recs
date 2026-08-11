@@ -1,8 +1,9 @@
 import json
-import typing
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from test.conftest import DEVICES, DEVICES_FILE
+from typing import Any, NamedTuple
 
 import pytest
 from threa import Runnable
@@ -18,7 +19,7 @@ from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
 
 
-class DiskUsage(typing.NamedTuple):
+class DiskUsage(NamedTuple):
     total: int
     used: int
     free: int
@@ -26,16 +27,16 @@ class DiskUsage(typing.NamedTuple):
 
 class FakePoller(Runnable):
     def __init__(self, interval: float) -> None:
-        self.snapshots: list[dict[str, typing.Any] | None] = []
+        self.snapshots: list[dict[str, Any] | None] = []
 
-    def latest(self) -> dict[str, typing.Any] | None:
+    def latest(self) -> dict[str, Any] | None:
         return self.snapshots.pop(0) if self.snapshots else None
 
     def poll(self) -> None:
         pass
 
 
-def read_jsonl(path: Path) -> list[dict[str, typing.Any]]:
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
@@ -54,7 +55,7 @@ class FakeSourceProcess:
     def __init__(
         self,
         cfg: Cfg,
-        tracks: typing.Sequence[Track],
+        tracks: Sequence[Track],
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
         self.name = tracks[0].source.name
@@ -125,10 +126,10 @@ class ClosedDisplay(Runnable):
 
     def __init__(
         self,
-        rows: typing.Callable[[], typing.Iterator[typing.Mapping[str, object]]],
+        rows: Callable[[], Iterator[Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: typing.Callable[[], typing.Iterable[str]] | None = None,
+        errors: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.cfg = cfg

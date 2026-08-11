@@ -1,9 +1,9 @@
-import typing
+from collections.abc import Callable
 from enum import auto
 
 from strenum import StrEnum
 
-Stop = typing.Callable[[], None]
+Stop = Callable[[], None]
 
 
 class Mutable:

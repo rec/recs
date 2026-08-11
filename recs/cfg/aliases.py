@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Iterable, Sequence
 
 from recs.base import prefix_dict
 from recs.base.errors import RecsError
@@ -14,7 +14,7 @@ CHANNEL_SPLITTER = '+'
 class Aliases:
     tracks: prefix_dict.PrefixDict[Track]
 
-    def __init__(self, aliases: t.Sequence[str], devices: InputDevices) -> None:
+    def __init__(self, aliases: Sequence[str], devices: InputDevices) -> None:
         self.tracks = PrefixDict()
         self.devices = devices
 
@@ -41,7 +41,7 @@ class Aliases:
 
         self.inv = {k: v[0] for k, v in sorted(inv.items())}
 
-    def to_tracks(self, names: t.Iterable[str]) -> t.Sequence[Track]:
+    def to_tracks(self, names: Iterable[str]) -> Sequence[Track]:
         errors: dict[str, list[str]] = {}
         result: list[Track] = []
 

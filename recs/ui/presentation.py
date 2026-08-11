@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Iterable, Mapping
 from numbers import Real
 
 from humanfriendly import format_size
@@ -36,11 +36,11 @@ class ViewModel(BaseModel):
     rows: list[Row] = Field(default_factory=list)
 
 
-def view_model(rows: t.Iterable[t.Mapping[str, object]]) -> ViewModel:
+def view_model(rows: Iterable[Mapping[str, object]]) -> ViewModel:
     return ViewModel(rows=[_row(row) for row in rows])
 
 
-def _row(row: t.Mapping[str, object]) -> Row:
+def _row(row: Mapping[str, object]) -> Row:
     unknown = set(row) - set(COLUMNS)
     if unknown:  # pragma: no cover
         raise ValueError(f'{unknown=}')

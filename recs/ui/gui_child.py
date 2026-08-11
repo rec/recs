@@ -1,7 +1,7 @@
 import os
 import sys
 import threading
-import typing as t
+from collections.abc import Iterator, Mapping
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -24,7 +24,7 @@ class StdinRows:
     def start(self) -> None:
         threading.Thread(target=self._read, daemon=True, name='GuiRows').start()
 
-    def rows(self) -> t.Iterator[t.Mapping[str, object]]:
+    def rows(self) -> Iterator[Mapping[str, object]]:
         with self.lock:
             rows = list(self.latest.rows)
         return iter(rows)

@@ -1,6 +1,6 @@
-import typing as t
+from typing import TypeVar
 
-T = t.TypeVar('T')
+T = TypeVar('T')
 
 
 class PrefixDict(dict[str, T]):

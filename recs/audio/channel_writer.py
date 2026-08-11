@@ -1,9 +1,10 @@
 import contextlib
-import typing as t
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from functools import partial
 from pathlib import Path
 from threading import Lock
+from typing import Any
 
 from numpy.typing import NDArray
 from overrides import override
@@ -49,7 +50,7 @@ class ChannelWriter(Runnable):
     timestamp: float = 0
     timeline_frame: int = 0
 
-    _sfs: t.Sequence[SoundFile] = ()
+    _sfs: Sequence[SoundFile] = ()
 
     @property
     def active(self) -> Active:
@@ -166,7 +167,7 @@ class ChannelWriter(Runnable):
                 with contextlib.suppress(OSError):
                     Path(sf.name).unlink()
 
-    def _open(self, offset: int) -> t.Sequence[SoundFile]:
+    def _open(self, offset: int) -> Sequence[SoundFile]:
         timestamp = self.timestamp + offset / self.track.source.samplerate
         date = datetime.fromtimestamp(timestamp).isoformat()
         index = 1 + len(self.files_written)
@@ -233,7 +234,7 @@ class ChannelWriter(Runnable):
 
         return self._state() - saved_state
 
-    def _state(self, **kwargs: t.Any) -> ChannelState:
+    def _state(self, **kwargs: Any) -> ChannelState:
         return ChannelState(
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
@@ -255,7 +256,7 @@ class ChannelWriter(Runnable):
 
         self._close()
 
-    def _write_blocks(self, blox: t.Iterable[Block]) -> None:
+    def _write_blocks(self, blox: Iterable[Block]) -> None:
         blocks = list(blox)
 
         # The last block in the list ends at self.timestamp so

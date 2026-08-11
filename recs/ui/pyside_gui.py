@@ -1,5 +1,6 @@
 import sys
-import typing as t
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from typing import cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from threa import Runnable
@@ -48,12 +49,12 @@ QHeaderView::section {
 class Gui(Runnable):
     def __init__(
         self,
-        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        rows: Callable[[], Iterator[Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: t.Callable[[], t.Iterable[str]] | None = None,
-        stop_when: t.Callable[[], bool] | None = None,
-        record_key: t.Callable[[KeyEvent], None] | None = None,
+        errors: Callable[[], Iterable[str]] | None = None,
+        stop_when: Callable[[], bool] | None = None,
+        record_key: Callable[[KeyEvent], None] | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple
@@ -118,7 +119,7 @@ class RecsWindow(QtWidgets.QWidget):
         self,
         cfg: Cfg,
         *,
-        record_key: t.Callable[[KeyEvent], None] | None = None,
+        record_key: Callable[[KeyEvent], None] | None = None,
     ) -> None:
         super().__init__()
         self.cfg = cfg
@@ -148,8 +149,8 @@ class RecsWindow(QtWidgets.QWidget):
 
     def update_rows(
         self,
-        rows: t.Iterable[t.Mapping[str, object]],
-        errors: t.Iterable[str] = (),
+        rows: Iterable[Mapping[str, object]],
+        errors: Iterable[str] = (),
     ) -> None:
         view = presentation.view_model(rows)
         self.table.setColumnCount(len(view.columns))
@@ -188,7 +189,7 @@ class RecsWindow(QtWidgets.QWidget):
 def _application() -> QtWidgets.QApplication:
     app = QtWidgets.QApplication.instance()
     if app is not None:
-        return t.cast(QtWidgets.QApplication, app)
+        return cast(QtWidgets.QApplication, app)
     return QtWidgets.QApplication(sys.argv[:1])
 
 

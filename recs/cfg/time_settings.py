@@ -1,11 +1,11 @@
 import math
-import typing as t
 from functools import cached_property
+from typing import Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing_extensions import Self
 
-T = t.TypeVar('T', float, int)
+T = TypeVar('T', float, int)
 NO_SCALE = ('noise_floor',)
 
 
@@ -19,7 +19,7 @@ def amplitude_to_db(amp: float) -> float:
     return float('inf')
 
 
-class TimeSettings(BaseModel, t.Generic[T]):
+class TimeSettings(BaseModel, Generic[T]):
     """Amounts of time are specified as seconds in the input but converted
     to samples when we find out the sample rate
     """
@@ -27,22 +27,22 @@ class TimeSettings(BaseModel, t.Generic[T]):
     model_config = ConfigDict(frozen=True)
 
     #: Longest amount of time per file: 0 means infinite
-    longest_file_time: T = t.cast(T, 0)
+    longest_file_time: T = cast(T, 0)
 
     #: Shortest amount of time per file
-    shortest_file_time: T = t.cast(T, 0)
+    shortest_file_time: T = cast(T, 0)
 
     #: Amount of quiet at the start
-    quiet_before_start: T = t.cast(T, 0)
+    quiet_before_start: T = cast(T, 0)
 
     #: Amount of quiet at the end
-    quiet_after_end: T = t.cast(T, 0)
+    quiet_after_end: T = cast(T, 0)
 
     #: Amount of quiet before stopping a recording
-    stop_after_quiet: T = t.cast(T, 0)
+    stop_after_quiet: T = cast(T, 0)
 
     # Time for moving averages for the meters
-    moving_average_time: T = t.cast(T, 0)
+    moving_average_time: T = cast(T, 0)
 
     #: The noise floor in decibels
     noise_floor: float = 70
@@ -51,7 +51,7 @@ class TimeSettings(BaseModel, t.Generic[T]):
     record_everything: bool = False
 
     #: Amount of total time to run.  0 or less means "run forever"
-    total_run_time: T = t.cast(T, 0)
+    total_run_time: T = cast(T, 0)
 
     @cached_property
     def noise_floor_amplitude(self) -> float:

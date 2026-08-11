@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Sequence
 
 import soundfile
 
@@ -14,7 +14,7 @@ ALL = RECS_USES | USABLE | UNUSABLE
 PREFIX_DICT = prefix_dict.PrefixDict({i: i for i in sorted(ALL)})
 
 
-def to_dict(metadata: t.Sequence[str]) -> dict[str, str]:
+def to_dict(metadata: Sequence[str]) -> dict[str, str]:
     result: dict[str, str] = {}
     errors: dict[str, list[str]] = {}
 

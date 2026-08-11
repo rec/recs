@@ -1,6 +1,7 @@
 import json
-import subprocess as sp
-import typing as t
+import subprocess
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 
 import numpy as np
 from overrides import override
@@ -20,14 +21,14 @@ class InputDevice(Source):
     def __init__(self, info: DeviceDict) -> None:
         self.info = info
         super().__init__(
-            channels=t.cast(int, self.info['max_input_channels']),
-            name=t.cast(str, self.info['name']),
+            channels=cast(int, self.info['max_input_channels']),
+            name=cast(str, self.info['name']),
             samplerate=int(self.info['default_samplerate']),
         )
 
     @override
     def input_stream(
-        self, sdtype: SdType, update_callback: t.Callable[[Update], None]
+        self, sdtype: SdType, update_callback: Callable[[Update], None]
     ) -> Runnable:
         import sounddevice
 
@@ -36,7 +37,7 @@ class InputDevice(Source):
         def callback(
             indata: np.ndarray,
             frames: int,
-            time: t.Any,
+            time: Any,
             status: int,
         ) -> None:
             timestamp = times.timestamp() - (time.currentTime - time.inputBufferAdcTime)
@@ -57,23 +58,23 @@ class InputDevice(Source):
 InputDevices = PrefixDict[InputDevice]
 
 
-def get_input_devices(devices: t.Sequence[DeviceDict]) -> InputDevices:
+def get_input_devices(devices: Sequence[DeviceDict]) -> InputDevices:
     return PrefixDict({d.name: d for i in devices if (d := InputDevice(i)).channels})
 
 
-def query_devices() -> t.Sequence[DeviceDict]:
+def query_devices() -> Sequence[DeviceDict]:
     try:
-        r = sp.run(
+        r = subprocess.run(
             app_command.command('query-devices'),
             text=True,
             check=True,
             start_new_session=True,
-            stdout=sp.PIPE,
+            stdout=subprocess.PIPE,
             timeout=DEVICE_QUERY_TIMEOUT,
         )
-    except sp.TimeoutExpired:
+    except subprocess.TimeoutExpired:
         return []
-    return t.cast(list[DeviceDict], json.loads(r.stdout))
+    return cast(list[DeviceDict], json.loads(r.stdout))
 
 
 def input_devices() -> InputDevices:

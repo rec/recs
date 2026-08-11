@@ -1,7 +1,7 @@
 import threading
 import time
-import typing as t
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -71,8 +71,8 @@ class FakeProcess:
 
     def __init__(
         self,
-        target: t.Any,
-        kwargs: dict[str, t.Any],
+        target: Any,
+        kwargs: dict[str, Any],
         name: str | None = None,
     ) -> None:
         self.alive = False

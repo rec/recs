@@ -4,7 +4,7 @@ Print the current devices as JSON without loading any other part of recs.
 
 import json
 import time
-import typing as t
+from typing import Any
 
 STREAM_INTERVAL = 0.1
 
@@ -19,7 +19,7 @@ def stream_devices() -> None:
         time.sleep(STREAM_INTERVAL)
 
 
-def _query_devices() -> t.Any:
+def _query_devices() -> Any:
     import sounddevice
 
     try:

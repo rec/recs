@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Iterator, Sequence
 
 from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
@@ -8,7 +8,7 @@ from recs.cfg.source import Source
 from recs.cfg.track import Track, source_track
 
 
-def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
+def source_tracks(cfg: Cfg) -> Iterator[tuple[Source, Sequence[Track]]]:
     if cfg.directory.files:
         for file in cfg.directory.files:
             source = FileSource(file)
@@ -23,7 +23,7 @@ def source_tracks(cfg: Cfg) -> t.Iterator[tuple[Source, t.Sequence[Track]]]:
 def input_device_tracks(
     cfg: Cfg,
     input_devices: InputDevices,
-) -> t.Iterator[tuple[InputDevice, t.Sequence[Track]]]:
+) -> Iterator[tuple[InputDevice, Sequence[Track]]]:
     if not input_devices:
         return
 

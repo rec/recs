@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Iterator, Sequence
 
 from recs.base.errors import RecsError
 
@@ -68,8 +68,8 @@ def _channels(channel: str, device_name: str, max_channels: int) -> tuple[int, .
 
 
 def source_track(
-    d: InputDevice, exc: t.Sequence[Track] = (), inc: t.Sequence[Track] = ()
-) -> t.Iterator[Track]:
+    d: InputDevice, exc: Sequence[Track] = (), inc: Sequence[Track] = ()
+) -> Iterator[Track]:
     if Track(d) in exc:
         return
 

@@ -4,10 +4,11 @@ import shutil
 import subprocess
 import sys
 import time
-import typing
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from multiprocessing import connection
 from pathlib import Path
+from typing import Any, cast
 
 from threa import HasThread, Runnable, Runnables
 
@@ -146,7 +147,7 @@ class Recorder(Runnables):
         super().start()
         Runnable.start(self)
 
-    def rows(self) -> typing.Iterator[dict[str, typing.Any]]:
+    def rows(self) -> Iterator[dict[str, Any]]:
         for row in self.state.rows():
             if device := row.get('device'):
                 for source, name in self.state.source_names.items():
@@ -162,7 +163,7 @@ class Recorder(Runnables):
 
     def _record_startup_input_errors(
         self,
-        all_tracks: typing.Sequence[tuple[Source, typing.Sequence[Track]]],
+        all_tracks: Sequence[tuple[Source, Sequence[Track]]],
     ) -> None:
         if self.files:
             return
@@ -247,14 +248,14 @@ class Recorder(Runnables):
                         times.sleep(POLL_TIMEOUT)
                         continue
                     for c in connection.wait(connections, timeout=POLL_TIMEOUT):
-                        self._receive_connection(typing.cast(connection.Connection, c))
+                        self._receive_connection(cast(connection.Connection, c))
             finally:
                 for source in self.hardware.values():
                     source.stop()
                 for source in self.hardware.values():
                     source.join()
 
-    def _done(self, sources: typing.Sequence[SourceProcess]) -> bool:
+    def _done(self, sources: Sequence[SourceProcess]) -> bool:
         if self.files and not self.hardware:
             return not sources
         return self._invocation_expired() and not any(
@@ -353,7 +354,7 @@ class Recorder(Runnables):
     def _add_source(
         self,
         source: InputDevice,
-        tracks: typing.Sequence[Track],
+        tracks: Sequence[Track],
         aliases: Aliases,
     ) -> None:
         source_process = SourceProcess(self.cfg, tracks, track_names=self.track_names)
@@ -450,9 +451,7 @@ class Recorder(Runnables):
     def _receive_control_requests(self) -> None:
         if self.live is None:
             return
-        requests = typing.cast(
-            list[gui_ipc.ControlRequest], self.live.take_control_requests()
-        )
+        requests = cast(list[gui_ipc.ControlRequest], self.live.take_control_requests())
         for request in requests:
             try:
                 response = self._handle_control_request(request.request)
@@ -828,7 +827,7 @@ class Recorder(Runnables):
             msg = conn.recv()
         except (EOFError, OSError):
             return False
-        self._receive_source_message(typing.cast(SourceUpdate | SourceFailure, msg))
+        self._receive_source_message(cast(SourceUpdate | SourceFailure, msg))
         return True
 
     def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
@@ -939,7 +938,7 @@ class Recorder(Runnables):
         self,
         source_name: str,
         previous: dict[str, bool],
-        updates: typing.Mapping[str, typing.Any],
+        updates: Mapping[str, Any],
         frame_count: int | None,
         timestamp: float | None,
     ) -> None:
@@ -1123,7 +1122,7 @@ class Recorder(Runnables):
                 break
             connections = [source.connection for source in sources]
             for conn in connection.wait(connections, timeout=timeout):
-                self._receive_connection(typing.cast(connection.Connection, conn))
+                self._receive_connection(cast(connection.Connection, conn))
 
         missing = selected.keys() - self.calibration_results.keys()
         if missing:

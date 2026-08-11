@@ -1,7 +1,7 @@
 import os
 import subprocess as sp
 import threading
-import typing as t
+from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from pydantic import BaseModel, Field, ValidationError
 from threa import Runnable
@@ -22,10 +22,10 @@ class GuiPayload(BaseModel):
 class GuiProcess(Runnable):
     def __init__(
         self,
-        rows: t.Callable[[], t.Iterator[t.Mapping[str, object]]],
+        rows: Callable[[], Iterator[Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: t.Callable[[], t.Iterable[str]] | None = None,
+        errors: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple

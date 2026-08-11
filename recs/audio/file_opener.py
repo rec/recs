@@ -1,5 +1,5 @@
 import itertools
-import typing as t
+from collections.abc import Mapping
 from pathlib import Path
 
 import soundfile
@@ -16,7 +16,7 @@ class FileOpener(BaseModel):
     subtype: Subtype | None = None
 
     def open(
-        self, path: Path | str, metadata: t.Mapping[str, str], overwrite: bool = False
+        self, path: Path | str, metadata: Mapping[str, str], overwrite: bool = False
     ) -> soundfile.SoundFile:
         path = Path(path).with_suffix('.' + self.format)
         if not overwrite and path.exists():
@@ -37,7 +37,7 @@ class FileOpener(BaseModel):
 
         return fp
 
-    def create(self, metadata: t.Mapping[str, str], path: Path) -> soundfile.SoundFile:
+    def create(self, metadata: Mapping[str, str], path: Path) -> soundfile.SoundFile:
         path.parent.mkdir(exist_ok=True, parents=True)
 
         for i in itertools.count():
