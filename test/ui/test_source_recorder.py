@@ -2,14 +2,17 @@ import threading
 import time
 
 import numpy as np
+import pytest
 
 from recs.audio.block import Block
 from recs.base.state import ChannelState
+from recs.base.types import Active
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
 from recs.cfg.time_settings import amplitude_to_db
 from recs.cfg.track import Track
+from recs.ui import source_recorder
 from recs.ui.source_recorder import (
     InputBuffer,
     SourceRecorder,
@@ -113,6 +116,52 @@ def test_source_calibration_measures_exactly_half_a_second() -> None:
     )
 
     assert result == {'1': amplitude_to_db(0.2)}
+
+
+def test_source_track_change_closes_writers_before_next_buffer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 2,
+            'name': 'Mic',
+        }
+    )
+    recorder = object.__new__(SourceRecorder)
+    recorder.cfg = Cfg()
+    recorder.times = recorder.cfg.times.scale(source.samplerate)
+    recorder.input_stream = object()
+    original = ReconfiguredWriter(recorder.cfg, recorder.times, Track(source, '1-2'))
+    recorder.channel_writers = (original,)
+    recorder.file_counts = [0]
+    recorder.pending_file_end_frames = {}
+    recorder.pending_file_end_timestamps = {}
+    recorder.pending_active_channels = set()
+    recorder.pending_track_layout = None
+    monkeypatch.setattr(source_recorder, 'ChannelWriter', ReconfiguredWriter)
+
+    recorder._set_tracks([Track(source, '1'), Track(source, '2')], {'Mic': {'VL': 1}})
+
+    assert original.stopped
+    assert [writer.track.name for writer in recorder.channel_writers] == ['1', '2']
+    assert recorder.pending_active_channels == {1, 2}
+    assert recorder.pending_track_layout == ['1', '2']
+
+
+class ReconfiguredWriter:
+    def __init__(self, cfg: Cfg, times: object, track: Track) -> None:
+        self.track = track
+        self.file_end_frames: dict[object, int] = {}
+        self.file_end_timestamps: dict[object, float] = {}
+        self.stopped = False
+        self.active = Active.active
+
+    def set_track_names(self, track_names: dict[str, dict[str, int]]) -> None:
+        pass
+
+    def stop(self) -> None:
+        self.stopped = True
 
 
 class CalibrationWriter:

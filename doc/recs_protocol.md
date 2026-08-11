@@ -34,6 +34,7 @@ Errors use `{"type":"error","message":"..."}`.
 | `{"type":"set_cfg","address":"recording.longest_file_time","value":3600}` | `cfg_set` with the normalized `address` and `value` |
 | `{"type":"get_track_names"}` | `track_names` with `track_names` |
 | `{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}}}` | `track_names` with `track_names` |
+| `{"type":"set_tracks","source":"Mic","tracks":[{"channels":[15],"name":"VL"},{"channels":[16]}]}` | `tracks_set` with the applied track definitions |
 | `{"type":"list_devices"}` | `devices` with `devices` |
 | `{"type":"mutable_attributes"}` | `mutable_attributes_result` with `mutable_attributes` |
 | `{"type":"mark","label":"guitar solo"}` | `marked` with `label` |
@@ -57,6 +58,12 @@ as `"1"` and `"1-2"`. Missing entries and `null` values use the global
 `recording.noise_floor`. Calibration measures exactly 500 ms of incoming audio
 without changing recording state, then applies its channel-specific results
 through `set_cfg` behavior.
+
+`set_tracks` replaces the current tracks that intersect the supplied physical
+channels. Definitions are mono or adjacent stereo channels and cannot overlap;
+both channels of an existing stereo track must be replaced together. It closes
+the affected files and creates new writers immediately before the next input
+buffer. The optional `name` applies to that mono track or stereo pair.
 
 For example:
 

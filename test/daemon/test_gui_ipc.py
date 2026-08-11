@@ -69,6 +69,20 @@ def test_protocol_parses_set_track_names_request() -> None:
     assert message.track_names == {'Mic': {'Lead Vocal': 1}}
 
 
+def test_protocol_parses_set_tracks_request() -> None:
+    message = gui_protocol.parse_message(
+        '{"type":"set_tracks","source":"Mic","tracks":['
+        '{"channels":[15],"name":"VL"},{"channels":[16]}]}'
+    )
+
+    assert isinstance(message, gui_protocol.SetTracks)
+    assert message.source == 'Mic'
+    assert message.tracks == [
+        gui_protocol.ChannelTrack(channels=[15], name='VL'),
+        gui_protocol.ChannelTrack(channels=[16]),
+    ]
+
+
 def test_protocol_parses_mutable_attributes_request() -> None:
     message = gui_protocol.parse_message('{"type":"mutable_attributes"}')
 

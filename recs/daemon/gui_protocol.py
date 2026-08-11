@@ -96,9 +96,20 @@ class SetNoiseFloor(BaseModel):
     noise_floor: float | None
 
 
+class ChannelTrack(BaseModel):
+    channels: list[int]
+    name: str = ''
+
+
 class SetTrackNames(BaseModel):
     type: typing.Literal['set_track_names']
     track_names: DeviceTrackNames
+
+
+class SetTracks(BaseModel):
+    type: typing.Literal['set_tracks']
+    source: str
+    tracks: list[ChannelTrack]
 
 
 class StartRecording(BaseModel):
@@ -198,6 +209,12 @@ class TrackNames(BaseModel):
     track_names: DeviceTrackNames
 
 
+class TracksSet(BaseModel):
+    type: typing.Literal['tracks_set']
+    source: str
+    tracks: list[ChannelTrack]
+
+
 class Shutdown(ipc.Shutdown):
     type: typing.Literal['shutdown']
 
@@ -223,6 +240,7 @@ Request = (
     | SetKeyLabel
     | SetNoiseFloor
     | SetTrackNames
+    | SetTracks
     | StartRecording
     | StatusSnapshotRequest
     | StopRecording
@@ -243,6 +261,7 @@ Response = (
     | RecordingState
     | StatusSnapshot
     | TrackNames
+    | TracksSet
     | Error
 )
 

@@ -50,6 +50,7 @@ API_COMMANDS = [
     'set_key_label',
     'set_noise_floor',
     'set_track_names',
+    'set_tracks',
     'set_cfg',
     'shutdown',
     'start_recording',
@@ -503,6 +504,8 @@ class Recorder(Runnables):
             return self._set_noise_floor(request)
         if isinstance(request, gui_protocol.SetTrackNames):
             return self._set_track_names(request)
+        if isinstance(request, gui_protocol.SetTracks):
+            return self._set_tracks(request)
         if isinstance(request, gui_protocol.StartRecording):
             return self._resume_recording('start_recording')
         if isinstance(request, gui_protocol.StatusSnapshotRequest):
@@ -599,7 +602,130 @@ class Recorder(Runnables):
         }
         for source in self.sources.values():
             source.set_track_names(self.track_names)
+        self.state.set_track_names(self.track_names)
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                type='track_names_set',
+                value=self.track_names,
+            )
+        )
         return gui_protocol.TrackNames(type='track_names', track_names=self.track_names)
+
+    def _set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
+        source = self.hardware.get(request.source)
+        if source is None:
+            raise RecsError(f'Unknown input device: {request.source}')
+        tracks = self._updated_tracks(source, request.tracks)
+        names = self._updated_track_names(request.source, request.tracks)
+        floors = self._updated_track_noise_floors(source, request.tracks)
+        if floors != self.cfg.recording.channel_noise_floors:
+            self._set_cfg_value('recording.channel_noise_floors', floors)
+        self.track_names = names
+        source.set_tracks(tracks, names)
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                type='tracks_set',
+                source=request.source,
+                value=[track.model_dump() for track in request.tracks],
+            )
+        )
+        return gui_protocol.TracksSet(
+            type='tracks_set', source=request.source, tracks=request.tracks
+        )
+
+    def _updated_tracks(
+        self,
+        source: SourceProcess,
+        requested: list[gui_protocol.ChannelTrack],
+    ) -> list[Track]:
+        if not requested:
+            raise RecsError('At least one track is required')
+        channels: list[int] = []
+        new_tracks: list[Track] = []
+        for definition in requested:
+            values = definition.channels
+            if len(values) not in (1, 2):
+                raise RecsError('Tracks must be mono or stereo')
+            if values != sorted(values) or len(set(values)) != len(values):
+                raise RecsError('Track channels must be in ascending order')
+            if len(values) == 2 and values[1] != values[0] + 1:
+                raise RecsError('Stereo channels must be adjacent')
+            if values[0] <= 0 or values[-1] > source.source.channels:
+                raise RecsError(f'Invalid channel for device {source.name}')
+            try:
+                track = Track(source.source, tuple(values))
+            except RecsError as e:
+                raise RecsError(str(e)) from None
+            channels.extend(values)
+            new_tracks.append(track)
+
+        if len(channels) != len(set(channels)):
+            raise RecsError('Tracks cannot share channels')
+        selected = set(channels)
+        for track in source.tracks:
+            overlap = selected & set(track.channels)
+            if overlap and overlap != set(track.channels):
+                raise RecsError(f'All channels in {track} must be replaced together')
+        remaining = [
+            track for track in source.tracks if not (selected & set(track.channels))
+        ]
+        return sorted([*remaining, *new_tracks], key=lambda track: track.channels)
+
+    def _updated_track_names(
+        self,
+        source_name: str,
+        requested: list[gui_protocol.ChannelTrack],
+    ) -> DeviceTrackNames:
+        names = {device: dict(values) for device, values in self.track_names.items()}
+        changed = {channel for track in requested for channel in track.channels}
+        device_names = names.setdefault(source_name, {})
+        for name, channel in list(device_names.items()):
+            if channel in changed:
+                del device_names[name]
+        for track in requested:
+            if not track.name:
+                continue
+            if track.name in device_names:
+                raise RecsError(f'Duplicate track name: {track.name}')
+            device_names[track.name] = track.channels[0]
+        if not device_names:
+            del names[source_name]
+        try:
+            return validate_track_names(names)
+        except ValueError as e:
+            raise RecsError(str(e)) from None
+
+    def _updated_track_noise_floors(
+        self,
+        source: SourceProcess,
+        requested: list[gui_protocol.ChannelTrack],
+    ) -> dict[str, dict[str, float | None]]:
+        floors = {
+            device: dict(values)
+            for device, values in self.cfg.recording.channel_noise_floors.items()
+        }
+        device_floors = floors.setdefault(source.name, {})
+        changed = {channel for track in requested for channel in track.channels}
+        replaced = [track for track in source.tracks if changed & set(track.channels)]
+        values = {track.name: device_floors.pop(track.name, None) for track in replaced}
+        for definition in requested:
+            matching = [
+                value
+                for track, value in values.items()
+                if set(_track_channels(track)) & set(definition.channels)
+            ]
+            if len(set(matching)) > 1:
+                raise RecsError(
+                    'Cannot pair channels with different noise floors: '
+                    f'{definition.channels}'
+                )
+            if matching:
+                device_floors[_track_name(definition.channels)] = matching[0]
+        if not device_floors:
+            del floors[source.name]
+        return floors
 
     def _get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
         try:
@@ -738,6 +864,9 @@ class Recorder(Runnables):
             self.manifest_files[file_record.path] = record
             self._write_manifest_record(record)
         source = self.sources[update.source_name]
+        if update.track_layout is not None:
+            self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
+            self.state.set_track_names(self.track_names)
         previous = {
             track_name: state.is_active
             for track_name, state in self.state.state[update.source_name].items()
@@ -1250,3 +1379,11 @@ def _connection_ready(conn: connection.Connection) -> bool:
         return conn.poll()
     except OSError:
         return False
+
+
+def _track_channels(track_name: str) -> list[int]:
+    return [int(channel) for channel in track_name.split('-') if channel]
+
+
+def _track_name(channels: list[int]) -> str:
+    return '-'.join(str(channel) for channel in channels)

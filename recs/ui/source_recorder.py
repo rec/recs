@@ -14,7 +14,7 @@ from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
-from recs.base.types import Format, SdType
+from recs.base.types import Active, Format, SdType
 from recs.cfg import time_settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
@@ -48,6 +48,7 @@ class SourceUpdate(t.NamedTuple):
     file_end_timestamps: dict[Path, float] | None = None
     frame_count: int | None = None
     calibration: dict[str, float] | None = None
+    track_layout: list[str] | None = None
 
 
 class SourceFailure(t.NamedTuple):
@@ -59,6 +60,7 @@ class SourceControl(t.NamedTuple):
     cfg: Cfg | None = None
     track_names: DeviceTrackNames | None = None
     calibration_tracks: list[str] | None = None
+    tracks: list[Track] | None = None
 
 
 class SourceUpdateTransport:
@@ -236,6 +238,10 @@ class SourceRecorder(Runnables):
         )
         self._set_track_names(track_names or {})
         self.file_counts = [0] * len(self.channel_writers)
+        self.pending_file_end_frames: dict[Path, int] = {}
+        self.pending_file_end_timestamps: dict[Path, float] = {}
+        self.pending_active_channels: set[int] = set()
+        self.pending_track_layout: list[str] | None = None
         self.calibration_remaining: dict[str, int] = {}
         self.calibration_maximums: dict[str, float] = {}
         self.calibration_minimums: dict[str, float] = {}
@@ -278,6 +284,22 @@ class SourceRecorder(Runnables):
         for writer in self.channel_writers:
             writer.set_cfg(cfg, self.times)
 
+    def _set_tracks(self, tracks: list[Track], track_names: DeviceTrackNames) -> None:
+        for writer in self.channel_writers:
+            if writer.active == Active.active:
+                self.pending_active_channels.update(writer.track.channels)
+            writer.stop()
+            self.pending_file_end_frames.update(writer.file_end_frames)
+            self.pending_file_end_timestamps.update(writer.file_end_timestamps)
+        self.channel_writers = tuple(
+            ChannelWriter(cfg=self.cfg, times=self.times, track=track)
+            for track in tracks
+        )
+        self._set_track_names(track_names)
+        self.file_counts = [0] * len(self.channel_writers)
+        self.runnables = self.input_stream, *self.channel_writers
+        self.pending_track_layout = [track.name for track in tracks]
+
     def _receive_control_messages(self) -> None:
         while self.control_connection.poll():
             try:
@@ -292,6 +314,8 @@ class SourceRecorder(Runnables):
                 self._set_track_names(message.track_names)
             if message.calibration_tracks is not None:
                 self._start_calibration(message.calibration_tracks)
+            if message.tracks is not None:
+                self._set_tracks(message.tracks, message.track_names or {})
 
     def _start_calibration(self, tracks: list[str]) -> None:
         frames = max(1, round(self.source.samplerate / 2))
@@ -313,9 +337,11 @@ class SourceRecorder(Runnables):
         )
         msgs: dict[str, ChannelState] = {}
         for writer, block in cb.items():
+            forced = bool(set(writer.track.channels) & self.pending_active_channels)
             msgs[writer.track.name] = writer.receive_update(
-                block, end_timestamp, should_record, u.end_frame
+                block, end_timestamp, should_record or forced, u.end_frame
             )
+        self.pending_active_channels = set()
         calibration = self._calibration_update(cb)
         files, file_records = self._new_files(update.array.dtype.itemsize * 8)
         stats = self.buffer.stats.model_copy()
@@ -324,6 +350,13 @@ class SourceRecorder(Runnables):
             buffer_warnings.append(
                 f'Device {self.source.name} input status: {update.status}'
             )
+        track_layout, self.pending_track_layout = self.pending_track_layout, None
+        file_end_frames = self.pending_file_end_frames | self._file_end_frames()
+        file_end_timestamps = (
+            self.pending_file_end_timestamps | self._file_end_timestamps()
+        )
+        self.pending_file_end_frames = {}
+        self.pending_file_end_timestamps = {}
         self.update_transport.publish(
             SourceUpdate(
                 channels=msgs,
@@ -334,10 +367,11 @@ class SourceRecorder(Runnables):
                 buffer_stats=stats,
                 buffer_warnings=buffer_warnings,
                 file_records=file_records,
-                file_end_frames=self._file_end_frames(),
-                file_end_timestamps=self._file_end_timestamps(),
+                file_end_frames=file_end_frames,
+                file_end_timestamps=file_end_timestamps,
                 frame_count=u.end_frame,
                 calibration=calibration,
+                track_layout=track_layout,
             )
         )
 
@@ -432,4 +466,5 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         | (second.file_end_timestamps or {}),
         frame_count=second.frame_count,
         calibration=first.calibration or second.calibration,
+        track_layout=first.track_layout or second.track_layout,
     )

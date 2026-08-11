@@ -268,6 +268,34 @@ def test_source_process_requests_calibration(
     assert parent.sent == [SourceControl(calibration_tracks=['1'])]
 
 
+def test_source_process_updates_tracks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = FakeSendConnection()
+
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
+        return FakeConnection(), parent
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 2,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1-2')])
+    tracks = [Track(source, '1'), Track(source, '2')]
+
+    owner.start()
+    owner.set_tracks(tracks, {'Mic': {'VL': 1}})
+
+    assert parent.sent_event.wait(0.1)
+    assert parent.sent == [SourceControl(track_names={'Mic': {'VL': 1}}, tracks=tracks)]
+
+
 def test_source_controls_do_not_block_recorder_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

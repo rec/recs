@@ -48,6 +48,9 @@ class SourceControlTransport:
                     if control.calibration_tracks is not None
                     else self.control.calibration_tracks
                 ),
+                tracks=control.tracks
+                if control.tracks is not None
+                else self.control.tracks,
             )
             self.available.set()
 
@@ -147,6 +150,17 @@ class SourceProcess(Runnable):
         if self.started:
             self.control_transport.publish(
                 source_recorder.SourceControl(track_names=track_names)
+            )
+
+    def set_tracks(self, tracks: list[Track], track_names: DeviceTrackNames) -> None:
+        self.tracks = tracks
+        self.track_names = track_names
+        if self.started:
+            self.control_transport.publish(
+                source_recorder.SourceControl(
+                    track_names=track_names,
+                    tracks=tracks,
+                )
             )
 
     def set_cfg(self, cfg: Cfg) -> None:

@@ -44,6 +44,27 @@ class FullState:
             }
         )
 
+    def replace_source(
+        self,
+        source: Source,
+        tracks: t.Sequence[Track],
+        aliases: Aliases | None = None,
+    ) -> None:
+        self.track_names = {
+            key: value
+            for key, value in self.track_names.items()
+            if key[0] != source.name
+        }
+        self.add_source(source, tracks, aliases)
+
+    def set_track_names(self, names: dict[str, dict[str, int]]) -> None:
+        for source_name, tracks in self.state.items():
+            for track_name in tracks:
+                for name, channel in names.get(source_name, {}).items():
+                    if channel in _track_channels(track_name):
+                        self.track_names[source_name, track_name] = name
+                        break
+
     @property
     def elapsed_time(self) -> float:
         return times.timestamp() - self.start_time
@@ -92,3 +113,7 @@ class FullState:
         items = self.state.items()
         d = {f'{k} - {k2}': v2.db_range for k, v in items for k2, v2 in v.items()}
         return d | {'(all)': self.total.db_range}
+
+
+def _track_channels(track_name: str) -> list[int]:
+    return [int(channel) for channel in track_name.split('-') if channel]
