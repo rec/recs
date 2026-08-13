@@ -8,6 +8,7 @@ from typing import Any, NamedTuple
 import pytest
 from threa import Runnable
 
+from recs.base.errors import ErrorRecord
 from recs.base.state import ChannelState
 from recs.cfg import device
 from recs.cfg.cfg import Cfg
@@ -191,9 +192,10 @@ def test_recorder_reports_no_selected_channels(
 
     rec = Recorder(Cfg(include=['e'], exclude=['e'], silent=True))
 
-    assert rec.warnings == ['No channels selected']
+    assert rec.error_records()[0].message == 'No channels selected'
+    assert rec.error_records()[0].timestamp.endswith('Z')
     assert rec.error_messages() == ['No channels selected']
-    assert capsys.readouterr().err == 'ERROR: No channels selected\n'
+    assert capsys.readouterr().err.endswith(': No channels selected\n')
 
 
 def test_recorder_runs_without_devices(
@@ -208,9 +210,10 @@ def test_recorder_runs_without_devices(
 
     assert rec.hardware == {}
     assert rec.poller is not None
-    assert rec.warnings == ['No input devices detected']
+    assert rec.error_records()[0].message == 'No input devices detected'
+    assert rec.error_records()[0].timestamp.endswith('Z')
     assert rec.error_messages() == ['No input devices detected']
-    assert capsys.readouterr().err == 'ERROR: No input devices detected\n'
+    assert capsys.readouterr().err.endswith(': No input devices detected\n')
 
 
 def test_recorder_adds_device_detected_after_start(
@@ -263,8 +266,10 @@ def test_recorder_replaces_returning_device(
     rec._poll_devices()
     rec._reap_sources()
     assert not mic.started
-    assert 'Device Mic went offline' in rec.warnings
-    assert 'ERROR: Device Mic went offline\n' in capsys.readouterr().err
+    assert any(
+        warning.message == 'Device Mic went offline' for warning in rec.error_records()
+    )
+    assert ': Device Mic went offline\n' in capsys.readouterr().err
 
     rec._poll_devices()
     assert mic.started
@@ -321,8 +326,8 @@ def test_display_receives_recorder_errors(
 
     assert rec.live is not None
     assert rec.live.errors() == ['Flower 8 has 2 input channels; 10 required']
-    assert capsys.readouterr().err == (
-        'ERROR: Flower 8 has 2 input channels; 10 required\n'
+    assert capsys.readouterr().err.endswith(
+        ': Flower 8 has 2 input channels; 10 required\n'
     )
     assert not flower.started
 
@@ -405,8 +410,8 @@ def test_device_with_too_few_channels_stays_offline(
     rec._poll_devices()
 
     assert not flower.started
-    assert capsys.readouterr().err == (
-        'ERROR: Flower 8 has 2 input channels; 10 required\n'
+    assert capsys.readouterr().err.endswith(
+        ': Flower 8 has 2 input channels; 10 required\n'
     )
 
 
@@ -436,7 +441,9 @@ def test_slow_device_clock_stays_offline(
 
     assert not mic.running
     assert 'Mic' in rec.failed
-    assert capsys.readouterr().err == 'Device Mic lagging behind real time\n'
+    assert capsys.readouterr().err == (
+        'ERROR 1970-01-01T00:01:50.000Z: Device Mic lagging behind real time\n'
+    )
 
 
 def test_slow_device_clock_reports_once_per_session(
@@ -464,7 +471,9 @@ def test_slow_device_clock_reports_once_per_session(
     mic.running = True
     rec._receive_update(update)
 
-    assert capsys.readouterr().err == 'Device Mic lagging behind real time\n'
+    assert capsys.readouterr().err == (
+        'ERROR 1970-01-01T00:01:50.000Z: Device Mic lagging behind real time\n'
+    )
 
 
 def test_slow_device_clock_ignores_startup_grace(
@@ -515,8 +524,15 @@ def test_stalled_source_is_stopped(
 
     assert not mic.started
     assert 'Mic' in rec.failed
-    assert rec.warnings == ['Device Mic stopped sending updates']
-    assert capsys.readouterr().err == 'Device Mic stopped sending updates\n'
+    assert rec.error_records() == [
+        ErrorRecord(
+            timestamp='1970-01-01T00:01:51.000Z',
+            message='Device Mic stopped sending updates',
+        )
+    ]
+    assert capsys.readouterr().err == (
+        'ERROR 1970-01-01T00:01:51.000Z: Device Mic stopped sending updates\n'
+    )
 
 
 def test_source_failure_is_reported(
@@ -531,10 +547,12 @@ def test_source_failure_is_reported(
         SourceFailure(message='ValueError: no input device', source_name='Mic')
     )
 
-    assert rec.warnings == ['Device Mic failed: ValueError: no input device']
+    assert rec.error_records()[0].message == (
+        'Device Mic failed: ValueError: no input device'
+    )
     assert 'Mic' in rec.failed
-    assert capsys.readouterr().err == (
-        'Device Mic failed: ValueError: no input device\n'
+    assert capsys.readouterr().err.endswith(
+        ': Device Mic failed: ValueError: no input device\n'
     )
 
 
@@ -616,9 +634,11 @@ def test_recorder_reports_low_disk_space_once(
 
     assert rec._disk_space_low()
     assert rec._disk_space_low()
-    assert rec.warnings == ['Free disk space 4 bytes is below minimum_free_space=5']
-    assert capsys.readouterr().err == (
-        'Free disk space 4 bytes is below minimum_free_space=5\n'
+    assert rec.error_records()[0].message == (
+        'Free disk space 4 bytes is below minimum_free_space=5'
+    )
+    assert capsys.readouterr().err.endswith(
+        ': Free disk space 4 bytes is below minimum_free_space=5\n'
     )
 
 
@@ -1086,7 +1106,7 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 2
+    assert response.version == 3
     assert 'status_snapshot' in response.commands
     assert 'shutdown' in response.commands
 
@@ -1261,7 +1281,28 @@ def test_control_request_reports_device_and_disk_status(
     assert isinstance(response, gui_protocol.StatusSnapshot)
     assert response.disk == disk.responses[0].model_dump(exclude={'type'})
     assert response.devices == devices.responses[0].devices
+    assert response.errors == []
     assert response.recording == {'paused': False, 'stopped': False}
+
+
+def test_status_snapshot_includes_error_timestamps(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 100.0)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    rec._record_warning('Device Mic failed')
+
+    response = rec._status_snapshot()
+
+    assert response.errors == [
+        ErrorRecord(
+            timestamp='1970-01-01T00:01:40.000Z',
+            message='Device Mic failed',
+        )
+    ]
 
 
 def test_control_request_sets_and_gets_track_names(

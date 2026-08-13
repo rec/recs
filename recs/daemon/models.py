@@ -3,6 +3,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from reccy import models
 
+from recs.base.errors import ErrorRecord
+
 
 class DaemonMetadata(BaseModel):
     version: int = 1
@@ -14,7 +16,7 @@ class DaemonMetadata(BaseModel):
 
 class DaemonStatus(BaseModel):
     client_count: int = 0
-    errors: list[str] = Field(default_factory=list)
+    errors: list[ErrorRecord] = Field(default_factory=list)
     gui_ipc_error: str | None = None
     rows: list[dict[str, object]] = Field(default_factory=list)
     recording: bool = False

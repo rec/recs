@@ -51,7 +51,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _report(recorder: Recorder) -> DiagnosticReport:
-    report = DiagnosticReport(warnings=recorder.warnings)
+    report = DiagnosticReport(warnings=recorder.error_messages())
     for path in sorted(p for p in recorder.files_written if p.exists()):
         try:
             data, sample_rate = soundfile.read(path, always_2d=True)

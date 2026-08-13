@@ -1,18 +1,18 @@
 # Recs protocol
 
 The Recs daemon accepts newline-delimited JSON on its local GUI endpoint. This
-is protocol version 2. It is not compatible with version 1.
+is protocol version 3. It is not compatible with earlier versions.
 
 The client begins with:
 
 ```json
-{"type":"hello","role":"gui","version":2}
+{"type":"hello","role":"gui","version":3}
 ```
 
 The daemon answers before processing any other message:
 
 ```json
-{"type":"hello","role":"daemon","version":2}
+{"type":"hello","role":"daemon","version":3}
 ```
 
 Clients send one request and read its direct response before sending another
@@ -81,7 +81,7 @@ The daemon may send this notification at any time:
 ```
 
 `rows` contains the normal live-display rows. `errors` contains current daemon
-errors for display by clients.
+errors as objects with ISO 8601 UTC `timestamp` and `message` fields.
 
 Key notifications from GUI clients are `key_pressed` and `key_released`, each
 with a `key` string.

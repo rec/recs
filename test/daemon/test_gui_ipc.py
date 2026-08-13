@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 from reccy.models import Platform
 
-from recs.base.errors import RecsError
+from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_backend, gui_ipc, gui_protocol
 from recs.daemon.models import DaemonMetadata
@@ -22,7 +22,7 @@ def test_protocol_parses_valid_messages() -> None:
 
 
 def test_protocol_parses_daemon_hello() -> None:
-    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":2}')
+    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":3}')
 
     assert isinstance(message, gui_protocol.Hello)
     assert message.role == 'daemon'
@@ -111,10 +111,18 @@ def test_daemon_publisher_broadcasts_rows_to_listeners() -> None:
     second = FakeListener()
     server.clients = [first, second]
 
-    server.broadcast([{'device': 'Mic'}], ['Device Mic failed'])
+    server.broadcast(
+        [{'device': 'Mic'}],
+        [
+            ErrorRecord(
+                timestamp='2026-08-13T12:34:56.789Z', message='Device Mic failed'
+            )
+        ],
+    )
 
     assert first.messages == [
-        '{"type":"rows","rows":[{"device":"Mic"}],"errors":["Device Mic failed"]}\n'
+        '{"type":"rows","rows":[{"device":"Mic"}],"errors":['
+        '{"timestamp":"2026-08-13T12:34:56.789Z","message":"Device Mic failed"}]}\n'
     ]
     assert second.messages == first.messages
 
@@ -172,7 +180,11 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
     server = gui_ipc.DaemonGuiServer(
         lambda: iter([{'device': 'Mic'}]),
         Cfg(),
-        errors=lambda: ['Device Mic failed'],
+        errors=lambda: [
+            ErrorRecord(
+                timestamp='2026-08-13T12:34:56.789Z', message='Device Mic failed'
+            )
+        ],
     )
     server.enabled = True
     server.paths = server.paths.model_copy(update={'status': tmp_path / 'status.json'})
@@ -182,24 +194,25 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
     content = server.paths.status.read_text()
     json.loads(content)
     assert '"rows":[{"device":"Mic"}]' in content
-    assert '"errors":["Device Mic failed"]' in content
+    assert '"timestamp":"2026-08-13T12:34:56.789Z"' in content
+    assert '"message":"Device Mic failed"' in content
     assert not server.paths.status.with_name('.status.json.tmp').exists()
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
-    connection = FakeConnection(['{"type":"hello","role":"gui","version":2}\n'])
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":3}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
 
     listener._read()
 
-    assert connection.sent == ['{"type":"hello","role":"daemon","version":2}\n']
+    assert connection.sent == ['{"type":"hello","role":"daemon","version":3}\n']
 
 
 def test_gui_listener_accepts_key_events_after_hello() -> None:
     events: list[KeyEvent] = []
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":2}\n',
+            '{"type":"hello","role":"gui","version":3}\n',
             '{"type":"key_pressed","key":"g"}\n',
         ]
     )
@@ -222,7 +235,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
 
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":2}\n',
+            '{"type":"hello","role":"gui","version":3}\n',
             '{"type":"calibrate"}\n',
         ]
     )
@@ -231,7 +244,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
     listener._read()
 
     assert connection.sent == [
-        '{"type":"hello","role":"daemon","version":2}\n',
+        '{"type":"hello","role":"daemon","version":3}\n',
         (
             '{"type":"calibrated","measurements":{},'
             '"noise_floors":{"Mic":{"1":15.0}}}\n'
@@ -243,7 +256,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     first = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":2}\n',
+            '{"type":"hello","role":"gui","version":3}\n',
             '{"type":"shutdown"}\n',
             '{"type":"shutdown"}\n',
         ]
@@ -260,7 +273,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
 
     assert server.closed
     assert first.sent == [
-        '{"type":"hello","role":"daemon","version":2}\n',
+        '{"type":"hello","role":"daemon","version":3}\n',
         '{"type":"shutdown"}\n',
     ]
     assert first.closed
@@ -291,7 +304,7 @@ def test_gui_listener_rejects_unsupported_hello() -> None:
     assert connection.sent == [
         (
             '{"type":"error","message":"GUI protocol version 1 is not supported; '
-            'daemon requires 2"}\n'
+            'daemon requires 3"}\n'
         )
     ]
     assert connection.closed
@@ -312,7 +325,11 @@ def test_remote_row_provider_exposes_latest_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connection = FakeConnection(
-        ['{"type":"rows","rows":[],"errors":["Device Mic failed"]}\n']
+        [
+            '{"type":"rows","rows":[],"errors":['
+            '{"timestamp":"2026-08-13T12:34:56.789Z",'
+            '"message":"Device Mic failed"}]}\n'
+        ]
     )
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
@@ -327,7 +344,7 @@ def test_remote_row_provider_closes_on_protocol_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     connection = FakeConnection(
-        ['{"type":"error","message":"GUI protocol version 2 is not supported"}\n']
+        ['{"type":"error","message":"GUI protocol version 3 is not supported"}\n']
     )
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
     client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
@@ -335,7 +352,7 @@ def test_remote_row_provider_closes_on_protocol_error(
     client.start()
 
     assert _eventually(lambda: client.closed)
-    assert capsys.readouterr().err == 'GUI protocol version 2 is not supported\n'
+    assert capsys.readouterr().err == 'GUI protocol version 3 is not supported\n'
 
 
 def test_remote_row_provider_closes_on_shutdown(

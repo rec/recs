@@ -3,9 +3,10 @@ from typing import Literal
 from pydantic import BaseModel, Field, TypeAdapter
 from reccy import ipc
 
+from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import DeviceTrackNames
 
-VERSION = 2
+VERSION = 3
 
 
 class Hello(ipc.Hello):
@@ -17,7 +18,7 @@ class Hello(ipc.Hello):
 class RowsMessage(BaseModel):
     type: Literal['rows']
     rows: list[dict[str, object]]
-    errors: list[str] = Field(default_factory=list)
+    errors: list[ErrorRecord] = Field(default_factory=list)
 
 
 class KeyPressed(BaseModel):
@@ -199,7 +200,7 @@ class StatusSnapshot(BaseModel):
     type: Literal['status_snapshot_result']
     devices: list[dict[str, object]]
     disk: dict[str, object]
-    errors: list[str]
+    errors: list[ErrorRecord]
     recording: dict[str, bool]
     rows: list[dict[str, object]]
 

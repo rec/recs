@@ -19,6 +19,9 @@ class FakeRecorder:
     def run(self) -> None:
         pass
 
+    def error_messages(self) -> list[str]:
+        return self.warnings.copy()
+
 
 def test_input_self_test_reports_file_levels(
     monkeypatch: pytest.MonkeyPatch,

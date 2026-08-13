@@ -13,7 +13,7 @@ from typing import Any, cast
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
-from recs.base.errors import RecsError
+from recs.base.errors import ErrorRecord, RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
@@ -65,7 +65,7 @@ class Recorder(Runnables):
         super().__init__()
 
         all_tracks = list(source_tracks(cfg))
-        self.warnings: list[str] = []
+        self.warnings: list[ErrorRecord] = []
         self.no_devices_reported = False
         self.no_channels_reported = False
         self.recording_paused = False
@@ -86,7 +86,13 @@ class Recorder(Runnables):
         else:
             display_type = live.Live
         self.live = (
-            display_type(self.rows, self.cfg, errors=self.error_messages)
+            display_type(
+                self.rows,
+                self.cfg,
+                errors=self.error_records
+                if gui_ipc.daemon_mode_enabled()
+                else self.error_messages,
+            )
             if display
             else None
         )
@@ -159,6 +165,9 @@ class Recorder(Runnables):
             yield row
 
     def error_messages(self) -> list[str]:
+        return [warning.message for warning in self.warnings]
+
+    def error_records(self) -> list[ErrorRecord]:
         return self.warnings.copy()
 
     def _record_startup_input_errors(
@@ -282,7 +291,6 @@ class Recorder(Runnables):
             warning = (
                 f'Free disk space {free} bytes is below minimum_free_space={minimum}'
             )
-            print(warning, file=sys.stderr)
             self._record_warning(warning)
             self.disk_space_reported = True
         return True
@@ -303,7 +311,6 @@ class Recorder(Runnables):
             if info is None:
                 if name in self.present:
                     warning = f'Device {name} went offline'
-                    print(f'ERROR: {warning}', file=sys.stderr)
                     self._record_warning(warning)
                 self.failed.discard(name)
                 source.stop()
@@ -317,7 +324,6 @@ class Recorder(Runnables):
                         f'{name} has {channels} input channels; '
                         f'{source.required_channels} required'
                     )
-                    print(f'ERROR: {warning}', file=sys.stderr)
                     self._record_warning(warning)
                     self.failed.add(name)
                 continue
@@ -372,7 +378,6 @@ class Recorder(Runnables):
         if self.no_devices_reported:
             return
         warning = 'No input devices detected'
-        print(f'ERROR: {warning}', file=sys.stderr)
         self._record_warning(warning)
         self.no_devices_reported = True
 
@@ -380,7 +385,6 @@ class Recorder(Runnables):
         if self.no_channels_reported:
             return
         warning = 'No channels selected'
-        print(f'ERROR: {warning}', file=sys.stderr)
         self._record_warning(warning)
         self.no_channels_reported = True
 
@@ -427,7 +431,6 @@ class Recorder(Runnables):
             if now - self.source_last_updates[name] <= SOURCE_STALL_TIMEOUT:
                 continue
             warning = f'Device {name} stopped sending updates'
-            print(warning, file=sys.stderr)
             self._record_warning(warning)
             source.stop()
             source.join()
@@ -780,7 +783,7 @@ class Recorder(Runnables):
             type='status_snapshot_result',
             disk=self._disk_status().model_dump(exclude={'type'}),
             devices=self._device_status(),
-            errors=self.error_messages(),
+            errors=self.error_records(),
             recording=self._recording_state().model_dump(exclude={'type'}),
             rows=list(self.rows()),
         )
@@ -833,7 +836,6 @@ class Recorder(Runnables):
     def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
         if isinstance(message, SourceFailure):
             warning = f'Device {message.source_name} failed: {message.message}'
-            print(warning, file=sys.stderr)
             self._record_warning(warning)
             self.failed.add(message.source_name)
             return
@@ -911,7 +913,6 @@ class Recorder(Runnables):
                     update.source_name
                 ] = update.buffer_stats.dropped_frames
         for warning in update.buffer_warnings or []:
-            print(warning, file=sys.stderr)
             self._record_warning(warning)
 
     def _source_frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
@@ -929,7 +930,6 @@ class Recorder(Runnables):
 
         if source.name not in self.lag_reported:
             warning = f'Device {source.name} lagging behind real time'
-            print(warning, file=sys.stderr)
             self._record_warning(warning)
             self.lag_reported.add(source.name)
         return False
@@ -1057,10 +1057,12 @@ class Recorder(Runnables):
         self.session_stopped = False
 
     def _record_warning(self, warning: str) -> None:
-        self.warnings.append(warning)
+        timestamp = session_manifest.timestamp_to_json(times.timestamp())
+        print(f'ERROR {timestamp}: {warning}', file=sys.stderr)
+        self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         self._write_manifest_record(
             session_manifest.ManifestWarning(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                timestamp=timestamp,
                 message=warning,
             )
         )

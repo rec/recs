@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from reccy import ipc
 from threa import Runnable
 
-from recs.base.errors import RecsError
+from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
@@ -42,7 +42,7 @@ class DaemonGuiServer(Runnable):
         rows: Callable[[], Iterator[Mapping[str, object]]],
         cfg: Cfg,
         *,
-        errors: Callable[[], Iterable[str]] | None = None,
+        errors: Callable[[], Iterable[ErrorRecord]] | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple
@@ -104,7 +104,9 @@ class DaemonGuiServer(Runnable):
             requests, self.control_requests = self.control_requests, []
         return requests
 
-    def broadcast(self, rows: list[dict[str, object]], errors: list[str]) -> None:
+    def broadcast(
+        self, rows: list[dict[str, object]], errors: list[ErrorRecord]
+    ) -> None:
         message = ipc.message_json(
             gui_protocol.RowsMessage(type='rows', rows=rows, errors=errors)
         )
@@ -165,7 +167,7 @@ class DaemonGuiServer(Runnable):
         *,
         gui_ipc_error: str | None = None,
         rows: list[dict[str, object]] | None = None,
-        errors: list[str] | None = None,
+        errors: list[ErrorRecord] | None = None,
     ) -> DaemonStatus:
         with self.lock:
             client_count = len(self.clients)
@@ -233,7 +235,7 @@ class RemoteGuiClient:
         self.endpoint = endpoint
         self.connection: ipc.Connection | None = None
         self.latest: list[dict[str, object]] = []
-        self.latest_errors: list[str] = []
+        self.latest_errors: list[ErrorRecord] = []
         self.closed = False
         self.lock = threading.Lock()
 
@@ -259,7 +261,7 @@ class RemoteGuiClient:
 
     def errors(self) -> list[str]:
         with self.lock:
-            return list(self.latest_errors)
+            return [error.message for error in self.latest_errors]
 
     def record_key(self, event: KeyEvent) -> None:
         self._write(ipc.message_json(event))
