@@ -64,6 +64,8 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
             '--preview-headroom',
             '9',
             '--no-band-mode',
+            '--save-settings',
+            'True',
         ],
     )
 
@@ -73,3 +75,4 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert parsed['longest_file_time'] == 90
     assert parsed['preview_headroom'] == 9
     assert not parsed['band_mode']
+    assert parsed['save_settings']

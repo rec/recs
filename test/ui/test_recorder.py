@@ -10,7 +10,7 @@ from threa import Runnable
 
 from recs.base.errors import ErrorRecord
 from recs.base.state import ChannelState
-from recs.cfg import device
+from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import gui_protocol
@@ -1003,6 +1003,33 @@ def test_control_request_splits_stereo_track_and_records_event(
     ]
     assert [record.type for record in records] == ['cfg_set', 'tracks_set']
     assert records[1].source == 'Ext'
+
+
+def test_recorder_saves_and_restores_track_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / 'settings.json'
+    monkeypatch.setattr(settings, 'settings_path', lambda: path)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Ext'], save_settings=True, silent=True))
+    request = gui_protocol.SetTracks(
+        type='set_tracks',
+        source='Ext',
+        tracks=[
+            gui_protocol.ChannelTrack(channels=[1], name='VL'),
+            gui_protocol.ChannelTrack(channels=[2]),
+        ],
+    )
+
+    rec._set_tracks(request)
+    loaded = settings.load(Cfg(include=['Ext'], save_settings=True, silent=True))
+    restored = Recorder(loaded.cfg, loaded)
+
+    assert [track.name for track in restored.sources['Ext'].tracks] == ['1', '2', '3']
+    assert restored.track_names == {'Ext': {'VL': 1}}
 
 
 def test_control_request_groups_mono_tracks_into_stereo_pair(

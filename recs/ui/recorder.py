@@ -15,6 +15,7 @@ from threa import HasThread, Runnable, Runnables
 from recs.base import times
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
+from recs.cfg import settings
 from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
@@ -61,16 +62,29 @@ API_COMMANDS = [
 
 
 class Recorder(Runnables):
-    def __init__(self, cfg: Cfg, *, display: bool = True) -> None:
+    def __init__(
+        self,
+        cfg: Cfg,
+        saved_settings: settings.LoadedSettings | None = None,
+        *,
+        display: bool = True,
+    ) -> None:
         super().__init__()
 
-        all_tracks = list(source_tracks(cfg))
+        saved_settings = saved_settings or settings.LoadedSettings(cfg=cfg)
+        self.saved_tracks = {
+            name: list(tracks) for name, tracks in saved_settings.tracks.items()
+        }
+        all_tracks = [
+            (source, self._restored_tracks(source, tracks))
+            for source, tracks in source_tracks(cfg)
+        ]
         self.warnings: list[ErrorRecord] = []
         self.no_devices_reported = False
         self.no_channels_reported = False
         self.recording_paused = False
         self.recording_stopped = False
-        self.track_names: DeviceTrackNames = {}
+        self.track_names = saved_settings.track_names
         self.state = FullState(all_tracks, cfg.aliases)
         self.session_start_time = self.state.start_time
         self.daemon_record_directory = (
@@ -355,7 +369,25 @@ class Recorder(Runnables):
         aliases = Aliases(self.cfg.device.alias, input_devices)
         for source, tracks in input_device_tracks(self.cfg, input_devices):
             if source.name not in self.sources:
-                self._add_source(source, tracks, aliases)
+                self._add_source(source, self._restored_tracks(source, tracks), aliases)
+
+    def _restored_tracks(
+        self, source: Source, defaults: Sequence[Track]
+    ) -> Sequence[Track]:
+        saved = self.saved_tracks.get(source.name)
+        if saved is None:
+            return defaults
+        expected = {channel for track in defaults for channel in track.channels}
+        channels = {channel for track in saved for channel in track.channels}
+        if channels != expected:
+            return defaults
+        try:
+            tracks = [Track(source, tuple(track.channels)) for track in saved]
+        except RecsError:
+            return defaults
+        if len(channels) != sum(len(track.channels) for track in tracks):
+            return defaults
+        return sorted(tracks, key=lambda track: track.channels)
 
     def _add_source(
         self,
@@ -570,7 +602,10 @@ class Recorder(Runnables):
     def _set_key_label(
         self, request: gui_protocol.SetKeyLabel
     ) -> gui_protocol.KeyLabelSet:
-        self.cfg.keys.labels[request.key] = request.label
+        labels = self.cfg.keys.labels | {request.key: request.label}
+        self._set_cfg_value(
+            'keys.key_label', [f'{key}={label}' for key, label in labels.items()]
+        )
         return gui_protocol.KeyLabelSet(
             type='key_label_set', key=request.key, label=request.label
         )
@@ -612,6 +647,7 @@ class Recorder(Runnables):
                 value=self.track_names,
             )
         )
+        self._save_settings()
         return gui_protocol.TrackNames(type='track_names', track_names=self.track_names)
 
     def _set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
@@ -622,9 +658,12 @@ class Recorder(Runnables):
         names = self._updated_track_names(request.source, request.tracks)
         floors = self._updated_track_noise_floors(source, request.tracks)
         if floors != self.cfg.recording.channel_noise_floors:
-            self._set_cfg_value('recording.channel_noise_floors', floors)
+            self._set_cfg_value('recording.channel_noise_floors', floors, save=False)
         self.track_names = names
         source.set_tracks(tracks, names)
+        self.saved_tracks[source.name] = [
+            settings.TrackSettings(channels=list(track.channels)) for track in tracks
+        ]
         self._write_manifest_record(
             session_manifest.ManifestEvent(
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
@@ -633,6 +672,7 @@ class Recorder(Runnables):
                 value=[track.model_dump() for track in request.tracks],
             )
         )
+        self._save_settings()
         return gui_protocol.TracksSet(
             type='tracks_set', source=request.source, tracks=request.tracks
         )
@@ -750,7 +790,9 @@ class Recorder(Runnables):
         value = self._set_cfg_value(request.address, request.value)
         return gui_protocol.CfgSet(type='cfg_set', address=request.address, value=value)
 
-    def _set_cfg_value(self, address: str, value: object) -> object:
+    def _set_cfg_value(
+        self, address: str, value: object, *, save: bool = True
+    ) -> object:
         try:
             self.cfg = self.cfg.set_attr(address, value)
         except ValueError as e:
@@ -766,7 +808,13 @@ class Recorder(Runnables):
                 value=value,
             )
         )
+        if save:
+            self._save_settings()
         return value
+
+    def _save_settings(self) -> None:
+        if self.cfg.save_settings:
+            settings.save(self.cfg, self.track_names, self.saved_tracks)
 
     def _reload_profiles(self) -> gui_protocol.ProfilesReloaded:
         if not self.cfg.device.profiles.name:

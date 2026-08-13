@@ -1,4 +1,5 @@
 import json
+import sys
 
 import soundfile
 
@@ -9,7 +10,8 @@ from recs.daemon import gui_ipc
 from recs.daemon.root_user import raise_if_root
 from recs.ui.recorder import Recorder
 
-from .cfg import Cfg
+from . import settings
+from .cfg import FLAT_FIELDS, Cfg
 
 
 def run_cli(cfg: Cfg) -> None:
@@ -25,7 +27,11 @@ def run_cli(cfg: Cfg) -> None:
             raise RecsError('recs daemon is not running')
         gui_ipc.run_remote_gui(metadata, cfg)
     else:
-        Recorder(cfg).run()
+        loaded = settings.load(cfg, _cli_overrides())
+        if loaded.cfg.save_settings:
+            Recorder(loaded.cfg, loaded).run()
+        else:
+            Recorder(loaded.cfg).run()
 
 
 def _list_types() -> None:
@@ -42,3 +48,26 @@ def _info() -> None:
     info = device.query_devices()
     info2 = [i for i in info if i['max_input_channels']]
     print(json.dumps(info2, indent=4))
+
+
+def _cli_overrides() -> set[str]:
+    options = {
+        '-B': 'band_mode',
+        '-b': 'quiet_before_start',
+        '-c': 'quiet_after_end',
+        '-m': 'metadata',
+        '-o': 'output_directory',
+        '-R': 'record_everything',
+        '-t': 'total_run_time',
+        '-z': 'noise_floor',
+    }
+    fields: set[str] = set()
+    for argument in sys.argv[1:]:
+        option = argument.split('=', 1)[0]
+        if option in options:
+            fields.add(options[option])
+        elif option.startswith('--'):
+            field = option.removeprefix('--no-').removeprefix('--').replace('-', '_')
+            if field in FLAT_FIELDS:
+                fields.add(field)
+    return {f'{FLAT_FIELDS[field]}.{field}' for field in fields}

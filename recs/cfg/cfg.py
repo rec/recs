@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import warnings
 from functools import cached_property
 from importlib.util import find_spec
@@ -50,6 +51,7 @@ class General(BaseModel):
     info: bool = False
     list_types: bool = False
     silence_preview: bool = False
+    save_settings: bool | None = None
 
 
 class Device(BaseModel):
@@ -74,12 +76,6 @@ class Device(BaseModel):
     @field_validator('profiles')
     @classmethod
     def validate_profiles_file(cls, profiles: Path) -> Path:
-        if not profiles.name:
-            return profiles
-        if not profiles.exists():
-            raise ValueError(f'{profiles} does not exist')
-        if not json.loads(profiles.read_text()):
-            raise ValueError(f'{profiles} contains no profiles')
         return profiles
 
 
@@ -305,6 +301,12 @@ class Cfg(BaseModel):
             logging.basicConfig(level=logging.DEBUG)
         self._configure_keys()
 
+    @property
+    def save_settings(self) -> bool:
+        if self.general.save_settings is not None:
+            return self.general.save_settings
+        return os.environ.get('RECS_DAEMON') == '1'
+
     @cached_property
     def mutable_attributes(self) -> frozenset[str]:
         return frozenset(_mutable_attributes(type(self)))
@@ -387,7 +389,11 @@ class Cfg(BaseModel):
         path = self.device.profiles
         if not path.name:
             return {}
+        if not path.exists():
+            raise ValueError(f'{path} does not exist')
         data = json.loads(path.read_text())
+        if not data:
+            raise ValueError(f'{path} contains no profiles')
         if not isinstance(data, dict):
             raise ValueError(f'{path} must contain a JSON object')
 

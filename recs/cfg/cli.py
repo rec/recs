@@ -128,6 +128,13 @@ def recs(
             help='Show live silence measurements and suggested recording thresholds',
         ),
     ],
+    save_settings: Annotated[
+        bool | None,
+        tyro.conf.arg(
+            default=RECS.general.save_settings,
+            help='Save mutable API settings for the next recording run',
+        ),
+    ],
     alias: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(
