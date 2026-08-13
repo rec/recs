@@ -16,6 +16,7 @@ from . import gui_backend, gui_protocol, paths
 from .models import DaemonMetadata, DaemonStatus
 
 LOGGER = logging.get_logger(__name__)
+STATUS_UPDATE_PERIOD = 1.0
 
 
 class ControlRequest:
@@ -57,6 +58,7 @@ class DaemonGuiServer(Runnable):
         self.key_events: list[KeyEvent] = []
         self.control_requests: list[ControlRequest] = []
         self.shutdown_started = False
+        self.last_status_update: float | None = None
         self.lock = threading.Lock()
         super().__init__()
 
@@ -77,6 +79,7 @@ class DaemonGuiServer(Runnable):
             return
 
         _write_status(self.paths.status, self._status())
+        self.last_status_update = time.monotonic()
         super().start()
         threading.Thread(
             target=self._accept,
@@ -89,7 +92,13 @@ class DaemonGuiServer(Runnable):
             return
         rows = [dict(row) for row in self.rows()]
         errors = list(self.errors())
-        _write_status(self.paths.status, self._status(rows=rows, errors=errors))
+        now = time.monotonic()
+        if (
+            self.last_status_update is None
+            or now - self.last_status_update >= STATUS_UPDATE_PERIOD
+        ):
+            _write_status(self.paths.status, self._status(rows=rows, errors=errors))
+            self.last_status_update = now
         self.broadcast(rows, errors)
         if self.external_rows is not None:
             self.external_rows(rows, errors)
@@ -360,4 +369,4 @@ def daemon_mode_enabled() -> bool:
 
 
 def _write_status(path: Path, status: DaemonStatus) -> None:
-    settings.write_json_model(path, status)
+    settings.write_json_model(path, status, sync=False)

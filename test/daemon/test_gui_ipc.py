@@ -9,7 +9,7 @@ from reccy.models import Platform
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_backend, gui_ipc, gui_protocol
-from recs.daemon.models import DaemonMetadata
+from recs.daemon.models import DaemonMetadata, DaemonStatus
 from recs.ui.key_events import KeyEvent
 
 
@@ -210,6 +210,43 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
             ],
         )
     ]
+
+
+def test_daemon_publisher_limits_status_file_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 0.0
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    server.enabled = True
+    writes: list[DaemonStatus] = []
+
+    monkeypatch.setattr(gui_ipc.time, 'monotonic', lambda: now)
+    monkeypatch.setattr(
+        gui_ipc, '_write_status', lambda path, status: writes.append(status)
+    )
+
+    server.update()
+    now = 0.5
+    server.update()
+    now = 1.0
+    server.update()
+
+    assert len(writes) == 2
+
+
+def test_status_write_is_not_synchronized(monkeypatch: pytest.MonkeyPatch) -> None:
+    synchronizations: list[bool] = []
+
+    def write_json_model(
+        path: Path, status: DaemonStatus, *, sync: bool = True
+    ) -> None:
+        synchronizations.append(sync)
+
+    monkeypatch.setattr(gui_ipc.settings, 'write_json_model', write_json_model)
+
+    gui_ipc._write_status(Path('/tmp/status.json'), DaemonStatus())
+
+    assert synchronizations == [False]
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
