@@ -41,9 +41,13 @@ class DaemonGuiServer(Runnable):
         cfg: Cfg,
         *,
         errors: Callable[[], Iterable[ErrorRecord]] | None = None,
+        external_rows: Callable[[list[dict[str, object]], list[ErrorRecord]], None]
+        | None = None,
     ) -> None:
         self.rows = rows
         self.errors = errors or tuple
+        self.external_rows = external_rows
+        self.external_ipc_error: str | None = None
         self.cfg = cfg
         self.enabled = daemon_mode_enabled()
         self.paths = paths.service_paths(paths.current_platform())
@@ -87,6 +91,8 @@ class DaemonGuiServer(Runnable):
         errors = list(self.errors())
         _write_status(self.paths.status, self._status(rows=rows, errors=errors))
         self.broadcast(rows, errors)
+        if self.external_rows is not None:
+            self.external_rows(rows, errors)
 
     @property
     def closed(self) -> bool:
@@ -172,6 +178,7 @@ class DaemonGuiServer(Runnable):
         return DaemonStatus(
             client_count=client_count,
             errors=errors or [],
+            external_ipc_error=self.external_ipc_error,
             gui_ipc_error=gui_ipc_error,
             recording=True,
             rows=rows or [],

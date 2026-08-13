@@ -177,6 +177,7 @@ def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
 
 
 def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
+    published: list[tuple[list[dict[str, object]], list[ErrorRecord]]] = []
     server = gui_ipc.DaemonGuiServer(
         lambda: iter([{'device': 'Mic'}]),
         Cfg(),
@@ -185,6 +186,7 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
                 timestamp='2026-08-13T12:34:56.789Z', message='Device Mic failed'
             )
         ],
+        external_rows=lambda rows, errors: published.append((rows, errors)),
     )
     server.enabled = True
     server.paths = server.paths.model_copy(update={'status': tmp_path / 'status.json'})
@@ -197,6 +199,17 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
     assert '"timestamp":"2026-08-13T12:34:56.789Z"' in content
     assert '"message":"Device Mic failed"' in content
     assert not server.paths.status.with_name('.status.json.tmp').exists()
+    assert published == [
+        (
+            [{'device': 'Mic'}],
+            [
+                ErrorRecord(
+                    timestamp='2026-08-13T12:34:56.789Z',
+                    message='Device Mic failed',
+                )
+            ],
+        )
+    ]
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:

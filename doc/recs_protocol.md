@@ -1,98 +1,132 @@
 # Recs protocol
 
-The Recs daemon accepts newline-delimited JSON on its local GUI endpoint. This
-is protocol version 3. It is not compatible with earlier versions.
+The public Recs API is a local two-way RPC service provided by `reccy.rpc`.
+It is available only while the Recs daemon is running. The daemon GUI socket is
+private implementation detail and is not a public API.
 
-The client begins with:
+The RPC transport version is `reccy.rpc.VERSION`. The Recs payload version is
+`recs.daemon.gui_protocol.VERSION`; they are independent.
+
+## Endpoints
+
+On macOS and Linux, the daemon owns these Unix sockets:
+
+- `~/.local/state/recs/control.sock`
+- `~/.local/state/recs/events.sock`
+
+On Windows, the endpoints are named pipes:
+
+- `\\.\pipe\recs-control`
+- `\\.\pipe\recs-events`
+
+Use `recs.daemon.paths.external_control_endpoint()` and
+`external_event_endpoint()` rather than duplicating these paths in a client.
+
+## Control requests
+
+Each control connection begins with Reccy's hello handshake, sends one request,
+receives one response, and closes. A request has an RPC `id`, a Recs command
+name, and the remaining fields in `params`:
 
 ```json
-{"type":"hello","role":"gui","version":3}
+{
+  "type": "request",
+  "id": "request-1",
+  "command": "set_cfg",
+  "params": {
+    "address": "recording.longest_file_time",
+    "value": 3600
+  }
+}
 ```
 
-The daemon answers before processing any other message:
-
-```json
-{"type":"hello","role":"daemon","version":3}
-```
-
-Clients send one request and read its direct response before sending another
-request on the same connection. Requests are queued for the recorder loop; the
-response is written to that same connection once the recorder loop has handled
-the request. There are no message IDs and no generic reply message.
-
-Errors use `{"type":"error","message":"..."}`.
-
-## Requests and responses
-
-| Request | Direct response |
-| --- | --- |
-| `{"type":"calibrate"}` | `calibrated` with per-track `measurements` and applied `noise_floors` |
-| `{"type":"calibrate","channels":{"Mic":[1,3]}}` | calibrates selected physical channels; a selected member of a stereo pair calibrates that pair |
-| `{"type":"capabilities"}` | `capabilities_result` with `commands` and `version` |
-| `{"type":"disk_status"}` | `disk_status_result` with `free_bytes`, `path`, `total_bytes`, and `used_bytes` |
-| `{"type":"get_cfg","address":"recording.longest_file_time"}` | `cfg_value` with `address` and `value` |
-| `{"type":"set_cfg","address":"recording.longest_file_time","value":3600}` | `cfg_set` with the normalized `address` and `value` |
-| `{"type":"get_track_names"}` | `track_names` with `track_names` |
-| `{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}}}` | `track_names` with `track_names` |
-| `{"type":"set_tracks","source":"Mic","tracks":[{"channels":[15],"name":"VL"},{"channels":[16]}]}` | `tracks_set` with the applied track definitions |
-| `{"type":"list_devices"}` | `devices` with `devices` |
-| `{"type":"mutable_attributes"}` | `mutable_attributes_result` with `mutable_attributes` |
-| `{"type":"mark","label":"guitar solo"}` | `marked` with `label` |
-| `{"type":"pause_recording"}` | `recording_state` with `paused` and `stopped` |
-| `{"type":"resume_recording"}` | `recording_state` with `paused` and `stopped` |
-| `{"type":"start_recording"}` | `recording_state` with `paused` and `stopped` |
-| `{"type":"stop_recording"}` | `recording_state` with `paused` and `stopped` |
-| `{"type":"reload_profiles"}` | `profiles_reloaded` with `profiles_path` |
-| `{"type":"set_key_label","key":"g","label":"guitar solo"}` | `key_label_set` with `key` and `label` |
-| `{"type":"set_noise_floor","source":"Mic","channel":1,"noise_floor":42.5}` | `noise_floor_set` with `source`, `channel`, and `noise_floor`; `null` clears the override |
-| `{"type":"status_snapshot"}` | `status_snapshot_result` with `disk`, `devices`, `errors`, `recording`, and `rows` |
-
-`set_cfg` validates the requested value with `Cfg`, records `cfg_set` in the
-session manifest, and queues the resulting effective configuration for each
-source recorder. A source applies queued configuration immediately before its
-next audio buffer is processed. `get_cfg` returns the daemon configuration and
-records `cfg_get` in the manifest.
-
-`recording.channel_noise_floors` maps device names to selected track names such
-as `"1"` and `"1-2"`. Missing entries and `null` values use the global
-`recording.noise_floor`. Calibration measures exactly 500 ms of incoming audio
-without changing recording state, then applies its channel-specific results
-through `set_cfg` behavior.
-
-`set_tracks` replaces the current tracks that intersect the supplied physical
-channels. Definitions are mono or adjacent stereo channels and cannot overlap;
-both channels of an existing stereo track must be replaced together. It closes
-the affected files and creates new writers immediately before the next input
-buffer. The optional `name` applies to that mono track or stereo pair.
-
-For example:
+This is equivalent to the Recs request payload:
 
 ```json
 {"type":"set_cfg","address":"recording.longest_file_time","value":3600}
-{"type":"cfg_set","address":"recording.longest_file_time","value":3600}
 ```
 
-## Notifications
+The Recs daemon validates and executes it in the recorder loop. The RPC handler
+does not read devices, process audio, or write recordings.
 
-The daemon may send this notification at any time:
+A successful result includes the complete typed Recs response payload. The
+payload `type` is retained so callers can route by response type:
 
 ```json
-{"type":"rows","rows":[{"device":"Mic"}],"errors":[]}
+{
+  "type": "response",
+  "id": "request-1",
+  "ok": true,
+  "result": {
+    "type": "cfg_set",
+    "address": "recording.longest_file_time",
+    "value": 3600
+  }
+}
 ```
 
-`rows` contains the normal live-display rows. `errors` contains current daemon
-errors as objects with ISO 8601 UTC `timestamp` and `message` fields.
+Invalid commands and command failures return `ok: false` with an explanatory
+`message`. RPC handshake and malformed-message failures use Reccy IPC errors.
 
-Key notifications from GUI clients are `key_pressed` and `key_released`, each
-with a `key` string.
+## Commands
+
+`command` is the corresponding Recs request `type`; `params` contains the
+other request fields.
+
+| Command | Typed result |
+| --- | --- |
+| `calibrate` | `calibrated` with per-track `measurements` and applied `noise_floors` |
+| `capabilities` | `capabilities_result` with `commands` and Recs payload version |
+| `disk_status` | `disk_status_result` with filesystem usage |
+| `get_cfg` | `cfg_value` with `address` and `value` |
+| `set_cfg` | `cfg_set` with normalized `address` and `value` |
+| `get_track_names` | `track_names` |
+| `set_track_names` | `track_names` |
+| `set_tracks` | `tracks_set` |
+| `list_devices` | `devices` |
+| `mutable_attributes` | `mutable_attributes_result` |
+| `mark` | `marked` |
+| `pause_recording` | `recording_state` |
+| `resume_recording` | `recording_state` |
+| `start_recording` | `recording_state` |
+| `stop_recording` | `recording_state` |
+| `reload_profiles` | `profiles_reloaded` |
+| `set_key_label` | `key_label_set` |
+| `set_noise_floor` | `noise_floor_set` |
+| `status_snapshot` | `status_snapshot_result` |
+| `shutdown` | final `recording_state` |
+
+`calibrate` accepts an optional `channels` object mapping device names to mono
+channels or a member of each stereo pair. `set_noise_floor` accepts `null` to
+clear a channel or stereo-pair override. `set_tracks` changes the files for the
+affected tracks on the next input frame. `set_cfg` is limited to the mutable
+attributes returned by `mutable_attributes`.
+
+## Events
+
+An event client completes the same hello handshake on the events endpoint, then
+sends `{"type":"subscribe"}` and keeps the connection open.
+
+The daemon publishes the normal live-display information as a `rows` event:
+
+```json
+{
+  "type": "event",
+  "name": "rows",
+  "data": {
+    "rows": [{"device":"Mic"}],
+    "errors": [{"timestamp":"...Z","message":"..."}]
+  }
+}
+```
+
+`rows` events use the same update cadence and data as the daemon GUI. Use
+`status_snapshot` when an immediate full snapshot is required.
 
 ## Shutdown
 
-The client can request daemon shutdown with:
-
-```json
-{"type":"shutdown"}
-```
-
-The daemon broadcasts the same message to all listeners and closes their
-connections. A shutdown request received after shutdown has begun is ignored.
+The `shutdown` command starts the existing one-shot daemon shutdown. The first
+request receives the final `recording_state`. Later shutdown requests do not
+start another shutdown. Before closing the event endpoint, the daemon publishes
+one `{"type":"event","name":"shutdown","data":{}}` event, then closes
+all event subscriptions.

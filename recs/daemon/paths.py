@@ -24,3 +24,21 @@ def service_paths(
         stderr_log=value.stderr_log,
         gui_endpoint=value.control_endpoint,
     )
+
+
+def external_control_endpoint(
+    home: Path | None = None,
+    platform: models.Platform | None = None,
+) -> Path | str:
+    if (platform or current_platform()) == models.Platform.windows:
+        return r'\\.\pipe\recs-control'
+    return (home or Path.home()) / '.local/state/recs/control.sock'
+
+
+def external_event_endpoint(
+    home: Path | None = None,
+    platform: models.Platform | None = None,
+) -> Path | str:
+    if (platform or current_platform()) == models.Platform.windows:
+        return r'\\.\pipe\recs-events'
+    return (home or Path.home()) / '.local/state/recs/events.sock'

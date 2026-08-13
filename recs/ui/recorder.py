@@ -10,6 +10,7 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
 
+from pydantic import ValidationError
 from reccy import logging
 from threa import HasThread, Runnable, Runnables
 
@@ -24,7 +25,7 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
-from recs.daemon import gui_ipc, gui_protocol
+from recs.daemon import external_ipc, gui_ipc, gui_protocol, paths
 
 from . import gui_process, live, session_manifest
 from .device_poller import DevicePoller
@@ -95,6 +96,15 @@ class Recorder(Runnables):
             else None
         )
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
+        self.external = (
+            external_ipc.ExternalServer(
+                paths.external_control_endpoint(),
+                paths.external_event_endpoint(),
+            )
+            if gui_ipc.daemon_mode_enabled()
+            else None
+        )
+        self.external_shutdown_started = False
         if gui_ipc.daemon_mode_enabled():
             display_type = gui_ipc.DaemonGuiServer
         elif self.cfg.console.gui:
@@ -112,6 +122,8 @@ class Recorder(Runnables):
             if display
             else None
         )
+        if isinstance(self.live, gui_ipc.DaemonGuiServer):
+            self.live.external_rows = self._publish_external_rows
         self.sources = {
             source.name: SourceProcess(self.cfg, tracks, track_names=self.track_names)
             for source, tracks in all_tracks
@@ -166,6 +178,15 @@ class Recorder(Runnables):
         self._record_startup_input_errors(all_tracks)
 
     def start(self) -> None:
+        if self.external is not None:
+            try:
+                self.external.start()
+            except OSError as e:
+                self.external.close()
+                self.external = None
+                self._record_warning(f'Cannot start external IPC server: {e}')
+                if isinstance(self.live, gui_ipc.DaemonGuiServer):
+                    self.live.external_ipc_error = str(e)
         super().start()
         Runnable.start(self)
 
@@ -205,6 +226,8 @@ class Recorder(Runnables):
             except KeyboardInterrupt:
                 print('Interrupted', file=sys.stderr)
             finally:
+                if self.external is not None:
+                    self.external.close()
                 self._receive_pending_updates()
                 self._finish_manifest()
                 if self.cfg.general.silence_preview:
@@ -486,9 +509,11 @@ class Recorder(Runnables):
             self._record_key_event(event)
 
     def _receive_control_requests(self) -> None:
-        if self.live is None:
-            return
-        requests = cast(list[gui_ipc.ControlRequest], self.live.take_control_requests())
+        requests = (
+            cast(list[gui_ipc.ControlRequest], self.live.take_control_requests())
+            if self.live is not None
+            else []
+        )
         for request in requests:
             try:
                 response = self._handle_control_request(request.request)
@@ -496,6 +521,34 @@ class Recorder(Runnables):
                 request.respond(gui_protocol.Error(type='error', message=str(e)))
             else:
                 request.respond(response)
+        if self.external is None:
+            return
+        for request in self.external.take_requests():
+            try:
+                external_request = external_ipc.recs_request(request.request)
+                if isinstance(external_request, gui_protocol.Shutdown):
+                    if not self.external_shutdown_started:
+                        self.external_shutdown_started = True
+                        self.stop()
+                    response = gui_protocol.RecordingState(
+                        type='recording_state', paused=False, stopped=True
+                    )
+                else:
+                    response = self._handle_control_request(external_request)
+            except (RecsError, ValidationError) as e:
+                response = gui_protocol.Error(type='error', message=str(e))
+            self.external.respond(
+                request, external_ipc.response(request.request, response)
+            )
+
+    def _publish_external_rows(
+        self,
+        rows: list[dict[str, object]],
+        errors: list[ErrorRecord],
+    ) -> None:
+        if self.external is None:
+            return
+        self.external.publish_rows(rows, errors)
 
     def _handle_control_request(
         self,

@@ -69,6 +69,23 @@ def test_paths_support_custom_service_identity() -> None:
     assert windows.gui_endpoint == r'\\.\pipe\lyte'
 
 
+def test_external_ipc_paths_use_platform_endpoints() -> None:
+    home = Path('/home/tom')
+
+    assert paths.external_control_endpoint(home, Platform.linux) == (
+        home / '.local/state/recs/control.sock'
+    )
+    assert paths.external_event_endpoint(home, Platform.linux) == (
+        home / '.local/state/recs/events.sock'
+    )
+    assert paths.external_control_endpoint(home, Platform.windows) == (
+        r'\\.\pipe\recs-control'
+    )
+    assert paths.external_event_endpoint(home, Platform.windows) == (
+        r'\\.\pipe\recs-events'
+    )
+
+
 def test_linux_systemd_unit() -> None:
     service_paths = paths.service_paths(Platform.linux, Path('/home/tom'))
     metadata = renderers.metadata(

@@ -6,6 +6,7 @@ from test.conftest import DEVICES, DEVICES_FILE
 from typing import Any, NamedTuple
 
 import pytest
+from reccy import rpc
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord
@@ -13,7 +14,7 @@ from recs.base.state import ChannelState
 from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
-from recs.daemon import gui_protocol
+from recs.daemon import external_ipc, gui_ipc, gui_protocol
 from recs.ui import recorder
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
@@ -360,6 +361,121 @@ def test_daemon_mode_uses_gui_server_instead_of_local_gui(
     rec = Recorder(Cfg(gui=True))
 
     assert isinstance(rec.live, DaemonDisplay)
+
+
+def test_external_ipc_start_failure_keeps_recorder_usable(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    class BrokenExternal:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def start(self) -> None:
+            raise OSError('address in use')
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setenv('RECS_DAEMON', '1')
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.Runnables, 'start', lambda self: None)
+    monkeypatch.setattr(recorder.Runnable, 'start', lambda self: None)
+    rec = Recorder(Cfg(silent=True))
+    external = BrokenExternal()
+    rec.external = external
+
+    rec.start()
+
+    assert external.closed
+    assert rec.external is None
+    assert rec.error_messages() == ['Cannot start external IPC server: address in use']
+    assert isinstance(rec.live, gui_ipc.DaemonGuiServer)
+    assert rec.live.external_ipc_error == 'address in use'
+
+
+def test_external_control_requests_use_recorder_handler(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    class External:
+        def __init__(self) -> None:
+            self.requests = [
+                external_ipc.ControlRequest(
+                    rpc.Request(id='request-1', command='mutable_attributes')
+                )
+            ]
+            self.responses: list[rpc.Response] = []
+
+        def take_requests(self) -> list[external_ipc.ControlRequest]:
+            return self.requests
+
+        def respond(
+            self, request: external_ipc.ControlRequest, response: rpc.Response
+        ) -> None:
+            self.responses.append(response)
+
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(silent=True))
+    external = External()
+    rec.external = external
+
+    rec._receive_control_requests()
+
+    assert external.responses == [
+        rpc.Response(
+            id='request-1',
+            ok=True,
+            result={
+                'type': 'mutable_attributes_result',
+                'mutable_attributes': sorted(rec.cfg.mutable_attributes),
+            },
+        )
+    ]
+
+
+def test_external_shutdown_only_stops_recorder_once(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    class External:
+        def __init__(self) -> None:
+            self.requests = [
+                external_ipc.ControlRequest(rpc.Request(id=value, command='shutdown'))
+                for value in ['request-1', 'request-2']
+            ]
+            self.responses: list[rpc.Response] = []
+
+        def take_requests(self) -> list[external_ipc.ControlRequest]:
+            return self.requests
+
+        def respond(
+            self, request: external_ipc.ControlRequest, response: rpc.Response
+        ) -> None:
+            self.responses.append(response)
+
+    calls: list[str] = []
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(silent=True))
+    external = External()
+    rec.external = external
+    monkeypatch.setattr(rec, 'stop', lambda: calls.append('stop'))
+
+    rec._receive_control_requests()
+
+    assert calls == ['stop']
+    assert external.responses == [
+        rpc.Response(
+            id='request-1',
+            ok=True,
+            result={'type': 'recording_state', 'paused': False, 'stopped': True},
+        ),
+        rpc.Response(
+            id='request-2',
+            ok=True,
+            result={'type': 'recording_state', 'paused': False, 'stopped': True},
+        ),
+    ]
 
 
 def test_failed_device_waits_for_reconnect(
