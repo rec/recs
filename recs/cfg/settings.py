@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from reccy import settings
 
 from recs.base.errors import RecsError
 
@@ -65,20 +66,14 @@ def save(
     tracks: dict[str, list[TrackSettings]],
 ) -> None:
     attributes = {address: cfg.get_attr(address) for address in cfg.mutable_attributes}
-    settings = Settings(
+    saved_settings = Settings(
         attributes=attributes,
         track_names=track_names,
         tracks=tracks,
     )
     path = settings_path()
-    temporary = path.with_name(f'.{path.name}.tmp')
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with temporary.open('w') as fp:
-            fp.write(settings.model_dump_json(indent=2) + '\n')
-            fp.flush()
-            os.fsync(fp.fileno())
-        temporary.replace(path)
+        settings.write_json_model(path, saved_settings, indent=2)
     except OSError as e:
         raise RecsError(f'Could not save settings to {path}: {e}') from None
 

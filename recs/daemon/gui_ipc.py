@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
-from reccy import ipc, logging
+from reccy import ipc, logging, settings
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -356,17 +356,8 @@ def _endpoint(endpoint: str) -> Path | str:
 
 
 def daemon_mode_enabled() -> bool:
-    import os
-
     return os.environ.get('RECS_DAEMON') == '1'
 
 
 def _write_status(path: Path, status: DaemonStatus) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    content = status.model_dump_json() + '\n'
-    tmp = path.with_name(f'.{path.name}.tmp')
-    with tmp.open('w') as fp:
-        fp.write(content)
-        fp.flush()
-        os.fsync(fp.fileno())
-    tmp.replace(path)
+    settings.write_json_model(path, status)
