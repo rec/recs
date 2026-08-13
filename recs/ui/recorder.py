@@ -25,7 +25,7 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
-from recs.daemon import external_ipc, gui_ipc, gui_protocol, paths
+from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
 from . import gui_process, live, session_manifest
 from .device_poller import DevicePoller
@@ -97,12 +97,7 @@ class Recorder(Runnables):
         )
         self.cfg = _with_default_output_directory(cfg, self.state.start_time)
         self.external = (
-            external_ipc.ExternalServer(
-                paths.external_control_endpoint(),
-                paths.external_event_endpoint(),
-            )
-            if gui_ipc.daemon_mode_enabled()
-            else None
+            external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
         self.external_shutdown_started = False
         if gui_ipc.daemon_mode_enabled():

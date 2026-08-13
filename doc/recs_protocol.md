@@ -129,4 +129,5 @@ The `shutdown` command starts the existing one-shot daemon shutdown. The first
 request receives the final `recording_state`. Later shutdown requests do not
 start another shutdown. Before closing the event endpoint, the daemon publishes
 one `{"type":"event","name":"shutdown","data":{}}` event, then closes
-all event subscriptions.
+all event subscriptions. Reccy's lifecycle also publishes one `stopped` event
+before the connections close.

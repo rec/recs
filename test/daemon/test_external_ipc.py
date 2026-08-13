@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from reccy import rpc
+from reccy.reccy import Reccy
 
 from recs.daemon import external_ipc, gui_protocol
 
@@ -92,19 +93,20 @@ def test_external_server_publishes_rows_and_shutdown_once(
         return server
 
     monkeypatch.setattr(external_ipc.rpc, 'Server', make_server)
-    server = external_ipc.ExternalServer(
-        Path('/tmp/control.sock'), Path('/tmp/events.sock')
-    )
+    server = external_ipc.ExternalServer(home=Path('/tmp'))
 
     server.start()
     server.publish_rows([{'device': 'Mic'}], [])
-    server.publish_shutdown()
     server.close()
 
     assert created[0].started
+    assert isinstance(server, Reccy)
+    assert created[0].control_endpoint == Path('/tmp/.local/state/recs/control.sock')
+    assert created[0].event_endpoint == Path('/tmp/.local/state/recs/events.sock')
     assert created[0].published == [
         ('rows', {'rows': [{'device': 'Mic'}], 'errors': []}),
         ('shutdown', {}),
+        ('stopped', {}),
     ]
     assert created[0].closed
 
@@ -113,13 +115,12 @@ def test_external_server_releases_pending_request_when_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(
-        Path('/tmp/control.sock'), Path('/tmp/events.sock')
-    )
+    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server.start()
     request = external_ipc.ControlRequest(
         rpc.Request(id='request-1', command='get_cfg')
     )
-    server.pending.append(request)
+    server._pending.append(request)
 
     server.close()
 
@@ -132,12 +133,11 @@ def test_external_server_rejects_request_after_closing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(
-        Path('/tmp/control.sock'), Path('/tmp/events.sock')
-    )
+    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server.start()
     server.close()
 
-    response = server._handle(rpc.Request(id='request-1', command='get_cfg'))
+    response = server.rpc_response(rpc.Request(id='request-1', command='get_cfg'))
 
     assert response == rpc.Response(
         id='request-1', ok=False, message='recs is shutting down'
