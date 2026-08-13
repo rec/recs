@@ -184,7 +184,7 @@ class FakeControlRequest:
 
 def test_recorder_reports_no_selected_channels(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
     mock_devices: None,
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
@@ -195,12 +195,12 @@ def test_recorder_reports_no_selected_channels(
     assert rec.error_records()[0].message == 'No channels selected'
     assert rec.error_records()[0].timestamp.endswith('Z')
     assert rec.error_messages() == ['No channels selected']
-    assert capsys.readouterr().err.endswith(': No channels selected\n')
+    assert caplog.messages == ['No channels selected']
 
 
 def test_recorder_runs_without_devices(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(device, 'query_devices', lambda: [])
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
@@ -213,12 +213,11 @@ def test_recorder_runs_without_devices(
     assert rec.error_records()[0].message == 'No input devices detected'
     assert rec.error_records()[0].timestamp.endswith('Z')
     assert rec.error_messages() == ['No input devices detected']
-    assert capsys.readouterr().err.endswith(': No input devices detected\n')
+    assert caplog.messages == ['No input devices detected']
 
 
 def test_recorder_adds_device_detected_after_start(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(device, 'query_devices', lambda: [])
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
@@ -227,8 +226,6 @@ def test_recorder_adds_device_detected_after_start(
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     assert rec.poller is not None
     rec.poller.snapshots = [{'Mic': mic_info}]
-    capsys.readouterr()
-
     rec._poll_devices()
 
     assert 'Mic' in rec.hardware
@@ -238,7 +235,7 @@ def test_recorder_adds_device_detected_after_start(
 
 def test_recorder_replaces_returning_device(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -269,7 +266,7 @@ def test_recorder_replaces_returning_device(
     assert any(
         warning.message == 'Device Mic went offline' for warning in rec.error_records()
     )
-    assert ': Device Mic went offline\n' in capsys.readouterr().err
+    assert 'Device Mic went offline' in caplog.messages
 
     rec._poll_devices()
     assert mic.started
@@ -313,7 +310,7 @@ def test_recorder_stops_when_gui_display_closes(
 def test_display_receives_recorder_errors(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -326,9 +323,7 @@ def test_display_receives_recorder_errors(
 
     assert rec.live is not None
     assert rec.live.errors() == ['Flower 8 has 2 input channels; 10 required']
-    assert capsys.readouterr().err.endswith(
-        ': Flower 8 has 2 input channels; 10 required\n'
-    )
+    assert caplog.messages == ['Flower 8 has 2 input channels; 10 required']
     assert not flower.started
 
 
@@ -399,7 +394,7 @@ def test_failed_device_waits_for_reconnect(
 
 def test_device_with_too_few_channels_stays_offline(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -410,14 +405,12 @@ def test_device_with_too_few_channels_stays_offline(
     rec._poll_devices()
 
     assert not flower.started
-    assert capsys.readouterr().err.endswith(
-        ': Flower 8 has 2 input channels; 10 required\n'
-    )
+    assert caplog.messages == ['Flower 8 has 2 input channels; 10 required']
 
 
 def test_slow_device_clock_stays_offline(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     now = 100.0
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
@@ -441,14 +434,12 @@ def test_slow_device_clock_stays_offline(
 
     assert not mic.running
     assert 'Mic' in rec.failed
-    assert capsys.readouterr().err == (
-        'ERROR 1970-01-01T00:01:50.000Z: Device Mic lagging behind real time\n'
-    )
+    assert caplog.messages == ['Device Mic lagging behind real time']
 
 
 def test_slow_device_clock_reports_once_per_session(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     now = 100.0
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
@@ -471,14 +462,12 @@ def test_slow_device_clock_reports_once_per_session(
     mic.running = True
     rec._receive_update(update)
 
-    assert capsys.readouterr().err == (
-        'ERROR 1970-01-01T00:01:50.000Z: Device Mic lagging behind real time\n'
-    )
+    assert caplog.messages == ['Device Mic lagging behind real time']
 
 
 def test_slow_device_clock_ignores_startup_grace(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     now = 100.0
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
@@ -502,12 +491,12 @@ def test_slow_device_clock_ignores_startup_grace(
 
     assert mic.running
     assert 'Mic' not in rec.failed
-    assert capsys.readouterr().err == ''
+    assert caplog.messages == []
 
 
 def test_stalled_source_is_stopped(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     now = 100.0
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
@@ -530,15 +519,13 @@ def test_stalled_source_is_stopped(
             message='Device Mic stopped sending updates',
         )
     ]
-    assert capsys.readouterr().err == (
-        'ERROR 1970-01-01T00:01:51.000Z: Device Mic stopped sending updates\n'
-    )
+    assert caplog.messages == ['Device Mic stopped sending updates']
 
 
 def test_source_failure_is_reported(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
@@ -551,9 +538,7 @@ def test_source_failure_is_reported(
         'Device Mic failed: ValueError: no input device'
     )
     assert 'Mic' in rec.failed
-    assert capsys.readouterr().err.endswith(
-        ': Device Mic failed: ValueError: no input device\n'
-    )
+    assert caplog.messages == ['Device Mic failed: ValueError: no input device']
 
 
 def test_recorder_finishes_with_all_devices_offline(
@@ -622,7 +607,7 @@ def test_recorder_rows_include_buffer_stats(
 
 def test_recorder_reports_low_disk_space_once(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
     mock_devices: None,
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
@@ -637,9 +622,7 @@ def test_recorder_reports_low_disk_space_once(
     assert rec.error_records()[0].message == (
         'Free disk space 4 bytes is below minimum_free_space=5'
     )
-    assert capsys.readouterr().err.endswith(
-        ': Free disk space 4 bytes is below minimum_free_space=5\n'
-    )
+    assert caplog.messages == ['Free disk space 4 bytes is below minimum_free_space=5']
 
 
 def test_recorder_summarizes_interrupt(

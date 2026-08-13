@@ -3,14 +3,18 @@ import sys
 
 import tyro
 from pydantic import ValidationError
+from reccy import logging
 
 from recs.base._query_device import devices_json, stream_devices
 from recs.base.errors import RecsError
 from recs.cfg import cli
 
+LOGGER = logging.get_logger(__name__)
+
 
 def run() -> int:
     mp.freeze_support()
+    logging.configure()
     try:
         if len(sys.argv) > 1 and sys.argv[1] == 'daemon':
             from recs.daemon.cli import main
@@ -43,14 +47,14 @@ def run() -> int:
         return 0
 
     except KeyboardInterrupt:
-        print('Interrupted', file=sys.stderr)
+        LOGGER.warning('Interrupted')
         return 0
 
     except ValidationError as e:
-        print('ERROR:', e, file=sys.stderr)
+        LOGGER.error('%s', e)
 
     except RecsError as e:
-        print('ERROR:', *e.args, file=sys.stderr)
+        LOGGER.error('%s', e)
 
     return -1
 

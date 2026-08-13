@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import warnings
 from functools import cached_property
@@ -9,6 +8,7 @@ from typing import Annotated
 
 import soundfile
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from reccy import logging
 from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
@@ -298,7 +298,7 @@ class Cfg(BaseModel):
 
     def model_post_init(self, context: object) -> None:
         if self.general.verbose:
-            logging.basicConfig(level=logging.DEBUG)
+            logging.configure(verbose=True)
         self._configure_keys()
 
     @property

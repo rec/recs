@@ -1,13 +1,11 @@
-import logging
 import os
-import sys
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
-from reccy import ipc
+from reccy import ipc, logging
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -17,7 +15,7 @@ from recs.ui.key_events import KeyEvent
 from . import gui_backend, gui_protocol, paths
 from .models import DaemonMetadata, DaemonStatus
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.get_logger(__name__)
 
 
 class ControlRequest:
@@ -283,17 +281,18 @@ class RemoteGuiClient:
             except ValidationError:
                 continue
             if isinstance(message, gui_protocol.Error):
-                print(message.message, file=sys.stderr)
+                LOGGER.error('%s', message.message)
                 self.closed = True
                 return
             if (
                 isinstance(message, gui_protocol.Hello)
                 and message.version != gui_protocol.VERSION
             ):
-                print(
-                    f'Daemon GUI protocol version {message.version} is not supported; '
-                    f'client requires {gui_protocol.VERSION}',
-                    file=sys.stderr,
+                LOGGER.error(
+                    'Daemon GUI protocol version %s is not supported; '
+                    'client requires %s',
+                    message.version,
+                    gui_protocol.VERSION,
                 )
                 self.closed = True
                 return

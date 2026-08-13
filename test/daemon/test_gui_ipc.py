@@ -341,7 +341,7 @@ def test_remote_row_provider_exposes_latest_errors(
 
 def test_remote_row_provider_closes_on_protocol_error(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     connection = FakeConnection(
         ['{"type":"error","message":"GUI protocol version 3 is not supported"}\n']
@@ -352,7 +352,7 @@ def test_remote_row_provider_closes_on_protocol_error(
     client.start()
 
     assert _eventually(lambda: client.closed)
-    assert capsys.readouterr().err == 'GUI protocol version 3 is not supported\n'
+    assert caplog.messages == ['GUI protocol version 3 is not supported']
 
 
 def test_remote_row_provider_closes_on_shutdown(

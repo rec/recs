@@ -10,6 +10,7 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
 
+from reccy import logging
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
@@ -37,6 +38,7 @@ FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
 SOURCE_STALL_TIMEOUT = 10.0
 CALIBRATION_TIMEOUT = 15.0
+LOGGER = logging.get_logger(__name__)
 API_COMMANDS = [
     'calibrate',
     'capabilities',
@@ -1106,7 +1108,7 @@ class Recorder(Runnables):
 
     def _record_warning(self, warning: str) -> None:
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
-        print(f'ERROR {timestamp}: {warning}', file=sys.stderr)
+        LOGGER.error('%s', warning)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         self._write_manifest_record(
             session_manifest.ManifestWarning(
