@@ -67,6 +67,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.10"
 
+[tool.uv]
+exclude-newer = "1 week"
+
 [tool.uv.sources]
 reccy = { path = "../reccy", editable = true }
 
