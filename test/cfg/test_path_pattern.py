@@ -155,6 +155,21 @@ def test_track_name_path_uses_name_and_timestamp(mock_devices: None) -> None:
     assert actual.match('Ext/Lead Vocal + 20231015-164921')
 
 
+def test_path_pattern_replaces_problematic_characters(mock_devices: None) -> None:
+    pp = PathPattern('takes:/{device}')
+    cfg = Cfg()
+
+    actual = pp.make_track_name_path(
+        'Lead? Vocal',
+        cfg.aliases.to_track('Ext + 1'),
+        cfg.aliases,
+        TIMESTAMP,
+        1,
+    )
+
+    assert actual.match('takes-/Ext/Lead- Vocal + 20231015-164921')
+
+
 def test_bad_field(mock_devices):
     with pytest.raises(RecsError) as e:
         PathPattern('recording/{truck}/{index}')

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from recs.base.errors import RecsError
 from recs.cfg import aliases, track
+from recs.misc import legal_filename
 
 STRFTIME_FIELDS = re.compile('%.')
 
@@ -79,7 +80,9 @@ class PathPattern:
     ) -> Path:
         if path := getattr(track.source, 'path', None):
             # It's a file!
-            return Path(self.raw_path) / f'{path.stem}-{index}'
+            return legal_filename.legal_path(
+                Path(self.raw_path) / f'{path.stem}-{index}'
+            )
 
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)
@@ -90,7 +93,7 @@ class PathPattern:
             track=aliases.display_name(track, short=False),
             **self.times(ts),
         )
-        return Path(p)
+        return legal_filename.legal_path(Path(p))
 
     def make_track_name_path(
         self,
@@ -110,8 +113,8 @@ class PathPattern:
         )
         name = f'{track_name} + {ts.strftime("%Y%m%d-%H%M%S")}'
         if directory:
-            return Path(directory) / name
-        return Path(name)
+            return legal_filename.legal_path(Path(directory) / name)
+        return legal_filename.legal_path(Path(name))
 
 
 DATE = {Req.year, Req.month, Req.day}

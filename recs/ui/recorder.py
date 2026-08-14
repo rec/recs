@@ -26,6 +26,7 @@ from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.misc import legal_filename
 
 from . import gui_process, live, session_manifest
 from .device_poller import DevicePoller
@@ -1351,7 +1352,7 @@ def _with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
 def _daemon_record_directory(cfg: Cfg) -> Path | None:
     if not gui_ipc.daemon_mode_enabled():
         return None
-    path = Path(cfg.general.default_record_directory)
+    path = legal_filename.legal_path(Path(cfg.general.default_record_directory))
     if path.is_absolute():
         return path
     return _record_disk() / path
@@ -1413,9 +1414,9 @@ def _available_directory(path: Path) -> Path:
 
 
 def _session_directory_name(timestamp: float) -> str:
-    if os.name == 'nt':
-        return datetime.fromtimestamp(timestamp).strftime('recs %Y-%m-%d %H-%M-%S')
-    return datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+    return legal_filename.legal_filename(
+        datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+    )
 
 
 def _daemon_session_directory_name(timestamp: float) -> str:
@@ -1425,10 +1426,12 @@ def _daemon_session_directory_name(timestamp: float) -> str:
 def _manifest_directory(output_directory: str, timestamp: float) -> Path:
     ts = datetime.fromtimestamp(timestamp)
     try:
-        return Path(ts.strftime(output_directory).format(**_manifest_times(ts)))
+        return legal_filename.legal_path(
+            Path(ts.strftime(output_directory).format(**_manifest_times(ts)))
+        )
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
-        return Path(prefix or '.')
+        return legal_filename.legal_path(Path(prefix or '.'))
 
 
 def _existing_parent(path: Path) -> Path:

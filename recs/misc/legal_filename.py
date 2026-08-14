@@ -1,18 +1,14 @@
-import string
+from pathlib import Path
 
-PUNCTUATION = ' ()+,-.=[]_/'
-CHARS = set(string.ascii_letters + string.digits + PUNCTUATION)
+PROBLEMATIC = r'\/:*?"<>|'
+REPLACEMENTS = str.maketrans(PROBLEMATIC, '-' * len(PROBLEMATIC))
 
 
 def legal_filename(s: str) -> str:
-    """Encode any string so it is safe for filenames"""
+    return s.translate(REPLACEMENTS)
 
-    def enc(c: str) -> str:
-        if c in CHARS:
-            return c
-        i = ord(c)
-        if i < 0x100:
-            return f'%{i:02x}'
-        return f'%u{i:04x}'
 
-    return ''.join(enc(i) for i in s)
+def legal_path(path: Path) -> Path:
+    return Path(
+        *(part if part == path.anchor else legal_filename(part) for part in path.parts)
+    )

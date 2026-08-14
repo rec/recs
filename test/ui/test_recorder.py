@@ -1733,14 +1733,10 @@ def test_daemon_default_output_directory_keeps_explicit_directory(
     assert cfg.directory.output_directory == 'manual'
 
 
-def test_windows_default_output_directory_avoids_colons(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_default_output_directory_replaces_problematic_characters() -> None:
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
 
-    monkeypatch.setattr(recorder.os, 'name', 'nt')
-
-    assert recorder._session_directory_name(timestamp) == 'recs 2026-06-23 20-34-10'
+    assert recorder._session_directory_name(timestamp) == 'recs- 2026-06-23 20-34-10'
 
 
 def test_manifest_records_source_and_track_lifecycle_events(
