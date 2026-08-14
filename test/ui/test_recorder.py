@@ -1349,13 +1349,13 @@ def test_daemon_start_after_stop_uses_new_session_directory(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
-    first_manifest = tmp_path / 'recs' / '2026-06-23 20:34:10' / 'recs-session.jsonl'
+    first_manifest = tmp_path / 'recs' / '2026-06-23 20-34-10' / 'recs-session.jsonl'
 
     rec._stop_recording()
     rec._stop_recording()
     rec._resume_recording('start_recording')
 
-    second_manifest = tmp_path / 'recs' / '2026-06-23 21:34:10' / 'recs-session.jsonl'
+    second_manifest = tmp_path / 'recs' / '2026-06-23 21-34-10' / 'recs-session.jsonl'
     assert first_manifest.exists()
     assert read_jsonl(first_manifest)[-1]['type'] == 'footer'
     assert second_manifest.exists()
@@ -1703,7 +1703,7 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
     )
 
     assert cfg.directory.output_directory == str(
-        large / 'takes' / '2026-06-23 20:34:10'
+        large / 'takes' / '2026-06-23 20-34-10'
     )
 
 
@@ -1719,7 +1719,7 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     cfg = recorder._with_default_output_directory(Cfg(), timestamp)
 
     assert cfg.directory.output_directory == str(
-        tmp_path / 'recs' / '2026-06-23 20:34:10'
+        tmp_path / 'recs' / '2026-06-23 20-34-10'
     )
 
 

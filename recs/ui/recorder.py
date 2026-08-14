@@ -1419,7 +1419,7 @@ def _session_directory_name(timestamp: float) -> str:
 
 
 def _daemon_session_directory_name(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H-%M-%S')
 
 
 def _manifest_directory(output_directory: str, timestamp: float) -> Path:
