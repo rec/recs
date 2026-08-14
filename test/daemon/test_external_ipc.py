@@ -36,7 +36,6 @@ class FakeRpcServer:
 
 def test_external_request_uses_recs_command_model() -> None:
     request = rpc.Request(
-        id='request-1',
         command='set_cfg',
         params={'address': 'recording.longest_file_time', 'value': 3600},
     )
@@ -49,14 +48,14 @@ def test_external_request_uses_recs_command_model() -> None:
 
 
 def test_external_request_rejects_non_request_protocol_message() -> None:
-    request = rpc.Request(id='request-1', command='rows', params={'rows': []})
+    request = rpc.Request(command='rows', params={'rows': []})
 
     with pytest.raises(ValueError, match='Unsupported request: rows'):
         external_ipc.recs_request(request)
 
 
 def test_external_response_preserves_recs_response_type() -> None:
-    request = rpc.Request(id='request-1', command='get_cfg')
+    request = rpc.Request(command='get_cfg')
 
     result = external_ipc.response(
         request,
@@ -65,15 +64,11 @@ def test_external_response_preserves_recs_response_type() -> None:
         ),
     )
 
-    assert result == rpc.Response(
-        id='request-1',
-        ok=True,
-        result={
-            'type': 'cfg_value',
-            'address': 'recording.longest_file_time',
-            'value': 3600,
-        },
-    )
+    assert result == {
+        'type': 'cfg_value',
+        'address': 'recording.longest_file_time',
+        'value': 3600,
+    }
 
 
 def test_external_server_publishes_rows_and_shutdown_once(
@@ -117,16 +112,12 @@ def test_external_server_releases_pending_request_when_closed(
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
     server = external_ipc.ExternalServer(home=Path('/tmp'))
     server.start()
-    request = external_ipc.ControlRequest(
-        rpc.Request(id='request-1', command='get_cfg')
-    )
+    request = external_ipc.ControlRequest(rpc.Request(command='get_cfg'))
     server._pending.append(request)
 
     server.close()
 
-    assert request.wait() == rpc.Response(
-        id='request-1', ok=False, message='recs is shutting down'
-    )
+    assert request.wait().message == 'recs is shutting down'
 
 
 def test_external_server_rejects_request_after_closing(
@@ -137,8 +128,6 @@ def test_external_server_rejects_request_after_closing(
     server.start()
     server.close()
 
-    response = server.rpc_response(rpc.Request(id='request-1', command='get_cfg'))
+    response = server.rpc_response(rpc.Request(command='get_cfg'))
 
-    assert response == rpc.Response(
-        id='request-1', ok=False, message='recs is shutting down'
-    )
+    assert response.message == 'recs is shutting down'

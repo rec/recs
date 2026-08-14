@@ -25,13 +25,12 @@ Use `recs.daemon.paths.external_control_endpoint()` and
 ## Control requests
 
 Each control connection begins with Reccy's hello handshake, sends one request,
-receives one response, and closes. A request has an RPC `id`, a Recs command
-name, and the remaining fields in `params`:
+receives one direct response, and closes. A request has a Recs command name and
+the remaining fields in `params`:
 
 ```json
 {
   "type": "request",
-  "id": "request-1",
   "command": "set_cfg",
   "params": {
     "address": "recording.longest_file_time",
@@ -49,52 +48,47 @@ This is equivalent to the Recs request payload:
 The Recs daemon validates and executes it in the recorder loop. The RPC handler
 does not read devices, process audio, or write recordings.
 
-A successful result includes the complete typed Recs response payload. The
-payload `type` is retained so callers can route by response type:
+A command with no result returns the JSON string `"ok"`. Commands with data
+return the complete typed Recs response payload directly:
 
 ```json
 {
-  "type": "response",
-  "id": "request-1",
-  "ok": true,
-  "result": {
-    "type": "cfg_set",
-    "address": "recording.longest_file_time",
-    "value": 3600
-  }
+  "type": "cfg_value",
+  "address": "recording.longest_file_time",
+  "value": 3600
 }
 ```
 
-Invalid commands and command failures return `ok: false` with an explanatory
-`message`. RPC handshake and malformed-message failures use Reccy IPC errors.
+Invalid commands and command failures return an `error` payload with an
+explanatory `message`.
 
 ## Commands
 
 `command` is the corresponding Recs request `type`; `params` contains the
-other request fields.
+other request fields. Commands not marked with a result return `"ok"`.
 
-| Command | Typed result |
+| Command | Response |
 | --- | --- |
 | `calibrate` | `calibrated` with per-track `measurements` and applied `noise_floors` |
 | `capabilities` | `capabilities_result` with `commands` and Recs payload version |
 | `disk_status` | `disk_status_result` with filesystem usage |
 | `get_cfg` | `cfg_value` with `address` and `value` |
-| `set_cfg` | `cfg_set` with normalized `address` and `value` |
+| `set_cfg` | `"ok"` |
 | `get_track_names` | `track_names` |
-| `set_track_names` | `track_names` |
-| `set_tracks` | `tracks_set` |
+| `set_track_names` | `"ok"` |
+| `set_tracks` | `"ok"` |
 | `list_devices` | `devices` |
 | `mutable_attributes` | `mutable_attributes_result` |
-| `mark` | `marked` |
-| `pause_recording` | `recording_state` |
-| `resume_recording` | `recording_state` |
-| `start_recording` | `recording_state` |
-| `stop_recording` | `recording_state` |
-| `reload_profiles` | `profiles_reloaded` |
-| `set_key_label` | `key_label_set` |
-| `set_noise_floor` | `noise_floor_set` |
+| `mark` | `"ok"` |
+| `pause_recording` | `"ok"` |
+| `resume_recording` | `"ok"` |
+| `start_recording` | `"ok"` |
+| `stop_recording` | `"ok"` |
+| `reload_profiles` | `"ok"` |
+| `set_key_label` | `"ok"` |
+| `set_noise_floor` | `"ok"` |
 | `status_snapshot` | `status_snapshot_result` |
-| `shutdown` | final `recording_state` |
+| `shutdown` | `"ok"` |
 
 `calibrate` accepts an optional `channels` object mapping device names to mono
 channels or a member of each stereo pair. `set_noise_floor` accepts `null` to

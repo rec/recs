@@ -401,17 +401,15 @@ def test_external_control_requests_use_recorder_handler(
     class External:
         def __init__(self) -> None:
             self.requests = [
-                external_ipc.ControlRequest(
-                    rpc.Request(id='request-1', command='mutable_attributes')
-                )
+                external_ipc.ControlRequest(rpc.Request(command='mutable_attributes'))
             ]
-            self.responses: list[rpc.Response] = []
+            self.responses: list[rpc.Result] = []
 
         def take_requests(self) -> list[external_ipc.ControlRequest]:
             return self.requests
 
         def respond(
-            self, request: external_ipc.ControlRequest, response: rpc.Response
+            self, request: external_ipc.ControlRequest, response: rpc.Result
         ) -> None:
             self.responses.append(response)
 
@@ -423,14 +421,10 @@ def test_external_control_requests_use_recorder_handler(
     rec._receive_control_requests()
 
     assert external.responses == [
-        rpc.Response(
-            id='request-1',
-            ok=True,
-            result={
-                'type': 'mutable_attributes_result',
-                'mutable_attributes': sorted(rec.cfg.mutable_attributes),
-            },
-        )
+        {
+            'type': 'mutable_attributes_result',
+            'mutable_attributes': sorted(rec.cfg.mutable_attributes),
+        }
     ]
 
 
@@ -441,16 +435,16 @@ def test_external_shutdown_only_stops_recorder_once(
     class External:
         def __init__(self) -> None:
             self.requests = [
-                external_ipc.ControlRequest(rpc.Request(id=value, command='shutdown'))
+                external_ipc.ControlRequest(rpc.Request(command='shutdown'))
                 for value in ['request-1', 'request-2']
             ]
-            self.responses: list[rpc.Response] = []
+            self.responses: list[rpc.Result] = []
 
         def take_requests(self) -> list[external_ipc.ControlRequest]:
             return self.requests
 
         def respond(
-            self, request: external_ipc.ControlRequest, response: rpc.Response
+            self, request: external_ipc.ControlRequest, response: rpc.Result
         ) -> None:
             self.responses.append(response)
 
@@ -465,16 +459,8 @@ def test_external_shutdown_only_stops_recorder_once(
 
     assert calls == ['stop']
     assert external.responses == [
-        rpc.Response(
-            id='request-1',
-            ok=True,
-            result={'type': 'recording_state', 'paused': False, 'stopped': True},
-        ),
-        rpc.Response(
-            id='request-2',
-            ok=True,
-            result={'type': 'recording_state', 'paused': False, 'stopped': True},
-        ),
+        'ok',
+        'ok',
     ]
 
 

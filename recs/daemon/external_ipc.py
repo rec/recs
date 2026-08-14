@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from pydantic import PrivateAttr
-from reccy import models, rpc
+from reccy import ipc, models, rpc
 from reccy.reccy import Reccy
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -17,14 +17,14 @@ from .spec import RECS_SERVICE
 class ControlRequest:
     def __init__(self, request: rpc.Request) -> None:
         self.request = request
-        self.response: rpc.Response | None = None
+        self.response: rpc.Result | None = None
         self.ready = threading.Event()
 
-    def respond(self, response: rpc.Response) -> None:
+    def respond(self, response: rpc.Result) -> None:
         self.response = response
         self.ready.set()
 
-    def wait(self) -> rpc.Response:
+    def wait(self) -> rpc.Result:
         self.ready.wait()
         assert self.response is not None
         return self.response
@@ -64,7 +64,7 @@ class ExternalServer(Reccy):
             self._requests.clear()
         return requests
 
-    def respond(self, request: ControlRequest, response: rpc.Response) -> None:
+    def respond(self, request: ControlRequest, response: rpc.Result) -> None:
         with self._lock:
             if request in self._pending:
                 self._pending.remove(request)
@@ -77,15 +77,11 @@ class ExternalServer(Reccy):
     ) -> None:
         self.publish_event('rows', rows=rows, errors=errors)
 
-    def rpc_response(self, request: rpc.Request) -> rpc.Response:
+    def rpc_response(self, request: rpc.Request) -> rpc.Result:
         control = ControlRequest(request)
         with self._lock:
             if not self._started:
-                return rpc.Response(
-                    id=request.id,
-                    ok=False,
-                    message='recs is shutting down',
-                )
+                return ipc.Error(type='error', message='recs is shutting down')
             self._requests.append(control)
             self._pending.append(control)
         return control.wait()
@@ -97,13 +93,7 @@ class ExternalServer(Reccy):
             self._requests.clear()
             self._pending.clear()
         for request in requests:
-            request.respond(
-                rpc.Response(
-                    id=request.request.id,
-                    ok=False,
-                    message='recs is shutting down',
-                )
-            )
+            request.respond(ipc.Error(type='error', message='recs is shutting down'))
 
     def _publish_shutdown(self) -> None:
         with self._lock:
@@ -122,7 +112,18 @@ def recs_request(request: rpc.Request) -> gui_protocol.Request | gui_protocol.Sh
     raise RecsError(f'Unsupported request: {request.command}')
 
 
-def response(request: rpc.Request, value: gui_protocol.Response) -> rpc.Response:
+def response(request: rpc.Request, value: gui_protocol.Response) -> rpc.Result:
     if isinstance(value, gui_protocol.Error):
-        return rpc.Response(id=request.id, ok=False, message=value.message)
-    return rpc.Response(id=request.id, ok=True, result=value.model_dump())
+        return ipc.Error(type='error', message=value.message)
+    if request.command in {
+        'calibrate',
+        'capabilities',
+        'disk_status',
+        'get_cfg',
+        'get_track_names',
+        'list_devices',
+        'mutable_attributes',
+        'status_snapshot',
+    }:
+        return value.model_dump()
+    return 'ok'
