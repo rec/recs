@@ -12,14 +12,14 @@ from reccy import logging
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
-from recs.base.errors import ErrorRecord, RecsError
+from recs.base.errors import ErrorRecord
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames, validate_track_names
+from recs.cfg.track_names import DeviceTrackNames
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
 from . import (
@@ -42,28 +42,6 @@ from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpd
 
 LOGGER = logging.get_logger(__name__)
 SOURCE_STALL_TIMEOUT = device_lifecycle.SOURCE_STALL_TIMEOUT
-API_COMMANDS = [
-    'calibrate',
-    'capabilities',
-    'disk_status',
-    'get_cfg',
-    'get_track_names',
-    'list_devices',
-    'mutable_attributes',
-    'mark',
-    'pause_recording',
-    'reload_profiles',
-    'resume_recording',
-    'set_key_label',
-    'set_noise_floor',
-    'set_track_names',
-    'set_tracks',
-    'set_cfg',
-    'shutdown',
-    'start_recording',
-    'status_snapshot',
-    'stop_recording',
-]
 
 
 class Recorder(Runnables):
@@ -84,9 +62,7 @@ class Recorder(Runnables):
             cfg, self.saved_tracks
         )
         self.warnings: list[ErrorRecord] = []
-        self.recording_paused = False
-        self.recording_stopped = False
-        self.track_names = saved_settings.track_names
+        track_names = saved_settings.track_names
         self.state = FullState(all_tracks, cfg.aliases)
         self.session_start_time = self.state.start_time
         self.daemon_record_directory = (
@@ -100,7 +76,6 @@ class Recorder(Runnables):
         self.external = (
             external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
-        self.control = recording_control.RecordingControl()
         if gui_ipc.daemon_mode_enabled():
             display_type = gui_ipc.DaemonGuiServer
         elif self.cfg.console.gui:
@@ -118,19 +93,16 @@ class Recorder(Runnables):
             if display
             else None
         )
-        if isinstance(self.live, gui_ipc.DaemonGuiServer):
-            self.live.external_rows = self._publish_external_rows
         self.session = recording_session.RecordingSession(
             str(uuid.uuid4()), self.session_start_time
         )
-        self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
         self.disk_monitor = disk_monitor.DiskMonitor(self.cfg)
         self.devices = device_lifecycle.DeviceLifecycle(
             self.cfg,
             self.state,
             self.saved_tracks,
-            self.track_names,
+            track_names,
             all_tracks,
             self._record_warning,
             self._record_event,
@@ -140,14 +112,34 @@ class Recorder(Runnables):
             SourceProcess,
             DevicePoller,
         )
+        self.control = recording_control.RecordingControl(
+            self.cfg,
+            self.saved_tracks,
+            track_names,
+            self.state,
+            self.session,
+            self.devices,
+            self.disk_monitor,
+            lambda record: self._write_manifest_record(record),
+            self._replace_cfg,
+            lambda: list(self.rows()),
+            self.error_records,
+            self._manifest_path,
+            self._receive_pending_updates,
+            self._finish_manifest,
+            self._start_recording_session,
+        )
         self.calibration = calibration.Calibration(
             self.cfg,
             self.devices.hardware,
-            self._track_for_channel,
+            self.control.track_for_channel,
             self._receive_connection,
             self._record_event,
-            self._set_cfg_value,
+            self.control.set_cfg_value,
         )
+        self.control.calibrate = self.calibration.calibrate
+        if isinstance(self.live, gui_ipc.DaemonGuiServer):
+            self.live.external_rows = self._publish_external_rows
 
         runnables = tuple(self.devices.files.values()) + (self.key_recorder,)
         if self.devices.poller is not None:
@@ -168,6 +160,38 @@ class Recorder(Runnables):
     @property
     def sources(self) -> dict[str, SourceProcess]:
         return self.devices.sources
+
+    @property
+    def recording_paused(self) -> bool:
+        return self.control.recording_paused
+
+    @recording_paused.setter
+    def recording_paused(self, value: bool) -> None:
+        self.control.recording_paused = value
+
+    @property
+    def recording_stopped(self) -> bool:
+        return self.control.recording_stopped
+
+    @recording_stopped.setter
+    def recording_stopped(self, value: bool) -> None:
+        self.control.recording_stopped = value
+
+    @property
+    def session_stopped(self) -> bool:
+        return self.control.session_stopped
+
+    @session_stopped.setter
+    def session_stopped(self, value: bool) -> None:
+        self.control.session_stopped = value
+
+    @property
+    def track_names(self) -> DeviceTrackNames:
+        return self.control.track_names
+
+    @track_names.setter
+    def track_names(self, value: DeviceTrackNames) -> None:
+        self.control.track_names = value
 
     @property
     def hardware(self) -> dict[str, SourceProcess]:
@@ -630,7 +654,6 @@ class Recorder(Runnables):
         self.control.receive(
             cast(recording_control.ControlDisplay | None, self.live),
             self.external,
-            self._handle_control_request,
             self._record_warning,
             self.stop,
         )
@@ -646,403 +669,91 @@ class Recorder(Runnables):
         self,
         request: gui_protocol.Request,
     ) -> gui_protocol.Response:
-        if isinstance(request, gui_protocol.Calibrate):
-            return self._calibrate_noise_floor(request)
-        if isinstance(request, gui_protocol.Capabilities):
-            return gui_protocol.CapabilitiesResult(
-                type='capabilities_result',
-                commands=API_COMMANDS,
-                version=gui_protocol.VERSION,
-            )
-        if isinstance(request, gui_protocol.DiskStatusRequest):
-            return self._disk_status()
-        if isinstance(request, gui_protocol.GetCfg):
-            return self._get_cfg(request)
-        if isinstance(request, gui_protocol.GetTrackNames):
-            return gui_protocol.TrackNames(
-                type='track_names', track_names=self.track_names
-            )
-        if isinstance(request, gui_protocol.ListDevices):
-            return gui_protocol.Devices(type='devices', devices=self._device_status())
-        if isinstance(request, gui_protocol.MutableAttributes):
-            return gui_protocol.MutableAttributesResult(
-                type='mutable_attributes_result',
-                mutable_attributes=sorted(self.cfg.mutable_attributes),
-            )
-        if isinstance(request, gui_protocol.Mark):
-            return self._mark(request)
-        if isinstance(request, gui_protocol.PauseRecording):
-            return self._pause_recording('pause_recording')
-        if isinstance(request, gui_protocol.ReloadProfiles):
-            return self._reload_profiles()
-        if isinstance(request, gui_protocol.ResumeRecording):
-            return self._resume_recording('resume_recording')
-        if isinstance(request, gui_protocol.SetCfg):
-            return self._set_cfg(request)
-        if isinstance(request, gui_protocol.SetKeyLabel):
-            return self._set_key_label(request)
-        if isinstance(request, gui_protocol.SetNoiseFloor):
-            return self._set_noise_floor(request)
-        if isinstance(request, gui_protocol.SetTrackNames):
-            return self._set_track_names(request)
-        if isinstance(request, gui_protocol.SetTracks):
-            return self._set_tracks(request)
-        if isinstance(request, gui_protocol.StartRecording):
-            return self._resume_recording('start_recording')
-        if isinstance(request, gui_protocol.StatusSnapshotRequest):
-            return self._status_snapshot()
-        if isinstance(request, gui_protocol.StopRecording):
-            return self._stop_recording()
-        raise RecsError(f'Unsupported request: {request.type}')
+        return self.control.handle(request)
 
     def _mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='mark',
-                label=request.label,
-            )
-        )
-        return gui_protocol.Marked(type='marked', label=request.label)
+        return self.control.mark(request)
 
     def _pause_recording(
         self, reason: str, disk: disk_space.Disk | None = None
     ) -> gui_protocol.RecordingState:
-        self.recording_paused = True
-        for source in self.hardware.values():
-            if source.running:
-                source.stop()
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='recording_paused',
-                label=reason,
-                reason=reason,
-                current_path=str(self.cfg.directory.output_directory),
-                free_bytes=disk.free_bytes if disk else None,
-            )
-        )
-        return self._recording_state()
+        return self.control.pause_recording(reason, disk)
 
     def _resume_recording(
         self, reason: str, disk: disk_space.Disk | None = None
     ) -> gui_protocol.RecordingState:
-        if self.session_stopped:
-            self._start_recording_session()
-        self.recording_paused = False
-        self.recording_stopped = False
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='recording_resumed',
-                label=reason,
-                reason=reason,
-                path=str(self.cfg.directory.output_directory),
-                free_bytes=disk.free_bytes if disk else None,
-            )
-        )
-        return self._recording_state()
+        return self.control.resume_recording(reason, disk)
 
     def _stop_recording(self) -> gui_protocol.RecordingState:
-        if self.recording_stopped:
-            return self._recording_state()
-        self._pause_recording('stop_recording')
-        self.recording_stopped = True
-        self.session_stopped = self.session.manifest is not None
-        if self.session_stopped:
-            for source in self.hardware.values():
-                source.join()
-            self._receive_pending_updates()
-            self._finish_manifest()
-        return self._recording_state()
+        return self.control.stop_recording()
 
     def _set_key_label(
         self, request: gui_protocol.SetKeyLabel
     ) -> gui_protocol.KeyLabelSet:
-        labels = self.cfg.keys.labels | {request.key: request.label}
-        self._set_cfg_value(
-            'keys.key_label', [f'{key}={label}' for key, label in labels.items()]
-        )
-        return gui_protocol.KeyLabelSet(
-            type='key_label_set', key=request.key, label=request.label
-        )
+        return self.control.set_key_label(request)
 
     def _set_noise_floor(
         self, request: gui_protocol.SetNoiseFloor
     ) -> gui_protocol.NoiseFloorSet:
-        track = self._track_for_channel(request.source, request.channel)
-        floors = {
-            source: dict(channels)
-            for source, channels in self.cfg.recording.channel_noise_floors.items()
-        }
-        floors.setdefault(request.source, {})[track.name] = request.noise_floor
-        self._set_cfg_value('recording.channel_noise_floors', floors)
-        return gui_protocol.NoiseFloorSet(
-            type='noise_floor_set',
-            source=request.source,
-            channel=request.channel,
-            noise_floor=request.noise_floor,
-        )
+        return self.control.set_noise_floor(request)
 
     def _set_track_names(
         self, request: gui_protocol.SetTrackNames
     ) -> gui_protocol.TrackNames:
-        try:
-            track_names = validate_track_names(request.track_names)
-        except ValueError as e:
-            raise RecsError(str(e)) from None
-        self.track_names = {
-            device: dict(names) for device, names in track_names.items()
-        }
-        self.devices.set_track_names(self.track_names)
-        self.state.set_track_names(self.track_names)
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='track_names_set',
-                value=self.track_names,
-            )
-        )
-        self._save_settings()
-        return gui_protocol.TrackNames(type='track_names', track_names=self.track_names)
+        return self.control.set_track_names(request)
 
     def _set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
-        source = self.hardware.get(request.source)
-        if source is None:
-            raise RecsError(f'Unknown input device: {request.source}')
-        tracks = self._updated_tracks(source, request.tracks)
-        names = self._updated_track_names(request.source, request.tracks)
-        floors = self._updated_track_noise_floors(source, request.tracks)
-        if floors != self.cfg.recording.channel_noise_floors:
-            self._set_cfg_value('recording.channel_noise_floors', floors, save=False)
-        self.track_names = names
-        source.set_tracks(tracks, names)
-        self.saved_tracks[source.name] = [
-            settings.TrackSettings(channels=list(track.channels)) for track in tracks
-        ]
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='tracks_set',
-                source=request.source,
-                value=[track.model_dump() for track in request.tracks],
-            )
-        )
-        self._save_settings()
-        return gui_protocol.TracksSet(
-            type='tracks_set', source=request.source, tracks=request.tracks
-        )
+        return self.control.set_tracks(request)
 
     def _updated_tracks(
         self,
         source: SourceProcess,
         requested: list[gui_protocol.ChannelTrack],
     ) -> list[Track]:
-        if not requested:
-            raise RecsError('At least one track is required')
-        channels: list[int] = []
-        new_tracks: list[Track] = []
-        for definition in requested:
-            values = definition.channels
-            if len(values) not in (1, 2):
-                raise RecsError('Tracks must be mono or stereo')
-            if values != sorted(values) or len(set(values)) != len(values):
-                raise RecsError('Track channels must be in ascending order')
-            if len(values) == 2 and values[1] != values[0] + 1:
-                raise RecsError('Stereo channels must be adjacent')
-            if values[0] <= 0 or values[-1] > source.source.channels:
-                raise RecsError(f'Invalid channel for device {source.name}')
-            try:
-                track = Track(source.source, tuple(values))
-            except RecsError as e:
-                raise RecsError(str(e)) from None
-            channels.extend(values)
-            new_tracks.append(track)
-
-        if len(channels) != len(set(channels)):
-            raise RecsError('Tracks cannot share channels')
-        selected = set(channels)
-        for track in source.tracks:
-            overlap = selected & set(track.channels)
-            if overlap and overlap != set(track.channels):
-                raise RecsError(f'All channels in {track} must be replaced together')
-        remaining = [
-            track for track in source.tracks if not (selected & set(track.channels))
-        ]
-        return sorted([*remaining, *new_tracks], key=lambda track: track.channels)
+        return self.control.updated_tracks(source, requested)
 
     def _updated_track_names(
         self,
         source_name: str,
         requested: list[gui_protocol.ChannelTrack],
     ) -> DeviceTrackNames:
-        names = {device: dict(values) for device, values in self.track_names.items()}
-        changed = {channel for track in requested for channel in track.channels}
-        device_names = names.setdefault(source_name, {})
-        for name, channel in list(device_names.items()):
-            if channel in changed:
-                del device_names[name]
-        for track in requested:
-            if not track.name:
-                continue
-            if track.name in device_names:
-                raise RecsError(f'Duplicate track name: {track.name}')
-            device_names[track.name] = track.channels[0]
-        if not device_names:
-            del names[source_name]
-        try:
-            return validate_track_names(names)
-        except ValueError as e:
-            raise RecsError(str(e)) from None
+        return self.control.updated_track_names(source_name, requested)
 
     def _updated_track_noise_floors(
         self,
         source: SourceProcess,
         requested: list[gui_protocol.ChannelTrack],
     ) -> dict[str, dict[str, float | None]]:
-        floors = {
-            device: dict(values)
-            for device, values in self.cfg.recording.channel_noise_floors.items()
-        }
-        device_floors = floors.setdefault(source.name, {})
-        changed = {channel for track in requested for channel in track.channels}
-        replaced = [track for track in source.tracks if changed & set(track.channels)]
-        values = {track.name: device_floors.pop(track.name, None) for track in replaced}
-        for definition in requested:
-            matching = [
-                value
-                for track, value in values.items()
-                if set(_track_channels(track)) & set(definition.channels)
-            ]
-            if len(set(matching)) > 1:
-                raise RecsError(
-                    'Cannot pair channels with different noise floors: '
-                    f'{definition.channels}'
-                )
-            if matching:
-                device_floors[_track_name(definition.channels)] = matching[0]
-        if not device_floors:
-            del floors[source.name]
-        return floors
+        return self.control.updated_track_noise_floors(source, requested)
 
     def _get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
-        try:
-            value = self.cfg.get_attr(request.address)
-        except ValueError as e:
-            raise RecsError(str(e)) from None
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='cfg_get',
-                address=request.address,
-                value=value,
-            )
-        )
-        return gui_protocol.CfgValue(
-            type='cfg_value', address=request.address, value=value
-        )
+        return self.control.get_cfg(request)
 
     def _set_cfg(self, request: gui_protocol.SetCfg) -> gui_protocol.CfgSet:
-        value = self._set_cfg_value(request.address, request.value)
-        return gui_protocol.CfgSet(type='cfg_set', address=request.address, value=value)
+        return self.control.set_cfg(request)
 
     def _set_cfg_value(
         self, address: str, value: object, *, save: bool = True
     ) -> object:
-        try:
-            self.cfg = self.cfg.set_attr(address, value)
-        except ValueError as e:
-            raise RecsError(str(e)) from None
-        self.calibration.cfg = self.cfg
-        value = self.cfg.get_attr(address)
-        self.devices.set_cfg(self.cfg)
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                type='cfg_set',
-                address=address,
-                value=value,
-            )
-        )
-        if save:
-            self._save_settings()
-        return value
+        return self.control.set_cfg_value(address, value, save=save)
 
     def _save_settings(self) -> None:
-        if self.cfg.save_settings:
-            settings.save(self.cfg, self.track_names, self.saved_tracks)
+        self.control.save_settings()
 
     def _reload_profiles(self) -> gui_protocol.ProfilesReloaded:
-        if not self.cfg.device.profiles.name:
-            raise RecsError('Cannot reload profiles without --profiles')
-        self.cfg.__dict__.pop('device_profiles', None)
-        for source in self.sources.values():
-            source.cfg = self.cfg
-        return gui_protocol.ProfilesReloaded(
-            type='profiles_reloaded', profiles_path=str(self.cfg.device.profiles)
-        )
+        return self.control.reload_profiles()
 
     def _status_snapshot(self) -> gui_protocol.StatusSnapshot:
-        return gui_protocol.StatusSnapshot(
-            type='status_snapshot_result',
-            disk=self._disk_status().model_dump(exclude={'type'}),
-            devices=self._device_status(),
-            errors=self.error_records(),
-            recording=self._recording_state().model_dump(exclude={'type'}),
-            rows=list(self.rows()),
-        )
+        return self.control.status_snapshot()
 
     def _disk_status(self) -> gui_protocol.DiskStatus:
-        path = recording_paths.existing_parent(self._manifest_path()).resolve()
-        usage = shutil.disk_usage(path)
-        resume_disk = next(
-            (
-                disk.path
-                for disk in self._removable_disks()
-                if disk.free_bytes >= self._disk_threshold(disk)
-            ),
-            None,
-        )
-        return gui_protocol.DiskStatus(
-            type='disk_status_result',
-            free_bytes=usage.free,
-            path=str(path),
-            total_bytes=usage.total,
-            used_bytes=usage.used,
-            estimated_seconds_remaining=(
-                usage.free / self.disk_monitor.rate.bytes_per_second
-                if self.disk_monitor.rate.bytes_per_second
-                else None
-            ),
-            alert_threshold=self.disk_monitor.alert_threshold,
-            alert_active=self.disk_monitor.first_alert,
-            automatic_switch_armed=(
-                self.disk_monitor.first_alert and self.cfg.recording.disk_auto_switch
-            ),
-            paused_for_disk_space=self.disk_monitor.paused,
-            resume_disk=str(resume_disk) if resume_disk else None,
-        )
+        return self.control.disk_status()
 
     def _device_status(self) -> list[dict[str, object]]:
-        devices: list[dict[str, object]] = []
-        for name, source in sorted(self.sources.items()):
-            device = source.source
-            devices.append(
-                {
-                    'channels': device.channels,
-                    'name': name,
-                    'online': name in self.present,
-                    'sample_rate': device.samplerate,
-                }
-            )
-        return devices
+        return self.control.device_status()
 
     def _recording_state(self) -> gui_protocol.RecordingState:
-        return gui_protocol.RecordingState(
-            type='recording_state',
-            paused=self.recording_paused,
-            stopped=self.recording_stopped,
-        )
+        return self.control.recording_state()
 
     def _drain(self, conn: connection.Connection) -> None:
         while _connection_ready(conn):
@@ -1118,8 +829,16 @@ class Recorder(Runnables):
             self.cfg.__dict__.pop('output_path_pattern', None)
             for source in self.sources.values():
                 source.cfg = self.cfg
+        self.control.cfg = self.cfg
+        self.disk_monitor.cfg = self.cfg
+        self.calibration.cfg = self.cfg
         self._start_manifest()
         self.session_stopped = False
+
+    def _replace_cfg(self, cfg: Cfg) -> None:
+        self.cfg = cfg
+        self.disk_monitor.cfg = cfg
+        self.calibration.cfg = cfg
 
     def _record_warning(self, warning: str) -> None:
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
@@ -1168,15 +887,7 @@ class Recorder(Runnables):
         return self.calibration.calibrate(request)
 
     def _track_for_channel(self, source_name: str, channel: int) -> Track:
-        source = self.hardware.get(source_name)
-        if source is None:
-            raise RecsError(f'Unknown input device: {source_name}')
-        if channel <= 0:
-            raise RecsError('Channel must be positive')
-        for track in source.tracks:
-            if channel in track.channels:
-                return track
-        raise RecsError(f'Device {source_name} has no selected channel {channel}')
+        return self.control.track_for_channel(source_name, channel)
 
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())
@@ -1210,11 +921,3 @@ def _connection_ready(conn: connection.Connection) -> bool:
         return conn.poll()
     except OSError:
         return False
-
-
-def _track_channels(track_name: str) -> list[int]:
-    return [int(channel) for channel in track_name.split('-') if channel]
-
-
-def _track_name(channels: list[int]) -> str:
-    return '-'.join(str(channel) for channel in channels)
