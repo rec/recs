@@ -505,6 +505,9 @@ class Recorder(Runnables):
             self._record_key_event(event)
 
     def _receive_control_requests(self) -> None:
+        if isinstance(self.live, gui_ipc.DaemonGuiServer):
+            for error in self.live.take_protocol_errors():
+                self._record_warning(f'Malformed GUI protocol message: {error}')
         requests = (
             cast(list[gui_ipc.ControlRequest], self.live.take_control_requests())
             if self.live is not None
@@ -532,6 +535,7 @@ class Recorder(Runnables):
                 else:
                     response = self._handle_control_request(external_request)
             except (RecsError, ValidationError) as e:
+                self._record_warning(f'External Recs protocol error: {e}')
                 response = gui_protocol.Error(type='error', message=str(e))
             self.external.respond(
                 request, external_ipc.response(request.request, response)

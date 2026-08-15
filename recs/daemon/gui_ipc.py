@@ -57,6 +57,7 @@ class DaemonGuiServer(Runnable):
         self.clients: list[GuiListener] = []
         self.key_events: list[KeyEvent] = []
         self.control_requests: list[ControlRequest] = []
+        self.protocol_errors: list[str] = []
         self.shutdown_started = False
         self.last_status_update: float | None = None
         self.lock = threading.Lock()
@@ -117,6 +118,11 @@ class DaemonGuiServer(Runnable):
             requests, self.control_requests = self.control_requests, []
         return requests
 
+    def take_protocol_errors(self) -> list[str]:
+        with self.lock:
+            errors, self.protocol_errors = self.protocol_errors, []
+        return errors
+
     def broadcast(
         self, rows: list[dict[str, object]], errors: list[ErrorRecord]
     ) -> None:
@@ -156,6 +162,7 @@ class DaemonGuiServer(Runnable):
                 self._append_key_event,
                 self._append_control_request,
                 self.request_shutdown,
+                self._append_protocol_error,
             )
             with self.lock:
                 self.clients.append(listener)
@@ -168,6 +175,10 @@ class DaemonGuiServer(Runnable):
     def _append_control_request(self, request: ControlRequest) -> None:
         with self.lock:
             self.control_requests.append(request)
+
+    def _append_protocol_error(self, error: str) -> None:
+        with self.lock:
+            self.protocol_errors.append(error)
 
     def _remove(self, listener: 'GuiListener') -> None:
         listener.close()
@@ -202,6 +213,7 @@ class GuiListener:
         append_key_event: Callable[[KeyEvent], None],
         append_control_request: Callable[[ControlRequest], None] | None = None,
         request_shutdown: Callable[[], None] | None = None,
+        append_protocol_error: Callable[[str], None] | None = None,
     ) -> None:
         self.append_key_event = append_key_event
         self.append_control_request = append_control_request
@@ -213,6 +225,7 @@ class GuiListener:
             local_role='daemon',
             on_message=self._handle_message,
             request_shutdown=request_shutdown,
+            on_validation_error=append_protocol_error,
             logger=LOGGER,
         )
 
