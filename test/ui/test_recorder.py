@@ -753,18 +753,23 @@ def test_disk_alert_switches_to_larger_removable_disk(
         )
     )
     rec._start_manifest()
-    old_manifest = rec.manifest.path if rec.manifest is not None else None
+    old_manifest = (
+        rec.session.manifest.path if rec.session.manifest is not None else None
+    )
 
     rec._monitor_disk_space()
 
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
-    assert rec.manifest is not None
-    assert rec.manifest_continued_from is None
+    assert rec.session.manifest is not None
+    assert rec.session.continued_from is None
     assert old_manifest is not None
-    assert session_manifest.read(rec.manifest.path).continued_from == str(old_manifest)
+    assert rec.session.manifest is not None
+    assert session_manifest.read(rec.session.manifest.path).continued_from == str(
+        old_manifest
+    )
     assert any(
         event.type == 'disk_switch_finished'
-        and event.continued_at == str(rec.manifest.path)
+        and event.continued_at == str(rec.session.manifest.path)
         for event in session_manifest.read(old_manifest).events
     )
 
@@ -845,8 +850,7 @@ def test_recorder_summarizes_interrupt(
     first.touch()
     second.touch()
     files = (second, tmp_path / 'deleted.wav', first)
-    rec.files_written.update(files)
-    rec.session_files_written.update(files)
+    rec.session.files_written.update(files)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 165.25)
 
     def interrupt() -> None:
@@ -910,7 +914,7 @@ def test_recorder_output_folder_prefers_written_files(
     path = tmp_path / 'session/take.wav'
     path.parent.mkdir()
     path.touch()
-    rec.files_written.add(path)
+    rec.session.files_written.add(path)
 
     assert rec._output_folder() == path.parent
 

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from recs.cfg.cfg import Cfg
-from recs.ui import input_self_test
+from recs.ui import input_self_test, recording_session
 
 
 class FakeRecorder:
@@ -12,7 +12,7 @@ class FakeRecorder:
 
     def __init__(self, cfg: Cfg) -> None:
         self.cfg = cfg
-        self.files_written: set[Path] = set()
+        self.session = recording_session.RecordingSession('fake', 0)
         self.warnings: list[str] = []
         FakeRecorder.latest = self
 
@@ -30,7 +30,7 @@ def test_input_self_test_reports_file_levels(
     path = tmp_path / 'test.wav'
     path.touch()
     recorder = FakeRecorder(Cfg())
-    recorder.files_written.add(path)
+    recorder.session.files_written.add(path)
     recorder.warnings.append('quiet')
     monkeypatch.setattr(
         input_self_test.soundfile,

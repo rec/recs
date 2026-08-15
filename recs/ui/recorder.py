@@ -26,7 +26,14 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
-from . import disk_space, gui_process, live, recording_paths, session_manifest
+from . import (
+    disk_space,
+    gui_process,
+    live,
+    recording_paths,
+    recording_session,
+    session_manifest,
+)
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .key_events import KeyEvent, make_key_recorder
@@ -130,12 +137,9 @@ class Recorder(Runnables):
         self.source_frames_at_start = dict.fromkeys(self.sources, 0)
         self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
         self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
-        self.files_written: set[Path] = set()
-        self.session_files_written: set[Path] = set()
-        self.manifest_file_end_frames: dict[Path, int] = {}
-        self.manifest_file_end_timestamps: dict[Path, float] = {}
-        self.manifest_files: dict[Path, session_manifest.ManifestFile] = {}
-        self.manifest: session_manifest.SessionManifestWriter | None = None
+        self.session = recording_session.RecordingSession(
+            str(uuid.uuid4()), self.session_start_time
+        )
         self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
         self.disk_alerts_reported: set[tuple[Path, str]] = set()
@@ -145,8 +149,6 @@ class Recorder(Runnables):
         self.disk_last_poll = 0.0
         self.disk_rate = disk_space.WriteRate()
         self.disk_paused = False
-        self.session_id = str(uuid.uuid4())
-        self.manifest_continued_from: str | None = None
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
         self.calibration_results: dict[str, dict[str, float]] = {}
@@ -244,7 +246,7 @@ class Recorder(Runnables):
 
     def _summary(self) -> None:
         print(f'Recording time: {_summary_time(self.state.elapsed_time)}')
-        files = sorted(path for path in self.files_written if path.exists())
+        files = sorted(path for path in self.session.files_written if path.exists())
         if files:
             print('Files written:')
             for path in files:
@@ -262,7 +264,7 @@ class Recorder(Runnables):
             return 'silence preview mode does not write files'
         if self.failed:
             return f'sources failed: {", ".join(sorted(self.failed))}'
-        if self.files_written:
+        if self.session.files_written:
             return 'all candidate files were removed or are no longer present'
         if not any(self.frames.values()):
             return 'no audio updates were received'
@@ -491,7 +493,9 @@ class Recorder(Runnables):
             source.stop()
             source.join()
         self._receive_pending_updates()
-        previous_manifest = self.manifest.path if self.manifest is not None else None
+        previous_manifest = (
+            self.session.manifest.path if self.session.manifest is not None else None
+        )
         next_manifest = (
             recording_paths.manifest_directory(str(output), self.session_start_time)
             / 'recs-session.jsonl'
@@ -506,10 +510,7 @@ class Recorder(Runnables):
             )
         )
         self._finish_manifest()
-        self.session_files_written = set()
-        self.manifest_file_end_frames = {}
-        self.manifest_file_end_timestamps = {}
-        self.manifest_files = {}
+        self.session.reset(self.session_start_time)
         directory = self.cfg.directory.model_copy(
             update={'output_directory': str(output)}
         )
@@ -517,7 +518,7 @@ class Recorder(Runnables):
         self.cfg.__dict__.pop('output_path_pattern', None)
         for source in self.sources.values():
             source.set_cfg(self.cfg)
-        self.manifest_continued_from = (
+        self.session.continued_from = (
             str(previous_manifest) if previous_manifest else None
         )
         self._start_manifest()
@@ -862,7 +863,7 @@ class Recorder(Runnables):
             return self._recording_state()
         self._pause_recording('stop_recording')
         self.recording_stopped = True
-        self.session_stopped = self.manifest is not None
+        self.session_stopped = self.session.manifest is not None
         if self.session_stopped:
             for source in self.hardware.values():
                 source.join()
@@ -1183,26 +1184,15 @@ class Recorder(Runnables):
     def _receive_update(self, update: SourceUpdate) -> None:
         self.frames[update.source_name] += update.frames
         self._record_buffer_status(update)
-        self.files_written.update(update.files)
-        self.session_files_written.update(update.files)
-        self.manifest_file_end_frames.update(update.file_end_frames or {})
-        self.manifest_file_end_timestamps.update(update.file_end_timestamps or {})
+        self.session.record_files(
+            update.files,
+            update.file_end_frames or {},
+            update.file_end_timestamps or {},
+        )
         for file_record in update.file_records or []:
-            record = session_manifest.ManifestFile(
-                type='file_started',
-                timestamp=session_manifest.timestamp_to_json(
-                    recording_paths.timestamp_or_now(file_record.start_timestamp)
-                ),
-                frame_count=file_record.start_frame,
-                path=file_record.path.as_posix(),
-                source=self._manifest_source(file_record.source_name),
-                track=file_record.track,
-                channels=file_record.channels,
-                sample_rate=file_record.sample_rate,
-                bit_depth=file_record.bit_depth,
+            self.session.record_file_started(
+                file_record, self._manifest_source(file_record.source_name)
             )
-            self.manifest_files[file_record.path] = record
-            self._write_manifest_record(record)
         source = self.sources[update.source_name]
         if update.track_layout is not None:
             self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
@@ -1339,50 +1329,18 @@ class Recorder(Runnables):
         return self.frames[source.name] >= target
 
     def _start_manifest(self) -> None:
-        if self.cfg.general.dry_run or self.cfg.general.silence_preview:
-            return
-        self.manifest = session_manifest.SessionManifestWriter(
+        self.session.start(
             self._manifest_path(),
-            started_at=session_manifest.timestamp_to_json(self.session_start_time),
-            session_id=self.session_id,
-            continued_from=self.manifest_continued_from,
+            dry_run=self.cfg.general.dry_run,
+            silence_preview=self.cfg.general.silence_preview,
         )
-        self.manifest_continued_from = None
 
     def _finish_manifest(self) -> None:
-        if self.manifest is None:
-            return
-        for path, file in sorted(self.manifest_files.items()):
-            if path.exists():
-                self._write_manifest_record(
-                    file.model_copy(
-                        update={
-                            'type': 'file_finished',
-                            'timestamp': session_manifest.timestamp_to_json(
-                                recording_paths.timestamp_or_now(
-                                    self.manifest_file_end_timestamps.get(path)
-                                )
-                            ),
-                            'frame_count': self.manifest_file_end_frames.get(path),
-                        }
-                    )
-                )
-        ended_at = times.timestamp()
-        self._write_manifest_record(
-            session_manifest.ManifestFooter(
-                ended_at=session_manifest.timestamp_to_json(ended_at),
-                duration=ended_at - self.session_start_time,
-            )
-        )
-        self.manifest.close()
-        self.manifest = None
+        self.session.finish(times.timestamp())
 
     def _start_recording_session(self) -> None:
         self.session_start_time = times.timestamp()
-        self.session_files_written = set()
-        self.manifest_file_end_frames = {}
-        self.manifest_file_end_timestamps = {}
-        self.manifest_files = {}
+        self.session.reset(self.session_start_time)
         if self.daemon_record_directory is not None:
             output_directory = recording_paths.available_directory(
                 self.daemon_record_directory
@@ -1416,8 +1374,7 @@ class Recorder(Runnables):
         | session_manifest.ManifestFooter
         | session_manifest.ManifestWarning,
     ) -> None:
-        if self.manifest is not None:
-            self.manifest.write(record)
+        self.session.write(record)
 
     def _manifest_source(self, source_name: str) -> str | None:
         if isinstance(self.sources[source_name].source, FileSource):
@@ -1545,7 +1502,7 @@ class Recorder(Runnables):
         raise RecsError(f'Device {source_name} has no selected channel {channel}')
 
     def _manifest_path(self) -> Path:
-        paths = sorted(path for path in self.session_files_written if path.exists())
+        paths = sorted(path for path in self.session.files_written if path.exists())
         if paths:
             parent = Path(os.path.commonpath([path.parent for path in paths]))
             return parent / 'recs-session.jsonl'
@@ -1558,7 +1515,7 @@ class Recorder(Runnables):
         return Path('recs-session.jsonl')
 
     def _output_folder(self) -> Path:
-        paths = sorted(path for path in self.files_written if path.exists())
+        paths = sorted(path for path in self.session.files_written if path.exists())
         if paths:
             return Path(os.path.commonpath([path.parent for path in paths]))
         return recording_paths.existing_parent(self._manifest_path()).resolve()
