@@ -20,9 +20,14 @@ stream, or UI objects that are created during startup.
   - `key_label`
 - `recording`
   - `band_mode`
-  - `buffer_status_period`
-  - `buffer_warning_fraction`
   - `channel_noise_floors`
+  - `disk_alert_thresholds`
+  - `disk_auto_switch`
+  - `disk_poll_seconds`
+  - `disk_removable_emergency`
+  - `disk_removable_pause`
+  - `disk_system_emergency`
+  - `disk_system_pause`
   - `longest_file_time`
   - `minimum_free_space`
   - `noise_floor`
@@ -68,6 +73,7 @@ stream, or UI objects that are created during startup.
   - `record_keys`
   - `record_key_all_apps`
 - `recording`
-  - `audio_buffer_seconds`
   - `infinite_length`
+  - `memory_check_period`
+  - `memory_reserve_megabytes`
   - `moving_average_time`

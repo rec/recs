@@ -10,9 +10,10 @@ and device discovery must not block capture or hide a recording failure.
 
 `SourceRecorder` writes WAV data in the same process and loop that drains the
 audio callback queue. A blocked `soundfile.write()` stops queue consumption.
-After `recording.audio_buffer_seconds` (10 seconds by default), the callback
-drops whole input blocks. Flash media can pause for that long during garbage
-collection, heat throttling, unplug/replug, or an I/O error.
+Once available system memory falls below `recording.memory_reserve_megabytes`,
+the callback drops whole input blocks. Flash media can pause during garbage
+collection, heat throttling, unplug/replug, or an I/O error until queued audio
+uses the available memory reserve.
 
 Work:
 

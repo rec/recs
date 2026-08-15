@@ -25,8 +25,6 @@ def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
         'directory.short_file_names',
         'keys.key_label',
         'recording.band_mode',
-        'recording.buffer_status_period',
-        'recording.buffer_warning_fraction',
         'recording.channel_noise_floors',
         'recording.disk_alert_thresholds',
         'recording.disk_auto_switch',
@@ -51,9 +49,9 @@ def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
 def test_cfg_rejects_immutable_attribute_changes(mock_devices: None) -> None:
     with pytest.raises(
         ValueError,
-        match='Immutable configuration attribute: recording.audio_buffer_seconds',
+        match='Immutable configuration attribute: recording.memory_reserve_megabytes',
     ):
-        Cfg().set_attr('recording.audio_buffer_seconds', 4)
+        Cfg().set_attr('recording.memory_reserve_megabytes', 4)
 
 
 def test_missing_files(mock_devices: None) -> None:
@@ -128,20 +126,18 @@ def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
         Cfg(**{field: 0})
 
 
-@pytest.mark.parametrize('field', ['audio_buffer_seconds', 'buffer_status_period'])
+@pytest.mark.parametrize('field', ['disk_poll_seconds', 'memory_check_period'])
 def test_buffer_times_must_be_positive(field: str, mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='must be positive'):
         Cfg(**{field: 0})
 
 
-def test_buffer_warning_fraction_must_be_fraction(mock_devices: None) -> None:
-    with pytest.raises(ValidationError, match='must be between 0 and 1'):
-        Cfg(buffer_warning_fraction=2)
-
-
-def test_minimum_free_space_must_not_be_negative(mock_devices: None) -> None:
+@pytest.mark.parametrize('field', ['memory_reserve_megabytes', 'minimum_free_space'])
+def test_memory_and_disk_reserves_must_not_be_negative(
+    field: str, mock_devices: None
+) -> None:
     with pytest.raises(ValidationError, match='must be non-negative'):
-        Cfg(minimum_free_space=-1)
+        Cfg(**{field: -1})
 
 
 def test_key_labels_parse_to_label_map(mock_devices: None) -> None:

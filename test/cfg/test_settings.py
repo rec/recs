@@ -76,7 +76,7 @@ def test_settings_reject_immutable_attributes(
 ) -> None:
     path = tmp_path / 'settings.json'
     monkeypatch.setattr(settings, 'settings_path', lambda: path)
-    path.write_text('{"attributes":{"recording.audio_buffer_seconds":4}}')
+    path.write_text('{"attributes":{"recording.memory_reserve_megabytes":4}}')
 
     with pytest.raises(RecsError, match='Immutable configuration attribute'):
         settings.load(Cfg(save_settings=True))

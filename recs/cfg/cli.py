@@ -281,12 +281,19 @@ def recs(
             help='Record key events from all applications when supported',
         ),
     ],
-    audio_buffer_seconds: Annotated[
+    memory_reserve_megabytes: Annotated[
+        int,
+        tyro.conf.arg(
+            default=RECS.recording.memory_reserve_megabytes,
+            help='Free system memory to reserve while buffering audio',
+        ),
+    ],
+    memory_check_period: Annotated[
         float,
         TIME_SPEC,
         tyro.conf.arg(
-            default=RECS.recording.audio_buffer_seconds,
-            help='How much captured audio to buffer while disk writes catch up',
+            default=RECS.recording.memory_check_period,
+            help='How often to check available system memory',
         ),
     ],
     band_mode: Annotated[
@@ -295,21 +302,6 @@ def recs(
             aliases=('-B',),
             default=RECS.recording.band_mode,
             help='Band mode: any track starting starts them all',
-        ),
-    ],
-    buffer_status_period: Annotated[
-        float,
-        TIME_SPEC,
-        tyro.conf.arg(
-            default=RECS.recording.buffer_status_period,
-            help='How often to repeat buffer pressure warnings',
-        ),
-    ],
-    buffer_warning_fraction: Annotated[
-        float,
-        tyro.conf.arg(
-            default=RECS.recording.buffer_warning_fraction,
-            help='Warn when the audio buffer reaches this fraction full',
         ),
     ],
     channel_noise_floors: Annotated[

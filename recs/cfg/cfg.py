@@ -179,10 +179,9 @@ class Recording(BaseModel):
     #
     # Settings relating to times
     #
-    audio_buffer_seconds: float = 10.0
+    memory_reserve_megabytes: int = 200
+    memory_check_period: float = 2.0
     band_mode: Annotated[bool, Mutable] = False
-    buffer_status_period: Annotated[float, Mutable] = 1.0
-    buffer_warning_fraction: Annotated[float, Mutable] = 0.75
     channel_noise_floors: Annotated[
         dict[str, dict[str, float | None]], Mutable
     ] = Field(default_factory=dict)
@@ -216,23 +215,14 @@ class Recording(BaseModel):
     stop_after_quiet: Annotated[float, Mutable] = 20.0
     total_run_time: Annotated[float, Mutable] = 0.0
 
-    @field_validator(
-        'audio_buffer_seconds', 'buffer_status_period', 'disk_poll_seconds'
-    )
+    @field_validator('disk_poll_seconds', 'memory_check_period')
     @classmethod
     def validate_positive(cls, value: float) -> float:
         if value <= 0:
             raise ValueError('must be positive')
         return value
 
-    @field_validator('buffer_warning_fraction')
-    @classmethod
-    def validate_buffer_warning_fraction(cls, value: float) -> float:
-        if not 0 < value <= 1:
-            raise ValueError('must be between 0 and 1')
-        return value
-
-    @field_validator('minimum_free_space')
+    @field_validator('memory_reserve_megabytes', 'minimum_free_space')
     @classmethod
     def validate_minimum_free_space(cls, value: int) -> int:
         if value < 0:

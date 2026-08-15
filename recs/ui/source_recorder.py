@@ -1,10 +1,10 @@
 import contextlib
-import math
 import threading
 from collections.abc import Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
-from queue import Empty, Full, Queue
+from queue import Empty, Queue
+from time import monotonic
 from typing import Any, NamedTuple, cast
 
 import numpy as np
@@ -13,6 +13,7 @@ from threa import Runnables
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
+from recs.base import memory
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
 from recs.base.types import Active, Format, SdType
@@ -23,7 +24,6 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
-DEFAULT_BLOCK_FRAMES = 512
 UPDATE_DRAIN_TIMEOUT = 0.1
 
 
@@ -141,33 +141,33 @@ class InputBuffer:
     def __init__(self, cfg: Cfg, samplerate: int) -> None:
         self.cfg = cfg
         self.samplerate = samplerate
-        self.block_frames = DEFAULT_BLOCK_FRAMES
+        self.block_frames = 0
         self.queue: Queue[BufferedUpdate] | None = None
         self.queue_ready = threading.Event()
         self.stats = BufferStats()
         self.timeline_frames = 0
         self.reported_dropped_frames = 0
-        self.last_pressure_warning = 0.0
-        self.pressure_reported = False
+        self.memory_low = False
+        self.last_memory_check = float('-inf')
 
     def put(self, update: Update) -> None:
         frames = len(update.array)
         if not frames:
             return
         self.block_frames = frames
-        if self.queue is None:
-            self.queue = Queue(maxsize=self._max_blocks())
-            self.queue_ready.set()
         start_frame = self.timeline_frames
         self.timeline_frames += frames
-        buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
-        try:
-            self.queue.put_nowait(buffered)
-            self._update_queue_stats()
-        except Full:
+        if self._memory_low():
             self.stats.dropped_blocks += 1
-            self.stats.dropped_frames += len(update.array)
+            self.stats.dropped_frames += frames
             self.stats.last_drop_timestamp = update.timestamp
+            return
+        if self.queue is None:
+            self.queue = Queue()
+            self.queue_ready.set()
+        buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
+        self.queue.put_nowait(buffered)
+        self._update_queue_stats()
 
     def get(
         self, timeout: float | None = None, *, block: bool = True
@@ -193,21 +193,6 @@ class InputBuffer:
 
         if self.queue is None:
             return warnings
-        fraction = self.queue.qsize() / self.queue.maxsize
-        period = self.cfg.recording.buffer_status_period
-        if fraction < self.cfg.recording.buffer_warning_fraction:
-            self.pressure_reported = False
-        elif (
-            not self.pressure_reported
-            or timestamp - self.last_pressure_warning >= period
-        ):
-            seconds = self.stats.queued_seconds
-            warnings.append(
-                f'Device {source_name} audio buffer pressure: '
-                f'{seconds:.3f} seconds queued'
-            )
-            self.last_pressure_warning = timestamp
-            self.pressure_reported = True
         return warnings
 
     def _update_queue_stats(self) -> None:
@@ -222,9 +207,14 @@ class InputBuffer:
             self.stats.queued_seconds,
         )
 
-    def _max_blocks(self) -> int:
-        seconds = self.cfg.recording.audio_buffer_seconds
-        return max(1, math.ceil(seconds * self.samplerate / self.block_frames))
+    def _memory_low(self) -> bool:
+        now = monotonic()
+        if now - self.last_memory_check >= self.cfg.recording.memory_check_period:
+            self.last_memory_check = now
+            available = memory.available_bytes()
+            reserve = self.cfg.recording.memory_reserve_megabytes * 1_000_000
+            self.memory_low = available is not None and available < reserve
+        return self.memory_low
 
 
 class SourceRecorder(Runnables):

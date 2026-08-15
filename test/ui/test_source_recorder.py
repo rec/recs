@@ -21,25 +21,29 @@ from recs.ui.source_recorder import (
 )
 
 
-def test_input_buffer_drops_updates_when_full() -> None:
-    buffer = InputBuffer(Cfg(audio_buffer_seconds=0.001), samplerate=48_000)
+def test_input_buffer_drops_updates_when_memory_reserve_is_reached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 0)
+    buffer = InputBuffer(Cfg(memory_reserve_megabytes=200), samplerate=48_000)
     update = Update(np.zeros((512, 1)), 10.0)
 
     buffer.put(update)
-    buffer.put(update)
 
-    assert buffer.get(block=False).update is update
     assert buffer.stats.dropped_blocks == 1
     assert buffer.stats.dropped_frames == 512
     assert buffer.stats.last_drop_timestamp == 10.0
 
 
-def test_input_buffer_uses_its_first_block_size_for_capacity() -> None:
-    buffer = InputBuffer(Cfg(audio_buffer_seconds=10), samplerate=48_000)
+def test_input_buffer_queue_has_no_size_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 400_000_000)
+    buffer = InputBuffer(Cfg(memory_reserve_megabytes=200), samplerate=48_000)
     buffer.put(Update(np.zeros((1_024, 1)), 10.0))
 
     assert buffer.queue is not None
-    assert buffer.queue.maxsize == 469
+    assert buffer.queue.maxsize == 0
 
 
 def test_input_buffer_waits_for_its_first_callback() -> None:
@@ -57,8 +61,16 @@ def test_input_buffer_waits_for_its_first_callback() -> None:
     assert received == [update]
 
 
-def test_input_buffer_timeline_includes_dropped_updates() -> None:
-    buffer = InputBuffer(Cfg(audio_buffer_seconds=0.001), samplerate=48_000)
+def test_input_buffer_timeline_includes_dropped_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values = iter([400_000_000, 0, 400_000_000])
+    timestamps = iter([1.0, 2.0, 3.0])
+    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: next(values))
+    monkeypatch.setattr(source_recorder, 'monotonic', lambda: next(timestamps))
+    buffer = InputBuffer(
+        Cfg(memory_check_period=1, memory_reserve_megabytes=200), samplerate=48_000
+    )
     first = Update(np.zeros((512, 1)), 10.0)
     dropped = Update(np.zeros((256, 1)), 11.0)
     third = Update(np.zeros((128, 1)), 12.0)
@@ -73,23 +85,18 @@ def test_input_buffer_timeline_includes_dropped_updates() -> None:
     assert result.end_frame == 896
 
 
-def test_input_buffer_reports_overflow_and_pressure_once() -> None:
-    cfg = Cfg(
-        audio_buffer_seconds=0.001,
-        buffer_status_period=1,
-        buffer_warning_fraction=1,
-    )
+def test_input_buffer_reports_dropped_frames_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 0)
+    cfg = Cfg(memory_reserve_megabytes=200)
     buffer = InputBuffer(cfg, samplerate=48_000)
     update = Update(np.zeros((512, 1)), 10.0)
 
     buffer.put(update)
-    buffer.put(update)
     warnings = buffer.warnings('Mic', 10.0)
 
-    assert warnings == [
-        'Device Mic: Dropped 512 frames in processing',
-        'Device Mic audio buffer pressure: 0.011 seconds queued',
-    ]
+    assert warnings == ['Device Mic: Dropped 512 frames in processing']
     assert buffer.warnings('Mic', 10.5) == []
 
 

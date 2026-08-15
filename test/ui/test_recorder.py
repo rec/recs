@@ -1614,7 +1614,7 @@ def test_control_request_rejects_immutable_cfg(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     request = FakeControlRequest(
         gui_protocol.SetCfg(
-            type='set_cfg', address='recording.audio_buffer_seconds', value=4
+            type='set_cfg', address='recording.memory_reserve_megabytes', value=4
         )
     )
     rec.live = FakeControlDisplay([request])
@@ -1624,7 +1624,10 @@ def test_control_request_rejects_immutable_cfg(
     assert request.responses == [
         gui_protocol.Error(
             type='error',
-            message='Immutable configuration attribute: recording.audio_buffer_seconds',
+            message=(
+                'Immutable configuration attribute: '
+                'recording.memory_reserve_megabytes'
+            ),
         )
     ]
 
