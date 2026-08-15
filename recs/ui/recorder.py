@@ -2,7 +2,6 @@ import json
 import os
 import shutil
 import sys
-import time
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from multiprocessing import connection
@@ -27,6 +26,7 @@ from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
 from . import (
+    calibration,
     disk_monitor,
     disk_space,
     gui_process,
@@ -45,7 +45,6 @@ from .source_tracks import input_device_tracks, source_tracks
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
 SOURCE_STALL_TIMEOUT = 10.0
-CALIBRATION_TIMEOUT = 15.0
 LOGGER = logging.get_logger(__name__)
 API_COMMANDS = [
     'calibrate',
@@ -146,7 +145,6 @@ class Recorder(Runnables):
         self.disk_monitor = disk_monitor.DiskMonitor(self.cfg)
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
-        self.calibration_results: dict[str, dict[str, float]] = {}
         self.present: set[str] = set()
         self.hardware = {
             name: source
@@ -158,6 +156,14 @@ class Recorder(Runnables):
             for name, source in self.sources.items()
             if isinstance(source.source, FileSource)
         }
+        self.calibration = calibration.Calibration(
+            self.cfg,
+            self.hardware,
+            self._track_for_channel,
+            self._receive_connection,
+            self._record_event,
+            self._set_cfg_value,
+        )
 
         runnables = tuple(self.files.values()) + (self.key_recorder,)
         self.poller = None
@@ -1025,6 +1031,7 @@ class Recorder(Runnables):
             self.cfg = self.cfg.set_attr(address, value)
         except ValueError as e:
             raise RecsError(str(e)) from None
+        self.calibration.cfg = self.cfg
         value = self.cfg.get_attr(address)
         for source in self.sources.values():
             source.set_cfg(self.cfg)
@@ -1168,7 +1175,7 @@ class Recorder(Runnables):
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
         if update.calibration is not None:
-            self.calibration_results[update.source_name] = update.calibration
+            self.calibration.results[update.source_name] = update.calibration
         if source.running and not self._source_frame_clock_valid(source, now):
             source.stop()
             self.failed.add(update.source_name)
@@ -1356,95 +1363,7 @@ class Recorder(Runnables):
     def _calibrate_noise_floor(
         self, request: gui_protocol.Calibrate
     ) -> gui_protocol.Calibrated:
-        selected = self._calibration_tracks(request.channels)
-        self.calibration_results = {
-            name: result
-            for name, result in self.calibration_results.items()
-            if name not in selected
-        }
-        for name, tracks in selected.items():
-            self.hardware[name].calibrate(tracks)
-            for track in tracks:
-                self._record_event('calibration_started', source=name, track=track)
-
-        deadline = time.monotonic() + CALIBRATION_TIMEOUT
-        while selected.keys() - self.calibration_results.keys():
-            sources = [
-                self.hardware[name] for name in selected if self.hardware[name].is_alive
-            ]
-            if not sources:
-                break
-            timeout = max(0.0, deadline - time.monotonic())
-            if not timeout:
-                break
-            connections = [source.connection for source in sources]
-            for conn in connection.wait(connections, timeout=timeout):
-                self._receive_connection(cast(connection.Connection, conn))
-
-        missing = selected.keys() - self.calibration_results.keys()
-        if missing:
-            names = ', '.join(sorted(missing))
-            raise RecsError(f'Calibration did not complete for: {names}')
-
-        floors = {
-            source: dict(channels)
-            for source, channels in self.cfg.recording.channel_noise_floors.items()
-        }
-        measurements: dict[str, float] = {}
-        noise_floors: dict[str, dict[str, float]] = {}
-        for source, tracks in selected.items():
-            result = self.calibration_results[source]
-            selected_measurements = {track: result[track] for track in tracks}
-            measurements.update(
-                {
-                    f'{source} - {track}': value
-                    for track, value in selected_measurements.items()
-                }
-            )
-            values = {
-                track: round(value + self.cfg.recording.preview_headroom, 1)
-                for track, value in selected_measurements.items()
-            }
-            floors.setdefault(source, {}).update(values)
-            noise_floors[source] = values
-            for track, value in values.items():
-                self._record_event(
-                    'calibrated', source=source, track=track, value=value
-                )
-
-        self._set_cfg_value('recording.channel_noise_floors', floors)
-        return gui_protocol.Calibrated(
-            type='calibrated',
-            measurements=measurements,
-            noise_floors=noise_floors,
-        )
-
-    def _calibration_tracks(
-        self, channels: dict[str, list[int]]
-    ) -> dict[str, list[str]]:
-        result: dict[str, list[str]] = {}
-        for source_name, source in self.hardware.items():
-            if not source.running:
-                continue
-            if not channels:
-                result[source_name] = [track.name for track in source.tracks]
-                continue
-            if requested := channels.get(source_name):
-                tracks = [
-                    self._track_for_channel(source_name, channel)
-                    for channel in requested
-                ]
-                result[source_name] = list(
-                    dict.fromkeys(track.name for track in tracks)
-                )
-
-        unknown = channels.keys() - self.hardware.keys()
-        if unknown:
-            names = ', '.join(sorted(unknown))
-            raise RecsError(f'Unknown input device: {names}')
-        if not result:
-            raise RecsError('No online audio channels to calibrate')
-        return result
+        return self.calibration.calibrate(request)
 
     def _track_for_channel(self, source_name: str, channel: int) -> Track:
         source = self.hardware.get(source_name)

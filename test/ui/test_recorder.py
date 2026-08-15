@@ -1148,7 +1148,7 @@ def test_calibration_selects_both_stereo_channels(
     rec = Recorder(Cfg(include=['Ext'], silent=True))
     rec.hardware['Ext'].start()
 
-    assert rec._calibration_tracks({'Ext': [1]}) == {'Ext': ['1-2']}
+    assert rec.calibration._tracks({'Ext': [1]}) == {'Ext': ['1-2']}
 
 
 def test_control_request_splits_stereo_track_and_records_event(
