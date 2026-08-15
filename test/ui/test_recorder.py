@@ -721,7 +721,7 @@ def test_minimum_free_space_is_an_emergency_reserve(
 
     rec._monitor_disk_space()
 
-    assert rec.disk_paused
+    assert rec.disk_monitor.paused
     assert caplog.messages == ['Disk space emergency on .: 4 bytes free']
 
 
@@ -797,7 +797,7 @@ def test_disk_emergency_pauses_recording(
     rec._monitor_disk_space()
 
     assert rec.recording_paused
-    assert rec.disk_paused
+    assert rec.disk_monitor.paused
 
 
 def test_disk_pause_resumes_on_removable_disk(
@@ -824,13 +824,13 @@ def test_disk_pause_resumes_on_removable_disk(
     )
     rec._start_manifest()
     rec._monitor_disk_space()
-    assert rec.disk_paused
+    assert rec.disk_monitor.paused
 
     mounts.append(removable)
     now[0] = 2.0
     rec._monitor_disk_space()
 
-    assert not rec.disk_paused
+    assert not rec.disk_monitor.paused
     assert not rec.recording_paused
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
 

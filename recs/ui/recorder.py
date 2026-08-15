@@ -27,6 +27,7 @@ from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
 from . import (
+    disk_monitor,
     disk_space,
     gui_process,
     live,
@@ -142,13 +143,7 @@ class Recorder(Runnables):
         )
         self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
-        self.disk_alerts_reported: set[tuple[Path, str]] = set()
-        self.disk_emergencies_reported: set[Path] = set()
-        self.disk_first_alert = False
-        self.disk_alert_threshold: str | None = None
-        self.disk_last_poll = 0.0
-        self.disk_rate = disk_space.WriteRate()
-        self.disk_paused = False
+        self.disk_monitor = disk_monitor.DiskMonitor(self.cfg)
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
         self.calibration_results: dict[str, dict[str, float]] = {}
@@ -324,10 +319,9 @@ class Recorder(Runnables):
 
     def _monitor_disk_space(self) -> None:
         now = times.timestamp()
-        if now - self.disk_last_poll < self.cfg.recording.disk_poll_seconds:
+        if not self.disk_monitor.ready(now):
             return
-        self.disk_last_poll = now
-        if self.disk_paused:
+        if self.disk_monitor.paused:
             for candidate in self._removable_disks():
                 if candidate.free_bytes >= self._disk_threshold(candidate):
                     if self._switch_recording_disk(
@@ -341,27 +335,17 @@ class Recorder(Runnables):
         if current is None:
             self._record_warning('Cannot read recording disk space')
             return
-        self.disk_rate.add(now, current.total_bytes - current.free_bytes)
-        rate = self.disk_rate.bytes_per_second
-        alerts = self.cfg.recording.disk_alert_thresholds
-        for threshold in alerts:
-            if current.free_bytes >= disk_space.threshold_bytes([threshold], rate):
-                continue
-            key = (current.path, threshold)
-            if key not in self.disk_alerts_reported:
-                self.disk_alerts_reported.add(key)
-                self.disk_first_alert = True
-                self.disk_alert_threshold = threshold
-                self._record_disk_event('disk_space_alert', current, threshold, rate)
-                self._record_warning(
-                    f'Disk space alert on {current.path}: '
-                    f'{current.free_bytes} bytes free'
-                )
+        self.disk_monitor.add_sample(now, current)
+        rate = self.disk_monitor.rate.bytes_per_second
+        for threshold in self.disk_monitor.new_alerts(current):
+            self._record_disk_event('disk_space_alert', current, threshold, rate)
+            self._record_warning(
+                f'Disk space alert on {current.path}: {current.free_bytes} bytes free'
+            )
 
         emergency = self._disk_threshold(current)
         if current.free_bytes < emergency:
-            if current.path not in self.disk_emergencies_reported:
-                self.disk_emergencies_reported.add(current.path)
+            if self.disk_monitor.new_emergency(current):
                 self._record_disk_event('disk_space_emergency', current, None, rate)
                 self._record_warning(
                     f'Disk space emergency on {current.path}: '
@@ -369,7 +353,7 @@ class Recorder(Runnables):
                 )
             self._handle_disk_emergency(current)
             return
-        if self.disk_first_alert and self.cfg.recording.disk_auto_switch:
+        if self.disk_monitor.first_alert and self.cfg.recording.disk_auto_switch:
             candidates = self._removable_disks()
             if candidates and candidates[0].free_bytes > current.free_bytes:
                 self._switch_recording_disk(
@@ -377,44 +361,16 @@ class Recorder(Runnables):
                 )
 
     def _disk_threshold(self, disk: disk_space.Disk) -> int:
-        values = (
-            self.cfg.recording.disk_removable_emergency
-            if disk.removable
-            else self.cfg.recording.disk_system_emergency
-        )
-        return max(
-            self.cfg.recording.minimum_free_space,
-            disk_space.threshold_bytes(values, self.disk_rate.bytes_per_second),
-        )
+        return self.disk_monitor.emergency_threshold(disk)
 
     def _pause_threshold(self, disk: disk_space.Disk) -> int:
-        values = (
-            self.cfg.recording.disk_removable_pause
-            if disk.removable
-            else self.cfg.recording.disk_system_pause
-        )
-        return max(
-            self.cfg.recording.minimum_free_space,
-            disk_space.threshold_bytes(values, self.disk_rate.bytes_per_second),
-        )
+        return self.disk_monitor.pause_threshold(disk)
 
     def _removable_disks(self) -> list[disk_space.Disk]:
-        disks = [
-            disk_space.disk(path, True)
-            for path in recording_paths.mounted_record_disks()
-        ]
-        return sorted(
-            (disk for disk in disks if disk is not None),
-            key=lambda d: d.free_bytes,
-            reverse=True,
-        )
+        return self.disk_monitor.removable_disks()
 
     def _recording_disk(self, path: Path) -> disk_space.Disk | None:
-        resolved = path.resolve()
-        for candidate in recording_paths.mounted_record_disks():
-            if resolved.is_relative_to(candidate.resolve()):
-                return disk_space.disk(candidate, True)
-        return disk_space.disk(path, False)
+        return self.disk_monitor.recording_disk(path)
 
     def _record_disk_event(
         self, event_type: str, disk: disk_space.Disk, threshold: str | None, rate: float
@@ -451,7 +407,7 @@ class Recorder(Runnables):
         if current.free_bytes >= self._pause_threshold(current):
             return
         self._pause_recording('disk_space_exhausted', current)
-        self.disk_paused = True
+        self.disk_monitor.paused = True
 
     def _switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
         previous = self.cfg.directory.output_directory
@@ -534,7 +490,7 @@ class Recorder(Runnables):
         )
         self._record_warning(f'Switched recording disk to {disk.path}: {reason}')
         self.recording_paused = False
-        self.disk_paused = False
+        self.disk_monitor.paused = False
         return True
 
     def _poll_devices(self) -> None:
@@ -1126,16 +1082,16 @@ class Recorder(Runnables):
             total_bytes=usage.total,
             used_bytes=usage.used,
             estimated_seconds_remaining=(
-                usage.free / self.disk_rate.bytes_per_second
-                if self.disk_rate.bytes_per_second
+                usage.free / self.disk_monitor.rate.bytes_per_second
+                if self.disk_monitor.rate.bytes_per_second
                 else None
             ),
-            alert_threshold=self.disk_alert_threshold,
-            alert_active=self.disk_first_alert,
+            alert_threshold=self.disk_monitor.alert_threshold,
+            alert_active=self.disk_monitor.first_alert,
             automatic_switch_armed=(
-                self.disk_first_alert and self.cfg.recording.disk_auto_switch
+                self.disk_monitor.first_alert and self.cfg.recording.disk_auto_switch
             ),
-            paused_for_disk_space=self.disk_paused,
+            paused_for_disk_space=self.disk_monitor.paused,
             resume_disk=str(resume_disk) if resume_disk else None,
         )
 

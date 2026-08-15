@@ -1,5 +1,6 @@
 import signal
 from pathlib import Path
+from test import conftest
 
 import numpy as np
 import pytest
@@ -13,7 +14,6 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
-from test import conftest
 
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
