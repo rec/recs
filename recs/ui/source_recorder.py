@@ -175,7 +175,7 @@ class InputBuffer:
         if self.stats.dropped_frames > self.reported_dropped_frames:
             dropped = self.stats.dropped_frames - self.reported_dropped_frames
             warnings.append(
-                f'Device {source_name} audio buffer overflow: dropped {dropped} frames'
+                f'Device {source_name}: Dropped {dropped} frames in processing'
             )
             self.reported_dropped_frames = self.stats.dropped_frames
 
@@ -348,9 +348,14 @@ class SourceRecorder(Runnables):
         stats = self.buffer.stats.model_copy()
         buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
         if update.status:
-            buffer_warnings.append(
-                f'Device {self.source.name} input status: {update.status}'
-            )
+            if update.status == 'input overflow':
+                buffer_warnings.append(
+                    f'Device {self.source.name}: Dropped frame in PortAudio'
+                )
+            else:
+                buffer_warnings.append(
+                    f'Device {self.source.name} input status: {update.status}'
+                )
         track_layout, self.pending_track_layout = self.pending_track_layout, None
         file_end_frames = self.pending_file_end_frames | self._file_end_frames()
         file_end_timestamps = (

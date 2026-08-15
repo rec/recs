@@ -64,7 +64,7 @@ def test_input_buffer_reports_overflow_and_pressure_once() -> None:
     warnings = buffer.warnings('Mic', 10.0)
 
     assert warnings == [
-        'Device Mic audio buffer overflow: dropped 512 frames',
+        'Device Mic: Dropped 512 frames in processing',
         'Device Mic audio buffer pressure: 0.011 seconds queued',
     ]
     assert buffer.warnings('Mic', 10.5) == []
