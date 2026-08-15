@@ -34,6 +34,29 @@ def test_input_buffer_drops_updates_when_full() -> None:
     assert buffer.stats.last_drop_timestamp == 10.0
 
 
+def test_input_buffer_uses_its_first_block_size_for_capacity() -> None:
+    buffer = InputBuffer(Cfg(audio_buffer_seconds=10), samplerate=48_000)
+    buffer.put(Update(np.zeros((1_024, 1)), 10.0))
+
+    assert buffer.queue is not None
+    assert buffer.queue.maxsize == 469
+
+
+def test_input_buffer_waits_for_its_first_callback() -> None:
+    buffer = InputBuffer(Cfg(), samplerate=48_000)
+    received: list[object] = []
+    thread = threading.Thread(
+        target=lambda: received.append(buffer.get(timeout=0.1).update)
+    )
+    thread.start()
+
+    update = Update(np.zeros((512, 1)), 10.0)
+    buffer.put(update)
+    thread.join()
+
+    assert received == [update]
+
+
 def test_input_buffer_timeline_includes_dropped_updates() -> None:
     buffer = InputBuffer(Cfg(audio_buffer_seconds=0.001), samplerate=48_000)
     first = Update(np.zeros((512, 1)), 10.0)

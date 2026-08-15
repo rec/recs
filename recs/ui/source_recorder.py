@@ -142,7 +142,8 @@ class InputBuffer:
         self.cfg = cfg
         self.samplerate = samplerate
         self.block_frames = DEFAULT_BLOCK_FRAMES
-        self.queue: Queue[BufferedUpdate] = Queue(maxsize=self._max_blocks())
+        self.queue: Queue[BufferedUpdate] | None = None
+        self.queue_ready = threading.Event()
         self.stats = BufferStats()
         self.timeline_frames = 0
         self.reported_dropped_frames = 0
@@ -150,9 +151,15 @@ class InputBuffer:
         self.pressure_reported = False
 
     def put(self, update: Update) -> None:
-        self.block_frames = max(1, len(update.array))
+        frames = len(update.array)
+        if not frames:
+            return
+        self.block_frames = frames
+        if self.queue is None:
+            self.queue = Queue(maxsize=self._max_blocks())
+            self.queue_ready.set()
         start_frame = self.timeline_frames
-        self.timeline_frames += len(update.array)
+        self.timeline_frames += frames
         buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
         try:
             self.queue.put_nowait(buffered)
@@ -165,6 +172,11 @@ class InputBuffer:
     def get(
         self, timeout: float | None = None, *, block: bool = True
     ) -> BufferedUpdate:
+        if self.queue is None:
+            if block:
+                self.queue_ready.wait(timeout)
+        if self.queue is None:
+            raise Empty
         buffered = self.queue.get(block=block, timeout=timeout)
         self.block_frames = max(1, len(buffered.update.array))
         self._update_queue_stats()
@@ -179,6 +191,8 @@ class InputBuffer:
             )
             self.reported_dropped_frames = self.stats.dropped_frames
 
+        if self.queue is None:
+            return warnings
         fraction = self.queue.qsize() / self.queue.maxsize
         period = self.cfg.recording.buffer_status_period
         if fraction < self.cfg.recording.buffer_warning_fraction:
@@ -197,6 +211,8 @@ class InputBuffer:
         return warnings
 
     def _update_queue_stats(self) -> None:
+        if self.queue is None:
+            return
         self.stats.queued_blocks = self.queue.qsize()
         self.stats.queued_seconds = (
             self.stats.queued_blocks * self.block_frames / self.samplerate
@@ -208,7 +224,7 @@ class InputBuffer:
 
     def _max_blocks(self) -> int:
         seconds = self.cfg.recording.audio_buffer_seconds
-        return max(1, math.ceil(seconds * self.samplerate / DEFAULT_BLOCK_FRAMES))
+        return max(1, math.ceil(seconds * self.samplerate / self.block_frames))
 
 
 class SourceRecorder(Runnables):
