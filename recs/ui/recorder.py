@@ -27,6 +27,7 @@ from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
 from . import (
     calibration,
+    device_lifecycle,
     disk_monitor,
     disk_space,
     gui_process,
@@ -89,8 +90,6 @@ class Recorder(Runnables):
             for source, tracks in source_tracks(cfg)
         ]
         self.warnings: list[ErrorRecord] = []
-        self.no_devices_reported = False
-        self.no_channels_reported = False
         self.recording_paused = False
         self.recording_stopped = False
         self.track_names = saved_settings.track_names
@@ -127,50 +126,38 @@ class Recorder(Runnables):
         )
         if isinstance(self.live, gui_ipc.DaemonGuiServer):
             self.live.external_rows = self._publish_external_rows
-        self.sources = {
-            source.name: SourceProcess(self.cfg, tracks, track_names=self.track_names)
-            for source, tracks in all_tracks
-        }
-        self.frames = dict.fromkeys(self.sources, 0)
-        self.buffer_stats: dict[str, BufferStats] = {}
-        self.buffer_drops_reported = dict.fromkeys(self.sources, 0)
-        self.source_frames_at_start = dict.fromkeys(self.sources, 0)
-        self.source_start_times = dict.fromkeys(self.sources, self.state.start_time)
-        self.source_last_updates = dict.fromkeys(self.sources, self.state.start_time)
         self.session = recording_session.RecordingSession(
             str(uuid.uuid4()), self.session_start_time
         )
         self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
         self.disk_monitor = disk_monitor.DiskMonitor(self.cfg)
-        self.failed: set[str] = set()
-        self.lag_reported: set[str] = set()
-        self.present: set[str] = set()
-        self.hardware = {
-            name: source
-            for name, source in self.sources.items()
-            if isinstance(source.source, InputDevice)
-        }
-        self.files = {
-            name: source
-            for name, source in self.sources.items()
-            if isinstance(source.source, FileSource)
-        }
+        self.devices = device_lifecycle.DeviceLifecycle(
+            self.cfg,
+            self.state,
+            self.saved_tracks,
+            self.track_names,
+            all_tracks,
+            self._record_warning,
+            self._record_event,
+            self._record_device_file_update,
+            self._record_calibration_result,
+            self._record_device_buffer_update,
+            SourceProcess,
+            DevicePoller,
+        )
         self.calibration = calibration.Calibration(
             self.cfg,
-            self.hardware,
+            self.devices.hardware,
             self._track_for_channel,
             self._receive_connection,
             self._record_event,
             self._set_cfg_value,
         )
 
-        runnables = tuple(self.files.values()) + (self.key_recorder,)
-        self.poller = None
-        if self.hardware or not self.files:
-            self.poller = DevicePoller(cfg.console.sleep_time_device)
-            self.poller.poll()
-            runnables += (self.poller,)
+        runnables = tuple(self.devices.files.values()) + (self.key_recorder,)
+        if self.devices.poller is not None:
+            runnables += (self.devices.poller,)
         if self.live and self.live.enabled:
             ui_time = 1 / self.cfg.console.ui_refresh_rate
             live_thread = HasThread(
@@ -183,6 +170,113 @@ class Recorder(Runnables):
 
         self.runnables = runnables
         self._record_startup_input_errors(all_tracks)
+
+    @property
+    def sources(self) -> dict[str, SourceProcess]:
+        return self.devices.sources
+
+    @property
+    def hardware(self) -> dict[str, SourceProcess]:
+        return self.devices.hardware
+
+    @property
+    def files(self) -> dict[str, SourceProcess]:
+        return self.devices.files
+
+    @property
+    def frames(self) -> dict[str, int]:
+        return self.devices.frames
+
+    @property
+    def buffer_stats(self) -> dict[str, BufferStats]:
+        return self.devices.buffer_stats
+
+    @property
+    def buffer_drops_reported(self) -> dict[str, int]:
+        return self.devices.buffer_drops_reported
+
+    @property
+    def source_frames_at_start(self) -> dict[str, int]:
+        return self.devices.source_frames_at_start
+
+    @property
+    def source_start_times(self) -> dict[str, float]:
+        return self.devices.source_start_times
+
+    @property
+    def source_last_updates(self) -> dict[str, float]:
+        return self.devices.source_last_updates
+
+    @property
+    def lag_reported(self) -> set[str]:
+        return self.devices.lag_reported
+
+    @property
+    def poller(self) -> DevicePoller | None:
+        return self.devices.poller
+
+    @property
+    def failed(self) -> set[str]:
+        return self.devices.failed
+
+    @property
+    def present(self) -> set[str]:
+        return self.devices.present
+
+    @present.setter
+    def present(self, value: set[str]) -> None:
+        self.devices.present = value
+
+    @property
+    def no_devices_reported(self) -> bool:
+        return self.devices.no_devices_reported
+
+    @no_devices_reported.setter
+    def no_devices_reported(self, value: bool) -> None:
+        self.devices.no_devices_reported = value
+
+    @property
+    def no_channels_reported(self) -> bool:
+        return self.devices.no_channels_reported
+
+    @no_channels_reported.setter
+    def no_channels_reported(self, value: bool) -> None:
+        self.devices.no_channels_reported = value
+
+    def _record_device_file_update(
+        self, update: SourceUpdate, source: SourceProcess
+    ) -> None:
+        self.session.record_files(
+            update.files,
+            update.file_end_frames or {},
+            update.file_end_timestamps or {},
+        )
+        for file_record in update.file_records or []:
+            self.session.record_file_started(
+                file_record,
+                file_record.source_name
+                if isinstance(source.source, FileSource)
+                else None,
+            )
+        if update.track_layout is not None:
+            self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
+            self.state.set_track_names(self.track_names)
+
+    def _record_calibration_result(self, source: str, values: dict[str, float]) -> None:
+        self.calibration.results[source] = values
+
+    def _record_device_buffer_update(self, source: str, stats: BufferStats) -> None:
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='buffer_overflow',
+                timestamp=session_manifest.timestamp_to_json(stats.last_drop_timestamp),
+                source=source,
+                dropped_blocks=stats.dropped_blocks,
+                dropped_frames=stats.dropped_frames,
+                max_queued_seconds=stats.max_queued_seconds,
+                queued_seconds=stats.queued_seconds,
+            )
+        )
 
     def start(self) -> None:
         if self.external is not None:
@@ -500,57 +594,11 @@ class Recorder(Runnables):
         return True
 
     def _poll_devices(self) -> None:
-        if self.poller is None or (snapshot := self.poller.latest()) is None:
-            return
-
-        if snapshot:
-            self.no_devices_reported = False
-        elif not self.present:
-            self._report_no_devices()
-
-        self._add_detected_hardware(snapshot)
-        compatible: set[str] = set()
-        for name, source in self.hardware.items():
-            info = snapshot.get(name)
-            if info is None:
-                if name in self.present:
-                    warning = f'Device {name} went offline'
-                    self._record_warning(warning)
-                self.failed.discard(name)
-                source.stop()
-                continue
-
-            channels = int(info['max_input_channels'])
-            if channels < source.required_channels:
-                source.stop()
-                if name not in self.failed:
-                    warning = (
-                        f'{name} has {channels} input channels; '
-                        f'{source.required_channels} required'
-                    )
-                    self._record_warning(warning)
-                    self.failed.add(name)
-                continue
-
-            compatible.add(name)
-            if name not in self.present:
-                self.failed.discard(name)
-            if (
-                not source.started
-                and name not in self.failed
-                and not self.recording_paused
-                and not self.recording_stopped
-                and not self._invocation_expired()
-            ):
-                source.start()
-                self.source_frames_at_start[name] = self.frames[name]
-                self.source_start_times[name] = times.timestamp()
-                self.source_last_updates[name] = self.source_start_times[name]
-
-        self._record_source_presence(compatible)
-        self.present = compatible
-        if snapshot and not self.hardware:
-            self._report_no_channels()
+        self.devices.poll(
+            self.recording_paused,
+            self.recording_stopped,
+            self._invocation_expired(),
+        )
 
     def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> None:
         if self.cfg.device.devices.name:
@@ -631,39 +679,14 @@ class Recorder(Runnables):
                 )
 
     def _reap_sources(self) -> None:
-        for name, source in self.sources.items():
-            if not source.started or source.is_alive:
-                continue
-            self._drain(source.connection)
-            expected = not source.running
-            source.join(timeout=0)
-            for update in source.take_updates():
-                self._receive_source_message(update)
-            if name not in self.hardware:
-                continue
-
-            if not expected and name in self.present:
-                self.failed.add(name)
+        self.devices.reap()
 
     def _stop_stalled_sources(self) -> None:
-        now = times.timestamp()
-        for name, source in self.sources.items():
-            if not source.started or not source.is_alive or not source.running:
-                continue
-            if now - self.source_last_updates[name] <= SOURCE_STALL_TIMEOUT:
-                continue
-            warning = f'Device {name} stopped sending updates'
-            self._record_warning(warning)
-            source.stop()
-            source.join()
-            if name in self.hardware:
-                self.failed.add(name)
+        self.devices.stop_stalled()
 
     def _receive_pending_updates(self) -> None:
         self._receive_key_events()
-        for source in self.sources.values():
-            for update in source.take_updates():
-                self._receive_source_message(update)
+        self.devices.receive_pending_updates()
 
     def _receive_key_events(self) -> None:
         for event in self.key_recorder.take_events():
@@ -871,8 +894,7 @@ class Recorder(Runnables):
         self.track_names = {
             device: dict(names) for device, names in track_names.items()
         }
-        for source in self.sources.values():
-            source.set_track_names(self.track_names)
+        self.devices.set_track_names(self.track_names)
         self.state.set_track_names(self.track_names)
         self._write_manifest_record(
             session_manifest.ManifestEvent(
@@ -1033,8 +1055,7 @@ class Recorder(Runnables):
             raise RecsError(str(e)) from None
         self.calibration.cfg = self.cfg
         value = self.cfg.get_attr(address)
-        for source in self.sources.values():
-            source.set_cfg(self.cfg)
+        self.devices.set_cfg(self.cfg)
         self._write_manifest_record(
             session_manifest.ManifestEvent(
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
@@ -1129,59 +1150,13 @@ class Recorder(Runnables):
                 break
 
     def _receive_connection(self, conn: connection.Connection) -> bool:
-        try:
-            msg = conn.recv()
-        except (EOFError, OSError):
-            return False
-        self._receive_source_message(cast(SourceUpdate | SourceFailure, msg))
-        return True
+        return self.devices.receive_connection(conn)
 
     def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
-        if isinstance(message, SourceFailure):
-            warning = f'Device {message.source_name} failed: {message.message}'
-            self._record_warning(warning)
-            self.failed.add(message.source_name)
-            return
-        self._receive_update(message)
+        self.devices.receive_message(message)
 
     def _receive_update(self, update: SourceUpdate) -> None:
-        self.frames[update.source_name] += update.frames
-        self._record_buffer_status(update)
-        self.session.record_files(
-            update.files,
-            update.file_end_frames or {},
-            update.file_end_timestamps or {},
-        )
-        for file_record in update.file_records or []:
-            self.session.record_file_started(
-                file_record, self._manifest_source(file_record.source_name)
-            )
-        source = self.sources[update.source_name]
-        if update.track_layout is not None:
-            self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
-            self.state.set_track_names(self.track_names)
-        previous = {
-            track_name: state.is_active
-            for track_name, state in self.state.state[update.source_name].items()
-        }
-        self.state.update({update.source_name: update.channels})
-        self._record_track_activity(
-            update.source_name,
-            previous,
-            update.channels,
-            update.frame_count,
-            update.timestamp,
-        )
-        now = times.timestamp()
-        self.source_last_updates[update.source_name] = now
-        if update.calibration is not None:
-            self.calibration.results[update.source_name] = update.calibration
-        if source.running and not self._source_frame_clock_valid(source, now):
-            source.stop()
-            self.failed.add(update.source_name)
-            return
-        if source.running and self._source_time_expired(source):
-            source.stop()
+        self.devices.receive_message(update)
 
     def _record_buffer_status(self, update: SourceUpdate) -> None:
         if update.buffer_stats is not None:
