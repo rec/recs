@@ -8,7 +8,6 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
 
-from pydantic import ValidationError
 from reccy import logging
 from threa import HasThread, Runnable, Runnables
 
@@ -32,6 +31,7 @@ from . import (
     disk_space,
     gui_process,
     live,
+    recording_control,
     recording_paths,
     recording_session,
     session_manifest,
@@ -106,7 +106,7 @@ class Recorder(Runnables):
         self.external = (
             external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
-        self.external_shutdown_started = False
+        self.control = recording_control.RecordingControl()
         if gui_ipc.daemon_mode_enabled():
             display_type = gui_ipc.DaemonGuiServer
         elif self.cfg.console.gui:
@@ -697,50 +697,20 @@ class Recorder(Runnables):
             self._record_key_event(event)
 
     def _receive_control_requests(self) -> None:
-        if isinstance(self.live, gui_ipc.DaemonGuiServer):
-            for error in self.live.take_protocol_errors():
-                self._record_warning(f'Malformed GUI protocol message: {error}')
-        requests = (
-            cast(list[gui_ipc.ControlRequest], self.live.take_control_requests())
-            if self.live is not None
-            else []
+        self.control.receive(
+            cast(recording_control.ControlDisplay | None, self.live),
+            self.external,
+            self._handle_control_request,
+            self._record_warning,
+            self.stop,
         )
-        for request in requests:
-            try:
-                response = self._handle_control_request(request.request)
-            except RecsError as e:
-                request.respond(gui_protocol.Error(type='error', message=str(e)))
-            else:
-                request.respond(response)
-        if self.external is None:
-            return
-        for request in self.external.take_requests():
-            try:
-                external_request = external_ipc.recs_request(request.request)
-                if isinstance(external_request, gui_protocol.Shutdown):
-                    if not self.external_shutdown_started:
-                        self.external_shutdown_started = True
-                        self.stop()
-                    response = gui_protocol.RecordingState(
-                        type='recording_state', paused=False, stopped=True
-                    )
-                else:
-                    response = self._handle_control_request(external_request)
-            except (RecsError, ValidationError) as e:
-                self._record_warning(f'External Recs protocol error: {e}')
-                response = gui_protocol.Error(type='error', message=str(e))
-            self.external.respond(
-                request, external_ipc.response(request.request, response)
-            )
 
     def _publish_external_rows(
         self,
         rows: list[dict[str, object]],
         errors: list[ErrorRecord],
     ) -> None:
-        if self.external is None:
-            return
-        self.external.publish_rows(rows, errors)
+        self.control.publish(self.external, rows, errors)
 
     def _handle_control_request(
         self,
