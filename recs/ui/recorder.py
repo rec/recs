@@ -3,10 +3,10 @@ import os
 import shutil
 import sys
 import uuid
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from multiprocessing import connection
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from reccy import logging
 from threa import HasThread, Runnable, Runnables
@@ -15,9 +15,7 @@ from recs.base import times
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.cfg import settings
-from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
-from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
@@ -41,12 +39,9 @@ from .full_state import FullState
 from .key_events import KeyEvent, make_key_recorder
 from .source_process import SourceProcess
 from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpdate
-from .source_tracks import input_device_tracks, source_tracks
 
-FRAME_CLOCK_GRACE = 5.0
-MIN_FRAME_CLOCK_RATIO = 0.5
-SOURCE_STALL_TIMEOUT = 10.0
 LOGGER = logging.get_logger(__name__)
+SOURCE_STALL_TIMEOUT = device_lifecycle.SOURCE_STALL_TIMEOUT
 API_COMMANDS = [
     'calibrate',
     'capabilities',
@@ -85,10 +80,9 @@ class Recorder(Runnables):
         self.saved_tracks = {
             name: list(tracks) for name, tracks in saved_settings.tracks.items()
         }
-        all_tracks = [
-            (source, self._restored_tracks(source, tracks))
-            for source, tracks in source_tracks(cfg)
-        ]
+        all_tracks = device_lifecycle.DeviceLifecycle.initial_tracks(
+            cfg, self.saved_tracks
+        )
         self.warnings: list[ErrorRecord] = []
         self.recording_paused = False
         self.recording_stopped = False
@@ -291,7 +285,7 @@ class Recorder(Runnables):
         super().start()
         Runnable.start(self)
 
-    def rows(self) -> Iterator[dict[str, Any]]:
+    def rows(self) -> Iterator[dict[str, object]]:
         for row in self.state.rows():
             if device := row.get('device'):
                 for source, name in self.state.source_names.items():
@@ -600,50 +594,6 @@ class Recorder(Runnables):
             self._invocation_expired(),
         )
 
-    def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> None:
-        if self.cfg.device.devices.name:
-            return
-        input_devices = get_input_devices(list(snapshot.values()))
-        aliases = Aliases(self.cfg.device.alias, input_devices)
-        for source, tracks in input_device_tracks(self.cfg, input_devices):
-            if source.name not in self.sources:
-                self._add_source(source, self._restored_tracks(source, tracks), aliases)
-
-    def _restored_tracks(
-        self, source: Source, defaults: Sequence[Track]
-    ) -> Sequence[Track]:
-        saved = self.saved_tracks.get(source.name)
-        if saved is None:
-            return defaults
-        expected = {channel for track in defaults for channel in track.channels}
-        channels = {channel for track in saved for channel in track.channels}
-        if channels != expected:
-            return defaults
-        try:
-            tracks = [Track(source, tuple(track.channels)) for track in saved]
-        except RecsError:
-            return defaults
-        if len(channels) != sum(len(track.channels) for track in tracks):
-            return defaults
-        return sorted(tracks, key=lambda track: track.channels)
-
-    def _add_source(
-        self,
-        source: InputDevice,
-        tracks: Sequence[Track],
-        aliases: Aliases,
-    ) -> None:
-        source_process = SourceProcess(self.cfg, tracks, track_names=self.track_names)
-        self.sources[source.name] = source_process
-        self.hardware[source.name] = source_process
-        self.frames[source.name] = 0
-        self.buffer_drops_reported[source.name] = 0
-        self.source_frames_at_start[source.name] = 0
-        self.source_start_times[source.name] = self.state.start_time
-        self.source_last_updates[source.name] = self.state.start_time
-        self.state.add_source(source, tracks, aliases)
-        self.no_channels_reported = False
-
     def _report_no_devices(self) -> None:
         if self.no_devices_reported:
             return
@@ -657,26 +607,6 @@ class Recorder(Runnables):
         warning = 'No channels selected'
         self._record_warning(warning)
         self.no_channels_reported = True
-
-    def _record_source_presence(self, compatible: set[str]) -> None:
-        for name in sorted(compatible - self.present):
-            self._record_event(
-                'source_online',
-                source=name,
-                start_frame=self.source_frames_at_start[name],
-            )
-        for name in sorted(self.present - compatible):
-            self._record_active_tracks_stopped(name)
-            self._record_event('source_offline', source=name)
-
-    def _record_active_tracks_stopped(self, source_name: str) -> None:
-        for track_name, channel_state in self.state.state[source_name].items():
-            if channel_state.is_active:
-                self._record_event(
-                    'track_stopped',
-                    source=source_name,
-                    track=track_name,
-                )
 
     def _reap_sources(self) -> None:
         self.devices.reap()
@@ -1128,71 +1058,6 @@ class Recorder(Runnables):
     def _receive_update(self, update: SourceUpdate) -> None:
         self.devices.receive_message(update)
 
-    def _record_buffer_status(self, update: SourceUpdate) -> None:
-        if update.buffer_stats is not None:
-            self.buffer_stats[update.source_name] = update.buffer_stats
-            reported = self.buffer_drops_reported[update.source_name]
-            if update.buffer_stats.dropped_frames > reported:
-                self._write_manifest_record(
-                    session_manifest.ManifestEvent(
-                        type='buffer_overflow',
-                        timestamp=session_manifest.timestamp_to_json(
-                            update.buffer_stats.last_drop_timestamp
-                        ),
-                        source=update.source_name,
-                        dropped_blocks=update.buffer_stats.dropped_blocks,
-                        dropped_frames=update.buffer_stats.dropped_frames,
-                        max_queued_seconds=update.buffer_stats.max_queued_seconds,
-                        queued_seconds=update.buffer_stats.queued_seconds,
-                    )
-                )
-                self.buffer_drops_reported[
-                    update.source_name
-                ] = update.buffer_stats.dropped_frames
-        for warning in update.buffer_warnings or []:
-            self._record_warning(warning)
-
-    def _source_frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
-        if source.name not in self.hardware:
-            return True
-
-        elapsed = now - self.source_start_times[source.name]
-        if elapsed < FRAME_CLOCK_GRACE:
-            return True
-
-        frames = self.frames[source.name] - self.source_frames_at_start[source.name]
-        recorded = frames / source.source.samplerate
-        if recorded >= elapsed * MIN_FRAME_CLOCK_RATIO:
-            return True
-
-        if source.name not in self.lag_reported:
-            warning = f'Device {source.name} lagging behind real time'
-            self._record_warning(warning)
-            self.lag_reported.add(source.name)
-        return False
-
-    def _record_track_activity(
-        self,
-        source_name: str,
-        previous: dict[str, bool],
-        updates: Mapping[str, Any],
-        frame_count: int | None,
-        timestamp: float | None,
-    ) -> None:
-        for track_name in updates:
-            active = self.state.state[source_name][track_name].is_active
-            was_active = previous[track_name]
-            if active == was_active:
-                continue
-            event_type = 'track_started' if active else 'track_stopped'
-            self._record_event(
-                event_type,
-                source=source_name,
-                track=track_name,
-                frame_count=frame_count,
-                timestamp=timestamp,
-            )
-
     def _record_event(
         self,
         event_type: str,
@@ -1227,14 +1092,6 @@ class Recorder(Runnables):
                 label=self.cfg.keys.labels.get(event.key),
             )
         )
-
-    def _source_time_expired(self, source: SourceProcess) -> bool:
-        total = self.cfg.recording.total_run_time
-        if not total:
-            return False
-
-        target = round(total * source.source.samplerate)
-        return self.frames[source.name] >= target
 
     def _start_manifest(self) -> None:
         self.session.start(

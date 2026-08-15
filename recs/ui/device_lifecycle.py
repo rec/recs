@@ -17,7 +17,7 @@ from .device_poller import DevicePoller
 from .full_state import FullState
 from .source_process import SourceProcess
 from .source_recorder import BufferStats, SourceFailure, SourceUpdate
-from .source_tracks import input_device_tracks
+from .source_tracks import input_device_tracks, source_tracks
 
 FRAME_CLOCK_GRACE = 5.0
 MIN_FRAME_CLOCK_RATIO = 0.5
@@ -25,6 +25,15 @@ SOURCE_STALL_TIMEOUT = 10.0
 
 
 class DeviceLifecycle:
+    @staticmethod
+    def initial_tracks(
+        cfg: Cfg, saved_tracks: dict[str, list[settings.TrackSettings]]
+    ) -> list[tuple[Source, Sequence[Track]]]:
+        return [
+            (source, _restored_tracks(source, tracks, saved_tracks))
+            for source, tracks in source_tracks(cfg)
+        ]
+
     def __init__(
         self,
         cfg: Cfg,
@@ -227,25 +236,8 @@ class DeviceLifecycle:
         for source, tracks in input_device_tracks(self.cfg, devices):
             if source.name in self.sources:
                 continue
-            self._add_source(source, self._restored_tracks(source, tracks), aliases)
-
-    def _restored_tracks(
-        self, source: Source, defaults: Sequence[Track]
-    ) -> Sequence[Track]:
-        saved = self.saved_tracks.get(source.name)
-        if saved is None:
-            return defaults
-        expected = {channel for track in defaults for channel in track.channels}
-        channels = {channel for track in saved for channel in track.channels}
-        if channels != expected:
-            return defaults
-        try:
-            tracks = [Track(source, tuple(track.channels)) for track in saved]
-        except RecsError:
-            return defaults
-        if len(channels) != sum(len(track.channels) for track in tracks):
-            return defaults
-        return sorted(tracks, key=lambda track: track.channels)
+            tracks = _restored_tracks(source, tracks, self.saved_tracks)
+            self._add_source(source, tracks, aliases)
 
     def _add_source(
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases
@@ -341,3 +333,24 @@ class DeviceLifecycle:
         while conn.poll():
             if not self.receive_connection(conn):
                 return
+
+
+def _restored_tracks(
+    source: Source,
+    defaults: Sequence[Track],
+    saved_tracks: dict[str, list[settings.TrackSettings]],
+) -> Sequence[Track]:
+    saved = saved_tracks.get(source.name)
+    if saved is None:
+        return defaults
+    expected = {channel for track in defaults for channel in track.channels}
+    channels = {channel for track in saved for channel in track.channels}
+    if channels != expected:
+        return defaults
+    try:
+        tracks = [Track(source, tuple(track.channels)) for track in saved]
+    except RecsError:
+        return defaults
+    if len(channels) != sum(len(track.channels) for track in tracks):
+        return defaults
+    return sorted(tracks, key=lambda track: track.channels)
