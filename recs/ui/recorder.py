@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from multiprocessing import connection
@@ -28,7 +29,7 @@ from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 from recs.misc import legal_filename
 
-from . import gui_process, live, session_manifest
+from . import disk_space, gui_process, live, session_manifest
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .key_events import KeyEvent, make_key_recorder
@@ -138,7 +139,15 @@ class Recorder(Runnables):
         self.manifest: session_manifest.SessionManifestWriter | None = None
         self.session_stopped = False
         self.key_recorder = make_key_recorder(cfg)
-        self.disk_space_reported = False
+        self.disk_alerts_reported: set[tuple[Path, str]] = set()
+        self.disk_emergencies_reported: set[Path] = set()
+        self.disk_first_alert = False
+        self.disk_alert_threshold: str | None = None
+        self.disk_last_poll = 0.0
+        self.disk_rate = disk_space.WriteRate()
+        self.disk_paused = False
+        self.session_id = str(uuid.uuid4())
+        self.manifest_continued_from: str | None = None
         self.failed: set[str] = set()
         self.lag_reported: set[str] = set()
         self.calibration_results: dict[str, dict[str, float]] = {}
@@ -271,8 +280,7 @@ class Recorder(Runnables):
                 while self.running:
                     if self._display_closed():
                         break
-                    if self._disk_space_low():
-                        break
+                    self._monitor_disk_space()
                     self._receive_key_events()
                     self._receive_control_requests()
                     self._poll_devices()
@@ -313,21 +321,217 @@ class Recorder(Runnables):
     def _display_closed(self) -> bool:
         return bool(self.live and self.live.closed)
 
-    def _disk_space_low(self) -> bool:
-        minimum = self.cfg.recording.minimum_free_space
-        if not minimum:
-            return False
+    def _monitor_disk_space(self) -> None:
+        now = times.timestamp()
+        if now - self.disk_last_poll < self.cfg.recording.disk_poll_seconds:
+            return
+        self.disk_last_poll = now
+        if self.disk_paused:
+            for candidate in self._removable_disks():
+                if candidate.free_bytes >= self._disk_threshold(candidate):
+                    if self._switch_recording_disk(
+                        candidate, 'removable_disk_available'
+                    ):
+                        self._resume_recording('removable_disk_available', candidate)
+                    return
+            return
+        path = _existing_parent(self._manifest_path())
+        current = self._recording_disk(path)
+        if current is None:
+            self._record_warning('Cannot read recording disk space')
+            return
+        self.disk_rate.add(now, current.total_bytes - current.free_bytes)
+        rate = self.disk_rate.bytes_per_second
+        alerts = self.cfg.recording.disk_alert_thresholds
+        for threshold in alerts:
+            if current.free_bytes >= disk_space.threshold_bytes([threshold], rate):
+                continue
+            key = (current.path, threshold)
+            if key not in self.disk_alerts_reported:
+                self.disk_alerts_reported.add(key)
+                self.disk_first_alert = True
+                self.disk_alert_threshold = threshold
+                self._record_disk_event('disk_space_alert', current, threshold, rate)
+                self._record_warning(
+                    f'Disk space alert on {current.path}: '
+                    f'{current.free_bytes} bytes free'
+                )
 
-        free = shutil.disk_usage(_existing_parent(self._manifest_path())).free
-        if free >= minimum:
-            return False
+        emergency = self._disk_threshold(current)
+        if current.free_bytes < emergency:
+            if current.path not in self.disk_emergencies_reported:
+                self.disk_emergencies_reported.add(current.path)
+                self._record_disk_event('disk_space_emergency', current, None, rate)
+                self._record_warning(
+                    f'Disk space emergency on {current.path}: '
+                    f'{current.free_bytes} bytes free'
+                )
+            self._handle_disk_emergency(current)
+            return
+        if self.disk_first_alert and self.cfg.recording.disk_auto_switch:
+            candidates = self._removable_disks()
+            if candidates and candidates[0].free_bytes > current.free_bytes:
+                self._switch_recording_disk(
+                    candidates[0], 'new_removable_disk_has_more_space'
+                )
 
-        if not self.disk_space_reported:
-            warning = (
-                f'Free disk space {free} bytes is below minimum_free_space={minimum}'
+    def _disk_threshold(self, disk: disk_space.Disk) -> int:
+        values = (
+            self.cfg.recording.disk_removable_emergency
+            if disk.removable
+            else self.cfg.recording.disk_system_emergency
+        )
+        return max(
+            self.cfg.recording.minimum_free_space,
+            disk_space.threshold_bytes(values, self.disk_rate.bytes_per_second),
+        )
+
+    def _pause_threshold(self, disk: disk_space.Disk) -> int:
+        values = (
+            self.cfg.recording.disk_removable_pause
+            if disk.removable
+            else self.cfg.recording.disk_system_pause
+        )
+        return max(
+            self.cfg.recording.minimum_free_space,
+            disk_space.threshold_bytes(values, self.disk_rate.bytes_per_second),
+        )
+
+    def _removable_disks(self) -> list[disk_space.Disk]:
+        disks = [disk_space.disk(path, True) for path in _mounted_record_disks()]
+        return sorted(
+            (disk for disk in disks if disk is not None),
+            key=lambda d: d.free_bytes,
+            reverse=True,
+        )
+
+    def _recording_disk(self, path: Path) -> disk_space.Disk | None:
+        resolved = path.resolve()
+        for candidate in _mounted_record_disks():
+            if resolved.is_relative_to(candidate.resolve()):
+                return disk_space.disk(candidate, True)
+        return disk_space.disk(path, False)
+
+    def _record_disk_event(
+        self, event_type: str, disk: disk_space.Disk, threshold: str | None, rate: float
+    ) -> None:
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type=event_type,
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                path=str(self.cfg.directory.output_directory),
+                disk=str(disk.path),
+                free_bytes=disk.free_bytes,
+                estimated_seconds_remaining=(disk.free_bytes / rate if rate else None),
+                threshold=threshold,
+                severity='emergency'
+                if event_type == 'disk_space_emergency'
+                else 'warning',
+                disk_kind='removable' if disk.removable else 'system',
             )
-            self._record_warning(warning)
-            self.disk_space_reported = True
+        )
+
+    def _handle_disk_emergency(self, current: disk_space.Disk) -> None:
+        for candidate in self._removable_disks():
+            if (
+                candidate.path != current.path
+                and not current.path.is_relative_to(candidate.path)
+                and candidate.free_bytes >= self._disk_threshold(candidate)
+            ):
+                self._switch_recording_disk(candidate, 'disk_space_emergency')
+                return
+        system = disk_space.disk(Path.home(), False)
+        if system is not None and system.free_bytes >= self._disk_threshold(system):
+            self._switch_recording_disk(system, 'disk_space_emergency')
+            return
+        if current.free_bytes >= self._pause_threshold(current):
+            return
+        self._pause_recording('disk_space_exhausted', current)
+        self.disk_paused = True
+
+    def _switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
+        previous = self.cfg.directory.output_directory
+        output = _available_directory(
+            disk.path
+            / self.cfg.general.default_record_directory
+            / _daemon_session_directory_name(times.timestamp())
+        )
+        try:
+            output.mkdir(parents=True)
+        except OSError as error:
+            self._record_warning(
+                f'Cannot switch recording disk to {disk.path}: {error}'
+            )
+            self._write_manifest_record(
+                session_manifest.ManifestEvent(
+                    type='disk_switch_failed',
+                    timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                    from_path=previous,
+                    to_path=str(output),
+                    reason=reason,
+                )
+            )
+            return False
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='disk_switch_started',
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                from_path=previous,
+                to_path=str(output),
+                from_free_bytes=shutil.disk_usage(
+                    _existing_parent(self._manifest_path())
+                ).free,
+                to_free_bytes=disk.free_bytes,
+                reason=reason,
+            )
+        )
+        for source in self.hardware.values():
+            source.stop()
+            source.join()
+        self._receive_pending_updates()
+        previous_manifest = self.manifest.path if self.manifest is not None else None
+        next_manifest = (
+            _manifest_directory(str(output), self.session_start_time)
+            / 'recs-session.jsonl'
+        )
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='disk_switch_finished',
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                from_path=previous,
+                to_path=str(output),
+                continued_at=str(next_manifest),
+            )
+        )
+        self._finish_manifest()
+        self.session_files_written = set()
+        self.manifest_file_end_frames = {}
+        self.manifest_file_end_timestamps = {}
+        self.manifest_files = {}
+        directory = self.cfg.directory.model_copy(
+            update={'output_directory': str(output)}
+        )
+        self.cfg = self.cfg.model_copy(update={'directory': directory})
+        self.cfg.__dict__.pop('output_path_pattern', None)
+        for source in self.sources.values():
+            source.set_cfg(self.cfg)
+        self.manifest_continued_from = (
+            str(previous_manifest) if previous_manifest else None
+        )
+        self._start_manifest()
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='disk_switch_finished',
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                from_path=previous,
+                to_path=str(output),
+                to_free_bytes=disk.free_bytes,
+                reason=reason,
+            )
+        )
+        self._record_warning(f'Switched recording disk to {disk.path}: {reason}')
+        self.recording_paused = False
+        self.disk_paused = False
         return True
 
     def _poll_devices(self) -> None:
@@ -613,7 +817,9 @@ class Recorder(Runnables):
         )
         return gui_protocol.Marked(type='marked', label=request.label)
 
-    def _pause_recording(self, reason: str) -> gui_protocol.RecordingState:
+    def _pause_recording(
+        self, reason: str, disk: disk_space.Disk | None = None
+    ) -> gui_protocol.RecordingState:
         self.recording_paused = True
         for source in self.hardware.values():
             if source.running:
@@ -623,11 +829,16 @@ class Recorder(Runnables):
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='recording_paused',
                 label=reason,
+                reason=reason,
+                current_path=str(self.cfg.directory.output_directory),
+                free_bytes=disk.free_bytes if disk else None,
             )
         )
         return self._recording_state()
 
-    def _resume_recording(self, reason: str) -> gui_protocol.RecordingState:
+    def _resume_recording(
+        self, reason: str, disk: disk_space.Disk | None = None
+    ) -> gui_protocol.RecordingState:
         if self.session_stopped:
             self._start_recording_session()
         self.recording_paused = False
@@ -637,6 +848,9 @@ class Recorder(Runnables):
                 timestamp=session_manifest.timestamp_to_json(times.timestamp()),
                 type='recording_resumed',
                 label=reason,
+                reason=reason,
+                path=str(self.cfg.directory.output_directory),
+                free_bytes=disk.free_bytes if disk else None,
             )
         )
         return self._recording_state()
@@ -894,12 +1108,32 @@ class Recorder(Runnables):
     def _disk_status(self) -> gui_protocol.DiskStatus:
         path = _existing_parent(self._manifest_path()).resolve()
         usage = shutil.disk_usage(path)
+        resume_disk = next(
+            (
+                disk.path
+                for disk in self._removable_disks()
+                if disk.free_bytes >= self._disk_threshold(disk)
+            ),
+            None,
+        )
         return gui_protocol.DiskStatus(
             type='disk_status_result',
             free_bytes=usage.free,
             path=str(path),
             total_bytes=usage.total,
             used_bytes=usage.used,
+            estimated_seconds_remaining=(
+                usage.free / self.disk_rate.bytes_per_second
+                if self.disk_rate.bytes_per_second
+                else None
+            ),
+            alert_threshold=self.disk_alert_threshold,
+            alert_active=self.disk_first_alert,
+            automatic_switch_armed=(
+                self.disk_first_alert and self.cfg.recording.disk_auto_switch
+            ),
+            paused_for_disk_space=self.disk_paused,
+            resume_disk=str(resume_disk) if resume_disk else None,
         )
 
     def _device_status(self) -> list[dict[str, object]]:
@@ -1108,7 +1342,10 @@ class Recorder(Runnables):
         self.manifest = session_manifest.SessionManifestWriter(
             self._manifest_path(),
             started_at=session_manifest.timestamp_to_json(self.session_start_time),
+            session_id=self.session_id,
+            continued_from=self.manifest_continued_from,
         )
+        self.manifest_continued_from = None
 
     def _finish_manifest(self) -> None:
         if self.manifest is None:

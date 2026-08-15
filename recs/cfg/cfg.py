@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import warnings
 from functools import cached_property
 from importlib.util import find_spec
@@ -188,6 +189,23 @@ class Recording(BaseModel):
     infinite_length: bool = False
     longest_file_time: Annotated[float, Mutable] = 0.0
     minimum_free_space: Annotated[int, Mutable] = 0
+    disk_alert_thresholds: Annotated[list[str], Mutable] = Field(
+        default_factory=lambda: ['30m', '10m', '2m']
+    )
+    disk_removable_emergency: Annotated[list[str], Mutable] = Field(
+        default_factory=lambda: ['200MB', '30s']
+    )
+    disk_system_emergency: Annotated[list[str], Mutable] = Field(
+        default_factory=lambda: ['2GB', '2m']
+    )
+    disk_removable_pause: Annotated[list[str], Mutable] = Field(
+        default_factory=lambda: ['200MB', '30s']
+    )
+    disk_system_pause: Annotated[list[str], Mutable] = Field(
+        default_factory=lambda: ['2GB', '2m']
+    )
+    disk_poll_seconds: Annotated[float, Mutable] = 1.0
+    disk_auto_switch: Annotated[bool, Mutable] = True
     moving_average_time: float = 1.0
     noise_floor: Annotated[float, Mutable] = 70.0
     preview_headroom: Annotated[float, Mutable] = 6.0
@@ -198,7 +216,9 @@ class Recording(BaseModel):
     stop_after_quiet: Annotated[float, Mutable] = 20.0
     total_run_time: Annotated[float, Mutable] = 0.0
 
-    @field_validator('audio_buffer_seconds', 'buffer_status_period')
+    @field_validator(
+        'audio_buffer_seconds', 'buffer_status_period', 'disk_poll_seconds'
+    )
     @classmethod
     def validate_positive(cls, value: float) -> float:
         if value <= 0:
@@ -218,6 +238,22 @@ class Recording(BaseModel):
         if value < 0:
             raise ValueError('must be non-negative')
         return value
+
+    @field_validator(
+        'disk_alert_thresholds',
+        'disk_removable_emergency',
+        'disk_system_emergency',
+        'disk_removable_pause',
+        'disk_system_pause',
+    )
+    @classmethod
+    def validate_disk_thresholds(cls, values: list[str]) -> list[str]:
+        if not values:
+            raise ValueError('must not be empty')
+        for value in values:
+            if not re.fullmatch(r'\d+(?:\.\d+)?(?:KB|MB|GB|s|m|h)?', value):
+                raise ValueError(f'invalid disk threshold: {value}')
+        return values
 
 
 CFG_PARTS = (

@@ -333,7 +333,57 @@ def recs(
         int,
         tyro.conf.arg(
             default=RECS.recording.minimum_free_space,
-            help='Stop recording when output disk free space is below this many bytes',
+            help='Absolute disk-space reserve used with the emergency threshold',
+        ),
+    ],
+    disk_alert_thresholds: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.recording.disk_alert_thresholds,
+            help='Free-space alerts, such as 30m or 500MB',
+        ),
+    ],
+    disk_removable_emergency: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.recording.disk_removable_emergency,
+            help='Emergency reserve on removable disks',
+        ),
+    ],
+    disk_system_emergency: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.recording.disk_system_emergency,
+            help='Emergency reserve on the system disk',
+        ),
+    ],
+    disk_removable_pause: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.recording.disk_removable_pause,
+            help='Pause reserve on removable disks',
+        ),
+    ],
+    disk_system_pause: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(
+            default=RECS.recording.disk_system_pause,
+            help='Pause reserve on the system disk',
+        ),
+    ],
+    disk_poll_seconds: Annotated[
+        float,
+        TIME_SPEC,
+        tyro.conf.arg(
+            default=RECS.recording.disk_poll_seconds,
+            help='How often to check recording disk space',
+        ),
+    ],
+    disk_auto_switch: Annotated[
+        bool,
+        tyro.conf.arg(
+            default=RECS.recording.disk_auto_switch,
+            help='Switch to a better removable disk after a disk-space alert',
         ),
     ],
     moving_average_time: Annotated[

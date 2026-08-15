@@ -229,7 +229,9 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         'ended_at': '<timestamp>',
         'duration': '<duration>',
     }
+    result.pop('continued_from')
     result.pop('errors')
+    result.pop('session_id')
     result['files'] = [f for f in result['files'] if f['type'] == 'file_finished']
     for file in result['files']:
         assert isinstance(file, dict)
@@ -247,6 +249,20 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         event.pop('max_queued_seconds')
         event.pop('queued_seconds')
         event.pop('value')
+        event.pop('disk')
+        event.pop('estimated_seconds_remaining')
+        event.pop('free_bytes')
+        event.pop('path')
+        event.pop('severity')
+        event.pop('threshold')
+        event.pop('continued_at')
+        event.pop('current_path')
+        event.pop('disk_kind')
+        event.pop('from_free_bytes')
+        event.pop('from_path')
+        event.pop('reason')
+        event.pop('to_free_bytes')
+        event.pop('to_path')
         if event.get('start_frame') is None:
             event.pop('start_frame')
         event['timestamp'] = '<timestamp>'

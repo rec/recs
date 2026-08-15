@@ -12,6 +12,8 @@ class ManifestHeader(BaseModel):
     type: str = 'header'
     version: int = 2
     started_at: str
+    session_id: str | None = None
+    continued_from: str | None = None
 
 
 class ManifestEvent(BaseModel):
@@ -31,6 +33,20 @@ class ManifestEvent(BaseModel):
     value: object | None = None
     max_queued_seconds: float | None = None
     queued_seconds: float | None = None
+    path: str | None = None
+    disk: str | None = None
+    free_bytes: int | None = None
+    estimated_seconds_remaining: float | None = None
+    threshold: str | None = None
+    severity: str | None = None
+    reason: str | None = None
+    from_path: str | None = None
+    to_path: str | None = None
+    from_free_bytes: int | None = None
+    to_free_bytes: int | None = None
+    disk_kind: str | None = None
+    current_path: str | None = None
+    continued_at: str | None = None
 
 
 class ManifestFile(BaseModel):
@@ -67,6 +83,8 @@ class SessionManifest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     started_at: str
+    session_id: str | None = None
+    continued_from: str | None = None
     ended_at: str | None = None
     duration: float | None = None
     events: list[ManifestEvent] = Field(default_factory=list)
@@ -81,11 +99,23 @@ ManifestRecord = (
 
 
 class SessionManifestWriter:
-    def __init__(self, path: Path, started_at: str) -> None:
+    def __init__(
+        self,
+        path: Path,
+        started_at: str,
+        session_id: str | None = None,
+        continued_from: str | None = None,
+    ) -> None:
         self.path = _available_path(path)
         self.path.parent.mkdir(exist_ok=True, parents=True)
         self.fp = self.path.open('a')
-        self.write(ManifestHeader(started_at=started_at))
+        self.write(
+            ManifestHeader(
+                started_at=started_at,
+                session_id=session_id,
+                continued_from=continued_from,
+            )
+        )
 
     def write(
         self,
@@ -105,6 +135,8 @@ def read(path: Path) -> SessionManifest:
     footer = next((r for r in reversed(records) if isinstance(r, ManifestFooter)), None)
     return SessionManifest(
         started_at=header.started_at if header else '',
+        session_id=header.session_id if header else None,
+        continued_from=header.continued_from if header else None,
         ended_at=footer.ended_at if footer else None,
         duration=footer.duration if footer else None,
         events=[r for r in records if isinstance(r, ManifestEvent)],

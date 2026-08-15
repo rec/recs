@@ -15,7 +15,7 @@ from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.ui import recorder
+from recs.ui import recorder, session_manifest
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
@@ -707,7 +707,7 @@ def test_recorder_rows_include_buffer_stats(
     assert rows[1]['dropped'] == 512
 
 
-def test_recorder_reports_low_disk_space_once(
+def test_minimum_free_space_is_an_emergency_reserve(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     mock_devices: None,
@@ -719,12 +719,115 @@ def test_recorder_reports_low_disk_space_once(
     )
     rec = Recorder(Cfg(minimum_free_space=5, silent=True))
 
-    assert rec._disk_space_low()
-    assert rec._disk_space_low()
-    assert rec.error_records()[0].message == (
-        'Free disk space 4 bytes is below minimum_free_space=5'
+    rec._monitor_disk_space()
+
+    assert rec.disk_paused
+    assert caplog.messages == ['Disk space emergency on .: 4 bytes free']
+
+
+def test_disk_alert_switches_to_larger_removable_disk(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    removable = tmp_path / 'removable'
+    removable.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [removable])
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
+    monkeypatch.setattr(
+        recorder.shutil,
+        'disk_usage',
+        lambda path: DiskUsage(
+            100,
+            10 if Path(path) == removable else 60,
+            90 if Path(path) == removable else 40,
+        ),
     )
-    assert caplog.messages == ['Free disk space 4 bytes is below minimum_free_space=5']
+    rec = Recorder(
+        Cfg(
+            disk_alert_thresholds=['50'],
+            disk_removable_emergency=['5'],
+            disk_system_emergency=['5'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+    old_manifest = rec.manifest.path if rec.manifest is not None else None
+
+    rec._monitor_disk_space()
+
+    assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
+    assert rec.manifest is not None
+    assert rec.manifest_continued_from is None
+    assert old_manifest is not None
+    assert session_manifest.read(rec.manifest.path).continued_from == str(old_manifest)
+    assert any(
+        event.type == 'disk_switch_finished'
+        and event.continued_at == str(rec.manifest.path)
+        for event in session_manifest.read(old_manifest).events
+    )
+
+
+def test_disk_emergency_pauses_recording(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [])
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
+    monkeypatch.setattr(
+        recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
+    )
+    rec = Recorder(
+        Cfg(
+            disk_removable_emergency=['5'],
+            disk_system_emergency=['5'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+
+    rec._monitor_disk_space()
+
+    assert rec.recording_paused
+    assert rec.disk_paused
+
+
+def test_disk_pause_resumes_on_removable_disk(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    removable = tmp_path / 'removable'
+    removable.mkdir()
+    mounts: list[Path] = []
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: mounts)
+    monkeypatch.setattr(
+        recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 10, 90)
+    )
+    now = [1.0]
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now[0])
+    rec = Recorder(
+        Cfg(
+            disk_removable_emergency=['5'],
+            disk_system_emergency=['95'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+    rec._monitor_disk_space()
+    assert rec.disk_paused
+
+    mounts.append(removable)
+    now[0] = 2.0
+    rec._monitor_disk_space()
+
+    assert not rec.disk_paused
+    assert not rec.recording_paused
+    assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
 
 
 def test_recorder_summarizes_interrupt(

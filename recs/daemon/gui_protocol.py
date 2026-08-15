@@ -155,6 +155,12 @@ class DiskStatus(BaseModel):
     path: str
     total_bytes: int
     used_bytes: int
+    estimated_seconds_remaining: float | None = None
+    alert_threshold: str | None = None
+    alert_active: bool = False
+    automatic_switch_armed: bool = False
+    paused_for_disk_space: bool = False
+    resume_disk: str | None = None
 
 
 class Devices(BaseModel):
