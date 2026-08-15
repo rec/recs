@@ -7,7 +7,7 @@ import pytest
 import tomli
 import tyro
 
-from recs.base.types import Format, SdType
+from recs.base.types import Format, SdType, Subtype
 from recs.cfg import cli, run_cli
 
 
@@ -76,3 +76,22 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert parsed['preview_headroom'] == 9
     assert not parsed['band_mode']
     assert parsed['save_settings']
+
+
+@pytest.mark.parametrize('option', ['-f', '--formats'])
+def test_audio_options_ignore_case_and_surrounding_dots(
+    monkeypatch: pytest.MonkeyPatch, option: str
+) -> None:
+    parsed: dict[str, Any] = {}
+
+    monkeypatch.setattr(cli.cfg, 'Cfg', lambda **kwargs: parsed.update(kwargs))
+    monkeypatch.setattr(run_cli, 'run_cli', lambda cfg: None)
+
+    tyro.cli(
+        cli.recs,
+        args=[option, '.FLAC.', '--sdtype', '.INT32.', '--subtype', '.PCM_24.'],
+    )
+
+    assert parsed['formats'] == [Format.flac]
+    assert parsed['sdtype'] == SdType.int32
+    assert parsed['subtype'] == Subtype.pcm_24

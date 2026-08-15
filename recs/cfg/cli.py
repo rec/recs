@@ -28,10 +28,15 @@ RECS = cfg.Cfg.raw_defaults()
 _T = TypeVar('_T')
 
 
-def _prefix_spec(values: PrefixDict[_T], metavar: str) -> PrimitiveConstructorSpec[_T]:
+def _prefix_spec(
+    values: PrefixDict[_T], metavar: str, *, trim_dots: bool = False
+) -> PrimitiveConstructorSpec[_T]:
     def parse(args: list[str]) -> _T:
+        value = args[0].strip()
+        if trim_dots:
+            value = value.strip('.')
         try:
-            return values[args[0]]
+            return values[value]
         except KeyError:
             raise ValueError(f'Cannot understand {metavar}="{args[0]}"') from None
 
@@ -44,11 +49,11 @@ def _prefix_spec(values: PrefixDict[_T], metavar: str) -> PrimitiveConstructorSp
     )
 
 
-FORMAT_SPEC = _prefix_spec(FORMATS, 'AUDIO FORMAT')
+FORMAT_SPEC = _prefix_spec(FORMATS, 'AUDIO FORMAT', trim_dots=True)
 RECORD_KEYS = PrefixDict({value: value for value in types.RecordKeys})
 RECORD_KEYS_SPEC = _prefix_spec(RECORD_KEYS, 'KEY RECORDING MODE')
-SDTYPE_SPEC = _prefix_spec(SDTYPES, 'NUMERIC TYPE')
-SUBTYPE_SPEC = _prefix_spec(SUBTYPES, 'AUDIO SUBTYPE')
+SDTYPE_SPEC = _prefix_spec(SDTYPES, 'NUMERIC TYPE', trim_dots=True)
+SUBTYPE_SPEC = _prefix_spec(SUBTYPES, 'AUDIO SUBTYPE', trim_dots=True)
 TIME_SPEC = PrimitiveConstructorSpec[float](
     nargs=1,
     metavar='TIME',
