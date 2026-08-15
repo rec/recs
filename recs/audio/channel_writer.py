@@ -12,7 +12,6 @@ from soundfile import SoundFile
 from threa import Runnable
 
 from recs.base.state import ChannelState
-from recs.base.type_conversions import SUBTYPE_TO_SDTYPE
 from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.cfg import time_settings, track_names
 from recs.cfg.cfg import Cfg
@@ -79,15 +78,8 @@ class ChannelWriter(Runnable):
         else:
             self.formats = [track.source.format]
 
-        if track.source.subtype is None or 'subtype' in cfg.model_fields_set:
-            subtype = cfg.audio.subtype
-        else:
-            subtype = track.source.subtype
-
-        if track.source.subtype is None or 'sdtype' in cfg.model_fields_set:
-            sdtype = cfg.audio.sdtype or SDTYPE
-        else:
-            sdtype = SUBTYPE_TO_SDTYPE[track.source.subtype]
+        subtype = cfg.audio.subtype
+        sdtype = cfg.audio.sdtype or SDTYPE
 
         self.files_written = file_list.FileList()
         self.file_end_frames: dict[Path, int] = {}

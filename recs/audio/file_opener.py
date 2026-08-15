@@ -22,13 +22,17 @@ class FileOpener(BaseModel):
         if not overwrite and path.exists():
             raise FileExistsError(str(path))
 
+        subtype = self.subtype
+        if subtype is None and soundfile.check_format(self.format, Subtype.float):
+            subtype = Subtype.float
+
         fp = soundfile.SoundFile(
             channels=self.channels,
             file=path,
             format=self.format,
             mode='w',
             samplerate=self.samplerate,
-            subtype=self.subtype,
+            subtype=subtype,
         )
 
         if self.format in ALLOWS_METADATA:

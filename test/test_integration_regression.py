@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 import soundfile
 import tdir
-from pytest_regressions.file_regression import FileRegressionFixture
 
 from recs.cfg import device
 from recs.ui import device_poller
@@ -43,7 +42,6 @@ DEVICES: list[device.DeviceDict] = [
 
 @tdir
 def test_hardware_recording_regression(
-    file_regression: FileRegressionFixture,
     mock_mp: None,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -58,17 +56,19 @@ def test_hardware_recording_regression(
         'device-mixer + 1-2 + 20231015-164921.wav',
     ]
     assert [path.name for path in second] == [path.name for path in first]
-    assert [path.read_bytes() for path in second] == [
-        path.read_bytes() for path in first
-    ]
-
-    for path in first:
-        file_regression.check(
-            path.read_bytes(),
-            basename=path.stem.replace(' + ', '-'),
-            binary=True,
-            extension='.wav',
+    inputs = _input_audio()
+    expected = [inputs['device-mic'], inputs['device-mixer']]
+    for first_path, second_path, audio in zip(first, second, expected, strict=True):
+        actual, samplerate = soundfile.read(first_path, dtype='float32', always_2d=True)
+        later, later_samplerate = soundfile.read(
+            second_path, dtype='float32', always_2d=True
         )
+        assert samplerate == SAMPLERATE
+        assert later_samplerate == SAMPLERATE
+        assert np.array_equal(actual, audio[: len(actual), : actual.shape[1]])
+        assert np.array_equal(later, actual)
+        with soundfile.SoundFile(first_path) as fp:
+            assert fp.subtype == 'FLOAT'
 
 
 def query_devices() -> list[device.DeviceDict]:

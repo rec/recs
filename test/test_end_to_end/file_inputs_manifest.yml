@@ -12,14 +12,14 @@ events:
   track: 1-2
   type: track_started
 files:
-- bit_depth: 64
+- bit_depth: 32
   channels: 1
   frame_count: 48000
   path: files/mono-1.wav
   sample_rate: 48000
   source: test/testdata/file_inputs/mono.wav
   track: 1
-- bit_depth: 64
+- bit_depth: 32
   channels: 2
   frame_count: 48000
   path: files/stereo-1.wav

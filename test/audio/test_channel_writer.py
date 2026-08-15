@@ -1,6 +1,5 @@
 import signal
 from pathlib import Path
-from test import conftest
 
 import numpy as np
 import pytest
@@ -14,6 +13,7 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, Format, SdType, Subtype
 from recs.cfg.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
+from test import conftest
 
 SAMPLERATE = 44_100
 TIMES = {'quiet_before_start': 30, 'quiet_after_end': 40, 'stop_after_quiet': 50}
@@ -93,7 +93,9 @@ def test_channel_writer(case, mock_devices):
     assert case.result == result
 
     with soundfile.SoundFile(files[0]) as fp:
-        if case.sdtype == SdType.float32:
+        if case.sdtype in (None, SdType.float32) and soundfile.check_format(
+            case.format, Subtype.float
+        ):
             assert fp.subtype.lower() == Subtype.float
 
         if case.format == Format.mp3:

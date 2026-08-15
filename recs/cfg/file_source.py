@@ -42,7 +42,7 @@ class FileSource(Source):
             try:
                 with self._stream() as fp:
                     timestamp = 0
-                    for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT):
+                    for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT, dtype=sdtype):
                         block = to_matrix(block)
                         for i in range(BLOCKCOUNT):
                             array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE]
