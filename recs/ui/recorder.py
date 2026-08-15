@@ -1,12 +1,10 @@
 import json
 import os
 import shutil
-import subprocess
 import sys
 import time
 import uuid
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import datetime
 from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
@@ -27,9 +25,8 @@ from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.misc import legal_filename
 
-from . import disk_space, gui_process, live, session_manifest
+from . import disk_space, gui_process, live, recording_paths, session_manifest
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .key_events import KeyEvent, make_key_recorder
@@ -93,11 +90,13 @@ class Recorder(Runnables):
         self.state = FullState(all_tracks, cfg.aliases)
         self.session_start_time = self.state.start_time
         self.daemon_record_directory = (
-            _daemon_record_directory(cfg)
+            recording_paths.daemon_record_directory(cfg)
             if not cfg.directory.output_directory
             else None
         )
-        self.cfg = _with_default_output_directory(cfg, self.state.start_time)
+        self.cfg = recording_paths.with_default_output_directory(
+            cfg, self.state.start_time
+        )
         self.external = (
             external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
@@ -241,7 +240,7 @@ class Recorder(Runnables):
                     print(json.dumps(self.state.db_ranges(), indent=2))
         self._summary()
         if self.cfg.console.open_output_folder:
-            _open_folder(self._output_folder())
+            recording_paths.open_folder(self._output_folder())
 
     def _summary(self) -> None:
         print(f'Recording time: {_summary_time(self.state.elapsed_time)}')
@@ -335,7 +334,7 @@ class Recorder(Runnables):
                         self._resume_recording('removable_disk_available', candidate)
                     return
             return
-        path = _existing_parent(self._manifest_path())
+        path = recording_paths.existing_parent(self._manifest_path())
         current = self._recording_disk(path)
         if current is None:
             self._record_warning('Cannot read recording disk space')
@@ -398,7 +397,10 @@ class Recorder(Runnables):
         )
 
     def _removable_disks(self) -> list[disk_space.Disk]:
-        disks = [disk_space.disk(path, True) for path in _mounted_record_disks()]
+        disks = [
+            disk_space.disk(path, True)
+            for path in recording_paths.mounted_record_disks()
+        ]
         return sorted(
             (disk for disk in disks if disk is not None),
             key=lambda d: d.free_bytes,
@@ -407,7 +409,7 @@ class Recorder(Runnables):
 
     def _recording_disk(self, path: Path) -> disk_space.Disk | None:
         resolved = path.resolve()
-        for candidate in _mounted_record_disks():
+        for candidate in recording_paths.mounted_record_disks():
             if resolved.is_relative_to(candidate.resolve()):
                 return disk_space.disk(candidate, True)
         return disk_space.disk(path, False)
@@ -451,10 +453,10 @@ class Recorder(Runnables):
 
     def _switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
         previous = self.cfg.directory.output_directory
-        output = _available_directory(
+        output = recording_paths.available_directory(
             disk.path
             / self.cfg.general.default_record_directory
-            / _daemon_session_directory_name(times.timestamp())
+            / recording_paths.daemon_session_directory_name(times.timestamp())
         )
         try:
             output.mkdir(parents=True)
@@ -479,7 +481,7 @@ class Recorder(Runnables):
                 from_path=previous,
                 to_path=str(output),
                 from_free_bytes=shutil.disk_usage(
-                    _existing_parent(self._manifest_path())
+                    recording_paths.existing_parent(self._manifest_path())
                 ).free,
                 to_free_bytes=disk.free_bytes,
                 reason=reason,
@@ -491,7 +493,7 @@ class Recorder(Runnables):
         self._receive_pending_updates()
         previous_manifest = self.manifest.path if self.manifest is not None else None
         next_manifest = (
-            _manifest_directory(str(output), self.session_start_time)
+            recording_paths.manifest_directory(str(output), self.session_start_time)
             / 'recs-session.jsonl'
         )
         self._write_manifest_record(
@@ -1106,7 +1108,7 @@ class Recorder(Runnables):
         )
 
     def _disk_status(self) -> gui_protocol.DiskStatus:
-        path = _existing_parent(self._manifest_path()).resolve()
+        path = recording_paths.existing_parent(self._manifest_path()).resolve()
         usage = shutil.disk_usage(path)
         resume_disk = next(
             (
@@ -1189,7 +1191,7 @@ class Recorder(Runnables):
             record = session_manifest.ManifestFile(
                 type='file_started',
                 timestamp=session_manifest.timestamp_to_json(
-                    _timestamp_or_now(file_record.start_timestamp)
+                    recording_paths.timestamp_or_now(file_record.start_timestamp)
                 ),
                 frame_count=file_record.start_frame,
                 path=file_record.path.as_posix(),
@@ -1307,7 +1309,7 @@ class Recorder(Runnables):
         self._write_manifest_record(
             session_manifest.ManifestEvent(
                 timestamp=session_manifest.timestamp_to_json(
-                    _timestamp_or_now(timestamp)
+                    recording_paths.timestamp_or_now(timestamp)
                 ),
                 type=event_type,
                 source=source,
@@ -1357,7 +1359,7 @@ class Recorder(Runnables):
                         update={
                             'type': 'file_finished',
                             'timestamp': session_manifest.timestamp_to_json(
-                                _timestamp_or_now(
+                                recording_paths.timestamp_or_now(
                                     self.manifest_file_end_timestamps.get(path)
                                 )
                             ),
@@ -1382,9 +1384,9 @@ class Recorder(Runnables):
         self.manifest_file_end_timestamps = {}
         self.manifest_files = {}
         if self.daemon_record_directory is not None:
-            output_directory = _available_directory(
+            output_directory = recording_paths.available_directory(
                 self.daemon_record_directory
-                / _daemon_session_directory_name(self.session_start_time)
+                / recording_paths.daemon_session_directory_name(self.session_start_time)
             )
             directory = self.cfg.directory.model_copy(
                 update={'output_directory': str(output_directory)}
@@ -1550,16 +1552,16 @@ class Recorder(Runnables):
 
         output_directory = self.cfg.directory.output_directory
         if output_directory:
-            return _manifest_directory(output_directory, self.session_start_time) / (
-                'recs-session.jsonl'
-            )
+            return recording_paths.manifest_directory(
+                output_directory, self.session_start_time
+            ) / ('recs-session.jsonl')
         return Path('recs-session.jsonl')
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.files_written if path.exists())
         if paths:
             return Path(os.path.commonpath([path.parent for path in paths]))
-        return _existing_parent(self._manifest_path()).resolve()
+        return recording_paths.existing_parent(self._manifest_path()).resolve()
 
 
 def _summary_time(seconds: float) -> str:
@@ -1567,154 +1569,6 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
-
-
-def _with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
-    if cfg.directory.output_directory:
-        return cfg
-
-    if (record_directory := _daemon_record_directory(cfg)) is not None:
-        output_directory = _available_directory(
-            record_directory / _daemon_session_directory_name(timestamp)
-        )
-    else:
-        output_directory = _available_directory(
-            Path(_session_directory_name(timestamp))
-        )
-
-    directory = cfg.directory.model_copy(
-        update={'output_directory': str(output_directory)}
-    )
-    result = cfg.model_copy(update={'directory': directory})
-    result.__dict__.pop('output_path_pattern', None)
-    return result
-
-
-def _daemon_record_directory(cfg: Cfg) -> Path | None:
-    if not gui_ipc.daemon_mode_enabled():
-        return None
-    path = legal_filename.legal_path(Path(cfg.general.default_record_directory))
-    if path.is_absolute():
-        return path
-    return _record_disk() / path
-
-
-def _record_disk() -> Path:
-    disks = _mounted_record_disks()
-    if not disks:
-        return Path.home()
-    return max(disks, key=lambda p: shutil.disk_usage(p).free)
-
-
-def _timestamp_or_now(timestamp: float | None) -> float:
-    return times.timestamp() if timestamp is None else timestamp
-
-
-def _mounted_record_disks() -> list[Path]:
-    if os.name == 'nt':
-        return _windows_record_disks()
-
-    disks: list[Path] = []
-    for parent in _record_disk_parents():
-        try:
-            children = list(parent.iterdir())
-        except OSError:
-            continue
-        disks.extend(p for p in children if p.is_dir() and p.is_mount())
-    return disks
-
-
-def _record_disk_parents() -> list[Path]:
-    parents = [Path('/Volumes'), Path('/media'), Path('/mnt')]
-    user = os.environ.get('USER')
-    if user:
-        parents.append(Path('/run/media') / user)
-    return parents
-
-
-def _windows_record_disks() -> list[Path]:
-    system = Path.home().anchor.lower()
-    disks = []
-    for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-        path = Path(f'{letter}:/')
-        if path.exists() and path.anchor.lower() != system:
-            disks.append(path)
-    return disks
-
-
-def _available_directory(path: Path) -> Path:
-    if not path.exists():
-        return path
-
-    index = 1
-    while True:
-        candidate = path.with_name(f'{path.name}_{index}')
-        if not candidate.exists():
-            return candidate
-        index += 1
-
-
-def _session_directory_name(timestamp: float) -> str:
-    return legal_filename.legal_filename(
-        datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
-    )
-
-
-def _daemon_session_directory_name(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H-%M-%S')
-
-
-def _manifest_directory(output_directory: str, timestamp: float) -> Path:
-    ts = datetime.fromtimestamp(timestamp)
-    try:
-        return legal_filename.legal_path(
-            Path(ts.strftime(output_directory).format(**_manifest_times(ts)))
-        )
-    except KeyError:
-        prefix = output_directory.split('{', 1)[0].rstrip('/\\')
-        return legal_filename.legal_path(Path(prefix or '.'))
-
-
-def _existing_parent(path: Path) -> Path:
-    for candidate in (path, *path.parents):
-        if candidate.exists():
-            return candidate
-    return Path()
-
-
-def _write_text_atomically(path: Path, content: str) -> None:
-    tmp = path.with_name(f'.{path.name}.tmp')
-    with tmp.open('w') as fp:
-        fp.write(content)
-        fp.flush()
-        os.fsync(fp.fileno())
-    tmp.replace(path)
-
-
-def _open_folder(path: Path) -> None:
-    commands = {
-        'darwin': ['open', str(path)],
-        'win32': ['explorer', str(path)],
-    }
-    command = commands.get(sys.platform, ['xdg-open', str(path)])
-    subprocess.run(command, check=False)
-
-
-def _manifest_times(ts: datetime) -> dict[str, str]:
-    return {
-        'date': ts.strftime('%Y%m%d'),
-        'ddate': ts.strftime('%Y-%m-%d'),
-        'dtime': ts.strftime('%H:%M:%S'),
-        'hour': ts.strftime('%H'),
-        'minute': ts.strftime('%M'),
-        'month': ts.strftime('%m'),
-        'sdate': ts.strftime('%Y-%m-%d'),
-        'second': ts.strftime('%S'),
-        'stime': ts.strftime('%H-%M-%S'),
-        'time': ts.strftime('%H%M%S'),
-        'timestamp': ts.isoformat(),
-        'year': ts.strftime('%Y'),
-    }
 
 
 def _connection_ready(conn: connection.Connection) -> bool:

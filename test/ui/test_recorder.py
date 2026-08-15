@@ -15,7 +15,7 @@ from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.ui import recorder, session_manifest
+from recs.ui import recorder, recording_paths, session_manifest
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
@@ -732,7 +732,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
     removable.mkdir()
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [removable])
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [removable])
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
     monkeypatch.setattr(
         recorder.shutil,
@@ -774,7 +774,7 @@ def test_disk_emergency_pauses_recording(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [])
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [])
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
     monkeypatch.setattr(
         recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
@@ -803,7 +803,7 @@ def test_disk_pause_resumes_on_removable_disk(
     mounts: list[Path] = []
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: mounts)
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: mounts)
     monkeypatch.setattr(
         recorder.shutil, 'disk_usage', lambda path: DiskUsage(100, 10, 90)
     )
@@ -920,14 +920,14 @@ def test_open_folder_uses_platform_file_manager(
     tmp_path: Path,
 ) -> None:
     commands: list[list[str]] = []
-    monkeypatch.setattr(recorder.sys, 'platform', 'darwin')
+    monkeypatch.setattr(recording_paths.sys, 'platform', 'darwin')
     monkeypatch.setattr(
-        recorder.subprocess,
+        recording_paths.subprocess,
         'run',
         lambda command, check: commands.append(command),
     )
 
-    recorder._open_folder(tmp_path)
+    recording_paths.open_folder(tmp_path)
 
     assert commands == [['open', str(tmp_path)]]
 
@@ -1434,7 +1434,7 @@ def test_daemon_start_after_stop_uses_new_session_directory(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [tmp_path])
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [tmp_path])
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
@@ -1729,7 +1729,7 @@ def test_default_output_directory_uses_session_timestamp(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
-    expected = recorder._session_directory_name(timestamp)
+    expected = recording_paths.session_directory_name(timestamp)
     path = Path(rec.cfg.directory.output_directory) / 'mic.wav'
     path.parent.mkdir(exist_ok=True, parents=True)
     path.touch()
@@ -1767,7 +1767,7 @@ def test_default_output_directory_uses_collision_suffix(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    expected = recorder._session_directory_name(timestamp)
+    expected = recording_paths.session_directory_name(timestamp)
     Path(expected).mkdir()
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
@@ -1782,15 +1782,15 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
     small = tmp_path / 'small'
     large = tmp_path / 'large'
     monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [small, large])
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [small, large])
     monkeypatch.setattr(
-        recorder.shutil,
+        recording_paths.shutil,
         'disk_usage',
         lambda p: DiskUsage(100, 50, 10 if p == small else 90),
     )
 
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
-    cfg = recorder._with_default_output_directory(
+    cfg = recording_paths.with_default_output_directory(
         Cfg(default_record_directory='takes'), timestamp
     )
 
@@ -1804,11 +1804,11 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
-    monkeypatch.setattr(recorder, '_mounted_record_disks', lambda: [])
-    monkeypatch.setattr(recorder.Path, 'home', lambda: tmp_path)
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [])
+    monkeypatch.setattr(recording_paths.Path, 'home', lambda: tmp_path)
 
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
-    cfg = recorder._with_default_output_directory(Cfg(), timestamp)
+    cfg = recording_paths.with_default_output_directory(Cfg(), timestamp)
 
     assert cfg.directory.output_directory == str(
         tmp_path / 'recs' / '2026-06-23 20-34-10'
@@ -1820,7 +1820,9 @@ def test_daemon_default_output_directory_keeps_explicit_directory(
 ) -> None:
     monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
 
-    cfg = recorder._with_default_output_directory(Cfg(output_directory='manual'), 0)
+    cfg = recording_paths.with_default_output_directory(
+        Cfg(output_directory='manual'), 0
+    )
 
     assert cfg.directory.output_directory == 'manual'
 
@@ -1828,7 +1830,9 @@ def test_daemon_default_output_directory_keeps_explicit_directory(
 def test_default_output_directory_replaces_problematic_characters() -> None:
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
 
-    assert recorder._session_directory_name(timestamp) == 'recs- 2026-06-23 20-34-10'
+    assert (
+        recording_paths.session_directory_name(timestamp) == 'recs- 2026-06-23 20-34-10'
+    )
 
 
 def test_manifest_records_source_and_track_lifecycle_events(
