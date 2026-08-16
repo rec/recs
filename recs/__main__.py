@@ -43,6 +43,10 @@ def run() -> int:
             from recs.ui import input_self_test
 
             return input_self_test.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'explain':
+            from recs.ui import session_explain
+
+            return session_explain.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'manifest':
             from recs.ui import session_manifest_check
 
