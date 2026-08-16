@@ -1,11 +1,15 @@
+import json
 import shutil
 import sys
 from pathlib import Path
+
+from reccy import models, rpc
 
 from recs.base.errors import RecsError
 
 from . import paths, renderers
 from .controllers import ServiceController
+from .models import StatusResult
 from .root_user import raise_if_root
 
 COMMANDS = {'install', 'uninstall', 'start', 'stop', 'restart', 'status'}
@@ -49,6 +53,10 @@ def main(argv: list[str]) -> int:
         result = controller.stop()
     elif command == 'restart':
         result = controller.restart()
+    elif command == 'status':
+        result = controller.status()
+        print(json.dumps(_status_payload(result, platform), separators=(',', ':')))
+        return 0
     else:
         result = controller.status()
 
@@ -72,6 +80,22 @@ def _executable() -> Path:
     if path := shutil.which('recs'):
         return Path(path).resolve()
     return argv0.resolve()
+
+
+def _status_payload(
+    result: StatusResult, platform: models.Platform
+) -> dict[str, object]:
+    status = result.model_dump(mode='json')
+    if not status.get('running'):
+        return status
+    try:
+        status['recorder'] = rpc.Client(
+            paths.external_control_endpoint(platform=platform),
+            role='status',
+        ).call('status_snapshot')
+    except (BrokenPipeError, ConnectionError, OSError, TimeoutError) as e:
+        status['recorder_error'] = str(e)
+    return status
 
 
 HELP = """Usage: recs daemon COMMAND [recs options...]

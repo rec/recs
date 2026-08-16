@@ -76,6 +76,7 @@ def test_daemon_status(
 ) -> None:
     monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
     monkeypatch.setattr(cli, 'ServiceController', FakeController)
+    monkeypatch.setattr(cli.rpc, 'Client', FakeRpcClient)
 
     assert cli.main(['status']) == 0
 
@@ -88,10 +89,37 @@ def test_daemon_status_accepts_json_flag(
 ) -> None:
     monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
     monkeypatch.setattr(cli, 'ServiceController', FakeController)
+    monkeypatch.setattr(cli.rpc, 'Client', FakeRpcClient)
 
     assert cli.main(['status', '--json']) == 0
 
     assert '"running":true' in capsys.readouterr().out
+
+
+def test_daemon_status_includes_live_recorder_status(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
+    monkeypatch.setattr(cli, 'ServiceController', FakeController)
+    monkeypatch.setattr(cli.rpc, 'Client', FakeRpcClient)
+
+    assert cli.main(['status']) == 0
+
+    assert '"recorder":{"type":"status_snapshot_result"' in capsys.readouterr().out
+
+
+def test_daemon_status_reports_recorder_connection_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
+    monkeypatch.setattr(cli, 'ServiceController', FakeController)
+    monkeypatch.setattr(cli.rpc, 'Client', BrokenRpcClient)
+
+    assert cli.main(['status']) == 0
+
+    assert '"recorder_error":"offline"' in capsys.readouterr().out
 
 
 def test_daemon_status_rejects_unknown_options(
@@ -106,3 +134,24 @@ def test_daemon_status_rejects_unknown_options(
 
 def _raise_root_error() -> None:
     raise RecsError('recs daemon must not run as root')
+
+
+class FakeRpcClient:
+    def __init__(self, endpoint: object, *, role: str) -> None:
+        self.endpoint = endpoint
+        self.role = role
+
+    def call(self, command: str) -> dict[str, object]:
+        assert command == 'status_snapshot'
+        return {
+            'type': 'status_snapshot_result',
+            'recording': {'paused': False, 'stopped': False},
+        }
+
+
+class BrokenRpcClient:
+    def __init__(self, endpoint: object, *, role: str) -> None:
+        pass
+
+    def call(self, command: str) -> dict[str, object]:
+        raise ConnectionError('offline')
