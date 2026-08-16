@@ -19,8 +19,6 @@ manifest reads, initial source-recorder and GUI-server splits, clearer
 `DeviceLifecycle` state names, the explicit recording runtime-state object, the
 current glossary, and the current runtime architecture document.
 
-## CPU, latency, and memory issues
-
 ## Maintainability and responsibility issues
 
 ### Recorder still exposes collaborator internals
