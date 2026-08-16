@@ -57,3 +57,87 @@ def test_manifest_check_reports_unfinished_files(tmp_path: Path) -> None:
         f'{manifest}: missing footer',
         f'{manifest}: unfinished file {audio.as_posix()}',
     ]
+
+
+def test_manifest_check_reports_file_that_finishes_before_it_starts(
+    tmp_path: Path,
+) -> None:
+    audio = tmp_path / 'take.wav'
+    audio.write_bytes(b'0' * 100)
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_started","timestamp":"start","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32,'
+        '"frame_count":100}\n'
+        '{"type":"file_finished","timestamp":"end","path":"take.wav",'
+        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32,'
+        '"frame_count":50}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: take.wav finishes before it starts'
+    ]
+
+
+def test_manifest_check_reports_nonmonotonic_track_frames(tmp_path: Path) -> None:
+    first = tmp_path / 'first.wav'
+    second = tmp_path / 'second.wav'
+    first.touch()
+    second.touch()
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_finished","timestamp":"a","path":"first.wav",'
+        '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
+        '"bit_depth":32,"frame_count":200}\n'
+        '{"type":"file_finished","timestamp":"b","path":"second.wav",'
+        '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
+        '"bit_depth":32,"frame_count":100}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: frame count moved backwards for Mic track 1'
+    ]
+
+
+def test_manifest_check_reports_implausibly_small_file(tmp_path: Path) -> None:
+    audio = tmp_path / 'take.wav'
+    audio.write_bytes(b'0' * 10)
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_started","timestamp":"start","path":"take.wav",'
+        '"track":1,"channels":2,"sample_rate":48000,"bit_depth":32,'
+        '"frame_count":0}\n'
+        '{"type":"file_finished","timestamp":"end","path":"take.wav",'
+        '"track":1,"channels":2,"sample_rate":48000,"bit_depth":32,'
+        '"frame_count":48000}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: take.wav is smaller than 48000 frames at 2 channels/32 bits'
+    ]
+
+
+def test_manifest_check_reports_broken_disk_switch_link(tmp_path: Path) -> None:
+    continued = tmp_path / 'next.jsonl'
+    continued.write_text(
+        '{"type":"header","version":2,"started_at":"later",'
+        '"continued_from":"wrong.jsonl"}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"disk_switch_continued_at","timestamp":"switch",'
+        '"continued_at":"next.jsonl"}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{continued}: continued_from does not point back'
+    ]

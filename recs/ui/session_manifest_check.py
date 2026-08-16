@@ -34,6 +34,7 @@ def check(path: Path) -> list[str]:
     )
     for file in sorted(started - finished):
         errors.append(f'{path}: unfinished file {file.as_posix()}')
+    started_records = {f.path: f for f in manifest.files if f.type == 'file_started'}
     for file in manifest.files:
         if not file.path:
             errors.append(f'{path}: file path must not be empty')
@@ -41,6 +42,85 @@ def check(path: Path) -> list[str]:
         file_path = _file_path(path, file.path)
         if not file_path.exists():
             errors.append(f'{path}: missing file {file.path}')
+            continue
+        errors.extend(_file_size_errors(path, file_path, file, started_records))
+    errors.extend(_frame_errors(path, manifest.files))
+    errors.extend(_disk_switch_errors(path, manifest))
+    return errors
+
+
+def _file_size_errors(
+    manifest_path: Path,
+    file_path: Path,
+    file: session_manifest.ManifestFile,
+    started: dict[str, session_manifest.ManifestFile],
+) -> list[str]:
+    if file.type != 'file_finished' or file.frame_count is None:
+        return []
+    if (start := started.get(file.path)) is None or start.frame_count is None:
+        return []
+    frames = file.frame_count - start.frame_count
+    if frames < 0:
+        return []
+    expected_bytes = frames * file.channels * file.bit_depth // 8
+    if file_path.stat().st_size < expected_bytes:
+        return [
+            f'{manifest_path}: {file.path} is smaller than '
+            f'{frames} frames at {file.channels} channels/{file.bit_depth} bits'
+        ]
+    return []
+
+
+def _frame_errors(
+    manifest_path: Path, files: list[session_manifest.ManifestFile]
+) -> list[str]:
+    errors: list[str] = []
+    started = {f.path: f for f in files if f.type == 'file_started'}
+    last_frame: dict[tuple[str | None, int], int] = {}
+    for file in files:
+        if file.frame_count is None:
+            continue
+        if (
+            file.type == 'file_finished'
+            and (start := started.get(file.path)) is not None
+            and start.frame_count is not None
+            and file.frame_count < start.frame_count
+        ):
+            errors.append(f'{manifest_path}: {file.path} finishes before it starts')
+            continue
+        key = file.source, file.track
+        previous = last_frame.get(key)
+        if previous is not None and file.frame_count < previous:
+            errors.append(
+                f'{manifest_path}: frame count moved backwards for '
+                f'{file.source or "unknown source"} track {file.track}'
+            )
+        last_frame[key] = file.frame_count
+    return errors
+
+
+def _disk_switch_errors(
+    manifest_path: Path, manifest: session_manifest.SessionManifest
+) -> list[str]:
+    errors: list[str] = []
+    if manifest.continued_from:
+        source = _file_path(manifest_path, manifest.continued_from)
+        if not source.exists():
+            errors.append(f'{manifest_path}: continued_from manifest is missing')
+    for event in manifest.events:
+        if event.type != 'disk_switch_continued_at' or event.continued_at is None:
+            continue
+        continued = _file_path(manifest_path, event.continued_at)
+        if not continued.exists():
+            errors.append(f'{manifest_path}: continued manifest is missing')
+            continue
+        try:
+            next_manifest = session_manifest.read(continued)
+        except OSError as e:
+            errors.append(f'{manifest_path}: continued manifest cannot be read: {e}')
+            continue
+        if next_manifest.continued_from != str(manifest_path):
+            errors.append(f'{continued}: continued_from does not point back')
     return errors
 
 
