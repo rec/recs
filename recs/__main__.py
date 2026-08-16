@@ -35,6 +35,10 @@ def run() -> int:
             from recs.ui import session_browser
 
             return session_browser.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'session':
+            from recs.ui import session_browser
+
+            return session_browser.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'test-input':
             from recs.ui import input_self_test
 
