@@ -54,6 +54,7 @@ class RecordingControl:
         cfg_changed: Callable[[Cfg], None],
         rows: Callable[[], list[dict[str, object]]],
         error_records: Callable[[], list[ErrorRecord]],
+        midi_status: Callable[[], list[dict[str, object]]],
         manifest_path: Callable[[], Path],
         receive_pending_updates: Callable[[], None],
         finish_manifest: Callable[[], None],
@@ -70,6 +71,7 @@ class RecordingControl:
         self.cfg_changed = cfg_changed
         self.rows = rows
         self.error_records = error_records
+        self.midi_status = midi_status
         self.manifest_path = manifest_path
         self.receive_pending_updates = receive_pending_updates
         self.finish_manifest = finish_manifest
