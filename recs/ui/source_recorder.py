@@ -449,14 +449,18 @@ class SourceRecorder(Runnables):
 
         end_timestamp = update.timestamp + len(update.array) / self.source.samplerate
         cb = {c: c.to_block(update.array) for c in self.channel_writers}
-        should_record = self.cfg.recording.band_mode and any(
-            c.should_record(b) for c, b in cb.items()
+        should_record = {c: c.should_record(b) for c, b in cb.items()}
+        band_should_record = self.cfg.recording.band_mode and any(
+            should_record.values()
         )
         msgs: dict[str, ChannelState] = {}
         for writer, block in cb.items():
             forced = bool(set(writer.track.channels) & self.pending_active_channels)
             msgs[writer.track.name] = writer.receive_update(
-                block, end_timestamp, should_record or forced, u.end_frame
+                block,
+                end_timestamp,
+                should_record[writer] or band_should_record or forced,
+                u.end_frame,
             )
         self.pending_active_channels = set()
         calibration = self.calibration.update(cb)

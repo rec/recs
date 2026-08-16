@@ -130,11 +130,12 @@ class ChannelWriter(Runnable):
         self,
         block: Block,
         timestamp: float,
-        should_record: bool = False,
+        should_record: bool | None = None,
         timeline_frame: int = 0,
     ) -> ChannelState:
         with self._lock:
-            should_record = should_record or self.should_record(block)
+            if should_record is None:
+                should_record = self.should_record(block)
             return self._receive_block(block, timestamp, should_record, timeline_frame)
 
     def should_record(self, block: Block) -> bool:

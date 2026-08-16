@@ -121,6 +121,24 @@ def test_channel_noise_floor_overrides_global_floor(mock_devices: None) -> None:
     assert writer.should_record(block)
 
 
+def test_channel_writer_uses_precomputed_recording_decision(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    block = Block(block=II[0])
+    writer = ChannelWriter(cfg, TimeSettings[int](stop_after_quiet=50), track)
+    monkeypatch.setattr(
+        writer,
+        'should_record',
+        lambda block: pytest.fail('should_record should not be recomputed'),
+    )
+
+    writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
+
+    assert not writer._state().is_active
+
+
 @tdir
 def test_channel_writer_records_max_write_seconds(
     monkeypatch: pytest.MonkeyPatch, mock_devices: None

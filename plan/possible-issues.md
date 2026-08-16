@@ -21,16 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### Audio block processing repeats per-track reductions
-
-`SourceRecorder._receive_update()` constructs a `Block` for every track, then
-each `ChannelWriter` computes maxima, minima, RMS-like volume, noise-floor
-checks, and moving averages. For mono or stereo tracks this is simple, but on
-many channels the code repeats array slicing and reductions once per track.
-
-This design is readable and keeps `ChannelWriter` independent, but the cost
-should be measured before changing the hot path.
-
 ### File-size bookkeeping still stats the active file
 
 `FileList.total_size` already caches completed files, so the old concern about
