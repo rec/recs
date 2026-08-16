@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from threa import Runnable
 
 from recs.audio.block import Block
 from recs.base.state import ChannelState
@@ -195,6 +196,38 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
     transport.stop()
 
 
+def test_source_recorder_applies_control_updates_without_audio(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    stop_event = threading.Event()
+    cfg = Cfg(record_everything=True)
+    connection = OneMessageControlConnection(
+        source_recorder.SourceControl(cfg=cfg, cfg_revision=1),
+        stop_event,
+    )
+    source.input_stream = lambda sdtype, update_callback: IdleInputStream()
+    monkeypatch.setattr(source_recorder, 'InputBuffer', IdleInputBuffer)
+
+    recorder = SourceRecorder(
+        Cfg(),
+        connection,
+        stop_event,
+        [Track(source, '1')],
+        SourceUpdateTransport(BlockingConnection()),
+    )
+
+    assert recorder.cfg.recording.record_everything is True
+    assert recorder.buffer.cfg.recording.record_everything is True
+    assert recorder.pending_config_revisions == [1]
+
+
 def test_source_update_merge_summarizes_warning_backlog() -> None:
     first = SourceUpdate(
         channels={'1': ChannelState()},
@@ -361,6 +394,37 @@ class BlockingConnection:
 class EmptyControlConnection:
     def poll(self) -> bool:
         return False
+
+
+class OneMessageControlConnection:
+    def __init__(self, message: object, stop_event: threading.Event) -> None:
+        self.message: object | None = message
+        self.stop_event = stop_event
+
+    def poll(self) -> bool:
+        return self.message is not None
+
+    def recv(self) -> object:
+        message = self.message
+        self.message = None
+        self.stop_event.set()
+        return message
+
+
+class IdleInputBuffer:
+    def __init__(self, cfg: Cfg, samplerate: float) -> None:
+        self.cfg = cfg
+        self.samplerate = samplerate
+
+    def get(self, *args: object, **kwargs: object) -> object:
+        raise source_recorder.Empty
+
+    def put(self, update: object) -> None:
+        pass
+
+
+class IdleInputStream(Runnable):
+    pass
 
 
 def _eventually(check: Callable[[], bool]) -> bool:
