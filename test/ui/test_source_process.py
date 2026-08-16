@@ -1,16 +1,20 @@
+import multiprocessing as mp
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
+import soundfile
 
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
+from recs.cfg.file_source import FileSource
 from recs.cfg.track import Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
-from recs.ui.source_recorder import SourceControl, SourceFailure
+from recs.ui.source_recorder import SourceControl, SourceFailure, SourceUpdate
 
 
 class FakeConnection:
@@ -394,6 +398,43 @@ def test_source_process_ignores_broken_connection_poll(
     owner.join()
 
     assert owner.stopped
+
+
+def test_source_process_join_drains_real_child_final_updates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(source_process, 'mp', mp.get_context('fork'))
+    input_path = tmp_path / 'input.wav'
+    output_path = tmp_path / 'output'
+    audio = np.resize(np.array([-0.5, 0.5], dtype=np.float32), (48_000, 1))
+    soundfile.write(input_path, audio, 48_000)
+    source = FileSource(input_path)
+    owner = SourceProcess(
+        Cfg(
+            output_directory=str(output_path),
+            noise_floor=20,
+            quiet_after_end=0,
+            quiet_before_start=0,
+            shortest_file_time=0,
+            silent=True,
+            stop_after_quiet=0,
+        ),
+        [Track(source, '1')],
+    )
+
+    owner.start()
+    deadline = time.monotonic() + 5
+    while owner.is_alive and time.monotonic() < deadline:
+        time.sleep(0.01)
+    owner.join()
+    updates = [
+        update for update in owner.take_updates() if isinstance(update, SourceUpdate)
+    ]
+
+    assert updates
+    assert any(update.file_records for update in updates)
+    assert any(update.file_end_frames for update in updates)
+    assert any(path.exists() for update in updates for path in update.files)
 
 
 def test_source_process_reports_recorder_start_failure(
