@@ -57,6 +57,8 @@ def _file_size_errors(
 ) -> list[str]:
     if file.type != 'file_finished' or file.frame_count is None:
         return []
+    if file.channels is None or file.bit_depth is None:
+        return []
     if (start := started.get(file.path)) is None or start.frame_count is None:
         return []
     frames = file.frame_count - start.frame_count
@@ -78,7 +80,7 @@ def _frame_errors(
     started = {f.path: f for f in files if f.type == 'file_started'}
     last_frame: dict[tuple[str | None, int], int] = {}
     for file in files:
-        if file.frame_count is None:
+        if file.frame_count is None or file.track is None:
             continue
         if (
             file.type == 'file_finished'

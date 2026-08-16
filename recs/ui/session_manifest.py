@@ -60,10 +60,10 @@ class ManifestFile(BaseModel):
     timestamp: str
     frame_count: int | None = None
     path: str
-    track: int
-    channels: int
-    sample_rate: int
-    bit_depth: int
+    track: int | None = None
+    channels: int | None = None
+    sample_rate: int | None = None
+    bit_depth: int | None = None
     source: str | None = None
     message_count: int | None = None
     timing_source: str | None = None
