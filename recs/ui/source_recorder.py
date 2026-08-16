@@ -37,6 +37,9 @@ class BufferStats(BaseModel):
     dropped_frames: int = 0
     last_drop_timestamp: float = 0.0
     max_write_seconds: float = 0.0
+    source_update_age_seconds: float = 0.0
+    max_source_update_age_seconds: float = 0.0
+    max_source_update_send_seconds: float = 0.0
 
 
 class SourceUpdate(NamedTuple):
@@ -79,6 +82,9 @@ class SourceUpdateTransport:
         self.connection = connection
         self.lock = threading.Lock()
         self.message: SourceUpdate | SourceFailure | None = None
+        self.message_timestamp: float | None = None
+        self.max_message_age_seconds = 0.0
+        self.max_send_seconds = 0.0
         self.available = threading.Event()
         self.idle = threading.Event()
         self.idle.set()
@@ -94,6 +100,8 @@ class SourceUpdateTransport:
 
     def publish(self, message: SourceUpdate | SourceFailure) -> None:
         with self.lock:
+            if self.message is None:
+                self.message_timestamp = monotonic()
             if isinstance(self.message, SourceUpdate) and isinstance(
                 message, SourceUpdate
             ):
@@ -117,10 +125,14 @@ class SourceUpdateTransport:
             self.available.clear()
             with self.lock:
                 message, self.message = self.message, None
+                message_timestamp, self.message_timestamp = self.message_timestamp, None
             if message is None:
                 continue
+            message = self._with_transport_stats(message, message_timestamp)
             try:
+                start = monotonic()
                 self.connection.send(message)
+                self.max_send_seconds = max(self.max_send_seconds, monotonic() - start)
             except (BrokenPipeError, EOFError, OSError):
                 return
             with self.lock:
@@ -128,6 +140,26 @@ class SourceUpdateTransport:
                     self.idle.set()
                 else:
                     self.available.set()
+
+    def _with_transport_stats(
+        self,
+        message: SourceUpdate | SourceFailure,
+        message_timestamp: float | None,
+    ) -> SourceUpdate | SourceFailure:
+        if not isinstance(message, SourceUpdate):
+            return message
+        age = 0.0 if message_timestamp is None else monotonic() - message_timestamp
+        self.max_message_age_seconds = max(self.max_message_age_seconds, age)
+        stats = message.buffer_stats or BufferStats()
+        return message._replace(
+            buffer_stats=stats.model_copy(
+                update={
+                    'source_update_age_seconds': age,
+                    'max_source_update_age_seconds': self.max_message_age_seconds,
+                    'max_source_update_send_seconds': self.max_send_seconds,
+                }
+            )
+        )
 
 
 class SourceFile(NamedTuple):

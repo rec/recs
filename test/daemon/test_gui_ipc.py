@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -339,6 +341,22 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
     ]
 
 
+def test_gui_listener_queues_row_writes_when_connection_blocks() -> None:
+    connection = BlockingWriteConnection()
+    listener = gui_ipc.GuiListener(connection, lambda event: None)
+    listener.start()
+
+    assert listener.write('first\n')
+    assert connection.started.wait(0.1)
+    start = time.monotonic()
+    assert listener.write('second\n')
+
+    assert time.monotonic() - start < 0.1
+    connection.release.set()
+    assert _eventually(lambda: connection.sent == ['first\n', 'second\n'])
+    listener.close()
+
+
 def test_client_shutdown_propagates_to_all_listeners() -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     first = FakeConnection(
@@ -608,6 +626,22 @@ class FakeConnection:
 
     def close(self) -> None:
         self.closed = True
+
+
+class BlockingWriteConnection(FakeConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def write(self, message: str) -> bool:
+        self.started.set()
+        self.release.wait()
+        return super().write(message)
+
+    def close(self) -> None:
+        self.release.set()
+        super().close()
 
 
 def _eventually(check: Callable[[], bool]) -> bool:

@@ -196,7 +196,8 @@ class DaemonGuiServer(Runnable):
         with self.lock:
             listeners = list(self.clients)
         for listener in listeners:
-            if not listener.write(message):
+            failed = getattr(listener, 'failed', lambda: False)
+            if failed() or not listener.write(message):
                 self._remove(listener)
 
     def stop(self) -> None:
@@ -309,17 +310,55 @@ class GuiListener:
             on_validation_error=append_protocol_error,
             logger=LOGGER,
         )
+        self._pending_message: str | None = None
+        self._write_lock = threading.Lock()
+        self._write_available = threading.Event()
+        self._write_stopped = threading.Event()
+        self._writer_started = False
+        self._failed = False
 
     def start(self) -> None:
         threading.Thread(target=self._read, daemon=True, name='DaemonGuiClient').start()
+        self._writer_started = True
+        threading.Thread(
+            target=self._write_pending, daemon=True, name='DaemonGuiRows'
+        ).start()
 
     def write(self, message: str) -> bool:
+        if self._failed:
+            return False
+        if not self._writer_started:
+            return self.protocol.write(message)
+        with self._write_lock:
+            self._pending_message = message
+        self._write_available.set()
+        return True
+
+    def failed(self) -> bool:
+        return self._failed
+
+    def _write_pending(self) -> None:
+        while not self._write_stopped.is_set():
+            self._write_available.wait()
+            self._write_available.clear()
+            with self._write_lock:
+                message, self._pending_message = self._pending_message, None
+            if message is None:
+                continue
+            if not self.protocol.write(message):
+                self._failed = True
+                self.close()
+                return
+
+    def write_now(self, message: str) -> bool:
         return self.protocol.write(message)
 
     def write_model(self, message: BaseModel, *, exclude_none: bool = False) -> bool:
-        return self.protocol.write_model(message, exclude_none=exclude_none)
+        return self.write_now(ipc.message_json(message, exclude_none=exclude_none))
 
     def close(self) -> None:
+        self._write_stopped.set()
+        self._write_available.set()
         self.protocol.close()
 
     def _read(self) -> None:

@@ -21,17 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### Source and event transport backpressure is hard to see
-
-Source updates coalesce, which protects capture liveness, but it hides how long
-the parent has been unable to consume source state. Event-subscriber writes can
-also become part of the recorder publication path. A stalled local client should
-not delay recording or status publication.
-
-The code needs explicit queue/pipe age and blocked-write metrics, bounded or
-disconnectable event delivery, and tests for stopped parent, stopped child, and
-non-reading event clients.
-
 ### Device query process has no backoff or bounded result queue
 
 `DeviceQueryStream` restarts after missing updates, but repeated PortAudio

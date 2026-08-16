@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -166,6 +167,34 @@ def test_source_update_finish_waits_for_final_send() -> None:
     assert finished.is_set()
 
 
+def test_source_update_transport_reports_blocked_send_time() -> None:
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    update = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=[],
+        frames=512,
+        source_name='Mic',
+        buffer_stats=source_recorder.BufferStats(),
+    )
+    transport.start()
+
+    transport.publish(update)
+    assert connection.started.wait(0.1)
+    time.sleep(0.01)
+    transport.publish(update)
+    connection.release.set()
+    assert connection.finished.wait(0.1)
+    assert _eventually(lambda: len(connection.messages) == 2)
+
+    second = connection.messages[1]
+    assert isinstance(second, SourceUpdate)
+    assert second.buffer_stats is not None
+    assert second.buffer_stats.source_update_age_seconds > 0
+    assert second.buffer_stats.max_source_update_send_seconds > 0
+    transport.stop()
+
+
 def test_source_update_merge_summarizes_warning_backlog() -> None:
     first = SourceUpdate(
         channels={'1': ChannelState()},
@@ -318,8 +347,19 @@ class BlockingConnection:
         self.started = threading.Event()
         self.release = threading.Event()
         self.finished = threading.Event()
+        self.messages: list[object] = []
 
     def send(self, message: object) -> None:
         self.started.set()
         self.release.wait()
+        self.messages.append(message)
         self.finished.set()
+
+
+def _eventually(check: Callable[[], bool]) -> bool:
+    deadline = time.monotonic() + 1
+    while time.monotonic() < deadline:
+        if check():
+            return True
+        time.sleep(0.01)
+    return False
