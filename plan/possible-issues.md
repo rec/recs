@@ -44,22 +44,24 @@ consumers more likely to misread the sequence.
 `RecordingControl.receive()` drains all GUI requests and all external requests in
 one call. `DeviceLifecycle._drain()` drains a source pipe until it is empty.
 `SourceRecorder._receive_control_messages()` drains all source-control messages
-before continuing block processing. In normal traffic this is fine, but a bursty
-client or a child emitting many queued updates can monopolize the recorder loop
-and delay device polling, disk checks, UI refresh, or audio block processing.
+before continuing block processing.
 
-Bounded draining would make latency easier to reason about. If the current
-unbounded behavior is required, it should be documented as an intentional
-priority decision.
+This unbounded draining is intentional for disk-emergency and source-shutdown
+paths. When the recorder is close to running out of disk space, or when someone
+is trying to insert a replacement disk in time, the best behavior is to process
+as much pending control and source state as possible before giving up. The issue
+is not that draining is unbounded; the issue is that this priority is not
+documented at the loop boundaries, so a future cleanup could accidentally impose
+a fairness limit that makes emergency handling worse.
 
 ### GUI control requests can block GUI listener threads indefinitely
 
 `recs/daemon/gui_ipc.py` creates a `ControlRequest`, appends it to the daemon
 queue, and then the listener thread waits in `wait_for_response()` with no
-timeout. If the recorder loop is stopped, hung in shutdown, or busy in a long
-disk switch, that listener thread can wait forever. This is probably acceptable
-for a local daemon if shutdown tears the process down, but it is a race worth
-calling out because it affects control UX and test determinism.
+timeout. Recs is expected to have at most one GUI/control client, so this is not
+a multiclient scaling concern. The remaining issue is single-client lifecycle:
+if the recorder loop is stopped, hung in shutdown, or busy in a long disk
+switch, that one listener thread can wait forever.
 
 ### Live mutable configuration is not snapshot-based
 
@@ -104,12 +106,16 @@ can add filesystem overhead proportional to the number of output files. This is
 not likely to dominate normal recording, but it can matter in long sessions with
 many split files and frequent UI refresh.
 
-### Queue and pipe draining can amplify latency under stress
+### Queue and pipe draining depends on emergency-first priorities
 
 The child process queues blocks in `InputBuffer`, then sends merged status
-through a multiprocessing pipe. The parent may also drain multiple source pipes
-and control queues. Under normal load this reduces overhead, but under stress it
-can convert a disk stall or slow UI/control client into visible latency spikes.
+through a multiprocessing pipe. The parent may also drain source pipes and
+control queues. Under normal load this reduces overhead. Under disk pressure,
+that same behavior intentionally favors clearing pending recording state over UI
+fairness, because the recorder may be close to running out of writable space.
+
+That priority should be documented and tested so later latency work does not
+turn emergency draining into best-effort draining.
 
 ## Memory and backpressure issues
 
@@ -205,7 +211,9 @@ broadcasts rows, and forwards rows to external IPC. Locks are present, but the
 class still combines transport management with status/state aggregation.
 
 This makes shutdown, testing, and failure handling harder than if listener
-management and status publication were separate units.
+management and status publication were separate units. It does not need to scale
+to multiple simultaneous clients; a future change should reject additional
+clients instead of adding multiclient coordination.
 
 ### Tests are large around old ownership boundaries
 
@@ -280,9 +288,9 @@ users who only see CLI help or daemon status.
 
 The program supports terminal UI, GUI IPC, external IPC, daemon status files,
 key recording, remote display, and direct CLI modes. Each is useful, but together
-they create many ways to observe and mutate the same recording state. This
-raises the chance of inconsistent snapshots or behavior that is only tested
-through one surface.
+they create many ways for the single active client or local operator to observe
+and mutate the same recording state. This raises the chance of inconsistent
+snapshots or behavior that is only tested through one surface.
 
 ### Live mutable settings conflict with reproducibility
 
@@ -316,18 +324,96 @@ goals and can obscure which parts of the recording pipeline are active.
 
 ## Suggested remediation order
 
-1. Runtime-test disk switching and source shutdown with real child processes,
+1. Write a glossary of terms in `recs` like source, device, hardware, channel,
+   track, track name, channel writer, and file source into `docs/glossary.md`.
+2. Runtime-test disk switching and source shutdown with real child processes,
    including final manifest records and late source updates.
-2. Put explicit bounds or time budgets around queue and pipe draining in the main
-   loop, or document why unbounded draining is the intended priority.
-3. Split `RecordingControl` into protocol dispatch, recording/session commands,
+3. Document why queue and pipe draining is intentionally unbounded in emergency
+   paths, and add focused tests that preserve that priority.
+4. Split `RecordingControl` into protocol dispatch, recording/session commands,
    and track/config editing.
-4. Remove or narrow remaining `Recorder` compatibility properties that expose
+5. Remove or narrow remaining `Recorder` compatibility properties that expose
    collaborator internals.
-5. Add a current architecture document and mark old handover material as stale or
+6. Add a current architecture document and mark old handover material as stale or
    historical.
-6. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
+7. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
    daemon GUI enabled, and disk-switch checks active.
+
+## More work
+
+### Runtime correctness
+
+- Add a single-client guard in the GUI and external control transports so the
+  code rejects extra clients instead of preparing for multiclient coordination.
+- Add a shutdown response policy for the one allowed GUI/control client so
+  `ControlRequest.wait_for_response()` cannot wait forever during recorder exit.
+- Make live config changes explicitly snapshot-based in the manifest: record
+  when the parent accepted a change and when each source child applied it, or
+  document that child application is asynchronous.
+- Give disk-switch manifest events distinct names or documented phases so
+  consumers can tell pre-close continuity from post-open completion.
+
+### CPU and memory
+
+- Measure the cost of per-track `Block` construction and reductions with the
+  expected maximum channel count before changing the hot path.
+- Cache or incrementally maintain file-size totals if status refreshes prove to
+  stat many files in long sessions.
+- Replace global free-memory-only input buffering with an audio-seconds limit, a
+  byte limit, or a documented reason that the current unbounded queue is better.
+- Bound or summarize pending `SourceUpdate` warning and file metadata growth
+  during warning storms and rapid split-file tests.
+- Document the memory cost of `quiet_before_start` and `quiet_after_end` for
+  high-channel-count sessions.
+- Stream manifest reads in validation and browsing commands instead of loading
+  whole JSONL files.
+
+### Maintainability
+
+- Split `SourceRecorder` so realtime input buffering, source-control messages,
+  calibration measurement, file event collection, and update transport have
+  smaller ownership boundaries.
+- Split `DaemonGuiServer` into listener management, status publication, and
+  recorder-control queueing.
+- Reduce `Cfg` and `cfg/cli.py` duplication, or document the intended source of
+  truth for defaults, help text, mutability, and validation.
+- Move more tests from `test/ui/test_recorder.py` to focused collaborator test
+  files while keeping a small recorder-level integration suite.
+
+### Naming and state
+
+- Rename or document ambiguous lifecycle dictionaries such as `hardware`,
+  `files`, `sources`, `present`, `failed`, and `frames`.
+- Replace `recording_paused`, `recording_stopped`, `session_stopped`, and
+  `shutdown_started` with an explicit recording/session state model, or document
+  their allowed combinations.
+- Clarify the difference between `DiskMonitor` as policy state and `DiskControl`
+  as the side-effect owner.
+
+### Documentation
+
+- Mark `doc/handover-broken.md` as historical or replace it with a current
+  refactor status document.
+- Update `plan/split-record.md` so it distinguishes completed work from
+  remaining work.
+- Write a current runtime architecture document covering loop order,
+  parent/child source protocol, disk-switch lifecycle, daemon GUI flow, external
+  IPC flow, and manifest ownership.
+- Surface Raspberry Pi CPU, memory, and storage assumptions in CLI help, daemon
+  status, or operational docs.
+
+### Feature boundaries
+
+- Decide which control surface is canonical for each operation and make the
+  other surfaces use that path rather than duplicating behavior.
+- Add clearer manifest/session reporting for live mutable settings so a session
+  can be reconstructed even when settings changed during recording.
+- Keep automatic disk switching as a special high-risk feature with isolated
+  runtime tests.
+- Document `record_key_all_apps` privacy and UX implications before making it a
+  normal daemon workflow.
+- Separate dry-run, calibration, and silence-preview user-facing semantics even
+  if they continue to share the same lower-level `do_not_record` path.
 
 ## Additional work beyond the prompt
 
