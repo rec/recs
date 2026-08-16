@@ -2,90 +2,111 @@
 
 ## Scope
 
-This document lists likely issues in the current `recs` codebase after the
-recorder split refactor. It focuses on runtime correctness, CPU and memory use,
-race conditions, readability, maintainability, naming, documentation drift, and
-features that may conflict with each other.
+This document lists likely remaining issues in the current `recs` codebase. It
+focuses on runtime correctness, CPU and memory use, race conditions,
+readability, maintainability, naming, documentation drift, and features that may
+conflict with each other.
 
 This is an analysis document. It does not claim every item is a confirmed bug in
-normal use. Items that depend on hardware, daemon mode, removable disks, or long
-recordings need runtime verification.
+normal use. Items that depend on Raspberry Pi hardware, daemon mode, removable
+disks, network failure, or long recordings still need runtime verification.
+
+Resolved items from earlier reviews have been removed. That includes the GUI and
+external single-client guards, GUI shutdown-response timeout, live config
+revision manifest events, distinct disk-switch continuation events, bounded
+audio callback buffering, bounded merged source-update metadata, streaming
+manifest reads, initial source-recorder and GUI-server splits, clearer
+`DeviceLifecycle` state names, the explicit recording runtime-state object, the
+current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
+
+### Disk stalls can still lose capture blocks
+
+`SourceRecorder` writes audio files from the same child process and loop that
+drains the audio callback queue. A blocked `soundfile.write()` stops queue
+consumption. The callback queue is now bounded by audio seconds, which makes the
+memory risk explicit, but it also means a sustained storage stall can still drop
+whole input blocks once the queue fills.
+
+Flash media can pause during garbage collection, heat throttling, unplug/replug,
+remount, or I/O errors. This needs direct measurement on the target Raspberry Pi
+and USB media before relying on the daemon for a show.
+
+### Manifest fsync runs in the recorder loop
+
+Every manifest record flushes and calls `fsync` in
+`recs/ui/session_manifest.py`. Device warnings, buffer warnings, protocol
+errors, control events, and disk events therefore add synchronous storage
+latency to the parent recorder loop.
+
+Append-only recovery is useful, but durability probably needs a bounded batching
+policy plus a forced final fsync on orderly stop. Manifest write failure should
+become a visible recorder error without stopping source capture.
 
 ### Source shutdown can still lose or reorder final state
 
 `recs/ui/source_process.py` drains child updates only after the child process is
-joined or terminated. `recs/ui/source_recorder.py` also batches source updates in
-`SourceUpdateTransport` and waits only `UPDATE_DRAIN_TIMEOUT` during finish. This
-keeps shutdown fast, but it leaves a narrow window where a final update, file end
-frame, calibration result, or buffer warning can be merged, skipped, or arrive
-after the parent has already moved on.
+joined or terminated. `SourceUpdateTransport` coalesces updates and waits only
+`UPDATE_DRAIN_TIMEOUT` during finish. This keeps shutdown fast, but it leaves a
+narrow window where a final update, file end frame, calibration result, or
+buffer warning can be merged, skipped, or arrive after the parent has already
+moved on.
 
 The most sensitive callers are disk switch, stop recording, source reap, and
 stalled-source handling. Those paths depend on final file records and final
 track-stopped events being observed before manifests are closed.
 
-### Disk switching stops all hardware through a synchronous hot path
+### Source process failure can discard diagnostic detail
 
-`recs/ui/disk_control.py` stops and joins each hardware source in
-`switch_recording_disk()`, drains pending updates, closes the current manifest,
-changes the output directory, and starts a new manifest. That is a lot of
-mutable state in one operation. A child process that reaches the two-second join
-timeout can be terminated while still trying to flush updates or close files.
+The child reports selected `OSError`, `RuntimeError`, and `ValueError` failures
+as `SourceFailure`. Other exceptions can still terminate the child with less
+context. Forced termination after a join timeout can also discard pending source
+updates.
 
-The manifest currently records both a pre-close `disk_switch_finished` event and
-a post-open `disk_switch_finished` event with different fields. That may be
-intentional continuity metadata, but the shared event name makes downstream
-consumers more likely to misread the sequence.
+Failure reports should include exit code, final frame count, last callback
+timestamp, and whether the stop was expected unplug, controlled stop, crash, or
+forced termination.
 
-### Main-loop draining is unbounded in several places
+### External control requests can still wait forever
 
-`RecordingControl.receive()` drains all GUI requests and all external requests in
-one call. `DeviceLifecycle._drain()` drains a source pipe until it is empty.
-`SourceRecorder._receive_control_messages()` drains all source-control messages
-before continuing block processing.
+GUI control requests now have a finite wait policy, and the transports reject
+extra simultaneous clients. External RPC control requests still block in
+`ExternalServer.rpc_response()` until the recorder loop responds or the external
+server stops.
 
-This unbounded draining is intentional for disk-emergency and source-shutdown
-paths. When the recorder is close to running out of disk space, or when someone
-is trying to insert a replacement disk in time, the best behavior is to process
-as much pending control and source state as possible before giving up. The issue
-is not that draining is unbounded; the issue is that this priority is not
-documented at the loop boundaries, so a future cleanup could accidentally impose
-a fairness limit that makes emergency handling worse.
+That is no longer a multiclient scaling issue, but it remains a single-client
+lifecycle issue if the recorder loop is blocked in storage, shutdown, or a long
+disk switch. External RPC should mirror the GUI timeout/error behavior.
 
-### GUI control requests can block GUI listener threads indefinitely
+### Startup settings failures may restart without useful durable state
 
-`recs/daemon/gui_ipc.py` creates a `ControlRequest`, appends it to the daemon
-queue, and then the listener thread waits in `wait_for_response()` with no
-timeout. Recs is expected to have at most one GUI/control client, so this is not
-a multiclient scaling concern. The remaining issue is single-client lifecycle:
-if the recorder loop is stopped, hung in shutdown, or busy in a long disk
-switch, that one listener thread can wait forever.
+Invalid JSON, invalid saved attributes, unreadable settings, missing configured
+files, or unwritable settings paths can raise during startup or settings save.
+Systemd may restart the daemon, but a separate local status snapshot may not
+explain the loop.
 
-### Live mutable configuration is not snapshot-based
+Startup failures should write a small durable failed-status record before exit.
+Later settings-save failures should keep the in-memory recording configuration,
+report the failure, and avoid becoming a silent API failure.
 
-`RecordingControl.set_cfg_value()` mutates the active config, forwards it to
-devices, writes a manifest event, optionally saves settings, and updates
-recorder callbacks. Source children receive the new config asynchronously through
-`SourceControlTransport`. During that interval, different sources can run under
-different config snapshots while status and manifest events already report the
-new value.
+## CPU, latency, and memory issues
 
-This is especially sensitive for output paths, noise floors, recording timing,
-format, and disk thresholds.
+### Disk-stall observability is missing
 
-## CPU and latency issues
+The recorder does not currently expose write latency, callback queue high-water
+marks over time, or per-source dropped-frame trends as first-class emergency
+signals. A sustained queue increase should become visible before actual drops.
 
-### UI refresh defaults are aggressive for a recorder
+This overlaps with disk failover: the system needs evidence that a disk is slow
+or failing, not just low on free space.
 
-`Cfg.console.ui_refresh_rate` defaults to `23.0`. That means row generation,
-daemon status publication, GUI broadcasts, and display refresh can happen often
-even when recording is the primary job. This is probably fine on a laptop, but it
-is worth rechecking on Raspberry Pi targets and during 18-channel recording.
+### UI refresh defaults need target measurement
 
-The performance plan already treats local recording as the highest-priority job.
-The code should make that priority visible by bounding or measuring UI work.
+`Cfg.console.ui_refresh_rate` defaults to `23.0`. Row generation, daemon status
+publication, GUI broadcasts, and display refresh can happen frequently even
+when recording is the primary job. This is probably fine on a laptop, but it
+needs measurement on Raspberry Pi targets during 18-channel recording.
 
 ### Audio block processing repeats per-track reductions
 
@@ -94,152 +115,112 @@ each `ChannelWriter` computes maxima, minima, RMS-like volume, noise-floor
 checks, and moving averages. For mono or stereo tracks this is simple, but on
 many channels the code repeats array slicing and reductions once per track.
 
-This design is readable and keeps `ChannelWriter` independent, but it may cost
-more CPU than a source-level reduction that computes per-channel measurements
-once and then maps them to tracks.
+This design is readable and keeps `ChannelWriter` independent, but the cost
+should be measured before changing the hot path.
 
-### File-size bookkeeping may touch the filesystem often
+### File-size bookkeeping still stats the active file
 
-`ChannelWriter._state()` reports `self.files_written.total_size`. If that value
-is computed from filesystem stat calls in `recs.misc.file_list`, status updates
-can add filesystem overhead proportional to the number of output files. This is
-not likely to dominate normal recording, but it can matter in long sessions with
-many split files and frequent UI refresh.
-
-### Queue and pipe draining depends on emergency-first priorities
-
-The child process queues blocks in `InputBuffer`, then sends merged status
-through a multiprocessing pipe. The parent may also drain source pipes and
-control queues. Under normal load this reduces overhead. Under disk pressure,
-that same behavior intentionally favors clearing pending recording state over UI
-fairness, because the recorder may be close to running out of writable space.
-
-That priority should be documented and tested so later latency work does not
-turn emergency draining into best-effort draining.
-
-## Memory and backpressure issues
-
-### InputBuffer is unbounded except for periodic free-memory checks
-
-`InputBuffer` uses an unbounded `Queue`. It drops new blocks only when
-`memory.available_bytes()` falls below `memory_reserve_megabytes`, and that check
-runs only every `memory_check_period` seconds. This avoids premature drops, but a
-fast producer can enqueue many NumPy arrays before the next memory check.
-
-The project has a documented estimate that 18 channels at 48 kHz and 10 seconds
-of float32 audio is about 34.6 MB, but Python queue objects, pydantic models, and
-per-track blocks add overhead. A bounded queue based on seconds of audio would be
-easier to reason about than global free-memory polling alone.
-
-### SourceUpdate merging retains growing lists until transport catches up
-
-`_merge_updates()` preserves file paths, file records, file end frames, warnings,
-calibration, and track layout while collapsing many child updates into one
-transport message. That is useful for reducing pipe traffic, but when the parent
-is busy the pending message can grow with every new file and warning.
-
-This is probably bounded in ordinary recordings because files do not open every
-block. It is less obviously bounded during rapid split-file tests or a warning
-storm.
+`FileList.total_size` already caches completed files, so the old concern about
+restatting every file is resolved. It still stats the active last file during
+status generation. That is probably fine, but it should stay on the measurement
+list if long sessions show status refresh overhead.
 
 ### Quiet buffers are stored as Block objects
 
-`ChannelWriter` holds recent quiet audio in `Blocks` for `quiet_before_start` and
-`quiet_after_end`. This is necessary for the feature, but the memory cost scales
-with channel count, sample width, and configured quiet windows. Large quiet
-windows on many tracks can consume more memory than users expect.
+`ChannelWriter` holds recent quiet audio in `Blocks` for `quiet_before_start`
+and `quiet_after_end`. This is necessary for the feature, but the memory cost
+scales with channel count, sample width, and configured quiet windows. Large
+quiet windows on many tracks can consume more memory than users expect.
 
-### Manifest reading loads the whole file
+### Source and event transport backpressure is hard to see
 
-`recs/ui/session_manifest.py` uses whole-file reads when loading manifest text.
-That is simple and fine for ordinary JSONL manifests, but long daemon sessions
-or stress tests can create large manifests. Streaming reads would avoid turning
-manifest inspection into a memory spike.
+Source updates coalesce, which protects capture liveness, but it hides how long
+the parent has been unable to consume source state. Event-subscriber writes can
+also become part of the recorder publication path. A stalled local client should
+not delay recording or status publication.
+
+The code needs explicit queue/pipe age and blocked-write metrics, bounded or
+disconnectable event delivery, and tests for stopped parent, stopped child, and
+non-reading event clients.
+
+### Device query process has no backoff or bounded result queue
+
+`DeviceQueryStream` restarts after missing updates, but repeated PortAudio
+failure can still create restart churn. Its internal queue is unbounded if the
+polling loop stops consuming snapshots.
+
+It should keep only the newest device snapshot, report child exit detail, and
+use restart backoff. Device querying should also be verified not to open a
+capture stream or materially compete with the X18 source process.
 
 ## Maintainability and responsibility issues
 
-### Recorder is smaller, but still coordinates too much state
+### Recorder still exposes collaborator internals
 
-`recs/ui/recorder.py` is still a large orchestration file. It now delegates
-device lifecycle, recording control, disk monitoring, disk control, calibration,
-and recording sessions, but it still wires many callbacks and retains
+`recs/ui/recorder.py` delegates device lifecycle, recording control, disk
+monitoring, disk control, calibration, and recording sessions, but it still has
 compatibility properties exposing collaborator internals.
 
-Those properties make the refactor easier to land, but they also keep old
-ownership boundaries alive. Future changes can accidentally bypass the new
+Those properties make refactoring easier, but they keep old ownership
+boundaries alive. Future changes can accidentally bypass the intended
 collaborators and mutate lifecycle state directly.
 
-### RecordingControl has too many roles
+### RecordingControl still has several roles
 
-`recs/ui/recording_control.py` handles GUI request intake, external request
-intake, request dispatch, configuration mutation, settings persistence,
-track-layout validation, noise-floor migration, status snapshots, disk status,
-pause/resume/stop, marks, and profile reloads. That is more than "recording
-control".
+`recs/ui/recording_control.py` now has clearer runtime state and delegates many
+operations, but it still acts as the central control target for GUI requests,
+external requests, request dispatch, configuration mutation, settings
+persistence, track layout edits, status snapshots, disk status, pause/resume,
+marks, and profile reloads.
 
-The highest-value split would separate protocol dispatch from recording
-operations and from track/config editing. That would also make it easier to test
-control behavior without constructing most of the recorder.
+The next split should separate protocol dispatch, recording/session commands,
+and track/config editing more strongly.
 
-### SourceRecorder mixes source IO, buffering, writing, calibration, and control
+### SourceRecorder still mixes realtime and control-plane work
 
-`recs/ui/source_recorder.py` owns the input stream, callback queue, control pipe,
-channel writers, per-track layout changes, calibration measurement, file record
-collection, buffer warning generation, and transport merging. This is currently
-the hottest path in the program and also one of the hardest files to change
-safely.
+`recs/ui/source_recorder.py` now has smaller helpers for input buffering,
+calibration, file-event collection, and update transport. It still owns the
+input stream, control pipe, channel writers, per-track layout changes, buffer
+warning generation, and transport publishing in one realtime loop.
 
-The immediate risk is not file length alone. It is that realtime audio handling
-and control-plane mutation live in the same loop.
+The remaining risk is that realtime audio handling and control-plane mutation
+still share one source-child loop.
 
 ### Cfg and CLI duplicate too much structure
 
 `recs/cfg/cfg.py` defines nested configuration models and validators.
 `recs/cfg/cli.py` manually mirrors many of those fields into a large Tyro
-function. Help text, defaults, mutability, and validation can drift because the
-same option exists in several forms.
+function. Existing tests catch field drift, but help text, defaults, mutability,
+and validation still live in multiple places.
 
-The comment in `cfg.py` saying "See ./cli.py for full help" confirms the split
-is intentional, but it also means documentation for options is not colocated
-with the model that validates them.
+### Daemon GUI IPC still combines status publication and transport
 
-### Daemon GUI IPC owns both transport and live daemon state
+`recs/daemon/gui_ipc.py` now has a smaller connection-state helper and rejects
+extra GUI clients. The server still accepts clients, writes daemon status,
+broadcasts rows, queues control requests, records protocol errors, and forwards
+rows to external IPC.
 
-`recs/daemon/gui_ipc.py` accepts clients, tracks client listeners, queues key
-events, queues control requests, stores protocol errors, writes daemon status,
-broadcasts rows, and forwards rows to external IPC. Locks are present, but the
-class still combines transport management with status/state aggregation.
+Status publication and recorder-control queueing are still close enough that
+shutdown and failure handling require careful tests.
 
-This makes shutdown, testing, and failure handling harder than if listener
-management and status publication were separate units. It does not need to scale
-to multiple simultaneous clients; a future change should reject additional
-clients instead of adding multiclient coordination.
+### Tests are still large around old ownership boundaries
 
-### Tests are large around old ownership boundaries
+`test/ui/test_recorder.py` remains very large. Large integration-style tests are
+valuable, but they make narrow changes expensive and can hide which collaborator
+owns a behavior. More cases should move to focused collaborator tests while
+leaving a smaller recorder-level integration suite.
 
-`test/ui/test_recorder.py` remains very large. That suggests important behavior
-is still mostly tested through `Recorder`, even after several collaborators were
-extracted. Large integration-style tests are valuable, but they make narrow
-changes expensive and can hide which collaborator owns a behavior.
+## Naming, identity, and readability issues
 
-## Naming and readability issues
+### Device identity is based on mutable display names
 
-### Some state names describe implementation, not domain meaning
+Sources are keyed by device name. Replugging, ALSA renumbering, duplicate USB
+names, or an edited alias can cause a device to be treated as a different
+source, losing track layout/calibration association or attaching to the wrong
+device.
 
-Names such as `hardware`, `files`, `sources`, `present`, `failed`, and `frames`
-inside `DeviceLifecycle` are concise, but they require local context. For
-example, `files` means file sources, not files written, and `hardware` means
-input-device source processes, not physical hardware state.
-
-Clearer names would reduce accidental misuse in recorder and control code.
-
-### Recording state flags overlap
-
-`RecordingControl` has `recording_paused`, `recording_stopped`,
-`session_stopped`, and `shutdown_started`. Their interactions are subtle:
-stopping implies pausing, session stop depends on manifest state, and shutdown
-uses a separate once-only guard. This could be a small explicit state machine
-instead of independent booleans.
+The code needs a stable device identity when the host API supplies one. Display
+names should remain user-facing labels.
 
 ### Disk monitor and disk control names are close
 
@@ -248,66 +229,44 @@ and mutates recorder/session/device state. The split is reasonable, but the
 names are easy to blur. A reader can miss that `DiskControl` is the side-effect
 owner while `DiskMonitor` is mostly policy state.
 
-### Track/channel/source terminology is hard to follow
+### Track/channel/source terminology still needs local discipline
 
-The code uses source, device, hardware, channel, track, track name, channel
-writer, and file source. Each term has a real meaning, but they are used across
-config, UI, audio, daemon protocol, and manifests. The meaning is not always
-documented at module boundaries, so new code has to infer it from tests.
+`doc/glossary.md` now defines the main terms, but the code still uses them
+across config, UI, audio, daemon protocol, and manifests. New code should keep
+module boundaries aligned with that glossary instead of reusing terms loosely.
 
-## Documentation and stale docs
+## Operational and feature-boundary risks
 
-### Handover document is stale
-
-`doc/handover-broken.md` still says the recorder split is incomplete at an
-earlier point and lists duplicate methods that have since been removed or moved.
-Keeping it as-is risks misleading future agents.
-
-### Split plan now mixes target architecture with completed work
-
-`plan/split-record.md` describes the intended extraction boundaries and end
-state. Several phases have already happened, so the document is now useful as
-design background but not as an accurate current task list.
-
-### Runtime architecture is not documented in one current place
-
-After the split, there is no short current architecture document that explains
-the main loop ordering, parent/child source protocol, disk switch lifecycle,
-daemon GUI flow, and manifest ownership. That knowledge is spread across code,
-tests, and older plans.
-
-### Operational limits are documented outside code
-
-The Raspberry Pi performance plan includes important CPU, storage, and memory
-assumptions. The runtime settings themselves do not make those limits obvious to
-users who only see CLI help or daemon status.
-
-## Feature conflicts and low-value complexity
-
-### There are several control surfaces for one recorder
-
-The program supports terminal UI, GUI IPC, external IPC, daemon status files,
-key recording, remote display, and direct CLI modes. Each is useful, but together
-they create many ways for the single active client or local operator to observe
-and mutate the same recording state. This raises the chance of inconsistent
-snapshots or behavior that is only tested through one surface.
-
-### Live mutable settings conflict with reproducibility
-
-Runtime mutation of config values is useful for GUI control and calibration, but
-it conflicts with the idea that a recording session is reproducible from its
-starting CLI/config. Manifest `cfg_set` events help, but source children apply
-changes asynchronously and settings persistence can make a one-off experiment
-affect later runs.
-
-### Automatic disk switching is powerful but hard to reason about
+### Automatic disk switching still needs hardware fault-injection tests
 
 Automatic disk switching can save a recording, but it changes output paths,
 manifest continuity, source process lifecycles, and pause/resume state at the
 same time. It also depends on platform-specific removable disk detection.
 
-This feature deserves more isolated runtime tests than simpler configuration
-features.
+The code has isolated unit tests, but it still needs Pi/X18/USB-media tests for
+full, unplugged, read-only, slow, and remounted disks while recording.
+
+### Singleton ownership is not yet an operator-facing preflight
+
+The control transports reject extra clients, but two daemon starts or stale
+service state can still confuse an operator if ownership is not visible in the
+status path and service response.
+
+A preflight command should check service state, writable output disk, configured
+devices, settings validity, and expected singleton ownership before a show.
+
+### Error floods can hide first cause
+
+Malformed control commands, repeated device failures, disk warnings, or protocol
+errors can flood status and manifests. The system should rate-limit identical
+errors while preserving first timestamp, most recent timestamp, and count.
+
+### Recs must stay local when networks fail
+
+Recs itself uses local sockets, but Showco and other suite programs may wait on
+network actions or status checks. Recording must continue when Wi-Fi, Ethernet,
+DNS, remote update, or streaming fails. Local status freshness should be
+reported separately from failed network operations.
 
 ### Key recording has privacy and UX implications
 
@@ -324,96 +283,21 @@ goals and can obscure which parts of the recording pipeline are active.
 
 ## Suggested remediation order
 
-1. Write a glossary of terms in `recs` like source, device, hardware, channel,
-   track, track name, channel writer, and file source into `docs/glossary.md`.
+1. Add disk-stall observability: write latency, callback queue high-water marks,
+   dropped-frame trends, and emergency reporting before overflow.
 2. Runtime-test disk switching and source shutdown with real child processes,
-   including final manifest records and late source updates.
-3. Document why queue and pipe draining is intentionally unbounded in emergency
-   paths, and add focused tests that preserve that priority.
-4. Split `RecordingControl` into protocol dispatch, recording/session commands,
-   and track/config editing.
-5. Remove or narrow remaining `Recorder` compatibility properties that expose
-   collaborator internals.
-6. Add a current architecture document and mark old handover material as stale or
-   historical.
-7. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
+   final manifest records, and late source updates.
+3. Replace per-record manifest `fsync` with bounded batching plus final durable
+   flush and visible manifest-write failures.
+4. Add external RPC request deadlines that mirror GUI control timeout behavior.
+5. Improve source child failure diagnostics: exception type, exit code, final
+   frame count, last callback timestamp, and expected versus forced stop.
+6. Add device-query backoff, latest-only queues, and stable device identity.
+7. Add startup-failure status records and a preflight command for show setup.
+8. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
    daemon GUI enabled, and disk-switch checks active.
-
-## More work
-
-### Runtime correctness
-
-- Add a single-client guard in the GUI and external control transports so the
-  code rejects extra clients instead of preparing for multiclient coordination.
-- Add a shutdown response policy for the one allowed GUI/control client so
-  `ControlRequest.wait_for_response()` cannot wait forever during recorder exit.
-- Make live config changes explicitly snapshot-based in the manifest: record
-  when the parent accepted a change and when each source child applied it, or
-  document that child application is asynchronous.
-- Give disk-switch manifest events distinct names or documented phases so
-  consumers can tell pre-close continuity from post-open completion.
-
-### CPU and memory
-
-- Measure the cost of per-track `Block` construction and reductions with the
-  expected maximum channel count before changing the hot path.
-- Cache or incrementally maintain file-size totals if status refreshes prove to
-  stat many files in long sessions.
-- Replace global free-memory-only input buffering with an audio-seconds limit, a
-  byte limit, or a documented reason that the current unbounded queue is better.
-- Bound or summarize pending `SourceUpdate` warning and file metadata growth
-  during warning storms and rapid split-file tests.
-- Document the memory cost of `quiet_before_start` and `quiet_after_end` for
-  high-channel-count sessions.
-- Stream manifest reads in validation and browsing commands instead of loading
-  whole JSONL files.
-
-### Maintainability
-
-- Split `SourceRecorder` so realtime input buffering, source-control messages,
-  calibration measurement, file event collection, and update transport have
-  smaller ownership boundaries.
-- Split `DaemonGuiServer` into listener management, status publication, and
-  recorder-control queueing.
-- Reduce `Cfg` and `cfg/cli.py` duplication, or document the intended source of
-  truth for defaults, help text, mutability, and validation.
-- Move more tests from `test/ui/test_recorder.py` to focused collaborator test
-  files while keeping a small recorder-level integration suite.
-
-### Naming and state
-
-- Rename or document ambiguous lifecycle dictionaries such as `hardware`,
-  `files`, `sources`, `present`, `failed`, and `frames`.
-- Replace `recording_paused`, `recording_stopped`, `session_stopped`, and
-  `shutdown_started` with an explicit recording/session state model, or document
-  their allowed combinations.
-- Clarify the difference between `DiskMonitor` as policy state and `DiskControl`
-  as the side-effect owner.
-
-### Documentation
-
-- Mark `doc/handover-broken.md` as historical or replace it with a current
-  refactor status document.
-- Update `plan/split-record.md` so it distinguishes completed work from
-  remaining work.
-- Write a current runtime architecture document covering loop order,
-  parent/child source protocol, disk-switch lifecycle, daemon GUI flow, external
-  IPC flow, and manifest ownership.
-- Surface Raspberry Pi CPU, memory, and storage assumptions in CLI help, daemon
-  status, or operational docs.
-
-### Feature boundaries
-
-- Decide which control surface is canonical for each operation and make the
-  other surfaces use that path rather than duplicating behavior.
-- Add clearer manifest/session reporting for live mutable settings so a session
-  can be reconstructed even when settings changed during recording.
-- Keep automatic disk switching as a special high-risk feature with isolated
-  runtime tests.
-- Document `record_key_all_apps` privacy and UX implications before making it a
-  normal daemon workflow.
-- Separate dry-run, calibration, and silence-preview user-facing semantics even
-  if they continue to share the same lower-level `do_not_record` path.
+9. Continue ownership cleanup: narrow `Recorder` compatibility properties,
+   split `RecordingControl`, and move more recorder tests to collaborator tests.
 
 ## Additional work beyond the prompt
 
