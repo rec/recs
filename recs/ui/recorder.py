@@ -224,56 +224,12 @@ class Recorder(Runnables):
         return self.devices.buffer_stats
 
     @property
-    def buffer_drops_reported(self) -> dict[str, int]:
-        return self.devices.buffer_drops_reported
-
-    @property
-    def source_frames_at_start(self) -> dict[str, int]:
-        return self.devices.source_frames_at_start
-
-    @property
-    def source_start_times(self) -> dict[str, float]:
-        return self.devices.source_start_times
-
-    @property
-    def source_last_updates(self) -> dict[str, float]:
-        return self.devices.source_last_updates
-
-    @property
-    def lag_reported(self) -> set[str]:
-        return self.devices.lag_reported
-
-    @property
     def poller(self) -> DevicePoller | None:
         return self.devices.poller
 
     @property
     def failed(self) -> set[str]:
         return self.devices.failed
-
-    @property
-    def present(self) -> set[str]:
-        return self.devices.present
-
-    @present.setter
-    def present(self, value: set[str]) -> None:
-        self.devices.present = value
-
-    @property
-    def no_devices_reported(self) -> bool:
-        return self.devices.no_devices_reported
-
-    @no_devices_reported.setter
-    def no_devices_reported(self, value: bool) -> None:
-        self.devices.no_devices_reported = value
-
-    @property
-    def no_channels_reported(self) -> bool:
-        return self.devices.no_channels_reported
-
-    @no_channels_reported.setter
-    def no_channels_reported(self, value: bool) -> None:
-        self.devices.no_channels_reported = value
 
     def _record_device_file_update(
         self, update: SourceUpdate, source: SourceProcess
@@ -327,7 +283,9 @@ class Recorder(Runnables):
         for row in self.state.rows():
             if device := row.get('device'):
                 for source, name in self.state.source_names.items():
-                    if name == device and (stats := self.buffer_stats.get(source)):
+                    if name == device and (
+                        stats := self.devices.buffer_stats.get(source)
+                    ):
                         row |= {
                             'buffer': stats.queued_seconds,
                             'dropped': stats.dropped_frames,
@@ -344,7 +302,7 @@ class Recorder(Runnables):
         self,
         all_tracks: Sequence[tuple[Source, Sequence[Track]]],
     ) -> None:
-        if self.files:
+        if self.devices.files:
             return
         if not self.cfg.input_devices:
             self._report_no_devices()
@@ -393,7 +351,7 @@ class Recorder(Runnables):
             return f'sources failed: {", ".join(sorted(self.failed))}'
         if self.session.files_written:
             return 'all candidate files were removed or are no longer present'
-        if not any(self.frames.values()):
+        if not any(self.devices.frames.values()):
             return 'no audio updates were received'
         return (
             'audio stayed below the noise floor or candidate files were shorter '
@@ -415,7 +373,9 @@ class Recorder(Runnables):
                     self._reap_sources()
                     self._stop_stalled_sources()
                     sources = [
-                        source for source in self.sources.values() if source.is_alive
+                        source
+                        for source in self.devices.sources.values()
+                        if source.is_alive
                     ]
                     self.state.set_online(
                         source.name for source in sources if source.running
@@ -430,13 +390,13 @@ class Recorder(Runnables):
                     for c in connection.wait(connections, timeout=POLL_TIMEOUT):
                         self._receive_connection(cast(connection.Connection, c))
             finally:
-                for source in self.hardware.values():
+                for source in self.devices.hardware.values():
                     source.stop()
-                for source in self.hardware.values():
+                for source in self.devices.hardware.values():
                     source.join()
 
     def _done(self, sources: Sequence[SourceProcess]) -> bool:
-        if self.files and not self.hardware:
+        if self.devices.files and not self.devices.hardware:
             return not sources
         return self._invocation_expired() and not any(
             source.running for source in sources
@@ -460,18 +420,18 @@ class Recorder(Runnables):
         )
 
     def _report_no_devices(self) -> None:
-        if self.no_devices_reported:
+        if self.devices.no_devices_reported:
             return
         warning = 'No input devices detected'
         self._record_warning(warning)
-        self.no_devices_reported = True
+        self.devices.no_devices_reported = True
 
     def _report_no_channels(self) -> None:
-        if self.no_channels_reported:
+        if self.devices.no_channels_reported:
             return
         warning = 'No channels selected'
         self._record_warning(warning)
-        self.no_channels_reported = True
+        self.devices.no_channels_reported = True
 
     def _reap_sources(self) -> None:
         self.devices.reap()
@@ -573,7 +533,7 @@ class Recorder(Runnables):
             )
             self.cfg = self.cfg.model_copy(update={'directory': directory})
             self.cfg.__dict__.pop('output_path_pattern', None)
-            for source in self.sources.values():
+            for source in self.devices.sources.values():
                 source.cfg = self.cfg
         self.control.cfg = self.cfg
         self.disk_monitor.cfg = self.cfg
