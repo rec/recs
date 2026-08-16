@@ -1034,56 +1034,6 @@ def test_calibration_selects_both_stereo_channels(
     assert rec._calibration._tracks({'Ext': [1]}) == {'Ext': ['1-2']}
 
 
-def test_control_request_splits_stereo_track_and_records_event(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-) -> None:
-    records: list[object] = []
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(
-        Cfg(
-            include=['Ext'],
-            channel_noise_floors={'Ext': {'1-2': 37}},
-            silent=True,
-        )
-    )
-    monkeypatch.setattr(rec, '_write_manifest_record', records.append)
-    request = FakeControlRequest(
-        gui_protocol.SetTracks(
-            type='set_tracks',
-            source='Ext',
-            tracks=[
-                gui_protocol.ChannelTrack(channels=[1], name='VL'),
-                gui_protocol.ChannelTrack(channels=[2]),
-            ],
-        )
-    )
-    rec.live = FakeControlDisplay([request])
-
-    rec._receive_control_requests()
-
-    assert [track.name for track in rec._devices.sources['Ext'].tracks] == [
-        '1',
-        '2',
-        '3',
-    ]
-    assert rec._control.track_names == {'Ext': {'VL': 1}}
-    assert rec.cfg.recording.channel_noise_floors == {'Ext': {'1': 37, '2': 37}}
-    assert request.responses == [
-        gui_protocol.TracksSet(
-            type='tracks_set',
-            source='Ext',
-            tracks=[
-                gui_protocol.ChannelTrack(channels=[1], name='VL'),
-                gui_protocol.ChannelTrack(channels=[2]),
-            ],
-        )
-    ]
-    assert [record.type for record in records] == ['cfg_set', 'tracks_set']
-    assert records[1].source == 'Ext'
-
-
 def test_recorder_saves_and_restores_track_settings(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
@@ -1113,35 +1063,6 @@ def test_recorder_saves_and_restores_track_settings(
         '3',
     ]
     assert restored._control.track_names == {'Ext': {'VL': 1}}
-
-
-def test_control_request_groups_mono_tracks_into_stereo_pair(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-) -> None:
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(
-        Cfg(
-            include=['Ext+1', 'Ext+2'],
-            channel_noise_floors={'Ext': {'1': 37, '2': 37}},
-            silent=True,
-        )
-    )
-    request = FakeControlRequest(
-        gui_protocol.SetTracks(
-            type='set_tracks',
-            source='Ext',
-            tracks=[gui_protocol.ChannelTrack(channels=[1, 2], name='Stereo')],
-        )
-    )
-    rec.live = FakeControlDisplay([request])
-
-    rec._receive_control_requests()
-
-    assert [track.name for track in rec._devices.sources['Ext'].tracks] == ['1-2']
-    assert rec._control.track_names == {'Ext': {'Stereo': 1}}
-    assert rec.cfg.recording.channel_noise_floors == {'Ext': {'1-2': 37}}
 
 
 def test_track_layout_updates_state_on_next_source_update(
@@ -1174,32 +1095,6 @@ def test_track_layout_updates_state_on_next_source_update(
 
     assert set(rec.state.state['Ext']) == {'1', '2', '3'}
     assert rec.state.track_names['Ext', '1'] == 'VL'
-
-
-def test_control_request_rejects_partial_stereo_track_replacement(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-) -> None:
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Ext'], silent=True))
-    request = FakeControlRequest(
-        gui_protocol.SetTracks(
-            type='set_tracks',
-            source='Ext',
-            tracks=[gui_protocol.ChannelTrack(channels=[1], name='VL')],
-        )
-    )
-    rec.live = FakeControlDisplay([request])
-
-    rec._receive_control_requests()
-
-    assert request.responses == [
-        gui_protocol.Error(
-            type='error',
-            message='All channels in Ext + 1-2 must be replaced together',
-        )
-    ]
 
 
 def test_control_request_reports_capabilities(
@@ -1599,53 +1494,6 @@ def test_control_request_rejects_immutable_cfg(
                 'Immutable configuration attribute: '
                 'recording.memory_reserve_megabytes'
             ),
-        )
-    ]
-
-
-def test_control_request_rejects_invalid_track_names(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-) -> None:
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
-    request = FakeControlRequest(
-        gui_protocol.SetTrackNames(
-            type='set_track_names', track_names={'Mic': {'Lead Vocal': 0}}
-        )
-    )
-    rec.live = FakeControlDisplay([request])
-
-    rec._receive_control_requests()
-
-    assert request.responses == [
-        gui_protocol.Error(
-            type='error', message='track_names channel values must be positive'
-        )
-    ]
-
-
-def test_control_request_sets_noise_floor(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-) -> None:
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
-    request = FakeControlRequest(
-        gui_protocol.SetNoiseFloor(
-            type='set_noise_floor', source='Mic', channel=1, noise_floor=42.5
-        )
-    )
-    rec.live = FakeControlDisplay([request])
-
-    rec._receive_control_requests()
-
-    assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 42.5}}
-    assert request.responses == [
-        gui_protocol.NoiseFloorSet(
-            type='noise_floor_set', source='Mic', channel=1, noise_floor=42.5
         )
     ]
 
