@@ -72,7 +72,7 @@ def set_track_names(
 def set_tracks(
     control: 'RecordingControl', request: gui_protocol.SetTracks
 ) -> gui_protocol.TracksSet:
-    source = control.hardware.get(request.source)
+    source = control.devices.hardware.get(request.source)
     if source is None:
         raise RecsError(f'Unknown input device: {request.source}')
     tracks = updated_tracks(source, request.tracks)
@@ -262,7 +262,7 @@ def save_settings(control: 'RecordingControl') -> None:
 def track_for_channel(
     control: 'RecordingControl', source_name: str, channel: int
 ) -> Track:
-    source = control.hardware.get(source_name)
+    source = control.devices.hardware.get(source_name)
     if source is None:
         raise RecsError(f'Unknown input device: {source_name}')
     if channel <= 0:
