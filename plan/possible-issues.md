@@ -52,13 +52,6 @@ warning generation, and transport publishing in one realtime loop.
 The remaining risk is that realtime audio handling and control-plane mutation
 still share one source-child loop.
 
-### Cfg and CLI duplicate too much structure
-
-`recs/cfg/cfg.py` defines nested configuration models and validators.
-`recs/cfg/cli.py` manually mirrors many of those fields into a large Tyro
-function. Existing tests catch field drift, but help text, defaults, mutability,
-and validation still live in multiple places.
-
 ### Daemon GUI IPC still combines status publication and transport
 
 `recs/daemon/gui_ipc.py` now has a smaller connection-state helper and rejects
