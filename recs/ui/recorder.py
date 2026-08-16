@@ -262,6 +262,7 @@ class Recorder(Runnables):
                 dropped_blocks=stats.dropped_blocks,
                 dropped_frames=stats.dropped_frames,
                 max_queued_seconds=stats.max_queued_seconds,
+                max_write_seconds=stats.max_write_seconds or None,
                 queued_seconds=stats.queued_seconds,
             )
         )

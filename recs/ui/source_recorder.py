@@ -37,6 +37,7 @@ class BufferStats(BaseModel):
     dropped_blocks: int = 0
     dropped_frames: int = 0
     last_drop_timestamp: float = 0.0
+    max_write_seconds: float = 0.0
 
 
 class SourceUpdate(NamedTuple):
@@ -459,6 +460,10 @@ class SourceRecorder(Runnables):
             self.channel_writers, update.array.dtype.itemsize * 8
         )
         stats = self.buffer.stats.model_copy()
+        stats.max_write_seconds = max(
+            stats.max_write_seconds,
+            *(state.max_write_seconds for state in msgs.values()),
+        )
         buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
         if update.status:
             if update.status == 'input overflow':

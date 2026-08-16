@@ -122,6 +122,29 @@ def test_channel_noise_floor_overrides_global_floor(mock_devices: None) -> None:
 
 
 @tdir
+def test_channel_writer_records_max_write_seconds(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    values = iter([0.0, 0.25])
+    monkeypatch.setattr(
+        'recs.audio.channel_writer.time.monotonic', lambda: next(values)
+    )
+    writer = ChannelWriter(cfg, times=times, track=track)
+
+    writer._receive_block(Block(block=II[0]), conftest.TIMESTAMP, True)
+
+    assert writer._state().max_write_seconds == 0.25
+
+
+@tdir
 def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None:
     cfg = Cfg(formats=[Format.wav])
     track = cfg.aliases.to_track('Ext+2')

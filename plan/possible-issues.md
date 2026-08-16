@@ -21,18 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
 
-### Disk stalls can still lose capture blocks
-
-`SourceRecorder` writes audio files from the same child process and loop that
-drains the audio callback queue. A blocked `soundfile.write()` stops queue
-consumption. The callback queue is now bounded by audio seconds, which makes the
-memory risk explicit, but it also means a sustained storage stall can still drop
-whole input blocks once the queue fills.
-
-Flash media can pause during garbage collection, heat throttling, unplug/replug,
-remount, or I/O errors. This needs direct measurement on the target Raspberry Pi
-and USB media before relying on the daemon for a show.
-
 ### Manifest fsync runs in the recorder loop
 
 Every manifest record flushes and calls `fsync` in

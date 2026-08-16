@@ -32,6 +32,7 @@ class ManifestEvent(BaseModel):
     address: str | None = None
     value: object | None = None
     max_queued_seconds: float | None = None
+    max_write_seconds: float | None = None
     queued_seconds: float | None = None
     path: str | None = None
     disk: str | None = None

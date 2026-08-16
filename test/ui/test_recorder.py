@@ -1487,6 +1487,31 @@ def test_source_update_records_applied_cfg_revision(
     assert records[1]['value'] == 3
 
 
+def test_buffer_overflow_records_write_latency(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_manifest()
+
+    rec._record_device_buffer_update(
+        'Mic',
+        BufferStats(
+            dropped_blocks=1,
+            dropped_frames=2,
+            last_drop_timestamp=3.0,
+            max_write_seconds=0.25,
+        ),
+    )
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1]['type'] == 'buffer_overflow'
+    assert records[1]['max_write_seconds'] == 0.25
+
+
 def test_control_request_reports_mutable_attributes(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

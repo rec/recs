@@ -1,4 +1,5 @@
 import contextlib
+import time
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from functools import partial
@@ -48,6 +49,7 @@ class ChannelWriter(Runnable):
 
     timestamp: float = 0
     timeline_frame: int = 0
+    max_write_seconds: float = 0.0
 
     _sfs: Sequence[SoundFile] = ()
 
@@ -231,6 +233,7 @@ class ChannelWriter(Runnable):
             file_count=len(self.files_written),
             file_size=self.files_written.total_size,
             is_active=bool(self._sfs),
+            max_write_seconds=self.max_write_seconds,
             recorded_time=self.frames_written / self.track.source.samplerate,
             timestamp=self.timestamp,
             volume=list(self._volume.mean()),
@@ -271,7 +274,11 @@ class ChannelWriter(Runnable):
 
             self._sfs = self._sfs or self._open(offset)
             for sf in self._sfs:
+                start = time.monotonic()
                 sf.write(b.block)
+                self.max_write_seconds = max(
+                    self.max_write_seconds, time.monotonic() - start
+                )
             offset += len(b)
             end_frame = self.timeline_frame + offset
             end_timestamp = self.timestamp + offset / self.track.source.samplerate
