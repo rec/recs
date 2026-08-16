@@ -1,10 +1,5 @@
-from reccy.models import ServiceSpec
+from pathlib import Path
 
-RECS_SERVICE = ServiceSpec(
-    name='recs',
-    display_name='recs',
-    description='recs background recorder',
-    launchd_label='com.swirly.recs',
-    daemon_env_var='RECS_DAEMON',
-    windows_pipe=r'\\.\pipe\recs',
-)
+from reccy import service_spec
+
+RECS_SERVICE = service_spec.load(Path(__file__).with_name('service.toml'))
