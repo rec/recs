@@ -7,22 +7,44 @@ from recs.ui import session_manifest
 from recs.ui.session_manifest import ManifestEvent, ManifestFile, SessionManifestWriter
 
 
-def test_session_manifest_writer_fsyncs_every_line(
+def test_session_manifest_writer_batches_fsync(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     fsynced: list[int] = []
+    times = iter([0.0, 0.5, 2.0, 2.0, 2.0])
     monkeypatch.setattr(session_manifest.os, 'fsync', fsynced.append)
+    monkeypatch.setattr(session_manifest.time, 'monotonic', lambda: next(times))
     writer = SessionManifestWriter(tmp_path / 'recs-session.jsonl', started_at='start')
 
     writer.write(
         ManifestEvent(timestamp='event', type='key_pressed', key='g'),
     )
+    writer.write(
+        ManifestEvent(timestamp='event', type='key_pressed', key='h'),
+    )
     writer.close()
 
     lines = (tmp_path / 'recs-session.jsonl').read_text().splitlines()
-    assert [json.loads(line)['type'] for line in lines] == ['header', 'key_pressed']
-    assert len(fsynced) == 2
+    assert [json.loads(line)['type'] for line in lines] == [
+        'header',
+        'key_pressed',
+        'key_pressed',
+    ]
+    assert len(fsynced) == 3
+
+
+def test_session_manifest_writer_reports_fsync_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def fail_sync(fd: int) -> None:
+        raise OSError('disk is unhappy')
+
+    monkeypatch.setattr(session_manifest.os, 'fsync', fail_sync)
+    writer = SessionManifestWriter(tmp_path / 'recs-session.jsonl', started_at='start')
+
+    assert 'disk is unhappy' in writer.take_errors()[0]
 
 
 def test_session_manifest_reader_ignores_truncated_final_line(tmp_path: Path) -> None:

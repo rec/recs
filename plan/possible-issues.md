@@ -21,17 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
 
-### Manifest fsync runs in the recorder loop
-
-Every manifest record flushes and calls `fsync` in
-`recs/ui/session_manifest.py`. Device warnings, buffer warnings, protocol
-errors, control events, and disk events therefore add synchronous storage
-latency to the parent recorder loop.
-
-Append-only recovery is useful, but durability probably needs a bounded batching
-policy plus a forced final fsync on orderly stop. Manifest write failure should
-become a visible recorder error without stopping source capture.
-
 ### Source shutdown can still lose or reorder final state
 
 `recs/ui/source_process.py` drains child updates only after the child process is

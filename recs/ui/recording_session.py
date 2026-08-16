@@ -14,6 +14,7 @@ class RecordingSession:
         self.file_end_timestamps: dict[Path, float] = {}
         self.files: dict[Path, session_manifest.ManifestFile] = {}
         self.manifest: session_manifest.SessionManifestWriter | None = None
+        self.manifest_errors: list[str] = []
 
     def start(self, path: Path, *, dry_run: bool, silence_preview: bool) -> None:
         if dry_run or silence_preview:
@@ -51,6 +52,7 @@ class RecordingSession:
             )
         )
         self.manifest.close()
+        self.manifest_errors.extend(self.manifest.take_errors())
         self.manifest = None
 
     def reset(self, started_at: float) -> None:
@@ -90,3 +92,4 @@ class RecordingSession:
     def write(self, record: session_manifest.ManifestRecord) -> None:
         if self.manifest is not None:
             self.manifest.write(record)
+            self.manifest_errors.extend(self.manifest.take_errors())

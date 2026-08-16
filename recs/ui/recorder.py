@@ -297,7 +297,14 @@ class Recorder(Runnables):
         return [warning.message for warning in self.warnings]
 
     def error_records(self) -> list[ErrorRecord]:
-        return self.warnings.copy()
+        manifest_errors = [
+            ErrorRecord(
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                message=message,
+            )
+            for message in self.session.manifest_errors
+        ]
+        return [*self.warnings, *manifest_errors]
 
     def _record_startup_input_errors(
         self,

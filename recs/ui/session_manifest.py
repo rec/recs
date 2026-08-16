@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -107,28 +108,49 @@ class SessionManifestWriter:
         started_at: str,
         session_id: str | None = None,
         continued_from: str | None = None,
+        sync_interval: float = 1.0,
     ) -> None:
         self.path = _available_path(path)
         self.path.parent.mkdir(exist_ok=True, parents=True)
         self.fp = self.path.open('a')
+        self.sync_interval = sync_interval
+        self.last_sync = float('-inf')
+        self.errors: list[str] = []
         self.write(
             ManifestHeader(
                 started_at=started_at,
                 session_id=session_id,
                 continued_from=continued_from,
-            )
+            ),
+            sync=True,
         )
 
     def write(
         self,
         record: ManifestRecord,
+        *,
+        sync: bool = False,
     ) -> None:
         self.fp.write(record.model_dump_json(exclude_none=True) + '\n')
         self.fp.flush()
-        os.fsync(self.fp.fileno())
+        if sync or time.monotonic() - self.last_sync >= self.sync_interval:
+            self.sync()
 
     def close(self) -> None:
+        self.sync()
         self.fp.close()
+
+    def sync(self) -> None:
+        try:
+            os.fsync(self.fp.fileno())
+        except OSError as e:
+            self.errors.append(f'Cannot sync manifest {self.path}: {e}')
+        else:
+            self.last_sync = time.monotonic()
+
+    def take_errors(self) -> list[str]:
+        errors, self.errors = self.errors, []
+        return errors
 
 
 def read(path: Path) -> SessionManifest:
