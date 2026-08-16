@@ -90,7 +90,7 @@ class ChannelWriter(Runnable):
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
-        self.longest_file_frames = times.longest_file_time
+        self.longest_file_frames = _longest_file_frames(times)
 
         opener = partial(
             FileOpener,
@@ -122,7 +122,7 @@ class ChannelWriter(Runnable):
         self.metadata = cfg.metadata_dict
         self.times = times
         self.noise_floor = _noise_floor(cfg, self.track)
-        self.longest_file_frames = times.longest_file_time
+        self.longest_file_frames = _longest_file_frames(times)
 
     def to_block(self, array: NDArray) -> Block:
         return Block(block=array[:, self.track.slice])
@@ -310,3 +310,9 @@ def _noise_floor(cfg: Cfg, track: Track) -> float:
     if (noise_floor := floors.get(track.name)) is not None:
         return noise_floor
     return cfg.recording.noise_floor
+
+
+def _longest_file_frames(times: time_settings.TimeSettings[int]) -> int:
+    if times.record_everything:
+        return 0
+    return times.longest_file_time

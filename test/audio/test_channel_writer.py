@@ -121,6 +121,32 @@ def test_channel_noise_floor_overrides_global_floor(mock_devices: None) -> None:
     assert writer.should_record(block)
 
 
+@tdir
+def test_channel_writer_record_everything_ignores_longest_file_time(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        longest_file_time=4,
+        quiet_before_start=0,
+        quiet_after_end=0,
+        record_everything=True,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP)
+        writer.receive_update(block, conftest.TIMESTAMP + 1)
+        writer.receive_update(block, conftest.TIMESTAMP + 2)
+
+    assert len(writer.files_written) == 1
+    with soundfile.SoundFile(writer.files_written[0]) as fp:
+        assert fp.frames == 3 * len(block)
+
+
 def test_channel_writer_uses_precomputed_recording_decision(
     monkeypatch: pytest.MonkeyPatch, mock_devices: None
 ) -> None:
