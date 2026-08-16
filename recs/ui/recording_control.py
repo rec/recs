@@ -8,7 +8,7 @@ from recs.base.errors import ErrorRecord
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
 
 from . import (
@@ -46,7 +46,7 @@ class RecordingControl:
         self,
         cfg: Cfg,
         saved_tracks: dict[str, list[settings.TrackSettings]],
-        track_names: DeviceTrackNames,
+        track_names: SourceTrackNames,
         state: FullState,
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
@@ -180,10 +180,10 @@ class RecordingControl:
 
     def updated_track_names(
         self,
-        source_name: str,
+        source_key: str,
         requested: list[gui_protocol.ChannelTrack],
-    ) -> DeviceTrackNames:
-        return recording_track_config.updated_track_names(self, source_name, requested)
+    ) -> SourceTrackNames:
+        return recording_track_config.updated_track_names(self, source_key, requested)
 
     def updated_track_noise_floors(
         self,

@@ -14,6 +14,13 @@ A source is anything that can produce timed input data for a recording session.
 Today that usually means an audio input device or an input audio file. In code,
 `Source` is the shared configuration-level abstraction for those inputs.
 
+### Source key
+
+A source key is the internal identifier for a source. Hardware sources use a
+host-provided persistent identifier when one is available and otherwise fall
+back to the source name. File sources use the file path. Source keys are used
+for runtime state, saved track layouts, and track names.
+
 ### Device
 
 A device is a hardware audio input discovered from the operating system or read
@@ -53,7 +60,7 @@ become output files through channel writers.
 
 A track name is the user-facing label assigned to a track, such as
 `Lead Vocal`. Track names can affect status output and generated filenames. A
-track name maps to the first channel of the track within a device.
+track name maps to the first channel of the track within a source.
 
 ### Track layout
 

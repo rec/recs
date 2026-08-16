@@ -11,7 +11,7 @@ from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 
 from .device_poller import DevicePoller
 from .full_state import FullState
@@ -39,7 +39,7 @@ class DeviceLifecycle:
         cfg: Cfg,
         state: FullState,
         saved_tracks: dict[str, list[settings.TrackSettings]],
-        track_names: DeviceTrackNames,
+        track_names: SourceTrackNames,
         initial_tracks: list[tuple[Source, Sequence[Track]]],
         warning: Callable[[str], None],
         event: Callable[..., None],
@@ -122,7 +122,7 @@ class DeviceLifecycle:
         for source in self.source_processes.values():
             source.set_cfg(cfg, revision=revision)
 
-    def set_track_names(self, track_names: DeviceTrackNames) -> None:
+    def set_track_names(self, track_names: SourceTrackNames) -> None:
         self.track_names = track_names
         for source in self.source_processes.values():
             source.set_track_names(track_names)

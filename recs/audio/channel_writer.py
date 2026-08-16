@@ -17,7 +17,7 @@ from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.cfg import time_settings, track_names
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 from recs.misc import counter, file_list
 
 from .block import Block, Blocks
@@ -71,7 +71,7 @@ class ChannelWriter(Runnable):
         self.times = times
         self.track = track
         self.noise_floor = _noise_floor(cfg, track)
-        self.track_names: DeviceTrackNames = {}
+        self.track_names: SourceTrackNames = {}
 
         self._blocks = Blocks()
         self._lock = Lock()
@@ -111,7 +111,7 @@ class ChannelWriter(Runnable):
 
         self.largest_file_size = max(0, *(size(f) for f in self.formats))
 
-    def set_track_names(self, names: DeviceTrackNames) -> None:
+    def set_track_names(self, names: SourceTrackNames) -> None:
         self.track_names = names
 
     def set_cfg(self, cfg: Cfg, times: time_settings.TimeSettings[int]) -> None:

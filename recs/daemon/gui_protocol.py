@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 from reccy import ipc
 
 from recs.base.errors import ErrorRecord
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 
 VERSION = 3
 
@@ -104,7 +104,7 @@ class ChannelTrack(BaseModel):
 
 class SetTrackNames(BaseModel):
     type: Literal['set_track_names']
-    track_names: DeviceTrackNames
+    track_names: SourceTrackNames
 
 
 class SetTracks(BaseModel):
@@ -213,7 +213,7 @@ class StatusSnapshot(BaseModel):
 
 class TrackNames(BaseModel):
     type: Literal['track_names']
-    track_names: DeviceTrackNames
+    track_names: SourceTrackNames
 
 
 class TracksSet(BaseModel):
