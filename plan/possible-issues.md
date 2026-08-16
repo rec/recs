@@ -21,16 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Maintainability and responsibility issues
 
-### Recorder still exposes collaborator internals
-
-`recs/ui/recorder.py` delegates device lifecycle, recording control, disk
-monitoring, disk control, calibration, and recording sessions, but it still has
-compatibility properties exposing collaborator internals.
-
-Those properties make refactoring easier, but they keep old ownership
-boundaries alive. Future changes can accidentally bypass the intended
-collaborators and mutate lifecycle state directly.
-
 ### RecordingControl still has several roles
 
 `recs/ui/recording_control.py` now has clearer runtime state and delegates many

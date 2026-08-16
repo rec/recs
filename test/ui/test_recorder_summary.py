@@ -93,7 +93,7 @@ def test_recorder_explains_quiet_or_short_audio(
     mock_devices: None,
 ) -> None:
     rec = _recorder(monkeypatch, Cfg(include=['Mic'], silent=True))
-    rec.devices.frames['Mic'] = 48_000
+    rec._devices.frames['Mic'] = 48_000
 
     assert rec._no_file_explanation() == (
         'audio stayed below the noise floor or candidate files were shorter '

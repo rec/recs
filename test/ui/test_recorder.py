@@ -215,8 +215,8 @@ def test_recorder_runs_without_devices(
 
     rec = Recorder(Cfg(silent=True))
 
-    assert rec.devices.hardware == {}
-    assert rec.devices.poller is not None
+    assert rec._devices.hardware == {}
+    assert rec._devices.poller is not None
     assert rec.error_records()[0].message == 'No input devices detected'
     assert rec.error_records()[0].timestamp.endswith('Z')
     assert rec.error_messages() == ['No input devices detected']
@@ -231,12 +231,12 @@ def test_recorder_adds_device_detected_after_start(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    assert rec.devices.poller is not None
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
     rec._poll_devices()
 
-    assert 'Mic' in rec.devices.hardware
-    assert rec.devices.hardware['Mic'].started
+    assert 'Mic' in rec._devices.hardware
+    assert rec._devices.hardware['Mic'].started
     assert list(rec.state.state) == ['Mic']
 
 
@@ -248,9 +248,9 @@ def test_recorder_replaces_returning_device(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
+    mic = rec._devices.hardware['Mic']
 
-    rec.devices.poller.snapshots = [
+    rec._devices.poller.snapshots = [
         {},
         {'Mic': mic_info, 'Unexpected': mic_info},
         {},
@@ -258,13 +258,15 @@ def test_recorder_replaces_returning_device(
     ]
 
     rec._poll_devices()
-    assert not any(source.started for source in rec.devices.hardware.values())
+    assert not any(source.started for source in rec._devices.hardware.values())
 
     rec._poll_devices()
     assert mic.started
     assert mic.start_count == 1
     assert not any(
-        source.started for name, source in rec.devices.hardware.items() if name != 'Mic'
+        source.started
+        for name, source in rec._devices.hardware.items()
+        if name != 'Mic'
     )
 
     rec._poll_devices()
@@ -323,8 +325,8 @@ def test_display_receives_recorder_errors(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recorder.live, 'Live', ClosedDisplay)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE)))
-    flower = rec.devices.hardware['Flower 8']
-    rec.devices.poller.snapshots = [
+    flower = rec._devices.hardware['Flower 8']
+    rec._devices.poller.snapshots = [
         {'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}
     ]
 
@@ -344,7 +346,7 @@ def test_gui_starts_sources_before_display_process(
 
     class OrderDisplay(ClosedDisplay):
         def start(self) -> None:
-            assert any(source.started for source in rec.devices.hardware.values())
+            assert any(source.started for source in rec._devices.hardware.values())
             super().start()
 
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -479,8 +481,8 @@ def test_failed_device_waits_for_reconnect(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
-    rec.devices.poller.snapshots = [
+    mic = rec._devices.hardware['Mic']
+    rec._devices.poller.snapshots = [
         {'Mic': mic_info},
         {'Mic': mic_info},
         {},
@@ -509,8 +511,8 @@ def test_device_with_too_few_channels_stays_offline(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
-    flower = rec.devices.hardware['Flower 8']
-    rec.devices.poller.snapshots = [
+    flower = rec._devices.hardware['Flower 8']
+    rec._devices.poller.snapshots = [
         {'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}
     ]
 
@@ -530,8 +532,8 @@ def test_slow_device_clock_stays_offline(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    mic = rec._devices.hardware['Mic']
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
 
     rec._poll_devices()
     now = 110.0
@@ -545,7 +547,7 @@ def test_slow_device_clock_stays_offline(
     )
 
     assert not mic.running
-    assert 'Mic' in rec.devices.failed
+    assert 'Mic' in rec._devices.failed
     assert caplog.messages == ['Device Mic lagging behind real time']
 
 
@@ -559,8 +561,8 @@ def test_slow_device_clock_reports_once_per_session(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    mic = rec._devices.hardware['Mic']
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
     update = SourceUpdate(
         channels={'1': ChannelState()},
         files=[],
@@ -587,8 +589,8 @@ def test_slow_device_clock_ignores_startup_grace(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    mic = rec._devices.hardware['Mic']
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
 
     rec._poll_devices()
     now = 104.0
@@ -602,7 +604,7 @@ def test_slow_device_clock_ignores_startup_grace(
     )
 
     assert mic.running
-    assert 'Mic' not in rec.devices.failed
+    assert 'Mic' not in rec._devices.failed
     assert caplog.messages == []
 
 
@@ -616,15 +618,15 @@ def test_stalled_source_is_stopped(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    mic = rec.devices.hardware['Mic']
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    mic = rec._devices.hardware['Mic']
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
 
     rec._poll_devices()
     now += recorder.SOURCE_STALL_TIMEOUT + 1
     rec._stop_stalled_sources()
 
     assert not mic.started
-    assert 'Mic' in rec.devices.failed
+    assert 'Mic' in rec._devices.failed
     assert rec.error_records() == [
         ErrorRecord(
             timestamp='1970-01-01T00:01:51.000Z',
@@ -649,7 +651,7 @@ def test_source_failure_is_reported(
     assert rec.error_records()[0].message == (
         'Device Mic failed: ValueError: no input device'
     )
-    assert 'Mic' in rec.devices.failed
+    assert 'Mic' in rec._devices.failed
     assert caplog.messages == ['Device Mic failed: ValueError: no input device']
 
 
@@ -743,7 +745,7 @@ def test_recorder_rows_include_buffer_stats(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], silent=True))
-    rec.devices.buffer_stats['Mic'] = BufferStats(
+    rec._devices.buffer_stats['Mic'] = BufferStats(
         queued_seconds=0.25, dropped_frames=512
     )
 
@@ -984,13 +986,13 @@ def test_calibrate_control_request_sets_channel_noise_floor(
         lambda c, timeout: [i for i in c if i.poll()],
     )
     rec = Recorder(Cfg(include=['Mic'], preview_headroom=9, silent=True))
-    rec.devices.hardware['Mic'].start()
+    rec._devices.hardware['Mic'].start()
     request = FakeControlRequest()
     rec.live = FakeControlDisplay([request])
 
     rec._receive_control_requests()
 
-    assert all(source.cfg is rec.cfg for source in rec.devices.sources.values())
+    assert all(source.cfg is rec.cfg for source in rec._devices.sources.values())
     assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 15.0}}
     assert request.responses == [
         gui_protocol.Calibrated(
@@ -1027,9 +1029,9 @@ def test_calibration_selects_both_stereo_channels(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Ext'], silent=True))
-    rec.devices.hardware['Ext'].start()
+    rec._devices.hardware['Ext'].start()
 
-    assert rec.calibration._tracks({'Ext': [1]}) == {'Ext': ['1-2']}
+    assert rec._calibration._tracks({'Ext': [1]}) == {'Ext': ['1-2']}
 
 
 def test_control_request_splits_stereo_track_and_records_event(
@@ -1061,12 +1063,12 @@ def test_control_request_splits_stereo_track_and_records_event(
 
     rec._receive_control_requests()
 
-    assert [track.name for track in rec.devices.sources['Ext'].tracks] == [
+    assert [track.name for track in rec._devices.sources['Ext'].tracks] == [
         '1',
         '2',
         '3',
     ]
-    assert rec.control.track_names == {'Ext': {'VL': 1}}
+    assert rec._control.track_names == {'Ext': {'VL': 1}}
     assert rec.cfg.recording.channel_noise_floors == {'Ext': {'1': 37, '2': 37}}
     assert request.responses == [
         gui_protocol.TracksSet(
@@ -1101,16 +1103,16 @@ def test_recorder_saves_and_restores_track_settings(
         ],
     )
 
-    rec.control.set_tracks(request)
+    rec._control.set_tracks(request)
     loaded = settings.load(Cfg(include=['Ext'], save_settings=True, silent=True))
     restored = Recorder(loaded.cfg, loaded)
 
-    assert [track.name for track in restored.devices.sources['Ext'].tracks] == [
+    assert [track.name for track in restored._devices.sources['Ext'].tracks] == [
         '1',
         '2',
         '3',
     ]
-    assert restored.control.track_names == {'Ext': {'VL': 1}}
+    assert restored._control.track_names == {'Ext': {'VL': 1}}
 
 
 def test_control_request_groups_mono_tracks_into_stereo_pair(
@@ -1137,8 +1139,8 @@ def test_control_request_groups_mono_tracks_into_stereo_pair(
 
     rec._receive_control_requests()
 
-    assert [track.name for track in rec.devices.sources['Ext'].tracks] == ['1-2']
-    assert rec.control.track_names == {'Ext': {'Stereo': 1}}
+    assert [track.name for track in rec._devices.sources['Ext'].tracks] == ['1-2']
+    assert rec._control.track_names == {'Ext': {'Stereo': 1}}
     assert rec.cfg.recording.channel_noise_floors == {'Ext': {'1-2': 37}}
 
 
@@ -1149,15 +1151,15 @@ def test_track_layout_updates_state_on_next_source_update(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Ext'], silent=True))
-    source = rec.devices.sources['Ext']
-    rec.control.track_names = {'Ext': {'VL': 1}}
+    source = rec._devices.sources['Ext']
+    rec._control.track_names = {'Ext': {'VL': 1}}
     source.set_tracks(
         [
             Track(source.source, '1'),
             Track(source.source, '2'),
             Track(source.source, '3'),
         ],
-        rec.control.track_names,
+        rec._control.track_names,
     )
 
     rec._receive_update(
@@ -1273,10 +1275,10 @@ def test_control_request_pauses_and_resumes_recording(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    assert rec.devices.poller is not None
-    rec.devices.poller.snapshots = [{'Mic': mic_info}]
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [{'Mic': mic_info}]
     rec._poll_devices()
-    assert rec.devices.hardware['Mic'].running
+    assert rec._devices.hardware['Mic'].running
     pause = FakeControlRequest(gui_protocol.PauseRecording(type='pause_recording'))
     resume = FakeControlRequest(gui_protocol.ResumeRecording(type='resume_recording'))
     rec.live = FakeControlDisplay([pause, resume])
@@ -1284,9 +1286,9 @@ def test_control_request_pauses_and_resumes_recording(
 
     rec._receive_control_requests()
 
-    assert not rec.control.recording_paused
-    assert not rec.control.recording_stopped
-    assert not rec.devices.hardware['Mic'].running
+    assert not rec._control.recording_paused
+    assert not rec._control.recording_stopped
+    assert not rec._devices.hardware['Mic'].running
     records = read_jsonl(tmp_path / 'recs-session.jsonl')
     assert records[1]['type'] == 'recording_paused'
     assert records[2]['type'] == 'recording_resumed'
@@ -1333,9 +1335,9 @@ def test_daemon_start_after_stop_uses_new_session_directory(
     rec._start_manifest()
     first_manifest = tmp_path / 'recs' / '2026-06-23 20-34-10' / 'recs-session.jsonl'
 
-    rec.control.stop_recording()
-    rec.control.stop_recording()
-    rec.control.resume_recording('start_recording')
+    rec._control.stop_recording()
+    rec._control.stop_recording()
+    rec._control.resume_recording('start_recording')
 
     second_manifest = tmp_path / 'recs' / '2026-06-23 21-34-10' / 'recs-session.jsonl'
     assert first_manifest.exists()
@@ -1403,7 +1405,7 @@ def test_status_snapshot_includes_error_timestamps(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._record_warning('Device Mic failed')
 
-    response = rec.control.status_snapshot()
+    response = rec._control.status_snapshot()
 
     assert response.errors == [
         ErrorRecord(
@@ -1435,7 +1437,7 @@ def test_control_request_sets_and_gets_track_names(
     )
     assert set_request.responses == [expected]
     assert get_request.responses == [expected]
-    assert rec.devices.sources['Mic'].track_names == {'Mic': {'Lead Vocal': 1}}
+    assert rec._devices.sources['Mic'].track_names == {'Mic': {'Lead Vocal': 1}}
 
 
 def test_control_request_sets_and_gets_cfg(
@@ -1461,7 +1463,7 @@ def test_control_request_sets_and_gets_cfg(
 
     expected = 3600.0
     assert rec.cfg.recording.longest_file_time == expected
-    assert rec.devices.sources['Mic'].cfg is rec.cfg
+    assert rec._devices.sources['Mic'].cfg is rec.cfg
     assert set_request.responses == [
         gui_protocol.CfgSet(
             type='cfg_set', address='recording.longest_file_time', value=expected
@@ -1828,7 +1830,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
     )
     rec._start_manifest()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    rec.devices.poller.snapshots = [{'Mic': mic_info}, {}, {'Mic': mic_info}]
+    rec._devices.poller.snapshots = [{'Mic': mic_info}, {}, {'Mic': mic_info}]
 
     rec._poll_devices()
     rec._receive_update(

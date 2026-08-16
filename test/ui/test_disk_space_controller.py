@@ -22,9 +22,9 @@ def test_minimum_free_space_is_an_emergency_reserve(
     )
     rec = Recorder(Cfg(minimum_free_space=5, silent=True))
 
-    rec.disk_space_controller.monitor_disk_space()
+    rec._disk_space_controller.monitor_disk_space()
 
-    assert rec.disk_space_policy.paused
+    assert rec._disk_space_policy.paused
     assert caplog.messages == ['Disk space emergency on .: 4 bytes free']
 
 
@@ -60,7 +60,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
         rec.session.manifest.path if rec.session.manifest is not None else None
     )
 
-    rec.disk_space_controller.monitor_disk_space()
+    rec._disk_space_controller.monitor_disk_space()
 
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
     assert rec.session.manifest is not None
@@ -111,7 +111,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
         rec.session.manifest.path if rec.session.manifest is not None else None
     )
     assert old_manifest is not None
-    rec.devices.hardware['Mic'].pending_updates.append(
+    rec._devices.hardware['Mic'].pending_updates.append(
         SourceUpdate(
             channels={'1': ChannelState()},
             files=[recorded],
@@ -136,7 +136,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
         )
     )
 
-    rec.disk_space_controller.monitor_disk_space()
+    rec._disk_space_controller.monitor_disk_space()
 
     manifest = session_manifest.read(old_manifest)
     assert any(Path(file.path) == recorded for file in manifest.files)
@@ -162,10 +162,10 @@ def test_disk_emergency_pauses_recording(
     )
     rec._start_manifest()
 
-    rec.disk_space_controller.monitor_disk_space()
+    rec._disk_space_controller.monitor_disk_space()
 
-    assert rec.control.recording_paused
-    assert rec.disk_space_policy.paused
+    assert rec._control.recording_paused
+    assert rec._disk_space_policy.paused
 
 
 def test_disk_pause_resumes_on_removable_disk(
@@ -191,13 +191,13 @@ def test_disk_pause_resumes_on_removable_disk(
         )
     )
     rec._start_manifest()
-    rec.disk_space_controller.monitor_disk_space()
-    assert rec.disk_space_policy.paused
+    rec._disk_space_controller.monitor_disk_space()
+    assert rec._disk_space_policy.paused
 
     mounts.append(removable)
     now[0] = 2.0
-    rec.disk_space_controller.monitor_disk_space()
+    rec._disk_space_controller.monitor_disk_space()
 
-    assert not rec.disk_space_policy.paused
-    assert not rec.control.recording_paused
+    assert not rec._disk_space_policy.paused
+    assert not rec._control.recording_paused
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
