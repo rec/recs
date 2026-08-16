@@ -260,7 +260,10 @@ class RecsRunner(BaseModel):
         if self.cfg.directory.output_directory or not paths:
             return paths
 
-        parents = {path.parent for path in paths}
+        parents = {
+            path.parent.parent if path.parent.name == 'audio' else path.parent
+            for path in paths
+        }
         assert len(parents) == 1
         parent = parents.pop()
         assert parent.name.startswith(('recs- ', 'recs '))

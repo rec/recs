@@ -27,8 +27,14 @@ class Req(IntEnum):
 
 
 class PathPattern:
-    def __init__(self, path: str, short_file_names: bool = False) -> None:
+    def __init__(
+        self,
+        path: str,
+        short_file_names: bool = False,
+        media_directory: str = '',
+    ) -> None:
         self.raw_path = path
+        self.media_directory = media_directory
         str_parts = parse_fields(path)
         time_parts = STRFTIME_FIELDS.findall(path)
         parts = set(time_parts + str_parts)
@@ -80,8 +86,9 @@ class PathPattern:
     ) -> Path:
         if path := getattr(track.source, 'path', None):
             # It's a file!
-            return legal_filename.legal_path(
-                Path(self.raw_path) / f'{path.stem}-{index}'
+            return self._with_media_directory(
+                legal_filename.legal_path(Path(self.raw_path) / f'{path.stem}-{index}'),
+                timestamp,
             )
 
         ts = datetime.fromtimestamp(timestamp)
@@ -93,7 +100,7 @@ class PathPattern:
             track=aliases.display_name(track, short=False),
             **self.times(ts),
         )
-        return legal_filename.legal_path(Path(p))
+        return self._with_media_directory(legal_filename.legal_path(Path(p)), timestamp)
 
     def make_track_name_path(
         self,
@@ -113,8 +120,30 @@ class PathPattern:
         )
         name = f'{track_name} + {ts.strftime("%Y%m%d-%H%M%S")}'
         if directory:
-            return legal_filename.legal_path(Path(directory) / name)
-        return legal_filename.legal_path(Path(name))
+            path = legal_filename.legal_path(Path(directory) / name)
+        else:
+            path = legal_filename.legal_path(Path(name))
+        return self._with_media_directory(path, timestamp)
+
+    def _with_media_directory(self, path: Path, timestamp: float) -> Path:
+        if not self.media_directory:
+            return path
+        root = self._media_root(timestamp)
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            relative = path
+        return root / self.media_directory / relative
+
+    def _media_root(self, timestamp: float) -> Path:
+        ts = datetime.fromtimestamp(timestamp)
+        try:
+            return legal_filename.legal_path(
+                Path(ts.strftime(self.raw_path).format(**manifest_times(ts)))
+            )
+        except KeyError:
+            prefix = self.raw_path.split('{', 1)[0].rstrip('/\\')
+            return legal_filename.legal_path(Path(prefix or '.'))
 
 
 DATE = {Req.year, Req.month, Req.day}
@@ -188,3 +217,7 @@ FIELD_TO_PSTRING: dict[str, str] = {
     'minute': '%M',
     'second': '%S',
 }
+
+
+def manifest_times(ts: datetime) -> dict[str, str]:
+    return {k: ts.strftime(v) for k, v in FIELD_TO_PSTRING.items()}

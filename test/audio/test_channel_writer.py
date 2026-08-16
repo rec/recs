@@ -238,7 +238,7 @@ def test_channel_writer_uses_track_name_for_new_files(mock_devices: None) -> Non
 
     files = list(writer.files_written)
     assert len(files) == 1
-    assert files[0].match('takes/Stereo Pair + 20231015-164921.wav')
+    assert files[0].match('takes/audio/Stereo Pair + 20231015-164921.wav')
 
 
 def _on_and_off_segments(it):

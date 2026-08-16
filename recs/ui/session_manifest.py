@@ -56,6 +56,7 @@ class ManifestFile(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
+    kind: str = 'audio'
     timestamp: str
     frame_count: int | None = None
     path: str
@@ -64,6 +65,9 @@ class ManifestFile(BaseModel):
     sample_rate: int
     bit_depth: int
     source: str | None = None
+    message_count: int | None = None
+    timing_source: str | None = None
+    midi_port: str | None = None
 
 
 class ManifestWarning(BaseModel):

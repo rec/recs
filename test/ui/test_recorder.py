@@ -857,6 +857,7 @@ def test_live_input_manifest_omits_source(
     assert records[1:3] == [
         {
             'type': 'file_started',
+            'kind': 'audio',
             'path': path.as_posix(),
             'track': 1,
             'channels': 1,
@@ -865,6 +866,7 @@ def test_live_input_manifest_omits_source(
         },
         {
             'type': 'file_finished',
+            'kind': 'audio',
             'path': path.as_posix(),
             'track': 1,
             'channels': 1,
@@ -915,6 +917,7 @@ def test_manifest_records_source_frame_counts(
     assert records[1:4] == [
         {
             'type': 'file_started',
+            'kind': 'audio',
             'frame_count': 256,
             'path': path.as_posix(),
             'track': 1,
@@ -930,6 +933,7 @@ def test_manifest_records_source_frame_counts(
         },
         {
             'type': 'file_finished',
+            'kind': 'audio',
             'frame_count': 768,
             'path': path.as_posix(),
             'track': 1,
