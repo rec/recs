@@ -151,7 +151,7 @@ def test_channel_writer_records_max_write_seconds(
         shortest_file_time=1,
         stop_after_quiet=50,
     )
-    values = iter([0.0, 0.25])
+    values = iter([0.0, 0.25, 0.25, 0.25])
     monkeypatch.setattr(
         'recs.audio.channel_writer.time.monotonic', lambda: next(values)
     )

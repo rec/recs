@@ -232,7 +232,7 @@ class ChannelWriter(Runnable):
     def _state(self, **kwargs: Any) -> ChannelState:
         return ChannelState(
             file_count=len(self.files_written),
-            file_size=self.files_written.total_size,
+            file_size=self.files_written.cached_total_size,
             is_active=bool(self._sfs),
             max_write_seconds=self.max_write_seconds,
             recorded_time=self.frames_written / self.track.source.samplerate,

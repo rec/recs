@@ -2,6 +2,7 @@ from pathlib import Path
 
 import tdir
 
+from recs.misc import file_list
 from recs.misc.file_list import FileList
 
 
@@ -22,3 +23,18 @@ def test_file_list():
                 assert fl.total_size == ts
 
     assert fl.total_size == 224
+
+
+@tdir
+def test_file_list_cached_total_size(monkeypatch):
+    times = iter([0.0, 0.5, 1.0])
+    monkeypatch.setattr(file_list.time, 'monotonic', lambda: next(times))
+    fl = FileList()
+    fl.append(Path('active.wav'))
+    fl[-1].write_bytes(b'1234')
+
+    assert fl.cached_total_size == 4
+    fl[-1].write_bytes(b'12345678')
+    assert fl.cached_total_size == 4
+    assert fl.cached_total_size == 8
+    assert fl.total_size == 8

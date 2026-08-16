@@ -21,13 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### File-size bookkeeping still stats the active file
-
-`FileList.total_size` already caches completed files, so the old concern about
-restatting every file is resolved. It still stats the active last file during
-status generation. That is probably fine, but it should stay on the measurement
-list if long sessions show status refresh overhead.
-
 ### Quiet buffers are stored as Block objects
 
 `ChannelWriter` holds recent quiet audio in `Blocks` for `quiet_before_start`
