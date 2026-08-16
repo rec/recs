@@ -490,6 +490,7 @@ class SourceRecorder(Runnables):
                 try:
                     update = self.buffer.get(timeout=POLL_TIMEOUT)
                 except Empty:
+                    self.control.receive()
                     if not self.input_stream.running:
                         break
                 else:
