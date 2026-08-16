@@ -163,6 +163,37 @@ def test_channel_writer_records_max_write_seconds(
 
 
 @tdir
+def test_channel_writer_trims_stored_quiet_without_delaying_close(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=4,
+        shortest_file_time=1,
+        stop_after_quiet=10,
+    )
+    block = Block(block=II[0])
+    writer = ChannelWriter(cfg, times=times, track=track)
+
+    writer.receive_update(block, conftest.TIMESTAMP, should_record=True)
+    assert writer._state().is_active
+
+    writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
+    writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
+    assert writer._blocks.duration == 4
+    assert writer.quiet_frames == 8
+    assert writer._state().is_active
+
+    writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
+
+    assert writer._blocks.duration == 0
+    assert writer.quiet_frames == 12
+    assert not writer._state().is_active
+
+
+@tdir
 def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None:
     cfg = Cfg(formats=[Format.wav])
     track = cfg.aliases.to_track('Ext+2')

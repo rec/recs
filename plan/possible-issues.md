@@ -21,13 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### Quiet buffers are stored as Block objects
-
-`ChannelWriter` holds recent quiet audio in `Blocks` for `quiet_before_start`
-and `quiet_after_end`. This is necessary for the feature, but the memory cost
-scales with channel count, sample width, and configured quiet windows. Large
-quiet windows on many tracks can consume more memory than users expect.
-
 ### Source and event transport backpressure is hard to see
 
 Source updates coalesce, which protects capture liveness, but it hides how long

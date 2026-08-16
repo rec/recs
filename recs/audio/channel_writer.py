@@ -50,6 +50,7 @@ class ChannelWriter(Runnable):
     timestamp: float = 0
     timeline_frame: int = 0
     max_write_seconds: float = 0.0
+    quiet_frames: int = 0
 
     _sfs: Sequence[SoundFile] = ()
 
@@ -223,8 +224,17 @@ class ChannelWriter(Runnable):
 
                 self._write_blocks(self._blocks.blocks)
                 self._blocks.clear()
+                self.quiet_frames = 0
+            else:
+                self.quiet_frames += len(block)
+                self._blocks.clip(
+                    self.times.quiet_after_end
+                    if self._sfs
+                    else self.times.quiet_before_start,
+                    from_start=True,
+                )
 
-            if self.stopped or self._blocks.duration > self.times.stop_after_quiet:
+            if self.stopped or self.quiet_frames > self.times.stop_after_quiet:
                 self._write_and_close()
 
         return self._state() - saved_state
