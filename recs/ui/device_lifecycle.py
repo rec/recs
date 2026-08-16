@@ -61,7 +61,7 @@ class DeviceLifecycle:
         self.source_process = source_process
         self.device_poller = device_poller
         self.source_processes = {
-            source.name: self.source_process(cfg, tracks, track_names=track_names)
+            source.key: self.source_process(cfg, tracks, track_names=track_names)
             for source, tracks in initial_tracks
         }
         self.hardware_sources = {
@@ -267,7 +267,7 @@ class DeviceLifecycle:
         devices = get_input_devices(list(snapshot.values()))
         aliases = Aliases(self.cfg.device.alias, devices)
         for source, tracks in input_device_tracks(self.cfg, devices):
-            if source.name in self.source_processes:
+            if source.key in self.source_processes:
                 continue
             tracks = _restored_tracks(source, tracks, self.saved_tracks)
             self._add_source(source, tracks, aliases)
@@ -276,14 +276,14 @@ class DeviceLifecycle:
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases
     ) -> None:
         process = self.source_process(self.cfg, tracks, track_names=self.track_names)
-        self.source_processes[source.name] = process
-        self.hardware_sources[source.name] = process
-        self.source_frames[source.name] = 0
-        self.buffer_drops_reported[source.name] = 0
-        self.buffer_pressure_reported[source.name] = 0.0
-        self.source_frames_at_start[source.name] = 0
-        self.source_start_times[source.name] = self.state.start_time
-        self.source_last_updates[source.name] = self.state.start_time
+        self.source_processes[source.key] = process
+        self.hardware_sources[source.key] = process
+        self.source_frames[source.key] = 0
+        self.buffer_drops_reported[source.key] = 0
+        self.buffer_pressure_reported[source.key] = 0.0
+        self.source_frames_at_start[source.key] = 0
+        self.source_start_times[source.key] = self.state.start_time
+        self.source_last_updates[source.key] = self.state.start_time
         self.state.add_source(source, tracks, aliases)
         self.no_channels_reported = False
 
@@ -345,7 +345,7 @@ class DeviceLifecycle:
         if recorded >= elapsed * MIN_FRAME_CLOCK_RATIO:
             return True
         if source.name not in self.lag_reported:
-            self.warning(f'Device {source.name} lagging behind real time')
+            self.warning(f'Device {source.source.name} lagging behind real time')
             self.lag_reported.add(source.name)
         return False
 
@@ -387,7 +387,7 @@ def _restored_tracks(
     defaults: Sequence[Track],
     saved_tracks: dict[str, list[settings.TrackSettings]],
 ) -> Sequence[Track]:
-    saved = saved_tracks.get(source.name)
+    saved = saved_tracks.get(source.key)
     if saved is None:
         return defaults
     expected = {channel for track in defaults for channel in track.channels}

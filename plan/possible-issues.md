@@ -71,16 +71,6 @@ leaving a smaller recorder-level integration suite.
 
 ## Naming, identity, and readability issues
 
-### Device identity is based on mutable display names
-
-Sources are keyed by device name. Replugging, ALSA renumbering, duplicate USB
-names, or an edited alias can cause a device to be treated as a different
-source, losing track layout/calibration association or attaching to the wrong
-device.
-
-The code needs a stable device identity when the host API supplies one. Display
-names should remain user-facing labels.
-
 ### Disk monitor and disk control names are close
 
 `DiskMonitor` tracks disk policy and thresholds. `DiskControl` applies decisions

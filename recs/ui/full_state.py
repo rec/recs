@@ -32,13 +32,13 @@ class FullState:
         def device_state(tr: Sequence[Track]) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in tr}
 
-        self.state[source.name] = device_state(tracks)
-        self.source_names[source.name] = (
+        self.state[source.key] = device_state(tracks)
+        self.source_names[source.key] = (
             aliases.display_name(source) if aliases else source.name
         )
         self.track_names.update(
             {
-                (source.name, track.name): (
+                (source.key, track.name): (
                     aliases.display_name(track) if aliases else track.name
                 )
                 for track in tracks
@@ -54,7 +54,7 @@ class FullState:
         self.track_names = {
             key: value
             for key, value in self.track_names.items()
-            if key[0] != source.name
+            if key[0] != source.key
         }
         self.add_source(source, tracks, aliases)
 

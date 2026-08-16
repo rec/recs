@@ -16,7 +16,7 @@ def validate_track_names(track_names: DeviceTrackNames) -> DeviceTrackNames:
 
 
 def track_name(track_names: DeviceTrackNames, track: Track) -> str:
-    names = track_names.get(track.source.name, {})
+    names = track_names.get(track.source.key, {})
     for name, channel in names.items():
         if channel in track.channels:
             return name

@@ -1,6 +1,8 @@
 import pytest
 
 from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
+from recs.cfg.track import Track
 
 OK = 'flow', 'f', 'e', 'f + 9-10', 'f + 8', 'f + 8-9'
 KEY_ERRORS = 'flaw', 'a'
@@ -35,3 +37,24 @@ def test_track_display(mock_devices):
     t = Cfg().aliases.to_track('flow + 2-3')
     assert str(t) == 'Flower 8 + 2-3'
     assert repr(t) == "Track('Flower 8 + 2-3')"
+
+
+def test_track_identity_uses_source_key() -> None:
+    first = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'USB Audio',
+            'uid': 'first',
+        }
+    )
+    second = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'USB Audio',
+            'uid': 'second',
+        }
+    )
+
+    assert Track(first, '1') != Track(second, '1')

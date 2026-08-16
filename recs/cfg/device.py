@@ -15,6 +15,7 @@ from .source import Source, Update
 
 DeviceDict = dict[str, float | int | str]
 DEVICE_QUERY_TIMEOUT = 5.0
+STABLE_DEVICE_ID_FIELDS = ('uid', 'unique_id', 'persistent_id', 'guid', 'identifier')
 
 
 class InputDevice(Source):
@@ -22,6 +23,7 @@ class InputDevice(Source):
         self.info = info
         super().__init__(
             channels=cast(int, self.info['max_input_channels']),
+            key=device_key(info),
             name=cast(str, self.info['name']),
             samplerate=int(self.info['default_samplerate']),
         )
@@ -58,8 +60,15 @@ class InputDevice(Source):
 InputDevices = PrefixDict[InputDevice]
 
 
+def device_key(info: DeviceDict) -> str:
+    for field in STABLE_DEVICE_ID_FIELDS:
+        if value := str(info.get(field, '')).strip():
+            return f'{field}:{value}'
+    return cast(str, info['name'])
+
+
 def get_input_devices(devices: Sequence[DeviceDict]) -> InputDevices:
-    return PrefixDict({d.name: d for i in devices if (d := InputDevice(i)).channels})
+    return PrefixDict({d.key: d for i in devices if (d := InputDevice(i)).channels})
 
 
 def query_devices() -> Sequence[DeviceDict]:

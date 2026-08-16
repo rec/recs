@@ -545,7 +545,7 @@ class SourceRecorder(Runnables):
                 channels=msgs,
                 files=files,
                 frames=len(update.array),
-                source_name=self.source.name,
+                source_name=self.source.key,
                 timestamp=end_timestamp,
                 buffer_stats=stats,
                 buffer_warnings=buffer_warnings,

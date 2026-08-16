@@ -306,7 +306,7 @@ class ChannelWriter(Runnable):
 
 
 def _noise_floor(cfg: Cfg, track: Track) -> float:
-    floors = cfg.recording.channel_noise_floors.get(track.source.name, {})
+    floors = cfg.recording.channel_noise_floors.get(track.source.key, {})
     if (noise_floor := floors.get(track.name)) is not None:
         return noise_floor
     return cfg.recording.noise_floor
