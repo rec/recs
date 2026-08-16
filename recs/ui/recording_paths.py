@@ -16,9 +16,7 @@ def with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
         return cfg
 
     if (record_directory := daemon_record_directory(cfg)) is not None:
-        output_directory = available_directory(
-            record_directory / daemon_session_directory_name(timestamp)
-        )
+        output_directory = record_directory
     else:
         output_directory = available_directory(Path(session_directory_name(timestamp)))
 
@@ -98,10 +96,6 @@ def session_directory_name(timestamp: float) -> str:
     return legal_filename.legal_filename(
         datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
     )
-
-
-def daemon_session_directory_name(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H-%M-%S')
 
 
 def manifest_directory(output_directory: str, timestamp: float) -> Path:

@@ -483,18 +483,6 @@ class Recorder(Runnables):
     def _start_recording_session(self) -> None:
         self.session_start_time = times.timestamp()
         self.session.reset(self.session_start_time)
-        if self.daemon_record_directory is not None:
-            output_directory = recording_paths.available_directory(
-                self.daemon_record_directory
-                / recording_paths.daemon_session_directory_name(self.session_start_time)
-            )
-            directory = self.cfg.directory.model_copy(
-                update={'output_directory': str(output_directory)}
-            )
-            self.cfg = self.cfg.model_copy(update={'directory': directory})
-            self.cfg.__dict__.pop('output_path_pattern', None)
-            for source in self._devices.sources.values():
-                source.cfg = self.cfg
         self._control.cfg = self.cfg
         self._disk_space_policy.cfg = self.cfg
         self._disk_space_controller.cfg = self.cfg

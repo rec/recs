@@ -1281,13 +1281,13 @@ def test_daemon_start_after_stop_uses_new_session_directory(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
-    first_manifest = tmp_path / 'recs' / '2026-06-23 20-34-10' / 'recs-session.jsonl'
+    first_manifest = tmp_path / 'recs' / 'recs-session.jsonl'
 
     rec._control.stop_recording()
     rec._control.stop_recording()
     rec._control.resume_recording('start_recording')
 
-    second_manifest = tmp_path / 'recs' / '2026-06-23 21-34-10' / 'recs-session.jsonl'
+    second_manifest = tmp_path / 'recs' / 'recs-session-1.jsonl'
     assert first_manifest.exists()
     assert read_jsonl(first_manifest)[-1]['type'] == 'footer'
     assert second_manifest.exists()
@@ -1666,8 +1666,12 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
         Cfg(default_record_directory='takes'), timestamp
     )
 
-    assert cfg.directory.output_directory == str(
-        large / 'takes' / '2026-06-23 20-34-10'
+    assert cfg.directory.output_directory == str(large / 'takes')
+    assert recording_paths.audio_directory(str(large / 'takes'), timestamp) == (
+        large / 'takes' / 'audio'
+    )
+    assert recording_paths.midi_directory(str(large / 'takes'), timestamp) == (
+        large / 'takes' / 'midi'
     )
 
 
@@ -1682,9 +1686,7 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
     cfg = recording_paths.with_default_output_directory(Cfg(), timestamp)
 
-    assert cfg.directory.output_directory == str(
-        tmp_path / 'recs' / '2026-06-23 20-34-10'
-    )
+    assert cfg.directory.output_directory == str(tmp_path / 'recs')
 
 
 def test_daemon_default_output_directory_keeps_explicit_directory(
