@@ -7,7 +7,7 @@ from reccy import logging
 
 from recs.base._query_device import devices_json, stream_devices
 from recs.base.errors import RecsError
-from recs.cfg import cli
+from recs.cfg import cli, run_cli
 
 LOGGER = logging.get_logger(__name__)
 
@@ -43,7 +43,8 @@ def run() -> int:
             from recs.ui import session_manifest_check
 
             return session_manifest_check.main(sys.argv[2:])
-        tyro.cli(cli.recs, prog='recs', description=cli.HELP)
+        cfg = tyro.cli(cli.CliCfg, prog='recs', description=cli.HELP)
+        run_cli.run_cli(cfg)
         return 0
 
     except KeyboardInterrupt:

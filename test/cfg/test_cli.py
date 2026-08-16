@@ -1,14 +1,13 @@
 import importlib
 import json
 import subprocess as sp
-from typing import Any
 
 import pytest
 import tomli
 import tyro
 
 from recs.base.types import Format, SdType, Subtype
-from recs.cfg import cli, run_cli
+from recs.cfg import cli
 
 
 def test_console_script_entry_point() -> None:
@@ -35,21 +34,9 @@ def test_help_has_no_consecutive_empty_lines() -> None:
         assert first or second
 
 
-def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
-    parsed: dict[str, Any] = {}
-
-    def make_cfg(**kwargs: Any) -> dict[str, Any]:
-        parsed.update(kwargs)
-        return parsed
-
-    def consume(cfg: Any) -> None:
-        pass
-
-    monkeypatch.setattr(cli.cfg, 'Cfg', make_cfg)
-    monkeypatch.setattr(run_cli, 'run_cli', consume)
-
-    tyro.cli(
-        cli.recs,
+def test_option_parsing() -> None:
+    parsed = tyro.cli(
+        cli.CliCfg,
         args=[
             '-a',
             'speaker=usb',
@@ -69,29 +56,24 @@ def test_option_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
         ],
     )
 
-    assert parsed['alias'] == ['speaker=usb', 'mic']
-    assert parsed['formats'] == [Format.wav]
-    assert parsed['sdtype'] == SdType.int16
-    assert parsed['longest_file_time'] == 90
-    assert parsed['preview_headroom'] == 9
-    assert not parsed['band_mode']
-    assert parsed['save_settings']
+    assert parsed.device.alias == ['speaker=usb', 'mic']
+    assert parsed.audio.formats == [Format.wav]
+    assert parsed.audio.sdtype == SdType.int16
+    assert parsed.recording.longest_file_time == 90
+    assert parsed.recording.preview_headroom == 9
+    assert not parsed.recording.band_mode
+    assert parsed.general.save_settings
 
 
 @pytest.mark.parametrize('option', ['-f', '--formats'])
 def test_audio_options_ignore_case_and_surrounding_dots(
-    monkeypatch: pytest.MonkeyPatch, option: str
+    option: str,
 ) -> None:
-    parsed: dict[str, Any] = {}
-
-    monkeypatch.setattr(cli.cfg, 'Cfg', lambda **kwargs: parsed.update(kwargs))
-    monkeypatch.setattr(run_cli, 'run_cli', lambda cfg: None)
-
-    tyro.cli(
-        cli.recs,
+    parsed = tyro.cli(
+        cli.CliCfg,
         args=[option, '.FLAC.', '--sdtype', '.INT32.', '--subtype', '.PCM_24.'],
     )
 
-    assert parsed['formats'] == [Format.flac]
-    assert parsed['sdtype'] == SdType.int32
-    assert parsed['subtype'] == Subtype.pcm_24
+    assert parsed.audio.formats == [Format.flac]
+    assert parsed.audio.sdtype == SdType.int32
+    assert parsed.audio.subtype == Subtype.pcm_24
