@@ -81,7 +81,7 @@ def test_short_file_names_after_device_selection(
         index=1,
     )
 
-    assert actual.match('1 + 20231015-164921')
+    assert actual.match('audio/1 + 20231015-164921')
 
 
 def test_short_file_names_preserve_explicit_device(

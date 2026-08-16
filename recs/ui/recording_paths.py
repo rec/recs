@@ -115,6 +115,14 @@ def manifest_directory(output_directory: str, timestamp: float) -> Path:
         return legal_filename.legal_path(Path(prefix or '.'))
 
 
+def audio_directory(output_directory: str, timestamp: float) -> Path:
+    return manifest_directory(output_directory, timestamp) / 'audio'
+
+
+def midi_directory(output_directory: str, timestamp: float) -> Path:
+    return manifest_directory(output_directory, timestamp) / 'midi'
+
+
 def existing_parent(path: Path) -> Path:
     for candidate in (path, *path.parents):
         if candidate.exists():

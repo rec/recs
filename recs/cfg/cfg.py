@@ -661,7 +661,7 @@ class Cfg(BaseModel):
         )
         short_file_names = self.directory.short_file_names and selected_devices == 1
         return path_pattern.PathPattern(
-            self.directory.output_directory, short_file_names
+            self.directory.output_directory, short_file_names, media_directory='audio'
         )
 
     @cached_property

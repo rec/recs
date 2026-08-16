@@ -85,7 +85,7 @@ def test_file_inputs(
         )
     )
 
-    outputs = sorted(Path('files').glob(f'*.{Format.wav}'))
+    outputs = sorted((Path('files') / 'audio').glob(f'*.{Format.wav}'))
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
     manifest = session_manifest.read(Path('files/recs-session.jsonl'))
@@ -103,7 +103,7 @@ def test_file_inputs(
     summary = capsys.readouterr().out
     assert summary.startswith('Recording time: ')
     assert summary.replace('\\', '/').endswith(
-        'Files written:\n  files/mono-1.wav\n  files/stereo-1.wav\n'
+        'Files written:\n  files/audio/mono-1.wav\n  files/audio/stereo-1.wav\n'
     )
 
 
@@ -135,8 +135,8 @@ def test_flaky_device_end_to_end(
         _wait_for_thread(thread, runner)
 
     assert _path_names(Path('flaky')) == [
-        'flaky/Mic/1/1.wav',
-        'flaky/Mic/1/1_1.wav',
+        'flaky/audio/Mic/1/1.wav',
+        'flaky/audio/Mic/1/1_1.wav',
     ]
 
 
@@ -167,10 +167,10 @@ def test_long_gaps_end_to_end(
     runner.run()
 
     assert _path_names(Path('long-gaps')) == [
-        'long-gaps/Flower 8/1-2/1.wav',
-        'long-gaps/Flower 8/1-2/2.wav',
-        'long-gaps/Flower 8/3-4/1.wav',
-        'long-gaps/Flower 8/3-4/2.wav',
+        'long-gaps/audio/Flower 8/1-2/1.wav',
+        'long-gaps/audio/Flower 8/1-2/2.wav',
+        'long-gaps/audio/Flower 8/3-4/1.wav',
+        'long-gaps/audio/Flower 8/3-4/2.wav',
     ]
 
 
@@ -214,12 +214,12 @@ def test_flaky_device_and_long_gaps_end_to_end(
         _wait_for_thread(thread, runner)
 
     assert _path_names(Path('flaky-and-gaps')) == [
-        'flaky-and-gaps/Ext/1-2/1.wav',
-        'flaky-and-gaps/Ext/1-2/2.wav',
-        'flaky-and-gaps/Flower 8/1-2/1.wav',
-        'flaky-and-gaps/Flower 8/1-2/2.wav',
-        'flaky-and-gaps/Mic/1/1.wav',
-        'flaky-and-gaps/Mic/1/1_1.wav',
+        'flaky-and-gaps/audio/Ext/1-2/1.wav',
+        'flaky-and-gaps/audio/Ext/1-2/2.wav',
+        'flaky-and-gaps/audio/Flower 8/1-2/1.wav',
+        'flaky-and-gaps/audio/Flower 8/1-2/2.wav',
+        'flaky-and-gaps/audio/Mic/1/1.wav',
+        'flaky-and-gaps/audio/Mic/1/1_1.wav',
     ]
 
 
