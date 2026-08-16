@@ -35,6 +35,22 @@ def test_explain_reports_manifest_warnings_and_pause(tmp_path: Path) -> None:
     ]
 
 
+def test_explain_reports_midi_source_failures(tmp_path: Path) -> None:
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"midi_source_failed","timestamp":"fail",'
+        '"midi_port":"Launchkey","value":"lost input"}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    report = session_explain.explain(manifest)
+
+    assert report.explanations[-1] == session_explain.Explanation(
+        reason='MIDI input failed', evidence='lost input'
+    )
+
+
 def test_explain_prints_json(
     capsys,
     tmp_path: Path,

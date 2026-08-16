@@ -17,7 +17,11 @@ class SessionSummary(BaseModel):
     output_directories: list[str] = Field(default_factory=list)
     devices: list[str] = Field(default_factory=list)
     tracks: list[str] = Field(default_factory=list)
+    midi_ports: list[str] = Field(default_factory=list)
     files: int
+    audio_files: int = 0
+    midi_files: int = 0
+    midi_messages: int = 0
     total_bytes: int
     warnings: list[str] = Field(default_factory=list)
     disk_events: int = 0
@@ -58,6 +62,8 @@ def summarize(path: Path) -> SessionSummary | None:
     if not manifest.started_at:
         return None
     finished = [f for f in manifest.files if f.type == 'file_finished']
+    audio = [f for f in finished if f.kind == 'audio']
+    midi = [f for f in finished if f.kind == 'midi']
     paths = [_file_path(path, f.path) for f in finished]
     return SessionSummary(
         path=path.as_posix(),
@@ -65,15 +71,15 @@ def summarize(path: Path) -> SessionSummary | None:
         ended_at=manifest.ended_at,
         duration=manifest.duration,
         output_directories=sorted({p.parent.as_posix() for p in paths}),
-        devices=sorted({f.source for f in finished if f.source}),
+        devices=sorted({f.source for f in audio if f.source}),
         tracks=sorted(
-            {
-                f'{f.source or "unknown"}:{f.track}'
-                for f in finished
-                if f.track is not None
-            }
+            {f'{f.source or "unknown"}:{f.track}' for f in audio if f.track is not None}
         ),
+        midi_ports=_midi_ports(midi),
         files=len(finished),
+        audio_files=len(audio),
+        midi_files=len(midi),
+        midi_messages=sum(f.message_count or 0 for f in midi),
         total_bytes=sum(p.stat().st_size for p in paths if p.exists()),
         warnings=manifest.warnings + manifest.errors,
         disk_events=sum(1 for e in manifest.events if e.type.startswith('disk_')),
@@ -85,6 +91,16 @@ def summarize(path: Path) -> SessionSummary | None:
             if e.type == 'disk_switch_continued_at' and e.continued_at is not None
         ],
     )
+
+
+def _midi_ports(files: list[session_manifest.ManifestFile]) -> list[str]:
+    names: set[str] = set()
+    for file in files:
+        if file.midi_port is not None:
+            names.add(file.midi_port)
+        elif file.source is not None:
+            names.add(file.source)
+    return sorted(names)
 
 
 def _show(argv: list[str]) -> int:
@@ -108,7 +124,8 @@ def _show(argv: list[str]) -> int:
 def _print_summaries(summaries: list[SessionSummary]) -> None:
     for value in summaries:
         print(
-            f'{value.started_at}  files={value.files}  '
+            f'{value.started_at}  audio={value.audio_files}  '
+            f'midi={value.midi_files}  '
             f'bytes={value.total_bytes}  {value.path}'
         )
 
@@ -119,9 +136,13 @@ def _print_summary(value: SessionSummary) -> None:
     print(f'ended_at: {value.ended_at or ""}')
     print(f'duration: {value.duration if value.duration is not None else ""}')
     print(f'files: {value.files}')
+    print(f'audio_files: {value.audio_files}')
+    print(f'midi_files: {value.midi_files}')
+    print(f'midi_messages: {value.midi_messages}')
     print(f'total_bytes: {value.total_bytes}')
     print(f'devices: {", ".join(value.devices)}')
     print(f'tracks: {", ".join(value.tracks)}')
+    print(f'midi_ports: {", ".join(value.midi_ports)}')
     print(f'output_directories: {", ".join(value.output_directories)}')
     print(f'warnings: {len(value.warnings)}')
     print(f'disk_events: {value.disk_events}')

@@ -123,6 +123,22 @@ def test_manifest_check_reports_implausibly_small_file(tmp_path: Path) -> None:
     ]
 
 
+def test_manifest_check_reports_empty_midi_file_with_messages(tmp_path: Path) -> None:
+    midi = tmp_path / 'keys.mid'
+    midi.touch()
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"file_finished","kind":"midi","timestamp":"end",'
+        '"path":"keys.mid","message_count":3,"midi_port":"Launchkey"}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: keys.mid has MIDI messages but is empty'
+    ]
+
+
 def test_manifest_check_reports_broken_disk_switch_link(tmp_path: Path) -> None:
     continued = tmp_path / 'next.jsonl'
     continued.write_text(
