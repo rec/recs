@@ -1,12 +1,12 @@
 from .track import Track
 
-DeviceTrackNames = dict[str, dict[str, int]]
+SourceTrackNames = dict[str, dict[str, int]]
 
 
-def validate_track_names(track_names: DeviceTrackNames) -> DeviceTrackNames:
-    for device, names in track_names.items():
-        if not device:
-            raise ValueError('track_names device names must not be empty')
+def validate_track_names(track_names: SourceTrackNames) -> SourceTrackNames:
+    for source_key, names in track_names.items():
+        if not source_key:
+            raise ValueError('track_names source keys must not be empty')
         for name, channel in names.items():
             if not name:
                 raise ValueError('track_names names must not be empty')
@@ -15,7 +15,7 @@ def validate_track_names(track_names: DeviceTrackNames) -> DeviceTrackNames:
     return track_names
 
 
-def track_name(track_names: DeviceTrackNames, track: Track) -> str:
+def track_name(track_names: SourceTrackNames, track: Track) -> str:
     names = track_names.get(track.source.key, {})
     for name, channel in names.items():
         if channel in track.channels:

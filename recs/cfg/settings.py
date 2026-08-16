@@ -9,7 +9,7 @@ from reccy import settings
 from recs.base.errors import RecsError
 
 from .cfg import Cfg
-from .track_names import DeviceTrackNames, validate_track_names
+from .track_names import SourceTrackNames, validate_track_names
 
 
 class TrackSettings(BaseModel):
@@ -20,7 +20,7 @@ class TrackSettings(BaseModel):
 
 class Settings(BaseModel):
     attributes: dict[str, object] = Field(default_factory=dict)
-    track_names: DeviceTrackNames = Field(default_factory=dict)
+    track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[TrackSettings]] = Field(default_factory=dict)
 
     model_config = ConfigDict(frozen=True)
@@ -28,7 +28,7 @@ class Settings(BaseModel):
 
 class LoadedSettings(BaseModel):
     cfg: Cfg
-    track_names: DeviceTrackNames = Field(default_factory=dict)
+    track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[TrackSettings]] = Field(default_factory=dict)
 
     model_config = ConfigDict(frozen=True)
@@ -62,7 +62,7 @@ def load(cfg: Cfg, overrides: set[str] | None = None) -> LoadedSettings:
 
 def save(
     cfg: Cfg,
-    track_names: DeviceTrackNames,
+    track_names: SourceTrackNames,
     tracks: dict[str, list[TrackSettings]],
 ) -> None:
     attributes = {address: cfg.get_attr(address) for address in cfg.mutable_attributes}

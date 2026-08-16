@@ -29,10 +29,10 @@ class FullState:
         tracks: Sequence[Track],
         aliases: Aliases | None = None,
     ) -> None:
-        def device_state(tr: Sequence[Track]) -> dict[str, state.ChannelState]:
+        def track_state(tr: Sequence[Track]) -> dict[str, state.ChannelState]:
             return {i.name: state.ChannelState() for i in tr}
 
-        self.state[source.key] = device_state(tracks)
+        self.state[source.key] = track_state(tracks)
         self.source_names[source.key] = (
             aliases.display_name(source) if aliases else source.name
         )
@@ -59,11 +59,11 @@ class FullState:
         self.add_source(source, tracks, aliases)
 
     def set_track_names(self, names: dict[str, dict[str, int]]) -> None:
-        for source_name, tracks in self.state.items():
+        for source_key, tracks in self.state.items():
             for track_name in tracks:
-                for name, channel in names.get(source_name, {}).items():
+                for name, channel in names.get(source_key, {}).items():
                     if channel in _track_channels(track_name):
-                        self.track_names[source_name, track_name] = name
+                        self.track_names[source_key, track_name] = name
                         break
 
     @property
@@ -71,18 +71,18 @@ class FullState:
         return times.timestamp() - self.start_time
 
     def update(self, state: Mapping[str, Mapping[str, state.ChannelState]]) -> None:
-        for device_name, device_state in state.items():
-            for channel_name, channel_state in device_state.items():
-                self.state[device_name][channel_name] += channel_state
+        for source_key, source_state in state.items():
+            for channel_name, channel_state in source_state.items():
+                self.state[source_key][channel_name] += channel_state
                 self.total += channel_state
                 if '-' in channel_name:
                     # This is a stereo channel, so count it again
                     self.total.recorded_time += channel_state.recorded_time
 
-    def set_online(self, devices: Iterable[str]) -> None:
-        self.online = set(devices) & self.state.keys()
-        for device_name in self.state.keys() - self.online:
-            for channel_state in self.state[device_name].values():
+    def set_online(self, source_keys: Iterable[str]) -> None:
+        self.online = set(source_keys) & self.state.keys()
+        for source_key in self.state.keys() - self.online:
+            for channel_state in self.state[source_key].values():
                 channel_state.is_active = False
                 channel_state.volume = []
 
@@ -94,14 +94,14 @@ class FullState:
             'file_count': self.total.file_count,
         }
 
-        for device_name, device_state in self.state.items():
-            active = Active.active if device_name in self.online else Active.offline
-            yield {'device': self.source_names[device_name], 'on': active}
+        for source_key, source_state in self.state.items():
+            active = Active.active if source_key in self.online else Active.offline
+            yield {'device': self.source_names[source_key], 'on': active}
 
-            for c, s in device_state.items():
+            for c, s in source_state.items():
                 volume = len(s.volume) and sum(s.volume) / len(s.volume)
                 yield {
-                    'channel': self.track_names[(device_name, c)],
+                    'channel': self.track_names[(source_key, c)],
                     'on': Active.active if s.is_active else Active.inactive,
                     'recorded': s.recorded_time,
                     'file_size': s.file_size,

@@ -21,7 +21,7 @@ from recs.cfg import time_settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 
 POLL_TIMEOUT = 0.05
 MAX_MERGED_WARNINGS = 64
@@ -72,7 +72,7 @@ class SourceFailure(NamedTuple):
 class SourceControl(NamedTuple):
     cfg: Cfg | None = None
     cfg_revision: int | None = None
-    track_names: DeviceTrackNames | None = None
+    track_names: SourceTrackNames | None = None
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
 
@@ -82,9 +82,9 @@ class SourceControlHandler:
         self,
         connection: Connection,
         set_cfg: Callable[[Cfg, int | None], None],
-        set_track_names: Callable[[DeviceTrackNames], None],
+        set_track_names: Callable[[SourceTrackNames], None],
         start_calibration: Callable[[list[str]], None],
-        set_tracks: Callable[[list[Track], DeviceTrackNames], None],
+        set_tracks: Callable[[list[Track], SourceTrackNames], None],
     ) -> None:
         self.connection = connection
         self.set_cfg = set_cfg
@@ -407,7 +407,7 @@ class SourceRecorder(Runnables):
         stop_event: Any,
         tracks: Sequence[Track],
         update_transport: SourceUpdateTransport,
-        track_names: DeviceTrackNames | None = None,
+        track_names: SourceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
         self.stop_event = stop_event
@@ -463,7 +463,7 @@ class SourceRecorder(Runnables):
                 self.control.receive()
                 self._receive_update(update)
 
-    def _set_track_names(self, track_names: DeviceTrackNames) -> None:
+    def _set_track_names(self, track_names: SourceTrackNames) -> None:
         for writer in self.channel_writers:
             writer.set_track_names(track_names)
 
@@ -476,7 +476,7 @@ class SourceRecorder(Runnables):
         if revision is not None:
             self.pending_config_revisions.append(revision)
 
-    def _set_tracks(self, tracks: list[Track], track_names: DeviceTrackNames) -> None:
+    def _set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
         for writer in self.channel_writers:
             if writer.active == Active.active:
                 self.pending_active_channels.update(writer.track.channels)

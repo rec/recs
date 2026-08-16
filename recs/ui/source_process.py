@@ -10,7 +10,7 @@ from threa import Runnable
 
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
+from recs.cfg.track_names import SourceTrackNames
 
 from . import source_recorder
 
@@ -89,7 +89,7 @@ class SourceProcess(Runnable):
         self,
         cfg: Cfg,
         tracks: Sequence[Track],
-        track_names: DeviceTrackNames | None = None,
+        track_names: SourceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
         self.name = tracks[0].source.key
@@ -153,14 +153,14 @@ class SourceProcess(Runnable):
     def finish(self) -> None:
         self.stop()
 
-    def set_track_names(self, track_names: DeviceTrackNames) -> None:
+    def set_track_names(self, track_names: SourceTrackNames) -> None:
         self.track_names = track_names
         if self.started:
             self.control_transport.publish(
                 source_recorder.SourceControl(track_names=track_names)
             )
 
-    def set_tracks(self, tracks: list[Track], track_names: DeviceTrackNames) -> None:
+    def set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
         self.tracks = tracks
         self.track_names = track_names
         if self.started:
@@ -260,7 +260,7 @@ def _run_source_recorder(
     stop_event: Any,
     tracks: Sequence[Track],
     update_connection: connection.Connection,
-    track_names: DeviceTrackNames | None = None,
+    track_names: SourceTrackNames | None = None,
     process_name: str | None = None,
 ) -> None:
     _set_process_name(process_name)

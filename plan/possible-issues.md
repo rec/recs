@@ -69,14 +69,6 @@ valuable, but they make narrow changes expensive and can hide which collaborator
 owns a behavior. More cases should move to focused collaborator tests while
 leaving a smaller recorder-level integration suite.
 
-## Naming, identity, and readability issues
-
-### Track/channel/source terminology still needs local discipline
-
-`doc/glossary.md` now defines the main terms, but the code still uses them
-across config, UI, audio, daemon protocol, and manifests. New code should keep
-module boundaries aligned with that glossary instead of reusing terms loosely.
-
 ## Operational and feature-boundary risks
 
 ### Automatic disk switching still needs hardware fault-injection tests

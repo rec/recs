@@ -4,7 +4,7 @@ from recs.base import times
 from recs.base.errors import RecsError
 from recs.cfg import settings
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames, validate_track_names
+from recs.cfg.track_names import SourceTrackNames, validate_track_names
 from recs.daemon import gui_protocol
 
 from .session_manifest import ManifestEvent, ManifestWarning, timestamp_to_json
@@ -53,7 +53,9 @@ def set_track_names(
         track_names = validate_track_names(request.track_names)
     except ValueError as e:
         raise RecsError(str(e)) from None
-    control.track_names = {device: dict(names) for device, names in track_names.items()}
+    control.track_names = {
+        source_key: dict(names) for source_key, names in track_names.items()
+    }
     control.devices.set_track_names(control.track_names)
     control.state.set_track_names(control.track_names)
     control.write_record(
@@ -137,23 +139,25 @@ def updated_tracks(
 
 def updated_track_names(
     control: 'RecordingControl',
-    source_name: str,
+    source_key: str,
     requested: list[gui_protocol.ChannelTrack],
-) -> DeviceTrackNames:
-    names = {device: dict(values) for device, values in control.track_names.items()}
+) -> SourceTrackNames:
+    names = {
+        source_key: dict(values) for source_key, values in control.track_names.items()
+    }
     changed = {channel for track in requested for channel in track.channels}
-    device_names = names.setdefault(source_name, {})
-    for name, channel in list(device_names.items()):
+    source_names = names.setdefault(source_key, {})
+    for name, channel in list(source_names.items()):
         if channel in changed:
-            del device_names[name]
+            del source_names[name]
     for track in requested:
         if not track.name:
             continue
-        if track.name in device_names:
+        if track.name in source_names:
             raise RecsError(f'Duplicate track name: {track.name}')
-        device_names[track.name] = track.channels[0]
-    if not device_names:
-        del names[source_name]
+        source_names[track.name] = track.channels[0]
+    if not source_names:
+        del names[source_key]
     try:
         return validate_track_names(names)
     except ValueError as e:
@@ -166,13 +170,13 @@ def updated_track_noise_floors(
     requested: list[gui_protocol.ChannelTrack],
 ) -> dict[str, dict[str, float | None]]:
     floors = {
-        device: dict(values)
-        for device, values in control.cfg.recording.channel_noise_floors.items()
+        source_key: dict(values)
+        for source_key, values in control.cfg.recording.channel_noise_floors.items()
     }
-    device_floors = floors.setdefault(source.name, {})
+    source_floors = floors.setdefault(source.name, {})
     changed = {channel for track in requested for channel in track.channels}
     replaced = [track for track in source.tracks if changed & set(track.channels)]
-    values = {track.name: device_floors.pop(track.name, None) for track in replaced}
+    values = {track.name: source_floors.pop(track.name, None) for track in replaced}
     for definition in requested:
         matching = [
             value
@@ -185,8 +189,8 @@ def updated_track_noise_floors(
                 f'{definition.channels}'
             )
         if matching:
-            device_floors[track_name(definition.channels)] = matching[0]
-    if not device_floors:
+            source_floors[track_name(definition.channels)] = matching[0]
+    if not source_floors:
         del floors[source.name]
     return floors
 
