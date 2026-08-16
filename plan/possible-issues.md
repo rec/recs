@@ -21,16 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Maintainability and responsibility issues
 
-### Daemon GUI IPC still combines status publication and transport
-
-`recs/daemon/gui_ipc.py` now has a smaller connection-state helper and rejects
-extra GUI clients. The server still accepts clients, writes daemon status,
-broadcasts rows, queues control requests, records protocol errors, and forwards
-rows to external IPC.
-
-Status publication and recorder-control queueing are still close enough that
-shutdown and failure handling require careful tests.
-
 ### Tests are still large around old ownership boundaries
 
 `test/ui/test_recorder.py` remains very large. Large integration-style tests are
