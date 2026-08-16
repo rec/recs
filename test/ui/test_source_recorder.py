@@ -142,6 +142,30 @@ def test_source_updates_do_not_block_when_parent_read_blocks() -> None:
     transport.stop()
 
 
+def test_source_update_finish_waits_for_final_send() -> None:
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    transport.start()
+    transport.publish(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=512,
+            source_name='Mic',
+        )
+    )
+    assert connection.started.wait(0.1)
+    finished = threading.Event()
+    thread = threading.Thread(target=lambda: (transport.finish(), finished.set()))
+    thread.start()
+
+    assert not finished.wait(0.01)
+    connection.release.set()
+    thread.join(0.1)
+
+    assert finished.is_set()
+
+
 def test_source_update_merge_summarizes_warning_backlog() -> None:
     first = SourceUpdate(
         channels={'1': ChannelState()},

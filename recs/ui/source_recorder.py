@@ -24,7 +24,6 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
-UPDATE_DRAIN_TIMEOUT = 0.1
 MAX_MERGED_WARNINGS = 64
 MAX_MERGED_FILES = 512
 _N = TypeVar('_N', int, float)
@@ -104,7 +103,7 @@ class SourceUpdateTransport:
         self.available.set()
 
     def finish(self) -> None:
-        self.idle.wait(UPDATE_DRAIN_TIMEOUT)
+        self.idle.wait()
         self.stop()
 
     def _send(self) -> None:

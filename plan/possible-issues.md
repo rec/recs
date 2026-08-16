@@ -21,19 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
 
-### Source shutdown can still lose or reorder final state
-
-`recs/ui/source_process.py` drains child updates only after the child process is
-joined or terminated. `SourceUpdateTransport` coalesces updates and waits only
-`UPDATE_DRAIN_TIMEOUT` during finish. This keeps shutdown fast, but it leaves a
-narrow window where a final update, file end frame, calibration result, or
-buffer warning can be merged, skipped, or arrive after the parent has already
-moved on.
-
-The most sensitive callers are disk switch, stop recording, source reap, and
-stalled-source handling. Those paths depend on final file records and final
-track-stopped events being observed before manifests are closed.
-
 ### Source process failure can discard diagnostic detail
 
 The child reports selected `OSError`, `RuntimeError`, and `ValueError` failures
