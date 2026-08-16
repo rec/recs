@@ -66,6 +66,38 @@ class DaemonGuiConnections:
             self.clients.remove(listener)
 
 
+class DaemonStatusPublisher:
+    def __init__(
+        self,
+        status_path: Path,
+        status: Callable[..., DaemonStatus],
+        *,
+        period: float = STATUS_UPDATE_PERIOD,
+    ) -> None:
+        self.status_path = status_path
+        self.status = status
+        self.period = period
+        self.last_update: float | None = None
+
+    def start(self) -> None:
+        _write_status(self.status_path, self.status())
+        self.last_update = time.monotonic()
+
+    def publish(
+        self,
+        rows: list[dict[str, object]],
+        errors: list[ErrorRecord],
+    ) -> None:
+        now = time.monotonic()
+        if self.last_update is not None and now - self.last_update < self.period:
+            return
+        _write_status(self.status_path, self.status(rows=rows, errors=errors))
+        self.last_update = now
+
+    def publish_error(self, error: str) -> None:
+        _write_status(self.status_path, self.status(gui_ipc_error=error))
+
+
 class DaemonGuiServer(Runnable):
     def __init__(
         self,
@@ -86,7 +118,7 @@ class DaemonGuiServer(Runnable):
         self.endpoint = self.paths.gui_endpoint
         self.backend = gui_backend.server_backend(self.endpoint)
         self.connections = DaemonGuiConnections()
-        self.last_status_update: float | None = None
+        self.status = DaemonStatusPublisher(self.paths.status, self._status)
         self.lock = threading.Lock()
         super().__init__()
 
@@ -138,16 +170,14 @@ class DaemonGuiServer(Runnable):
         try:
             self.backend.start()
         except OSError as e:
-            _write_status(
-                self.paths.status,
-                self._status(gui_ipc_error=str(e)),
-            )
+            self.status.status_path = self.paths.status
+            self.status.publish_error(str(e))
             LOGGER.warning('Cannot start GUI IPC server: %s', e)
             super().start()
             return
 
-        _write_status(self.paths.status, self._status())
-        self.last_status_update = time.monotonic()
+        self.status.status_path = self.paths.status
+        self.status.start()
         super().start()
         threading.Thread(
             target=self._accept,
@@ -160,13 +190,8 @@ class DaemonGuiServer(Runnable):
             return
         rows = [dict(row) for row in self.rows()]
         errors = list(self.errors())
-        now = time.monotonic()
-        if (
-            self.last_status_update is None
-            or now - self.last_status_update >= STATUS_UPDATE_PERIOD
-        ):
-            _write_status(self.paths.status, self._status(rows=rows, errors=errors))
-            self.last_status_update = now
+        self.status.status_path = self.paths.status
+        self.status.publish(rows, errors)
         self.broadcast(rows, errors)
         if self.external_rows is not None:
             self.external_rows(rows, errors)
