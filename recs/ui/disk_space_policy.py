@@ -5,7 +5,7 @@ from recs.cfg.cfg import Cfg
 from . import disk_space, recording_paths
 
 
-class DiskMonitor:
+class DiskSpacePolicy:
     def __init__(self, cfg: Cfg) -> None:
         self.cfg = cfg
         self.alerts_reported: set[tuple[Path, str]] = set()

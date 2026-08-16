@@ -5,7 +5,7 @@ import pytest
 
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
-from recs.ui import disk_control, recorder, recording_paths, session_manifest
+from recs.ui import disk_space_controller, recorder, recording_paths, session_manifest
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
 
@@ -18,13 +18,13 @@ def test_minimum_free_space_is_an_emergency_reserve(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(
-        disk_control.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
+        disk_space_controller.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
     )
     rec = Recorder(Cfg(minimum_free_space=5, silent=True))
 
-    rec.disk_control.monitor_disk_space()
+    rec.disk_space_controller.monitor_disk_space()
 
-    assert rec.disk_monitor.paused
+    assert rec.disk_space_policy.paused
     assert caplog.messages == ['Disk space emergency on .: 4 bytes free']
 
 
@@ -38,7 +38,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
     monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [removable])
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
     monkeypatch.setattr(
-        disk_control.shutil,
+        disk_space_controller.shutil,
         'disk_usage',
         lambda path: DiskUsage(
             100,
@@ -60,7 +60,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
         rec.session.manifest.path if rec.session.manifest is not None else None
     )
 
-    rec.disk_control.monitor_disk_space()
+    rec.disk_space_controller.monitor_disk_space()
 
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
     assert rec.session.manifest is not None
@@ -89,7 +89,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
     monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [removable])
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
     monkeypatch.setattr(
-        disk_control.shutil,
+        disk_space_controller.shutil,
         'disk_usage',
         lambda path: DiskUsage(
             100,
@@ -136,7 +136,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
         )
     )
 
-    rec.disk_control.monitor_disk_space()
+    rec.disk_space_controller.monitor_disk_space()
 
     manifest = session_manifest.read(old_manifest)
     assert any(Path(file.path) == recorded for file in manifest.files)
@@ -150,7 +150,7 @@ def test_disk_emergency_pauses_recording(
     monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [])
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
     monkeypatch.setattr(
-        disk_control.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
+        disk_space_controller.shutil, 'disk_usage', lambda path: DiskUsage(100, 96, 4)
     )
     rec = Recorder(
         Cfg(
@@ -162,10 +162,10 @@ def test_disk_emergency_pauses_recording(
     )
     rec._start_manifest()
 
-    rec.disk_control.monitor_disk_space()
+    rec.disk_space_controller.monitor_disk_space()
 
     assert rec.control.recording_paused
-    assert rec.disk_monitor.paused
+    assert rec.disk_space_policy.paused
 
 
 def test_disk_pause_resumes_on_removable_disk(
@@ -178,7 +178,7 @@ def test_disk_pause_resumes_on_removable_disk(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: mounts)
     monkeypatch.setattr(
-        disk_control.shutil, 'disk_usage', lambda path: DiskUsage(100, 10, 90)
+        disk_space_controller.shutil, 'disk_usage', lambda path: DiskUsage(100, 10, 90)
     )
     now = [1.0]
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: now[0])
@@ -191,13 +191,13 @@ def test_disk_pause_resumes_on_removable_disk(
         )
     )
     rec._start_manifest()
-    rec.disk_control.monitor_disk_space()
-    assert rec.disk_monitor.paused
+    rec.disk_space_controller.monitor_disk_space()
+    assert rec.disk_space_policy.paused
 
     mounts.append(removable)
     now[0] = 2.0
-    rec.disk_control.monitor_disk_space()
+    rec.disk_space_controller.monitor_disk_space()
 
-    assert not rec.disk_monitor.paused
+    assert not rec.disk_space_policy.paused
     assert not rec.control.recording_paused
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
