@@ -60,44 +60,70 @@ class DeviceLifecycle:
         self.buffer_update = buffer_update
         self.source_process = source_process
         self.device_poller = device_poller
-        self.sources = {
+        self.source_processes = {
             source.name: self.source_process(cfg, tracks, track_names=track_names)
             for source, tracks in initial_tracks
         }
-        self.hardware = {
+        self.hardware_sources = {
             name: source
-            for name, source in self.sources.items()
+            for name, source in self.source_processes.items()
             if isinstance(source.source, InputDevice)
         }
-        self.files = {
+        self.file_sources = {
             name: source
-            for name, source in self.sources.items()
+            for name, source in self.source_processes.items()
             if isinstance(source.source, FileSource)
         }
-        self.frames = dict.fromkeys(self.sources, 0)
+        self.source_frames = dict.fromkeys(self.source_processes, 0)
         self.buffer_stats: dict[str, BufferStats] = {}
-        self.buffer_drops_reported = dict.fromkeys(self.sources, 0)
-        self.source_frames_at_start = dict.fromkeys(self.sources, 0)
-        self.source_start_times = dict.fromkeys(self.sources, state.start_time)
-        self.source_last_updates = dict.fromkeys(self.sources, state.start_time)
-        self.failed: set[str] = set()
+        self.buffer_drops_reported = dict.fromkeys(self.source_processes, 0)
+        self.source_frames_at_start = dict.fromkeys(self.source_processes, 0)
+        self.source_start_times = dict.fromkeys(self.source_processes, state.start_time)
+        self.source_last_updates = dict.fromkeys(
+            self.source_processes, state.start_time
+        )
+        self.failed_sources: set[str] = set()
         self.lag_reported: set[str] = set()
-        self.present: set[str] = set()
+        self.present_hardware: set[str] = set()
         self.no_devices_reported = False
         self.no_channels_reported = False
         self.poller: DevicePoller | None = None
-        if self.hardware or not self.files:
+        if self.hardware_sources or not self.file_sources:
             self.poller = self.device_poller(cfg.console.sleep_time_device)
             self.poller.poll()
 
-    def set_cfg(self, cfg: Cfg) -> None:
+    @property
+    def sources(self) -> dict[str, SourceProcess]:
+        return self.source_processes
+
+    @property
+    def hardware(self) -> dict[str, SourceProcess]:
+        return self.hardware_sources
+
+    @property
+    def files(self) -> dict[str, SourceProcess]:
+        return self.file_sources
+
+    @property
+    def frames(self) -> dict[str, int]:
+        return self.source_frames
+
+    @property
+    def failed(self) -> set[str]:
+        return self.failed_sources
+
+    @property
+    def present(self) -> set[str]:
+        return self.present_hardware
+
+    def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
-        for source in self.sources.values():
-            source.set_cfg(cfg)
+        for source in self.source_processes.values():
+            source.set_cfg(cfg, revision=revision)
 
     def set_track_names(self, track_names: DeviceTrackNames) -> None:
         self.track_names = track_names
-        for source in self.sources.values():
+        for source in self.source_processes.values():
             source.set_track_names(track_names)
 
     def poll(self, paused: bool, stopped: bool, expired: bool) -> None:
@@ -105,49 +131,49 @@ class DeviceLifecycle:
             return
         if snapshot:
             self.no_devices_reported = False
-        elif not self.present:
+        elif not self.present_hardware:
             self._report_no_devices()
         self._add_detected_hardware(snapshot)
         compatible: set[str] = set()
-        for name, source in self.hardware.items():
+        for name, source in self.hardware_sources.items():
             info = snapshot.get(name)
             if info is None:
-                if name in self.present:
+                if name in self.present_hardware:
                     self.warning(f'Device {name} went offline')
-                self.failed.discard(name)
+                self.failed_sources.discard(name)
                 source.stop()
                 continue
             channels = int(info['max_input_channels'])
             if channels < source.required_channels:
                 source.stop()
-                if name not in self.failed:
+                if name not in self.failed_sources:
                     self.warning(
                         f'{name} has {channels} input channels; '
                         f'{source.required_channels} required'
                     )
-                    self.failed.add(name)
+                    self.failed_sources.add(name)
                 continue
             compatible.add(name)
-            if name not in self.present:
-                self.failed.discard(name)
+            if name not in self.present_hardware:
+                self.failed_sources.discard(name)
             if (
                 not source.started
-                and name not in self.failed
+                and name not in self.failed_sources
                 and not paused
                 and not stopped
                 and not expired
             ):
                 source.start()
-                self.source_frames_at_start[name] = self.frames[name]
+                self.source_frames_at_start[name] = self.source_frames[name]
                 self.source_start_times[name] = times.timestamp()
                 self.source_last_updates[name] = self.source_start_times[name]
         self._record_presence(compatible)
-        self.present = compatible
-        if snapshot and not self.hardware:
+        self.present_hardware = compatible
+        if snapshot and not self.hardware_sources:
             self._report_no_channels()
 
     def reap(self) -> None:
-        for name, source in self.sources.items():
+        for name, source in self.source_processes.items():
             if not source.started or source.is_alive:
                 continue
             self._drain(source.connection)
@@ -155,12 +181,16 @@ class DeviceLifecycle:
             source.join(timeout=0)
             for update in source.take_updates():
                 self.receive_message(update)
-            if name in self.hardware and not expected and name in self.present:
-                self.failed.add(name)
+            if (
+                name in self.hardware_sources
+                and not expected
+                and name in self.present_hardware
+            ):
+                self.failed_sources.add(name)
 
     def stop_stalled(self) -> None:
         now = times.timestamp()
-        for name, source in self.sources.items():
+        for name, source in self.source_processes.items():
             if not source.started or not source.is_alive or not source.running:
                 continue
             if now - self.source_last_updates[name] <= SOURCE_STALL_TIMEOUT:
@@ -168,11 +198,11 @@ class DeviceLifecycle:
             self.warning(f'Device {name} stopped sending updates')
             source.stop()
             source.join()
-            if name in self.hardware:
-                self.failed.add(name)
+            if name in self.hardware_sources:
+                self.failed_sources.add(name)
 
     def receive_pending_updates(self) -> None:
-        for source in self.sources.values():
+        for source in self.source_processes.values():
             for update in source.take_updates():
                 self.receive_message(update)
 
@@ -187,22 +217,22 @@ class DeviceLifecycle:
     def receive_message(self, message: SourceUpdate | SourceFailure) -> None:
         if isinstance(message, SourceFailure):
             self.warning(f'Device {message.source_name} failed: {message.message}')
-            self.failed.add(message.source_name)
+            self.failed_sources.add(message.source_name)
             return
         self._receive_update(message)
 
     def stop_hardware(self) -> None:
-        for source in self.hardware.values():
+        for source in self.hardware_sources.values():
             source.stop()
 
     def join_hardware(self) -> None:
-        for source in self.hardware.values():
+        for source in self.hardware_sources.values():
             source.join()
 
     def _receive_update(self, update: SourceUpdate) -> None:
-        self.frames[update.source_name] += update.frames
+        self.source_frames[update.source_name] += update.frames
         self._record_buffer_status(update)
-        source = self.sources[update.source_name]
+        source = self.source_processes[update.source_name]
         self.file_update(update, source)
         previous = {
             track_name: channel_state.is_active
@@ -222,9 +252,11 @@ class DeviceLifecycle:
         self.source_last_updates[update.source_name] = now
         if update.calibration is not None:
             self.calibration_update(update.source_name, update.calibration)
+        for revision in update.config_revisions_applied or []:
+            self.event('cfg_applied', source=update.source_name, value=revision)
         if source.running and not self._frame_clock_valid(source, now):
             source.stop()
-            self.failed.add(update.source_name)
+            self.failed_sources.add(update.source_name)
         elif source.running and self._source_time_expired(source):
             source.stop()
 
@@ -234,7 +266,7 @@ class DeviceLifecycle:
         devices = get_input_devices(list(snapshot.values()))
         aliases = Aliases(self.cfg.device.alias, devices)
         for source, tracks in input_device_tracks(self.cfg, devices):
-            if source.name in self.sources:
+            if source.name in self.source_processes:
                 continue
             tracks = _restored_tracks(source, tracks, self.saved_tracks)
             self._add_source(source, tracks, aliases)
@@ -243,9 +275,9 @@ class DeviceLifecycle:
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases
     ) -> None:
         process = self.source_process(self.cfg, tracks, track_names=self.track_names)
-        self.sources[source.name] = process
-        self.hardware[source.name] = process
-        self.frames[source.name] = 0
+        self.source_processes[source.name] = process
+        self.hardware_sources[source.name] = process
+        self.source_frames[source.name] = 0
         self.buffer_drops_reported[source.name] = 0
         self.source_frames_at_start[source.name] = 0
         self.source_start_times[source.name] = self.state.start_time
@@ -264,13 +296,13 @@ class DeviceLifecycle:
             self.no_channels_reported = True
 
     def _record_presence(self, compatible: set[str]) -> None:
-        for name in sorted(compatible - self.present):
+        for name in sorted(compatible - self.present_hardware):
             self.event(
                 'source_online',
                 source=name,
                 start_frame=self.source_frames_at_start[name],
             )
-        for name in sorted(self.present - compatible):
+        for name in sorted(self.present_hardware - compatible):
             for track_name, channel_state in self.state.state[name].items():
                 if channel_state.is_active:
                     self.event('track_stopped', source=name, track=track_name)
@@ -289,12 +321,14 @@ class DeviceLifecycle:
             self.warning(warning)
 
     def _frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
-        if source.name not in self.hardware:
+        if source.name not in self.hardware_sources:
             return True
         elapsed = now - self.source_start_times[source.name]
         if elapsed < FRAME_CLOCK_GRACE:
             return True
-        frames = self.frames[source.name] - self.source_frames_at_start[source.name]
+        frames = (
+            self.source_frames[source.name] - self.source_frames_at_start[source.name]
+        )
         recorded = frames / source.source.samplerate
         if recorded >= elapsed * MIN_FRAME_CLOCK_RATIO:
             return True
@@ -307,7 +341,8 @@ class DeviceLifecycle:
         total = self.cfg.recording.total_run_time
         return bool(
             total
-            and self.frames[source.name] >= round(total * source.source.samplerate)
+            and self.source_frames[source.name]
+            >= round(total * source.source.samplerate)
         )
 
     def _record_track_activity(

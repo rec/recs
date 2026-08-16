@@ -14,3 +14,9 @@ def test_negative_times(field):
     time_settings.TimeSettings(**{field: 1})
     with pytest.raises(ValueError):
         time_settings.TimeSettings(**{field: -1})
+
+
+def test_record_everything_is_not_scaled_to_samples() -> None:
+    result = time_settings.TimeSettings(record_everything=True).scale(48_000)
+
+    assert result.record_everything is True

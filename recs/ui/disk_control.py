@@ -173,7 +173,7 @@ class DiskControl:
         )
         self.write_record(
             ManifestEvent(
-                type='disk_switch_finished',
+                type='disk_switch_continued_at',
                 timestamp=timestamp_to_json(times.timestamp()),
                 from_path=previous,
                 to_path=str(output),

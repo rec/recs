@@ -97,8 +97,9 @@ class FakeSourceProcess:
     def set_track_names(self, track_names: dict[str, dict[str, int]]) -> None:
         self.track_names = track_names
 
-    def set_cfg(self, cfg: Cfg) -> None:
+    def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
+        self.cfg_revision = revision
 
     def calibrate(self, tracks: list[str]) -> None:
         self.connection.messages.append(
@@ -1457,6 +1458,33 @@ def test_control_request_sets_and_gets_cfg(
     ]
     records = read_jsonl(tmp_path / 'recs-session.jsonl')
     assert [record['type'] for record in records[1:3]] == ['cfg_set', 'cfg_get']
+    assert records[1]['cfg_revision'] == 1
+
+
+def test_source_update_records_applied_cfg_revision(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_manifest()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=0,
+            source_name='Mic',
+            config_revisions_applied=[3],
+        )
+    )
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1]['type'] == 'cfg_applied'
+    assert records[1]['source'] == 'Mic'
+    assert records[1]['value'] == 3
 
 
 def test_control_request_reports_mutable_attributes(

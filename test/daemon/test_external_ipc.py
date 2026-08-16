@@ -131,3 +131,16 @@ def test_external_server_rejects_request_after_closing(
     response = server.rpc_response(rpc.Request(command='get_cfg'))
 
     assert response.message == 'recs is shutting down'
+
+
+def test_external_server_rejects_second_control_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
+    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server.start()
+    server._pending.append(external_ipc.ControlRequest(rpc.Request(command='get_cfg')))
+
+    response = server.rpc_response(rpc.Request(command='status_snapshot'))
+
+    assert response.message == 'recs already has an active control client'

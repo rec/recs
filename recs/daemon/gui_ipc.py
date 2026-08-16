@@ -17,6 +17,7 @@ from .models import DaemonMetadata, DaemonStatus
 
 LOGGER = logging.get_logger(__name__)
 STATUS_UPDATE_PERIOD = 1.0
+CONTROL_RESPONSE_TIMEOUT = 5.0
 
 
 class ControlRequest:
@@ -29,10 +30,40 @@ class ControlRequest:
         self.response = response
         self.ready.set()
 
-    def wait_for_response(self) -> gui_protocol.Response:
-        self.ready.wait()
+    def wait_for_response(
+        self, timeout: float = CONTROL_RESPONSE_TIMEOUT
+    ) -> gui_protocol.Response:
+        if not self.ready.wait(timeout):
+            return gui_protocol.Error(
+                type='error', message='recs did not answer before shutdown'
+            )
         assert self.response is not None
         return self.response
+
+
+class DaemonGuiConnections:
+    def __init__(self) -> None:
+        self.clients: list['GuiListener'] = []
+        self.key_events: list[KeyEvent] = []
+        self.control_requests: list[ControlRequest] = []
+        self.protocol_errors: list[str] = []
+        self.shutdown_started = False
+
+    def take_key_events(self) -> list[KeyEvent]:
+        events, self.key_events = self.key_events, []
+        return events
+
+    def take_control_requests(self) -> list[ControlRequest]:
+        requests, self.control_requests = self.control_requests, []
+        return requests
+
+    def take_protocol_errors(self) -> list[str]:
+        errors, self.protocol_errors = self.protocol_errors, []
+        return errors
+
+    def remove(self, listener: 'GuiListener') -> None:
+        if listener in self.clients:
+            self.clients.remove(listener)
 
 
 class DaemonGuiServer(Runnable):
@@ -54,14 +85,50 @@ class DaemonGuiServer(Runnable):
         self.paths = paths.service_paths(paths.current_platform())
         self.endpoint = self.paths.gui_endpoint
         self.backend = gui_backend.server_backend(self.endpoint)
-        self.clients: list[GuiListener] = []
-        self.key_events: list[KeyEvent] = []
-        self.control_requests: list[ControlRequest] = []
-        self.protocol_errors: list[str] = []
-        self.shutdown_started = False
+        self.connections = DaemonGuiConnections()
         self.last_status_update: float | None = None
         self.lock = threading.Lock()
         super().__init__()
+
+    @property
+    def clients(self) -> list['GuiListener']:
+        return self.connections.clients
+
+    @clients.setter
+    def clients(self, value: list['GuiListener']) -> None:
+        self.connections.clients = value
+
+    @property
+    def key_events(self) -> list[KeyEvent]:
+        return self.connections.key_events
+
+    @key_events.setter
+    def key_events(self, value: list[KeyEvent]) -> None:
+        self.connections.key_events = value
+
+    @property
+    def control_requests(self) -> list[ControlRequest]:
+        return self.connections.control_requests
+
+    @control_requests.setter
+    def control_requests(self, value: list[ControlRequest]) -> None:
+        self.connections.control_requests = value
+
+    @property
+    def protocol_errors(self) -> list[str]:
+        return self.connections.protocol_errors
+
+    @protocol_errors.setter
+    def protocol_errors(self, value: list[str]) -> None:
+        self.connections.protocol_errors = value
+
+    @property
+    def shutdown_started(self) -> bool:
+        return self.connections.shutdown_started
+
+    @shutdown_started.setter
+    def shutdown_started(self, value: bool) -> None:
+        self.connections.shutdown_started = value
 
     def start(self) -> None:
         if not self.enabled:
@@ -110,18 +177,15 @@ class DaemonGuiServer(Runnable):
 
     def take_key_events(self) -> list[KeyEvent]:
         with self.lock:
-            events, self.key_events = self.key_events, []
-        return events
+            return self.connections.take_key_events()
 
     def take_control_requests(self) -> list[ControlRequest]:
         with self.lock:
-            requests, self.control_requests = self.control_requests, []
-        return requests
+            return self.connections.take_control_requests()
 
     def take_protocol_errors(self) -> list[str]:
         with self.lock:
-            errors, self.protocol_errors = self.protocol_errors, []
-        return errors
+            return self.connections.take_protocol_errors()
 
     def broadcast(
         self, rows: list[dict[str, object]], errors: list[ErrorRecord]
@@ -144,8 +208,14 @@ class DaemonGuiServer(Runnable):
                 return
             self.shutdown_started = True
             listeners = list(self.clients)
+            control_requests, self.control_requests = self.control_requests, []
 
         message = ipc.message_json(gui_protocol.Shutdown(type='shutdown'))
+        response = gui_protocol.RecordingState(
+            type='recording_state', paused=False, stopped=True
+        )
+        for request in control_requests:
+            request.respond(response)
         for listener in listeners:
             listener.write(message)
             listener.close()
@@ -156,6 +226,18 @@ class DaemonGuiServer(Runnable):
         while self.running:
             if (conn := self.backend.accept()) is None:
                 continue
+            with self.lock:
+                if self.clients:
+                    conn.write(
+                        ipc.message_json(
+                            gui_protocol.Error(
+                                type='error',
+                                message='recs already has an active GUI client',
+                            )
+                        )
+                    )
+                    conn.close()
+                    continue
 
             listener = GuiListener(
                 conn,
@@ -183,8 +265,7 @@ class DaemonGuiServer(Runnable):
     def _remove(self, listener: 'GuiListener') -> None:
         listener.close()
         with self.lock:
-            if listener in self.clients:
-                self.clients.remove(listener)
+            self.connections.remove(listener)
 
     def _status(
         self,

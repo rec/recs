@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from typing_extensions import Self
 
 T = TypeVar('T', float, int)
-NO_SCALE = ('noise_floor',)
+NO_SCALE = ('noise_floor', 'record_everything')
 
 
 def db_to_amplitude(db: float) -> float:

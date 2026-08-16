@@ -82,6 +82,11 @@ class ExternalServer(Reccy):
         with self._lock:
             if not self._started:
                 return ipc.Error(type='error', message='recs is shutting down')
+            if self._pending:
+                return ipc.Error(
+                    type='error',
+                    message='recs already has an active control client',
+                )
             self._requests.append(control)
             self._pending.append(control)
         return control.wait()

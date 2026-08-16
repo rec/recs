@@ -224,14 +224,14 @@ def test_flaky_device_and_long_gaps_end_to_end(
 
 
 def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, object]:
-    result = manifest.model_dump(mode='json') | {
+    result = manifest.model_dump(mode='json', exclude_none=True) | {
         'started_at': '<timestamp>',
         'ended_at': '<timestamp>',
         'duration': '<duration>',
     }
-    result.pop('continued_from')
-    result.pop('errors')
-    result.pop('session_id')
+    result.pop('continued_from', None)
+    result.pop('errors', None)
+    result.pop('session_id', None)
     result['files'] = [f for f in result['files'] if f['type'] == 'file_finished']
     for file in result['files']:
         assert isinstance(file, dict)
@@ -241,30 +241,30 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
     for event in result.get('events', []):
         assert isinstance(event, dict)
-        event.pop('dropped_blocks')
-        event.pop('dropped_frames')
-        event.pop('address')
-        event.pop('key')
-        event.pop('label')
-        event.pop('max_queued_seconds')
-        event.pop('queued_seconds')
-        event.pop('value')
-        event.pop('disk')
-        event.pop('estimated_seconds_remaining')
-        event.pop('free_bytes')
-        event.pop('path')
-        event.pop('severity')
-        event.pop('threshold')
-        event.pop('continued_at')
-        event.pop('current_path')
-        event.pop('disk_kind')
-        event.pop('from_free_bytes')
-        event.pop('from_path')
-        event.pop('reason')
-        event.pop('to_free_bytes')
-        event.pop('to_path')
+        event.pop('dropped_blocks', None)
+        event.pop('dropped_frames', None)
+        event.pop('address', None)
+        event.pop('key', None)
+        event.pop('label', None)
+        event.pop('max_queued_seconds', None)
+        event.pop('queued_seconds', None)
+        event.pop('value', None)
+        event.pop('disk', None)
+        event.pop('estimated_seconds_remaining', None)
+        event.pop('free_bytes', None)
+        event.pop('path', None)
+        event.pop('severity', None)
+        event.pop('threshold', None)
+        event.pop('continued_at', None)
+        event.pop('current_path', None)
+        event.pop('disk_kind', None)
+        event.pop('from_free_bytes', None)
+        event.pop('from_path', None)
+        event.pop('reason', None)
+        event.pop('to_free_bytes', None)
+        event.pop('to_path', None)
         if event.get('start_frame') is None:
-            event.pop('start_frame')
+            event.pop('start_frame', None)
         event['timestamp'] = '<timestamp>'
         source = Path(str(event['source']))
         if source.is_absolute():

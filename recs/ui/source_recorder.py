@@ -5,7 +5,7 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Queue
 from time import monotonic
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple, TypeVar, cast
 
 import numpy as np
 from pydantic import BaseModel
@@ -25,6 +25,9 @@ from recs.cfg.track_names import DeviceTrackNames
 
 POLL_TIMEOUT = 0.05
 UPDATE_DRAIN_TIMEOUT = 0.1
+MAX_MERGED_WARNINGS = 64
+MAX_MERGED_FILES = 512
+_N = TypeVar('_N', int, float)
 
 
 class BufferStats(BaseModel):
@@ -50,6 +53,7 @@ class SourceUpdate(NamedTuple):
     frame_count: int | None = None
     calibration: dict[str, float] | None = None
     track_layout: list[str] | None = None
+    config_revisions_applied: list[int] | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -59,6 +63,7 @@ class SourceFailure(NamedTuple):
 
 class SourceControl(NamedTuple):
     cfg: Cfg | None = None
+    cfg_revision: int | None = None
     track_names: DeviceTrackNames | None = None
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
@@ -137,6 +142,99 @@ class BufferedUpdate(NamedTuple):
     end_frame: int
 
 
+class SourceCalibration:
+    def __init__(self, samplerate: int) -> None:
+        self.samplerate = samplerate
+        self.remaining: dict[str, int] = {}
+        self.maximums: dict[str, float] = {}
+        self.minimums: dict[str, float] = {}
+
+    def start(self, tracks: list[str]) -> None:
+        frames = max(1, round(self.samplerate / 2))
+        self.remaining = dict.fromkeys(tracks, frames)
+        self.maximums = dict.fromkeys(tracks, float('-inf'))
+        self.minimums = dict.fromkeys(tracks, float('inf'))
+
+    def update(self, blocks: dict['ChannelWriter', Block]) -> dict[str, float] | None:
+        for writer, block in blocks.items():
+            name = writer.track.name
+            remaining = self.remaining.get(name)
+            if remaining is None or remaining <= 0:
+                continue
+            measured = block[:remaining]
+            scale = measured.scale
+            self.maximums[name] = max(self.maximums[name], max(measured.max) / scale)
+            self.minimums[name] = min(self.minimums[name], min(measured.min) / scale)
+            self.remaining[name] = remaining - len(measured)
+
+        if not self.remaining or any(self.remaining.values()):
+            return None
+
+        measurements = {
+            name: time_settings.amplitude_to_db((maximum - self.minimums[name]) / 2)
+            for name, maximum in self.maximums.items()
+        }
+        self.remaining = {}
+        self.maximums = {}
+        self.minimums = {}
+        return measurements
+
+
+class SourceFileEvents:
+    def __init__(self, writers: Sequence['ChannelWriter']) -> None:
+        self.file_counts = [0] * len(writers)
+        self.pending_file_end_frames: dict[Path, int] = {}
+        self.pending_file_end_timestamps: dict[Path, float] = {}
+
+    def reset_writers(self, writers: Sequence['ChannelWriter']) -> None:
+        self.file_counts = [0] * len(writers)
+
+    def remember_finished_files(self, writers: Sequence['ChannelWriter']) -> None:
+        for writer in writers:
+            self.pending_file_end_frames.update(writer.file_end_frames)
+            self.pending_file_end_timestamps.update(writer.file_end_timestamps)
+
+    def new_files(
+        self, writers: Sequence['ChannelWriter'], bit_depth: int
+    ) -> tuple[list[Path], list[SourceFile]]:
+        result: list[Path] = []
+        records: list[SourceFile] = []
+        for index, writer in enumerate(writers):
+            new_files = writer.files_written[self.file_counts[index] :]
+            result.extend(new_files)
+            records.extend(
+                SourceFile(
+                    path=path,
+                    source_name=writer.track.source.name,
+                    track=writer.track.channels[0],
+                    channels=len(writer.track.channels),
+                    sample_rate=writer.track.source.samplerate,
+                    bit_depth=bit_depth,
+                    start_frame=writer.file_start_frames[path],
+                    start_timestamp=writer.file_start_timestamps[path],
+                )
+                for path in new_files
+            )
+            self.file_counts[index] = len(writer.files_written)
+        return result, records
+
+    def end_frames(self, writers: Sequence['ChannelWriter']) -> dict[Path, int]:
+        result = self.pending_file_end_frames | {
+            p: frame for w in writers for p, frame in w.file_end_frames.items()
+        }
+        self.pending_file_end_frames = {}
+        return result
+
+    def end_timestamps(self, writers: Sequence['ChannelWriter']) -> dict[Path, float]:
+        result = self.pending_file_end_timestamps | {
+            p: timestamp
+            for w in writers
+            for p, timestamp in w.file_end_timestamps.items()
+        }
+        self.pending_file_end_timestamps = {}
+        return result
+
+
 class InputBuffer:
     def __init__(self, cfg: Cfg, samplerate: int) -> None:
         self.cfg = cfg
@@ -158,13 +256,20 @@ class InputBuffer:
         start_frame = self.timeline_frames
         self.timeline_frames += frames
         if self._memory_low():
-            self.stats.dropped_blocks += 1
-            self.stats.dropped_frames += frames
-            self.stats.last_drop_timestamp = update.timestamp
+            self._drop(update, frames)
             return
         if self.queue is None:
-            self.queue = Queue()
+            maxsize = max(
+                1,
+                round(
+                    self.cfg.recording.audio_buffer_seconds * self.samplerate / frames
+                ),
+            )
+            self.queue = Queue(maxsize=maxsize)
             self.queue_ready.set()
+        if self.queue.full():
+            self._drop(update, frames)
+            return
         buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
         self.queue.put_nowait(buffered)
         self._update_queue_stats()
@@ -207,6 +312,11 @@ class InputBuffer:
             self.stats.queued_seconds,
         )
 
+    def _drop(self, update: Update, frames: int) -> None:
+        self.stats.dropped_blocks += 1
+        self.stats.dropped_frames += frames
+        self.stats.last_drop_timestamp = update.timestamp
+
     def _memory_low(self) -> bool:
         now = monotonic()
         if now - self.last_memory_check >= self.cfg.recording.memory_check_period:
@@ -244,14 +354,11 @@ class SourceRecorder(Runnables):
             ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
         )
         self._set_track_names(track_names or {})
-        self.file_counts = [0] * len(self.channel_writers)
-        self.pending_file_end_frames: dict[Path, int] = {}
-        self.pending_file_end_timestamps: dict[Path, float] = {}
+        self.file_events = SourceFileEvents(self.channel_writers)
         self.pending_active_channels: set[int] = set()
+        self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
-        self.calibration_remaining: dict[str, int] = {}
-        self.calibration_maximums: dict[str, float] = {}
-        self.calibration_minimums: dict[str, float] = {}
+        self.calibration = SourceCalibration(self.source.samplerate)
 
         self.input_stream = self.source.input_stream(
             sdtype=cast(SdType, self.cfg.audio.sdtype),
@@ -296,14 +403,13 @@ class SourceRecorder(Runnables):
             if writer.active == Active.active:
                 self.pending_active_channels.update(writer.track.channels)
             writer.stop()
-            self.pending_file_end_frames.update(writer.file_end_frames)
-            self.pending_file_end_timestamps.update(writer.file_end_timestamps)
+        self.file_events.remember_finished_files(self.channel_writers)
         self.channel_writers = tuple(
             ChannelWriter(cfg=self.cfg, times=self.times, track=track)
             for track in tracks
         )
         self._set_track_names(track_names)
-        self.file_counts = [0] * len(self.channel_writers)
+        self.file_events.reset_writers(self.channel_writers)
         self.runnables = self.input_stream, *self.channel_writers
         self.pending_track_layout = [track.name for track in tracks]
 
@@ -317,18 +423,17 @@ class SourceRecorder(Runnables):
                 continue
             if message.cfg is not None:
                 self._set_cfg(message.cfg)
+                if message.cfg_revision is not None:
+                    self.pending_config_revisions.append(message.cfg_revision)
             if message.track_names is not None:
                 self._set_track_names(message.track_names)
             if message.calibration_tracks is not None:
-                self._start_calibration(message.calibration_tracks)
+                self.calibration.start(message.calibration_tracks)
             if message.tracks is not None:
                 self._set_tracks(message.tracks, message.track_names or {})
 
     def _start_calibration(self, tracks: list[str]) -> None:
-        frames = max(1, round(self.source.samplerate / 2))
-        self.calibration_remaining = dict.fromkeys(tracks, frames)
-        self.calibration_maximums = dict.fromkeys(tracks, float('-inf'))
-        self.calibration_minimums = dict.fromkeys(tracks, float('inf'))
+        self.calibration.start(tracks)
 
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
@@ -349,8 +454,10 @@ class SourceRecorder(Runnables):
                 block, end_timestamp, should_record or forced, u.end_frame
             )
         self.pending_active_channels = set()
-        calibration = self._calibration_update(cb)
-        files, file_records = self._new_files(update.array.dtype.itemsize * 8)
+        calibration = self.calibration.update(cb)
+        files, file_records = self.file_events.new_files(
+            self.channel_writers, update.array.dtype.itemsize * 8
+        )
         stats = self.buffer.stats.model_copy()
         buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
         if update.status:
@@ -363,12 +470,12 @@ class SourceRecorder(Runnables):
                     f'Device {self.source.name} input status: {update.status}'
                 )
         track_layout, self.pending_track_layout = self.pending_track_layout, None
-        file_end_frames = self.pending_file_end_frames | self._file_end_frames()
-        file_end_timestamps = (
-            self.pending_file_end_timestamps | self._file_end_timestamps()
+        config_revisions, self.pending_config_revisions = (
+            self.pending_config_revisions,
+            [],
         )
-        self.pending_file_end_frames = {}
-        self.pending_file_end_timestamps = {}
+        file_end_frames = self.file_events.end_frames(self.channel_writers)
+        file_end_timestamps = self.file_events.end_timestamps(self.channel_writers)
         self.update_transport.publish(
             SourceUpdate(
                 channels=msgs,
@@ -384,6 +491,7 @@ class SourceRecorder(Runnables):
                 frame_count=u.end_frame,
                 calibration=calibration,
                 track_layout=track_layout,
+                config_revisions_applied=config_revisions or None,
             )
         )
 
@@ -391,92 +499,57 @@ class SourceRecorder(Runnables):
         if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False
 
-    def _calibration_update(
-        self, blocks: dict[ChannelWriter, Block]
-    ) -> dict[str, float] | None:
-        for writer, block in blocks.items():
-            name = writer.track.name
-            remaining = self.calibration_remaining.get(name)
-            if remaining is None or remaining <= 0:
-                continue
-            measured = block[:remaining]
-            scale = measured.scale
-            self.calibration_maximums[name] = max(
-                self.calibration_maximums[name], max(measured.max) / scale
-            )
-            self.calibration_minimums[name] = min(
-                self.calibration_minimums[name], min(measured.min) / scale
-            )
-            self.calibration_remaining[name] = remaining - len(measured)
-
-        if not self.calibration_remaining or any(self.calibration_remaining.values()):
-            return None
-
-        measurements = {
-            name: time_settings.amplitude_to_db(
-                (maximum - self.calibration_minimums[name]) / 2
-            )
-            for name, maximum in self.calibration_maximums.items()
-        }
-        self.calibration_remaining = {}
-        self.calibration_maximums = {}
-        self.calibration_minimums = {}
-        return measurements
-
-    def _new_files(self, bit_depth: int) -> tuple[list[Path], list[SourceFile]]:
-        result: list[Path] = []
-        records: list[SourceFile] = []
-        for index, writer in enumerate(self.channel_writers):
-            new_files = writer.files_written[self.file_counts[index] :]
-            result.extend(new_files)
-            records.extend(
-                SourceFile(
-                    path=path,
-                    source_name=writer.track.source.name,
-                    track=writer.track.channels[0],
-                    channels=len(writer.track.channels),
-                    sample_rate=writer.track.source.samplerate,
-                    bit_depth=bit_depth,
-                    start_frame=writer.file_start_frames[path],
-                    start_timestamp=writer.file_start_timestamps[path],
-                )
-                for path in new_files
-            )
-            self.file_counts[index] = len(writer.files_written)
-        return result, records
-
-    def _file_end_frames(self) -> dict[Path, int]:
-        result: dict[Path, int] = {}
-        for writer in self.channel_writers:
-            result.update(writer.file_end_frames)
-        return result
-
-    def _file_end_timestamps(self) -> dict[Path, float]:
-        result: dict[Path, float] = {}
-        for writer in self.channel_writers:
-            result.update(writer.file_end_timestamps)
-        return result
-
 
 def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
     file_records = {r.path: r for r in first.file_records or []}
     file_records.update({r.path: r for r in second.file_records or []})
+    files = _merge_files(first.files, second.files)
+    file_paths = set(files)
     return SourceUpdate(
         channels=second.channels,
-        files=list(dict.fromkeys([*first.files, *second.files])),
+        files=files,
         frames=first.frames + second.frames,
         source_name=second.source_name,
         timestamp=second.timestamp,
         buffer_stats=second.buffer_stats,
-        buffer_warnings=[
-            *(first.buffer_warnings or []),
-            *(second.buffer_warnings or []),
-        ],
-        file_records=list(file_records.values()),
-        file_end_frames=(first.file_end_frames or {}) | (second.file_end_frames or {}),
-        file_end_timestamps=(first.file_end_timestamps or {})
-        | (second.file_end_timestamps or {}),
+        buffer_warnings=_merge_warnings(first.buffer_warnings, second.buffer_warnings),
+        file_records=[r for r in file_records.values() if r.path in file_paths],
+        file_end_frames=_merge_file_map(first.file_end_frames, second.file_end_frames),
+        file_end_timestamps=_merge_file_map(
+            first.file_end_timestamps, second.file_end_timestamps
+        ),
         frame_count=second.frame_count,
         calibration=first.calibration or second.calibration,
         track_layout=first.track_layout or second.track_layout,
+        config_revisions_applied=[
+            *(first.config_revisions_applied or []),
+            *(second.config_revisions_applied or []),
+        ]
+        or None,
     )
+
+
+def _merge_files(first: list[Path], second: list[Path]) -> list[Path]:
+    return list(dict.fromkeys([*first, *second]))[-MAX_MERGED_FILES:]
+
+
+def _merge_warnings(
+    first: list[str] | None, second: list[str] | None
+) -> list[str] | None:
+    warnings = [*(first or []), *(second or [])]
+    if len(warnings) <= MAX_MERGED_WARNINGS:
+        return warnings or None
+    dropped = len(warnings) - MAX_MERGED_WARNINGS + 1
+    return [
+        f'Dropped {dropped} older source warnings while parent was busy',
+        *warnings[-(MAX_MERGED_WARNINGS - 1) :],
+    ]
+
+
+def _merge_file_map(
+    first: dict[Path, _N] | None,
+    second: dict[Path, _N] | None,
+) -> dict[Path, _N]:
+    combined = (first or {}) | (second or {})
+    keys = list(combined)[-MAX_MERGED_FILES:]
+    return {k: combined[k] for k in keys}

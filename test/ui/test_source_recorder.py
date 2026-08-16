@@ -1,5 +1,6 @@
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -15,6 +16,7 @@ from recs.cfg.track import Track
 from recs.ui import source_recorder
 from recs.ui.source_recorder import (
     InputBuffer,
+    SourceCalibration,
     SourceRecorder,
     SourceUpdate,
     SourceUpdateTransport,
@@ -35,15 +37,32 @@ def test_input_buffer_drops_updates_when_memory_reserve_is_reached(
     assert buffer.stats.last_drop_timestamp == 10.0
 
 
-def test_input_buffer_queue_has_no_size_limit(
+def test_input_buffer_queue_uses_audio_seconds_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 400_000_000)
-    buffer = InputBuffer(Cfg(memory_reserve_megabytes=200), samplerate=48_000)
-    buffer.put(Update(np.zeros((1_024, 1)), 10.0))
+    buffer = InputBuffer(
+        Cfg(audio_buffer_seconds=1, memory_reserve_megabytes=200), samplerate=1_000
+    )
+    buffer.put(Update(np.zeros((100, 1)), 10.0))
 
     assert buffer.queue is not None
-    assert buffer.queue.maxsize == 0
+    assert buffer.queue.maxsize == 10
+
+
+def test_input_buffer_drops_updates_when_queue_is_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 400_000_000)
+    buffer = InputBuffer(
+        Cfg(audio_buffer_seconds=0.1, memory_reserve_megabytes=200), samplerate=1_000
+    )
+    buffer.put(Update(np.zeros((100, 1)), 10.0))
+    buffer.put(Update(np.zeros((100, 1)), 11.0))
+
+    assert buffer.stats.dropped_blocks == 1
+    assert buffer.stats.dropped_frames == 100
+    assert buffer.stats.last_drop_timestamp == 11.0
 
 
 def test_input_buffer_waits_for_its_first_callback() -> None:
@@ -123,6 +142,79 @@ def test_source_updates_do_not_block_when_parent_read_blocks() -> None:
     transport.stop()
 
 
+def test_source_update_merge_summarizes_warning_backlog() -> None:
+    first = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=[],
+        frames=1,
+        source_name='Mic',
+        buffer_warnings=[f'warning {i}' for i in range(40)],
+    )
+    second = first._replace(
+        frames=2, buffer_warnings=[f'warning {i}' for i in range(40, 80)]
+    )
+
+    result = source_recorder._merge_updates(first, second)
+
+    assert result.buffer_warnings is not None
+    assert len(result.buffer_warnings) == source_recorder.MAX_MERGED_WARNINGS
+    assert result.buffer_warnings[0] == (
+        'Dropped 17 older source warnings while parent was busy'
+    )
+    assert result.buffer_warnings[1] == 'warning 17'
+    assert result.buffer_warnings[-1] == 'warning 79'
+
+
+def test_source_update_merge_bounds_file_metadata_backlog() -> None:
+    files = [Path(f'{i}.wav') for i in range(source_recorder.MAX_MERGED_FILES + 2)]
+    first_files = files[:400]
+    second_files = files[400:]
+    first = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=first_files,
+        frames=1,
+        source_name='Mic',
+        file_records=[
+            source_recorder.SourceFile(
+                path=p,
+                source_name='Mic',
+                track=1,
+                channels=1,
+                sample_rate=48_000,
+                bit_depth=32,
+            )
+            for p in first_files
+        ],
+        file_end_frames=dict.fromkeys(first_files, 1),
+    )
+    second = first._replace(
+        files=second_files,
+        frames=2,
+        file_records=[
+            source_recorder.SourceFile(
+                path=p,
+                source_name='Mic',
+                track=1,
+                channels=1,
+                sample_rate=48_000,
+                bit_depth=32,
+            )
+            for p in second_files
+        ],
+        file_end_frames=dict.fromkeys(second_files, 2),
+    )
+
+    result = source_recorder._merge_updates(first, second)
+
+    assert len(result.files) == source_recorder.MAX_MERGED_FILES
+    assert result.files[0] == files[2]
+    assert result.files[-1] == files[-1]
+    assert result.file_records is not None
+    assert len(result.file_records) == source_recorder.MAX_MERGED_FILES
+    assert result.file_end_frames is not None
+    assert len(result.file_end_frames) == source_recorder.MAX_MERGED_FILES
+
+
 def test_source_calibration_measures_exactly_half_a_second() -> None:
     source = InputDevice(
         {
@@ -132,16 +224,15 @@ def test_source_calibration_measures_exactly_half_a_second() -> None:
         }
     )
     track = Track(source, '1')
-    recorder = object.__new__(SourceRecorder)
-    recorder.source = source
-    recorder._start_calibration(['1'])
+    calibration = SourceCalibration(source.samplerate)
+    calibration.start(['1'])
     writer = CalibrationWriter(track)
     quiet = np.tile(np.array([-0.1, 0.1]), (400, 1))
     measured = np.tile(np.array([-0.2, 0.2]), (100, 1))
     ignored = np.tile(np.array([-0.9, 0.9]), (300, 1))
 
-    assert recorder._calibration_update({writer: Block(block=quiet)}) is None
-    result = recorder._calibration_update(
+    assert calibration.update({writer: Block(block=quiet)}) is None
+    result = calibration.update(
         {writer: Block(block=np.concatenate((measured, ignored)))}
     )
 
@@ -165,8 +256,7 @@ def test_source_track_change_closes_writers_before_next_buffer(
     original = ReconfiguredWriter(recorder.cfg, recorder.times, Track(source, '1-2'))
     recorder.channel_writers = (original,)
     recorder.file_counts = [0]
-    recorder.pending_file_end_frames = {}
-    recorder.pending_file_end_timestamps = {}
+    recorder.file_events = source_recorder.SourceFileEvents(recorder.channel_writers)
     recorder.pending_active_channels = set()
     recorder.pending_track_layout = None
     monkeypatch.setattr(source_recorder, 'ChannelWriter', ReconfiguredWriter)

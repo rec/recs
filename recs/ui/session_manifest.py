@@ -47,6 +47,7 @@ class ManifestEvent(BaseModel):
     disk_kind: str | None = None
     current_path: str | None = None
     continued_at: str | None = None
+    cfg_revision: int | None = None
 
 
 class ManifestFile(BaseModel):
@@ -159,15 +160,23 @@ def _read_records(
 ) -> tuple[list[ManifestRecord], list[str]]:
     records: list[ManifestRecord] = []
     errors: list[str] = []
-    lines = path.read_text().splitlines()
-    for i, line in enumerate(lines, 1):
-        if not line:
-            continue
-        try:
-            records.append(_parse_record(line))
-        except (json.JSONDecodeError, ValidationError, ValueError) as e:
-            prefix = 'truncated final line' if i == len(lines) else f'line {i}'
-            errors.append(f'{path}: {prefix}: {e}')
+    parse_errors: list[
+        tuple[int, json.JSONDecodeError | ValidationError | ValueError]
+    ] = []
+    last_line = 0
+    with path.open() as lines:
+        for i, line in enumerate(lines, 1):
+            last_line = i
+            line = line.rstrip('\n')
+            if not line:
+                continue
+            try:
+                records.append(_parse_record(line))
+            except (json.JSONDecodeError, ValidationError, ValueError) as e:
+                parse_errors.append((i, e))
+    for i, error in parse_errors:
+        prefix = 'truncated final line' if i == last_line else f'line {i}'
+        errors.append(f'{path}: {prefix}: {error}')
     return records, errors
 
 

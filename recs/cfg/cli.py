@@ -281,6 +281,14 @@ def recs(
             help='Record key events from all applications when supported',
         ),
     ],
+    audio_buffer_seconds: Annotated[
+        float,
+        TIME_SPEC,
+        tyro.conf.arg(
+            default=RECS.recording.audio_buffer_seconds,
+            help='Seconds of audio to buffer before dropping delayed callbacks',
+        ),
+    ],
     memory_reserve_megabytes: Annotated[
         int,
         tyro.conf.arg(

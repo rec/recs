@@ -42,6 +42,22 @@ def test_session_manifest_reader_ignores_truncated_final_line(tmp_path: Path) ->
     assert 'truncated final line' in result.errors[0]
 
 
+def test_session_manifest_reader_reports_bad_nonfinal_line(tmp_path: Path) -> None:
+    manifest = tmp_path / 'recs-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":\n'
+        '{"type":"key_pressed","timestamp":"event","key":"g"}\n'
+    )
+
+    result = session_manifest.read(manifest)
+
+    assert result.events == [
+        ManifestEvent(timestamp='event', type='key_pressed', key='g')
+    ]
+    assert 'line 2' in result.errors[0]
+
+
 def test_session_manifest_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text(

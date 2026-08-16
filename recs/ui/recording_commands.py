@@ -54,8 +54,7 @@ def resume_recording(
 ) -> gui_protocol.RecordingState:
     if control.session_stopped:
         control.start_recording_session()
-    control.recording_paused = False
-    control.recording_stopped = False
+    control.runtime_state.resume()
     control.write_record(
         ManifestEvent(
             timestamp=timestamp_to_json(times.timestamp()),
@@ -73,8 +72,7 @@ def stop_recording(control: 'RecordingControl') -> gui_protocol.RecordingState:
     if control.recording_stopped:
         return recording_state(control)
     pause_recording(control, 'stop_recording')
-    control.recording_stopped = True
-    control.session_stopped = control.session.manifest is not None
+    control.runtime_state.stop_session_if_active(control.session.manifest is not None)
     if control.session_stopped:
         for source in control.hardware.values():
             source.join()

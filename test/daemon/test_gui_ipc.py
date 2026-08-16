@@ -165,6 +165,43 @@ def test_daemon_publisher_ignores_second_shutdown() -> None:
     assert listener.closed
 
 
+def test_daemon_publisher_releases_pending_control_requests_on_shutdown() -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    request = gui_ipc.ControlRequest(gui_protocol.Calibrate(type='calibrate'))
+    server.control_requests = [request]
+
+    server.request_shutdown()
+
+    assert request.wait_for_response() == gui_protocol.RecordingState(
+        type='recording_state', paused=False, stopped=True
+    )
+
+
+def test_control_request_wait_times_out() -> None:
+    request = gui_ipc.ControlRequest(gui_protocol.Calibrate(type='calibrate'))
+
+    assert request.wait_for_response(timeout=0) == gui_protocol.Error(
+        type='error', message='recs did not answer before shutdown'
+    )
+
+
+def test_daemon_publisher_rejects_second_gui_client() -> None:
+    server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
+    existing = FakeListener()
+    rejected = FakeConnection()
+    server.clients = [existing]
+    server.backend = SingleAcceptBackend(rejected, server)
+    server.running = True
+
+    server._accept()
+
+    assert rejected.sent == [
+        '{"type":"error","message":"recs already has an active GUI client"}\n'
+    ]
+    assert rejected.closed
+    assert server.clients == [existing]
+
+
 def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     server.enabled = True
@@ -536,6 +573,18 @@ class BrokenBackend:
 
     def close(self) -> None:
         pass
+
+
+class SingleAcceptBackend:
+    def __init__(
+        self, connection: 'FakeConnection', server: gui_ipc.DaemonGuiServer
+    ) -> None:
+        self.connection = connection
+        self.server = server
+
+    def accept(self) -> 'FakeConnection':
+        self.server.running = False
+        return self.connection
 
 
 class FakeConnection:

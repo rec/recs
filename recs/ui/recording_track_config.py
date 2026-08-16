@@ -224,7 +224,9 @@ def set_cfg_value(
     except ValueError as e:
         raise RecsError(str(e)) from None
     value = control.cfg.get_attr(address)
-    control.devices.set_cfg(control.cfg)
+    control.cfg_revision += 1
+    revision = control.cfg_revision
+    control.devices.set_cfg(control.cfg, revision=revision)
     control.cfg_changed(control.cfg)
     control.write_record(
         ManifestEvent(
@@ -232,6 +234,7 @@ def set_cfg_value(
             type='cfg_set',
             address=address,
             value=value,
+            cfg_revision=revision,
         )
     )
     if save:

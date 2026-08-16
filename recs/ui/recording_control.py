@@ -2,6 +2,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
+from pydantic import BaseModel
+
 from recs.base.errors import ErrorRecord
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
@@ -22,6 +24,21 @@ from .full_state import FullState
 from .recording_control_protocol import ControlDisplay, RecordingControlTarget
 from .session_manifest import ManifestRecord
 from .source_process import SourceProcess
+
+
+class RecordingRuntimeState(BaseModel):
+    recording_paused: bool = False
+    recording_stopped: bool = False
+    session_stopped: bool = False
+    shutdown_started: bool = False
+
+    def resume(self) -> None:
+        self.recording_paused = False
+        self.recording_stopped = False
+
+    def stop_session_if_active(self, active: bool) -> None:
+        self.recording_stopped = True
+        self.session_stopped = active
 
 
 class RecordingControl:
@@ -59,13 +76,43 @@ class RecordingControl:
         self.finish_manifest = finish_manifest
         self.start_recording_session = start_recording_session
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
-        self.recording_paused = False
-        self.recording_stopped = False
-        self.session_stopped = False
-        self.shutdown_started = False
+        self.runtime_state = RecordingRuntimeState()
+        self.cfg_revision = 0
         self.protocol = recording_control_protocol.RecordingControlProtocol(
             cast(RecordingControlTarget, self)
         )
+
+    @property
+    def recording_paused(self) -> bool:
+        return self.runtime_state.recording_paused
+
+    @recording_paused.setter
+    def recording_paused(self, value: bool) -> None:
+        self.runtime_state.recording_paused = value
+
+    @property
+    def recording_stopped(self) -> bool:
+        return self.runtime_state.recording_stopped
+
+    @recording_stopped.setter
+    def recording_stopped(self, value: bool) -> None:
+        self.runtime_state.recording_stopped = value
+
+    @property
+    def session_stopped(self) -> bool:
+        return self.runtime_state.session_stopped
+
+    @session_stopped.setter
+    def session_stopped(self, value: bool) -> None:
+        self.runtime_state.session_stopped = value
+
+    @property
+    def shutdown_started(self) -> bool:
+        return self.runtime_state.shutdown_started
+
+    @shutdown_started.setter
+    def shutdown_started(self, value: bool) -> None:
+        self.runtime_state.shutdown_started = value
 
     @property
     def sources(self) -> dict[str, SourceProcess]:

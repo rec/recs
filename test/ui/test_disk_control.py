@@ -71,7 +71,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
         old_manifest
     )
     assert any(
-        event.type == 'disk_switch_finished'
+        event.type == 'disk_switch_continued_at'
         and event.continued_at == str(rec.session.manifest.path)
         for event in session_manifest.read(old_manifest).events
     )

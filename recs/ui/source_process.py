@@ -39,6 +39,11 @@ class SourceControlTransport:
         with self.lock:
             self.control = source_recorder.SourceControl(
                 cfg=control.cfg if control.cfg is not None else self.control.cfg,
+                cfg_revision=(
+                    control.cfg_revision
+                    if control.cfg_revision is not None
+                    else self.control.cfg_revision
+                ),
                 track_names=(
                     control.track_names
                     if control.track_names is not None
@@ -164,11 +169,13 @@ class SourceProcess(Runnable):
                 )
             )
 
-    def set_cfg(self, cfg: Cfg) -> None:
+    def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(cfg=self.recorder_cfg)
+                source_recorder.SourceControl(
+                    cfg=self.recorder_cfg, cfg_revision=revision
+                )
             )
 
     def calibrate(self, tracks: list[str]) -> None:

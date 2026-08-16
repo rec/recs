@@ -179,6 +179,7 @@ class Recording(BaseModel):
     #
     # Settings relating to times
     #
+    audio_buffer_seconds: float = 10.0
     memory_reserve_megabytes: int = 200
     memory_check_period: float = 2.0
     band_mode: Annotated[bool, Mutable] = False
@@ -215,7 +216,7 @@ class Recording(BaseModel):
     stop_after_quiet: Annotated[float, Mutable] = 20.0
     total_run_time: Annotated[float, Mutable] = 0.0
 
-    @field_validator('disk_poll_seconds', 'memory_check_period')
+    @field_validator('audio_buffer_seconds', 'disk_poll_seconds', 'memory_check_period')
     @classmethod
     def validate_positive(cls, value: float) -> float:
         if value <= 0:
