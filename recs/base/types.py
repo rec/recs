@@ -22,6 +22,11 @@ class RecordKeys(StrEnum):
     all = auto()
 
 
+class MidiTiming(StrEnum):
+    mido = auto()
+    system = auto()
+
+
 class SdType(StrEnum):
     float32 = auto()
     int16 = auto()

@@ -4,7 +4,7 @@ from test.conftest import DEVICES_FILE
 import pytest
 from pydantic import ValidationError
 
-from recs.base.types import RecordKeys
+from recs.base.types import MidiTiming, RecordKeys
 from recs.cfg import cfg
 from recs.cfg.cfg import Cfg
 
@@ -19,6 +19,29 @@ def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
 
 def test_ui_refresh_default_is_conservative(mock_devices: None) -> None:
     assert Cfg().console.ui_refresh_rate == 10
+
+
+def test_midi_recording_is_enabled_by_default(mock_devices: None) -> None:
+    cfg = Cfg()
+
+    assert cfg.midi.record_midi
+    assert cfg.midi.midi_include == []
+    assert cfg.midi.midi_exclude == []
+    assert cfg.midi.midi_timing == MidiTiming.mido
+
+
+def test_midi_config_can_be_flattened(mock_devices: None) -> None:
+    cfg = Cfg(
+        record_midi=False,
+        midi_include=['Launchkey'],
+        midi_exclude=['Network'],
+        midi_timing='system',
+    )
+
+    assert not cfg.midi.record_midi
+    assert cfg.midi.midi_include == ['Launchkey']
+    assert cfg.midi.midi_exclude == ['Network']
+    assert cfg.midi.midi_timing == MidiTiming.system
 
 
 def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:

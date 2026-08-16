@@ -15,7 +15,15 @@ from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from recs.base.types import SDTYPE, Format, Mutable, RecordKeys, SdType, Subtype
+from recs.base.types import (
+    SDTYPE,
+    Format,
+    MidiTiming,
+    Mutable,
+    RecordKeys,
+    SdType,
+    Subtype,
+)
 
 from . import cli_metadata, metadata, path_pattern, time_settings
 from .aliases import Aliases
@@ -216,6 +224,31 @@ class Audio(BaseModel):
             self.sdtype = SDTYPE
         object.__setattr__(self, '__pydantic_fields_set__', fields_set)
         return self
+
+
+class Midi(BaseModel):
+    #
+    # MIDI recording
+    #
+    record_midi: Annotated[
+        bool,
+        tyro.conf.arg(aliases=('--midi',), help='Record MIDI inputs'),
+    ] = True
+
+    midi_include: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(help='Only record these MIDI input name prefixes'),
+    ] = Field(default_factory=list)
+
+    midi_exclude: Annotated[
+        tyro.conf.UseAppendAction[list[str]],
+        tyro.conf.arg(help='Exclude these MIDI input name prefixes'),
+    ] = Field(default_factory=list)
+
+    midi_timing: Annotated[
+        MidiTiming,
+        tyro.conf.arg(help='MIDI timing source: mido or system'),
+    ] = MidiTiming.mido
 
 
 class Console(BaseModel):
@@ -506,6 +539,7 @@ CFG_PARTS = (
     'device',
     'selection',
     'audio',
+    'midi',
     'console',
     'keys',
     'recording',
@@ -517,6 +551,7 @@ CFG_MODEL_TYPES = {
     'device': Device,
     'selection': Selection,
     'audio': Audio,
+    'midi': Midi,
     'console': Console,
     'keys': Key,
     'recording': Recording,
@@ -541,6 +576,7 @@ class Cfg(BaseModel):
     device: Device = Field(default_factory=Device)
     selection: Selection = Field(default_factory=Selection)
     audio: Audio = Field(default_factory=Audio)
+    midi: Midi = Field(default_factory=Midi)
     console: Console = Field(default_factory=Console)
     keys: Key = Field(default_factory=Key)
     recording: Recording = Field(default_factory=Recording)
