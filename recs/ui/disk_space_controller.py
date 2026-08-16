@@ -128,13 +128,9 @@ class DiskSpaceController:
 
     def switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
         previous = self.cfg.directory.output_directory
-        output = recording_paths.available_directory(
-            disk.path
-            / self.cfg.general.default_record_directory
-            / recording_paths.daemon_session_directory_name(times.timestamp())
-        )
+        output = disk.path / self.cfg.general.default_record_directory
         try:
-            output.mkdir(parents=True)
+            output.mkdir(parents=True, exist_ok=True)
         except OSError as error:
             self.warning(f'Cannot switch recording disk to {disk.path}: {error}')
             self.write_record(
