@@ -35,6 +35,15 @@ class FakeQueryStream:
 class FakeDeadProcess:
     stdout = None
 
+    def terminate(self) -> None:
+        pass
+
+    def wait(self, timeout: float | None = None) -> None:
+        pass
+
+    def kill(self) -> None:
+        pass
+
     def poll(self) -> int:
         return 1
 
@@ -61,6 +70,9 @@ class FakeUnresponsiveProcess:
     def kill(self) -> None:
         self.killed = True
 
+    def poll(self) -> int:
+        return -9 if self.killed else 1
+
 
 class FakeStdout:
     def __init__(self) -> None:
@@ -68,6 +80,16 @@ class FakeStdout:
 
     def close(self) -> None:
         self.closed = True
+
+
+class FakeStreamProcess:
+    stdout = [
+        '[{"max_input_channels": 1, "name": "Old"}]\n',
+        '[{"max_input_channels": 1, "name": "New"}]\n',
+    ]
+
+    def poll(self) -> None:
+        return None
 
 
 def test_poller_keeps_only_latest_input_devices(
@@ -145,3 +167,42 @@ def test_query_stream_kills_unresponsive_process() -> None:
     assert process.killed
     assert process.stdout.closed
     assert stream.process is None
+
+
+def test_query_stream_keeps_only_latest_update() -> None:
+    stream = DeviceQueryStream()
+    stream.process = cast(subprocess.Popen[str], FakeStreamProcess())
+
+    stream._read()
+
+    assert stream.devices() == [{'max_input_channels': 1, 'name': 'New'}]
+
+
+def test_query_stream_uses_restart_backoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 0.0
+    starts: list[object] = []
+
+    def popen(*args: object, **kwargs: object) -> FakeDeadProcess:
+        process = FakeDeadProcess()
+        starts.append(process)
+        return process
+
+    monkeypatch.setattr(device_poller.time, 'monotonic', lambda: now)
+    monkeypatch.setattr(device_poller.subprocess, 'Popen', popen)
+    stream = DeviceQueryStream()
+
+    stream.devices()
+    assert len(starts) == 1
+    assert stream.last_exitcode == 1
+    assert stream.next_start == device_poller.RESTART_BACKOFF_SECONDS
+    assert stream.restart_backoff == 2 * device_poller.RESTART_BACKOFF_SECONDS
+
+    now = 0.5
+    stream.devices()
+    assert len(starts) == 1
+
+    now = 1.0
+    stream.devices()
+    assert len(starts) == 2

@@ -21,16 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### Device query process has no backoff or bounded result queue
-
-`DeviceQueryStream` restarts after missing updates, but repeated PortAudio
-failure can still create restart churn. Its internal queue is unbounded if the
-polling loop stops consuming snapshots.
-
-It should keep only the newest device snapshot, report child exit detail, and
-use restart backoff. Device querying should also be verified not to open a
-capture stream or materially compete with the X18 source process.
-
 ## Maintainability and responsibility issues
 
 ### Recorder still exposes collaborator internals

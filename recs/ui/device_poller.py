@@ -3,6 +3,7 @@ import subprocess
 import threading
 import time
 from queue import Empty, Queue
+from typing import TypeVar
 
 from threa import HasThread
 
@@ -10,11 +11,14 @@ from recs.base import app_command
 from recs.cfg import device
 
 STREAM_TIMEOUT = device.DEVICE_QUERY_TIMEOUT
+RESTART_BACKOFF_SECONDS = 1.0
+MAX_RESTART_BACKOFF_SECONDS = 30.0
+_T = TypeVar('_T')
 
 
 class DevicePoller(HasThread):
     def __init__(self, interval: float) -> None:
-        self.snapshots: Queue[dict[str, device.DeviceDict]] = Queue()
+        self.snapshots: Queue[dict[str, device.DeviceDict]] = Queue(maxsize=1)
         self.query_stream = DeviceQueryStream()
         super().__init__(
             self.poll,
@@ -41,7 +45,7 @@ class DevicePoller(HasThread):
         snapshot = {
             str(info['name']): info for info in devices if info['max_input_channels']
         }
-        self.snapshots.put(snapshot)
+        _put_latest(self.snapshots, snapshot)
 
     def latest(self) -> dict[str, device.DeviceDict] | None:
         latest = None
@@ -54,13 +58,18 @@ class DevicePoller(HasThread):
 
 class DeviceQueryStream:
     def __init__(self) -> None:
-        self.updates: Queue[list[device.DeviceDict]] = Queue()
+        self.updates: Queue[list[device.DeviceDict]] = Queue(maxsize=1)
         self.process: subprocess.Popen[str] | None = None
         self.reader: threading.Thread | None = None
         self.last_update = time.monotonic()
+        self.last_exitcode: int | None = None
+        self.next_start = 0.0
+        self.restart_backoff = RESTART_BACKOFF_SECONDS
 
     def start(self) -> None:
         if self.process is not None:
+            return
+        if time.monotonic() < self.next_start:
             return
         self.process = subprocess.Popen(
             app_command.command('query-devices-stream'),
@@ -88,11 +97,11 @@ class DeviceQueryStream:
             self.process.wait()
         if self.process.stdout is not None:
             self.process.stdout.close()
+        self.last_exitcode = self.process.poll()
         self.process = None
         self.reader = None
 
     def devices(self) -> list[device.DeviceDict] | None:
-        self.start()
         latest = None
         try:
             while True:
@@ -101,13 +110,23 @@ class DeviceQueryStream:
             pass
         if latest is not None:
             self.last_update = time.monotonic()
+            self.next_start = 0.0
+            self.restart_backoff = RESTART_BACKOFF_SECONDS
             return latest
+        self.start()
+        if self.process is None:
+            return None
         if self._needs_restart():
             self.restart()
         return None
 
     def restart(self) -> None:
         self.stop()
+        self.next_start = time.monotonic() + self.restart_backoff
+        self.restart_backoff = min(
+            MAX_RESTART_BACKOFF_SECONDS,
+            2 * self.restart_backoff,
+        )
         self.start()
 
     def _needs_restart(self) -> bool:
@@ -120,6 +139,15 @@ class DeviceQueryStream:
             return
         for line in self.process.stdout:
             try:
-                self.updates.put(json.loads(line))
+                _put_latest(self.updates, json.loads(line))
             except json.JSONDecodeError:
                 continue
+
+
+def _put_latest(queue: Queue[_T], value: _T) -> None:
+    try:
+        while True:
+            queue.get_nowait()
+    except Empty:
+        pass
+    queue.put_nowait(value)
