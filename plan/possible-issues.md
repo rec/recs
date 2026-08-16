@@ -19,15 +19,6 @@ manifest reads, initial source-recorder and GUI-server splits, clearer
 `DeviceLifecycle` state names, the explicit recording runtime-state object, the
 current glossary, and the current runtime architecture document.
 
-## Maintainability and responsibility issues
-
-### Tests are still large around old ownership boundaries
-
-`test/ui/test_recorder.py` remains very large. Large integration-style tests are
-valuable, but they make narrow changes expensive and can hide which collaborator
-owns a behavior. More cases should move to focused collaborator tests while
-leaving a smaller recorder-level integration suite.
-
 ## Operational and feature-boundary risks
 
 ### Automatic disk switching still needs hardware fault-injection tests
@@ -89,9 +80,6 @@ goals and can obscure which parts of the recording pipeline are active.
 7. Add startup-failure status records and a preflight command for show setup.
 8. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
    daemon GUI enabled, and disk-switch checks active.
-9. Continue ownership cleanup: narrow `Recorder` compatibility properties,
-   split `RecordingControl`, and move more recorder tests to collaborator tests.
-
 ## Additional work beyond the prompt
 
 None.
