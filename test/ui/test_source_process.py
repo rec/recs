@@ -83,6 +83,7 @@ class FakeProcess:
         self.kwargs = kwargs
         self.name = name
         self.terminated = False
+        self.exitcode = 0
         self.instances.append(self)
 
     def is_alive(self) -> bool:
@@ -98,6 +99,7 @@ class FakeProcess:
     def terminate(self) -> None:
         self.alive = False
         self.terminated = True
+        self.exitcode = -15
 
 
 def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -462,5 +464,44 @@ def test_source_process_reports_recorder_start_failure(
     )
 
     assert connection.sent == [
-        SourceFailure(message='ValueError: no input device', source_name='Mic')
+        SourceFailure(
+            message='ValueError: no input device',
+            source_name='Mic',
+            exception_type='ValueError',
+            stop_kind='crash',
+        )
+    ]
+
+
+def test_source_process_reports_forced_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')])
+
+    owner.start()
+    owner.join()
+    failures = [
+        update for update in owner.take_updates() if isinstance(update, SourceFailure)
+    ]
+
+    assert failures == [
+        SourceFailure(
+            message='Mic source process forced_termination',
+            source_name='Mic',
+            exitcode=-15,
+            stop_kind='forced_termination',
+        )
     ]

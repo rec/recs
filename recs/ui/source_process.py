@@ -100,6 +100,7 @@ class SourceProcess(Runnable):
         self.pending_updates: list[
             source_recorder.SourceUpdate | source_recorder.SourceFailure
         ] = []
+        self.expected_stop = False
 
     @property
     def required_channels(self) -> int:
@@ -146,6 +147,7 @@ class SourceProcess(Runnable):
         if not self.started:
             return
         self.running = False
+        self.expected_stop = True
         self.stop_event.set()
 
     def finish(self) -> None:
@@ -188,9 +190,11 @@ class SourceProcess(Runnable):
         if not self.started:
             return
         self.process.join(STOP_TIMEOUT if timeout is None else timeout)
+        forced = False
         if self.process.is_alive():
             self.process.terminate()
             self.process.join()
+            forced = True
         self.pending_updates = []
         while _connection_ready(self.connection):
             try:
@@ -203,12 +207,45 @@ class SourceProcess(Runnable):
                     update,
                 )
             )
+        self._record_exit_failure(forced)
         self.control_transport.stop()
         self.control_connection.close()
         self.connection.close()
         self.running = False
         self.started = False
         self.stopped = True
+
+    def _record_exit_failure(self, forced: bool) -> None:
+        if any(
+            isinstance(update, source_recorder.SourceFailure)
+            for update in self.pending_updates
+        ):
+            return
+        exitcode = self.process.exitcode
+        unexpected_exit = exitcode not in (0, None) and not self.expected_stop
+        if not forced and not unexpected_exit:
+            return
+        final_update = next(
+            (
+                update
+                for update in reversed(self.pending_updates)
+                if isinstance(update, source_recorder.SourceUpdate)
+            ),
+            None,
+        )
+        stop_kind = 'forced_termination' if forced else 'unexpected_exit'
+        self.pending_updates.append(
+            source_recorder.SourceFailure(
+                message=f'{self.name} source process {stop_kind}',
+                source_name=self.name,
+                exitcode=exitcode,
+                final_frame_count=final_update.frame_count if final_update else None,
+                last_callback_timestamp=final_update.timestamp
+                if final_update
+                else None,
+                stop_kind=stop_kind,
+            )
+        )
 
     def take_updates(
         self,
@@ -238,11 +275,14 @@ def _run_source_recorder(
             track_names=track_names,
             update_transport=transport,
         )
-    except (OSError, RuntimeError, ValueError) as e:
+    except Exception as e:
         source_name = tracks[0].source.name
         transport.publish(
             source_recorder.SourceFailure(
-                message=f'{type(e).__name__}: {e}', source_name=source_name
+                message=f'{type(e).__name__}: {e}',
+                source_name=source_name,
+                exception_type=type(e).__name__,
+                stop_kind='crash',
             )
         )
     finally:

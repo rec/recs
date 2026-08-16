@@ -59,6 +59,11 @@ class SourceUpdate(NamedTuple):
 class SourceFailure(NamedTuple):
     message: str
     source_name: str
+    exception_type: str | None = None
+    exitcode: int | None = None
+    final_frame_count: int | None = None
+    last_callback_timestamp: float | None = None
+    stop_kind: str | None = None
 
 
 class SourceControl(NamedTuple):

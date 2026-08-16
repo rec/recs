@@ -21,17 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
 
-### Source process failure can discard diagnostic detail
-
-The child reports selected `OSError`, `RuntimeError`, and `ValueError` failures
-as `SourceFailure`. Other exceptions can still terminate the child with less
-context. Forced termination after a join timeout can also discard pending source
-updates.
-
-Failure reports should include exit code, final frame count, last callback
-timestamp, and whether the stop was expected unplug, controlled stop, crash, or
-forced termination.
-
 ### External control requests can still wait forever
 
 GUI control requests now have a finite wait policy, and the transports reject
