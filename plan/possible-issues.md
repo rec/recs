@@ -21,17 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Maintainability and responsibility issues
 
-### RecordingControl still has several roles
-
-`recs/ui/recording_control.py` now has clearer runtime state and delegates many
-operations, but it still acts as the central control target for GUI requests,
-external requests, request dispatch, configuration mutation, settings
-persistence, track layout edits, status snapshots, disk status, pause/resume,
-marks, and profile reloads.
-
-The next split should separate protocol dispatch, recording/session commands,
-and track/config editing more strongly.
-
 ### SourceRecorder still mixes realtime and control-plane work
 
 `recs/ui/source_recorder.py` now has smaller helpers for input buffering,

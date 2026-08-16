@@ -23,7 +23,6 @@ from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
 from .recording_control_protocol import RecordingControlTarget
 from .session_manifest import ManifestRecord
-from .source_process import SourceProcess
 
 
 class RecordingRuntimeState(BaseModel):
@@ -114,14 +113,6 @@ class RecordingControl:
     def shutdown_started(self, value: bool) -> None:
         self.runtime_state.shutdown_started = value
 
-    @property
-    def sources(self) -> dict[str, SourceProcess]:
-        return self.devices.sources
-
-    @property
-    def hardware(self) -> dict[str, SourceProcess]:
-        return self.devices.hardware
-
     def mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         return recording_commands.mark(self, request)
 
@@ -171,29 +162,6 @@ class RecordingControl:
     def set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
         return recording_track_config.set_tracks(self, request)
 
-    def updated_tracks(
-        self,
-        source: SourceProcess,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> list[Track]:
-        return recording_track_config.updated_tracks(source, requested)
-
-    def updated_track_names(
-        self,
-        source_key: str,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> SourceTrackNames:
-        return recording_track_config.updated_track_names(self, source_key, requested)
-
-    def updated_track_noise_floors(
-        self,
-        source: SourceProcess,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> dict[str, dict[str, float | None]]:
-        return recording_track_config.updated_track_noise_floors(
-            self, source, requested
-        )
-
     def get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
         return recording_track_config.get_cfg(self, request)
 
@@ -210,11 +178,3 @@ class RecordingControl:
 
     def track_for_channel(self, source_name: str, channel: int) -> Track:
         return recording_track_config.track_for_channel(self, source_name, channel)
-
-
-def track_channels(track_name: str) -> list[int]:
-    return recording_track_config.track_channels(track_name)
-
-
-def track_name(channels: list[int]) -> str:
-    return recording_track_config.track_name(channels)

@@ -31,7 +31,7 @@ def pause_recording(
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
     control.recording_paused = True
-    for source in control.hardware.values():
+    for source in control.devices.hardware.values():
         if source.running:
             source.stop()
     control.write_record(
@@ -74,7 +74,7 @@ def stop_recording(control: 'RecordingControl') -> gui_protocol.RecordingState:
     pause_recording(control, 'stop_recording')
     control.runtime_state.stop_session_if_active(control.session.manifest is not None)
     if control.session_stopped:
-        for source in control.hardware.values():
+        for source in control.devices.hardware.values():
             source.join()
         control.receive_pending_updates()
         control.finish_manifest()
@@ -85,7 +85,7 @@ def reload_profiles(control: 'RecordingControl') -> gui_protocol.ProfilesReloade
     if not control.cfg.device.profiles.name:
         raise RecsError('Cannot reload profiles without --profiles')
     control.cfg.__dict__.pop('device_profiles', None)
-    for source in control.sources.values():
+    for source in control.devices.sources.values():
         source.cfg = control.cfg
     return gui_protocol.ProfilesReloaded(
         type='profiles_reloaded', profiles_path=str(control.cfg.device.profiles)
@@ -137,7 +137,7 @@ def disk_status(control: 'RecordingControl') -> gui_protocol.DiskStatus:
 
 def device_status(control: 'RecordingControl') -> list[dict[str, object]]:
     devices: list[dict[str, object]] = []
-    for name, source in sorted(control.sources.items()):
+    for name, source in sorted(control.devices.sources.items()):
         device = source.source
         devices.append(
             {
