@@ -21,17 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Highest-risk correctness and race issues
 
-### External control requests can still wait forever
-
-GUI control requests now have a finite wait policy, and the transports reject
-extra simultaneous clients. External RPC control requests still block in
-`ExternalServer.rpc_response()` until the recorder loop responds or the external
-server stops.
-
-That is no longer a multiclient scaling issue, but it remains a single-client
-lifecycle issue if the recorder loop is blocked in storage, shutdown, or a long
-disk switch. External RPC should mirror the GUI timeout/error behavior.
-
 ### Startup settings failures may restart without useful durable state
 
 Invalid JSON, invalid saved attributes, unreadable settings, missing configured

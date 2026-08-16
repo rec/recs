@@ -144,3 +144,17 @@ def test_external_server_rejects_second_control_client(
     response = server.rpc_response(rpc.Request(command='status_snapshot'))
 
     assert response.message == 'recs already has an active control client'
+
+
+def test_external_server_times_out_pending_control_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
+    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server.start()
+    monkeypatch.setattr(external_ipc, 'EXTERNAL_RESPONSE_TIMEOUT', 0)
+
+    response = server.rpc_response(rpc.Request(command='status_snapshot'))
+
+    assert response.message == 'recs did not answer before shutdown'
+    assert server._pending == []

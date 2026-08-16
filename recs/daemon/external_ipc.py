@@ -13,6 +13,8 @@ from recs.base.errors import ErrorRecord, RecsError
 from . import gui_protocol, paths
 from .spec import RECS_SERVICE
 
+EXTERNAL_RESPONSE_TIMEOUT = 5.0
+
 
 class ControlRequest:
     def __init__(self, request: rpc.Request) -> None:
@@ -24,8 +26,11 @@ class ControlRequest:
         self.response = response
         self.ready.set()
 
-    def wait(self) -> rpc.Result:
-        self.ready.wait()
+    def wait(self, timeout: float = EXTERNAL_RESPONSE_TIMEOUT) -> rpc.Result:
+        if not self.ready.wait(timeout):
+            return ipc.Error(
+                type='error', message='recs did not answer before shutdown'
+            )
         assert self.response is not None
         return self.response
 
@@ -89,7 +94,12 @@ class ExternalServer(Reccy):
                 )
             self._requests.append(control)
             self._pending.append(control)
-        return control.wait()
+        response = control.wait()
+        if isinstance(response, ipc.Error):
+            with self._lock:
+                if control in self._pending:
+                    self._pending.remove(control)
+        return response
 
     def on_stopping(self) -> None:
         self._publish_shutdown()
