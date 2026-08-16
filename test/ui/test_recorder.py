@@ -302,6 +302,55 @@ def test_recorder_loop_runs_without_live_display(
     assert polled
 
 
+def test_recorder_loop_polls_midi(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    midi_recorders: list[Any] = []
+
+    class FakeMidiRecorder(Runnable):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.poll_count = 0
+            midi_recorders.append(self)
+            super().__init__()
+
+        def poll(self) -> None:
+            self.poll_count += 1
+
+        def status(self) -> list[dict[str, object]]:
+            return [
+                {
+                    'name': 'Launchkey',
+                    'open': bool(self.running),
+                    'failed': False,
+                    'message_count': self.poll_count,
+                    'last_message_timestamp': None,
+                }
+            ]
+
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder, 'MidiRecorder', FakeMidiRecorder)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
+
+    def poll_devices() -> None:
+        rec.stop()
+
+    monkeypatch.setattr(rec, '_poll_devices', poll_devices)
+
+    rec._run()
+
+    assert midi_recorders[0].poll_count == 1
+    assert rec._control.status_snapshot().midi == [
+        {
+            'name': 'Launchkey',
+            'open': False,
+            'failed': False,
+            'message_count': 1,
+            'last_message_timestamp': None,
+        }
+    ]
+
+
 def test_recorder_stops_when_gui_display_closes(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
