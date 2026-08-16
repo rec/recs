@@ -256,7 +256,7 @@ class Recorder(Runnables):
     def _record_device_buffer_update(self, source: str, stats: BufferStats) -> None:
         self._write_manifest_record(
             session_manifest.ManifestEvent(
-                type='buffer_overflow',
+                type='buffer_overflow' if stats.dropped_frames else 'buffer_pressure',
                 timestamp=session_manifest.timestamp_to_json(stats.last_drop_timestamp),
                 source=source,
                 dropped_blocks=stats.dropped_blocks,

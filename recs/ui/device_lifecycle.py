@@ -77,6 +77,7 @@ class DeviceLifecycle:
         self.source_frames = dict.fromkeys(self.source_processes, 0)
         self.buffer_stats: dict[str, BufferStats] = {}
         self.buffer_drops_reported = dict.fromkeys(self.source_processes, 0)
+        self.buffer_pressure_reported = dict.fromkeys(self.source_processes, 0.0)
         self.source_frames_at_start = dict.fromkeys(self.source_processes, 0)
         self.source_start_times = dict.fromkeys(self.source_processes, state.start_time)
         self.source_last_updates = dict.fromkeys(
@@ -279,6 +280,7 @@ class DeviceLifecycle:
         self.hardware_sources[source.name] = process
         self.source_frames[source.name] = 0
         self.buffer_drops_reported[source.name] = 0
+        self.buffer_pressure_reported[source.name] = 0.0
         self.source_frames_at_start[source.name] = 0
         self.source_start_times[source.name] = self.state.start_time
         self.source_last_updates[source.name] = self.state.start_time
@@ -317,6 +319,16 @@ class DeviceLifecycle:
                 self.buffer_drops_reported[
                     update.source_name
                 ] = update.buffer_stats.dropped_frames
+            pressure = self.buffer_pressure_reported[update.source_name]
+            threshold = self.cfg.recording.audio_buffer_seconds * 0.8
+            if (
+                update.buffer_stats.max_queued_seconds > pressure
+                and update.buffer_stats.max_queued_seconds >= threshold
+            ):
+                self.buffer_update(update.source_name, update.buffer_stats)
+                self.buffer_pressure_reported[
+                    update.source_name
+                ] = update.buffer_stats.max_queued_seconds
         for warning in update.buffer_warnings or []:
             self.warning(warning)
 

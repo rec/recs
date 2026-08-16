@@ -693,6 +693,40 @@ def test_recorder_records_buffer_overflow_event(
     }
 
 
+def test_recorder_records_buffer_pressure_before_drops(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 0.0)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(
+        Cfg(
+            audio_buffer_seconds=1,
+            include=['Mic'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+
+    rec._receive_update(
+        SourceUpdate(
+            channels={'1': ChannelState()},
+            files=[],
+            frames=48_000,
+            source_name='Mic',
+            buffer_stats=BufferStats(max_queued_seconds=0.8, queued_seconds=0.8),
+        )
+    )
+
+    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    assert records[1]['type'] == 'buffer_pressure'
+    assert records[1]['max_queued_seconds'] == 0.8
+    assert records[1]['queued_seconds'] == 0.8
+
+
 def test_recorder_rows_include_buffer_stats(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

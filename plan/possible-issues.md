@@ -21,15 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### Disk-stall observability is missing
-
-The recorder does not currently expose write latency, callback queue high-water
-marks over time, or per-source dropped-frame trends as first-class emergency
-signals. A sustained queue increase should become visible before actual drops.
-
-This overlaps with disk failover: the system needs evidence that a disk is slow
-or failing, not just low on free space.
-
 ### UI refresh defaults need target measurement
 
 `Cfg.console.ui_refresh_rate` defaults to `23.0`. Row generation, daemon status
