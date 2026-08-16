@@ -207,6 +207,7 @@ class StatusSnapshot(BaseModel):
     devices: list[dict[str, object]]
     disk: dict[str, object]
     errors: list[ErrorRecord]
+    midi: list[dict[str, object]] = Field(default_factory=list)
     recording: dict[str, bool]
     rows: list[dict[str, object]]
 

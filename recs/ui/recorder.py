@@ -19,6 +19,7 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc
+from recs.midi.recorder import MidiRecorder
 
 from . import (
     calibration,
@@ -95,6 +96,12 @@ class Recorder(Runnables):
         self.session = recording_session.RecordingSession(
             str(uuid.uuid4()), self.session_start_time
         )
+        self._midi = MidiRecorder(
+            self.cfg,
+            self.session_start_time,
+            self._record_warning,
+            lambda record: self._write_manifest_record(record),
+        )
         self.key_recorder = make_key_recorder(cfg)
         self._disk_space_policy = disk_space_policy.DiskSpacePolicy(self.cfg)
         self._devices = device_lifecycle.DeviceLifecycle(
@@ -123,6 +130,7 @@ class Recorder(Runnables):
             self._replace_cfg,
             lambda: list(self.rows()),
             self.error_records,
+            self._midi.status,
             self._manifest_path,
             self._receive_pending_updates,
             self._finish_manifest,
@@ -155,7 +163,10 @@ class Recorder(Runnables):
         if isinstance(self.live, gui_ipc.DaemonGuiServer):
             self.live.external_rows = self._publish_external_rows
 
-        runnables = tuple(self._devices.files.values()) + (self.key_recorder,)
+        runnables = tuple(self._devices.files.values()) + (
+            self._midi,
+            self.key_recorder,
+        )
         if self._devices.poller is not None:
             runnables += (self._devices.poller,)
         if self.live and self.live.enabled:
@@ -317,6 +328,7 @@ class Recorder(Runnables):
                     self._monitor_disk_space()
                     self._receive_key_events()
                     self._receive_control_requests()
+                    self._midi.poll()
                     self._poll_devices()
                     self._reap_sources()
                     self._stop_stalled_sources()

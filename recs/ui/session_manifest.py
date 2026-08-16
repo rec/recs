@@ -50,6 +50,8 @@ class ManifestEvent(BaseModel):
     current_path: str | None = None
     continued_at: str | None = None
     cfg_revision: int | None = None
+    timing_source: str | None = None
+    midi_port: str | None = None
 
 
 class ManifestFile(BaseModel):

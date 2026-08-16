@@ -75,7 +75,7 @@ unified source selector.
 Write standard MIDI files with one track per input file:
 
 - Use type 0 unless type 1 becomes necessary.
-- Use a fixed ticks-per-beat value, for example 480.
+- Use a fixed ticks-per-beat value of 960.
 - Convert seconds to ticks using a fixed tempo meta event.
 - Write input/device name metadata at the start of the track.
 - Append each received MIDI message with a delta time since the previous

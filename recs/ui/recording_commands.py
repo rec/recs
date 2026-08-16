@@ -98,6 +98,7 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
         disk=disk_status(control).model_dump(exclude={'type'}),
         devices=device_status(control),
         errors=control.error_records(),
+        midi=control.midi_status(),
         recording=recording_state(control).model_dump(exclude={'type'}),
         rows=control.rows(),
     )
