@@ -98,6 +98,29 @@ class DaemonStatusPublisher:
         _write_status(self.status_path, self.status(gui_ipc_error=error))
 
 
+class DaemonRowPublisher:
+    def __init__(
+        self,
+        status: DaemonStatusPublisher,
+        broadcast: Callable[[list[dict[str, object]], list[ErrorRecord]], None],
+        external_rows: Callable[[list[dict[str, object]], list[ErrorRecord]], None]
+        | None,
+    ) -> None:
+        self.status = status
+        self.broadcast = broadcast
+        self.external_rows = external_rows
+
+    def publish(
+        self,
+        rows: list[dict[str, object]],
+        errors: list[ErrorRecord],
+    ) -> None:
+        self.status.publish(rows, errors)
+        self.broadcast(rows, errors)
+        if self.external_rows is not None:
+            self.external_rows(rows, errors)
+
+
 class DaemonGuiServer(Runnable):
     def __init__(
         self,
@@ -119,6 +142,9 @@ class DaemonGuiServer(Runnable):
         self.backend = gui_backend.server_backend(self.endpoint)
         self.connections = DaemonGuiConnections()
         self.status = DaemonStatusPublisher(self.paths.status, self._status)
+        self.row_publisher = DaemonRowPublisher(
+            self.status, self.broadcast, self.external_rows
+        )
         self.lock = threading.Lock()
         super().__init__()
 
@@ -191,10 +217,8 @@ class DaemonGuiServer(Runnable):
         rows = [dict(row) for row in self.rows()]
         errors = list(self.errors())
         self.status.status_path = self.paths.status
-        self.status.publish(rows, errors)
-        self.broadcast(rows, errors)
-        if self.external_rows is not None:
-            self.external_rows(rows, errors)
+        self.row_publisher.external_rows = self.external_rows
+        self.row_publisher.publish(rows, errors)
 
     @property
     def closed(self) -> bool:
