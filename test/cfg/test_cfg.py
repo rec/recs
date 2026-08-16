@@ -17,6 +17,10 @@ def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
     assert not Cfg().recording.band_mode
 
 
+def test_ui_refresh_default_is_conservative(mock_devices: None) -> None:
+    assert Cfg().console.ui_refresh_rate == 10
+
+
 def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
     assert Cfg().mutable_attributes == {
         'audio.metadata',

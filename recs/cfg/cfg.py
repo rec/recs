@@ -139,7 +139,7 @@ class Console(BaseModel):
     remote: bool = False
     silent: bool = False
     sleep_time_device: float = 0.1
-    ui_refresh_rate: float = 23.0
+    ui_refresh_rate: float = 10.0
 
     @field_validator('sleep_time_device', 'ui_refresh_rate')
     @classmethod

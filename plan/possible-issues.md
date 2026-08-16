@@ -21,13 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## CPU, latency, and memory issues
 
-### UI refresh defaults need target measurement
-
-`Cfg.console.ui_refresh_rate` defaults to `23.0`. Row generation, daemon status
-publication, GUI broadcasts, and display refresh can happen frequently even
-when recording is the primary job. This is probably fine on a laptop, but it
-needs measurement on Raspberry Pi targets during 18-channel recording.
-
 ### Audio block processing repeats per-track reductions
 
 `SourceRecorder._receive_update()` constructs a `Block` for every track, then

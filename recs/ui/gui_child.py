@@ -52,7 +52,7 @@ def main() -> None:
     provider.start()
     cfg = Cfg(
         gui=True,
-        ui_refresh_rate=float(os.environ.get('RECS_GUI_REFRESH_RATE', '23')),
+        ui_refresh_rate=float(os.environ.get('RECS_GUI_REFRESH_RATE', '10')),
     )
     Gui(
         provider.rows,
