@@ -312,9 +312,11 @@ def test_source_track_change_closes_writers_before_next_buffer(
     recorder.file_events = source_recorder.SourceFileEvents(recorder.channel_writers)
     recorder.pending_active_channels = set()
     recorder.pending_track_layout = None
+    recorder.calibration = SourceCalibration(source.samplerate)
     monkeypatch.setattr(source_recorder, 'ChannelWriter', ReconfiguredWriter)
+    control = source_recorder.SourceControlApplier(recorder, EmptyControlConnection())
 
-    recorder._set_tracks([Track(source, '1'), Track(source, '2')], {'Mic': {'VL': 1}})
+    control.set_tracks([Track(source, '1'), Track(source, '2')], {'Mic': {'VL': 1}})
 
     assert original.stopped
     assert [writer.track.name for writer in recorder.channel_writers] == ['1', '2']
@@ -354,6 +356,11 @@ class BlockingConnection:
         self.release.wait()
         self.messages.append(message)
         self.finished.set()
+
+
+class EmptyControlConnection:
+    def poll(self) -> bool:
+        return False
 
 
 def _eventually(check: Callable[[], bool]) -> bool:

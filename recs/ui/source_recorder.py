@@ -397,6 +397,51 @@ class InputBuffer:
         return self.memory_low
 
 
+class SourceControlApplier:
+    def __init__(self, recorder: 'SourceRecorder', connection: Connection) -> None:
+        self.recorder = recorder
+        self.handler = SourceControlHandler(
+            connection,
+            self.set_cfg,
+            self.set_track_names,
+            recorder.calibration.start,
+            self.set_tracks,
+        )
+
+    def receive(self) -> None:
+        self.handler.receive()
+
+    def set_track_names(self, track_names: SourceTrackNames) -> None:
+        for writer in self.recorder.channel_writers:
+            writer.set_track_names(track_names)
+
+    def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
+        recorder = self.recorder
+        recorder.cfg = cfg
+        recorder.buffer.cfg = cfg
+        recorder.times = cfg.times.scale(recorder.source.samplerate)
+        for writer in recorder.channel_writers:
+            writer.set_cfg(cfg, recorder.times)
+        if revision is not None:
+            recorder.pending_config_revisions.append(revision)
+
+    def set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
+        recorder = self.recorder
+        for writer in recorder.channel_writers:
+            if writer.active == Active.active:
+                recorder.pending_active_channels.update(writer.track.channels)
+            writer.stop()
+        recorder.file_events.remember_finished_files(recorder.channel_writers)
+        recorder.channel_writers = tuple(
+            ChannelWriter(cfg=recorder.cfg, times=recorder.times, track=track)
+            for track in tracks
+        )
+        self.set_track_names(track_names)
+        recorder.file_events.reset_writers(recorder.channel_writers)
+        recorder.runnables = recorder.input_stream, *recorder.channel_writers
+        recorder.pending_track_layout = [track.name for track in tracks]
+
+
 class SourceRecorder(Runnables):
     sample_count: int = 0
 
@@ -422,19 +467,13 @@ class SourceRecorder(Runnables):
         self.channel_writers = tuple(
             ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
         )
-        self._set_track_names(track_names or {})
         self.file_events = SourceFileEvents(self.channel_writers)
         self.pending_active_channels: set[int] = set()
         self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
         self.calibration = SourceCalibration(self.source.samplerate)
-        self.control = SourceControlHandler(
-            control_connection,
-            self._set_cfg,
-            self._set_track_names,
-            self.calibration.start,
-            self._set_tracks,
-        )
+        self.control = SourceControlApplier(self, control_connection)
+        self.control.set_track_names(track_names or {})
 
         self.input_stream = self.source.input_stream(
             sdtype=cast(SdType, self.cfg.audio.sdtype),
@@ -462,34 +501,6 @@ class SourceRecorder(Runnables):
                 update = self.buffer.get(block=False)
                 self.control.receive()
                 self._receive_update(update)
-
-    def _set_track_names(self, track_names: SourceTrackNames) -> None:
-        for writer in self.channel_writers:
-            writer.set_track_names(track_names)
-
-    def _set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
-        self.cfg = cfg
-        self.buffer.cfg = cfg
-        self.times = cfg.times.scale(self.source.samplerate)
-        for writer in self.channel_writers:
-            writer.set_cfg(cfg, self.times)
-        if revision is not None:
-            self.pending_config_revisions.append(revision)
-
-    def _set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
-        for writer in self.channel_writers:
-            if writer.active == Active.active:
-                self.pending_active_channels.update(writer.track.channels)
-            writer.stop()
-        self.file_events.remember_finished_files(self.channel_writers)
-        self.channel_writers = tuple(
-            ChannelWriter(cfg=self.cfg, times=self.times, track=track)
-            for track in tracks
-        )
-        self._set_track_names(track_names)
-        self.file_events.reset_writers(self.channel_writers)
-        self.runnables = self.input_stream, *self.channel_writers
-        self.pending_track_layout = [track.name for track in tracks]
 
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
