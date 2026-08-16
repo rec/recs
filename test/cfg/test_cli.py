@@ -6,7 +6,7 @@ import pytest
 import tomli
 import tyro
 
-from recs.base.types import Format, SdType, Subtype
+from recs.base.types import Format, MidiTiming, SdType, Subtype
 from recs.cfg import cli
 
 
@@ -53,6 +53,12 @@ def test_option_parsing() -> None:
             '--no-band-mode',
             '--save-settings',
             'True',
+            '--midi-include',
+            'Launchkey',
+            '--midi-exclude',
+            'Network',
+            '--midi-timing',
+            'system',
         ],
     )
 
@@ -63,6 +69,9 @@ def test_option_parsing() -> None:
     assert parsed.recording.preview_headroom == 9
     assert not parsed.recording.band_mode
     assert parsed.general.save_settings
+    assert parsed.midi.midi_include == ['Launchkey']
+    assert parsed.midi.midi_exclude == ['Network']
+    assert parsed.midi.midi_timing == MidiTiming.system
 
 
 @pytest.mark.parametrize('option', ['-f', '--formats'])
