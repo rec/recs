@@ -19,7 +19,7 @@ class Track(hash_cmp.HashCmp):
         else:
             self.channels = channels
 
-        self._key = source.name, self.channels
+        self._key = source.key, self.channels
 
         if self.channels:
             a, b = self.channels[0], self.channels[-1]
@@ -73,8 +73,8 @@ def source_track(
     if Track(d) in exc:
         return
 
-    excs = [i for i in exc if d.name == i.source.name]
-    incs = [i for i in inc if d.name == i.source.name]
+    excs = [i for i in exc if d.key == i.source.key]
+    incs = [i for i in inc if d.key == i.source.key]
     if inc and not incs:
         return
 

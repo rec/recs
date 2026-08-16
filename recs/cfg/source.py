@@ -26,9 +26,11 @@ class Source(hash_cmp.HashCmp, abc.ABC):
         name: str,
         samplerate: int,
         format: Format | None = None,
+        key: str | None = None,
         subtype: Subtype | None = None,
     ) -> None:
-        self._key = self.name = name
+        self._key = self.key = key or name
+        self.name = name
         self.channels = channels
         self.format = format
         self.samplerate = samplerate

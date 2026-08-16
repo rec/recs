@@ -92,7 +92,7 @@ class SourceProcess(Runnable):
         track_names: DeviceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
-        self.name = tracks[0].source.name
+        self.name = tracks[0].source.key
         self.source = tracks[0].source
         self.tracks = tracks
         self.track_names = track_names or {}
@@ -112,7 +112,7 @@ class SourceProcess(Runnable):
 
     @property
     def recorder_cfg(self) -> Cfg:
-        cfg = self.cfg.with_device_profile(self.name)
+        cfg = self.cfg.with_device_profile(self.source.name)
         console = cfg.console.model_copy(update={'gui': False})
         return cfg.model_copy(update={'console': console})
 
@@ -121,7 +121,7 @@ class SourceProcess(Runnable):
         self.connection, child_updates = mp.Pipe(duplex=False)
         child_controls, self.control_connection = mp.Pipe(duplex=False)
         self.stop_event = mp.Event()
-        process_name = _source_process_name(self.name)
+        process_name = _source_process_name(self.source.name)
         kwargs = {
             'cfg': self.recorder_cfg,
             'control_connection': child_controls,
@@ -276,7 +276,7 @@ def _run_source_recorder(
             update_transport=transport,
         )
     except Exception as e:
-        source_name = tracks[0].source.name
+        source_name = tracks[0].source.key
         transport.publish(
             source_recorder.SourceFailure(
                 message=f'{type(e).__name__}: {e}',

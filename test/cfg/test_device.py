@@ -18,6 +18,28 @@ def test_input_devices():
         print(next(iter(d.values())))
 
 
+def test_input_devices_use_stable_host_identity() -> None:
+    devices = device.get_input_devices(
+        [
+            {
+                'default_samplerate': 48_000,
+                'max_input_channels': 1,
+                'name': 'USB Audio',
+                'uid': 'first',
+            },
+            {
+                'default_samplerate': 48_000,
+                'max_input_channels': 2,
+                'name': 'USB Audio',
+                'uid': 'second',
+            },
+        ]
+    )
+
+    assert set(devices) == {'uid:first', 'uid:second'}
+    assert [source.name for source in devices.values()] == ['USB Audio', 'USB Audio']
+
+
 def test_input_device_uses_sounddevice_adc_time(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
