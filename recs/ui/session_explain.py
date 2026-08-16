@@ -191,6 +191,15 @@ def _event_explanations(
             explanations.append(
                 Explanation(reason='audio buffer overflowed', evidence=event.timestamp)
             )
+        elif event.type == 'midi_source_failed':
+            explanations.append(
+                Explanation(
+                    reason='MIDI input failed',
+                    evidence=event.value
+                    if isinstance(event.value, str)
+                    else event.timestamp,
+                )
+            )
     return explanations
 
 

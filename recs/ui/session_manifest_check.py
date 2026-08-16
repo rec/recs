@@ -44,6 +44,7 @@ def check(path: Path) -> list[str]:
             errors.append(f'{path}: missing file {file.path}')
             continue
         errors.extend(_file_size_errors(path, file_path, file, started_records))
+        errors.extend(_midi_file_errors(path, file_path, file))
     errors.extend(_frame_errors(path, manifest.files))
     errors.extend(_disk_switch_errors(path, manifest))
     return errors
@@ -99,6 +100,18 @@ def _frame_errors(
             )
         last_frame[key] = file.frame_count
     return errors
+
+
+def _midi_file_errors(
+    manifest_path: Path, file_path: Path, file: session_manifest.ManifestFile
+) -> list[str]:
+    if file.type != 'file_finished':
+        return []
+    if file.kind != 'midi' or not file.message_count:
+        return []
+    if file_path.stat().st_size:
+        return []
+    return [f'{manifest_path}: {file.path} has MIDI messages but is empty']
 
 
 def _disk_switch_errors(
