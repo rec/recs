@@ -23,8 +23,8 @@ from recs.daemon import external_ipc, gui_ipc
 from . import (
     calibration,
     device_lifecycle,
-    disk_control,
-    disk_monitor,
+    disk_space_controller,
+    disk_space_policy,
     gui_process,
     live,
     recording_control,
@@ -96,7 +96,7 @@ class Recorder(Runnables):
             str(uuid.uuid4()), self.session_start_time
         )
         self.key_recorder = make_key_recorder(cfg)
-        self.disk_monitor = disk_monitor.DiskMonitor(self.cfg)
+        self.disk_space_policy = disk_space_policy.DiskSpacePolicy(self.cfg)
         self.devices = device_lifecycle.DeviceLifecycle(
             self.cfg,
             self.state,
@@ -118,7 +118,7 @@ class Recorder(Runnables):
             self.state,
             self.session,
             self.devices,
-            self.disk_monitor,
+            self.disk_space_policy,
             lambda record: self._write_manifest_record(record),
             self._replace_cfg,
             lambda: list(self.rows()),
@@ -137,11 +137,11 @@ class Recorder(Runnables):
             self.control.set_cfg_value,
         )
         self.control.calibrate = self.calibration.calibrate
-        self.disk_control = disk_control.DiskControl(
+        self.disk_space_controller = disk_space_controller.DiskSpaceController(
             self.cfg,
             self.session,
             self.devices,
-            self.disk_monitor,
+            self.disk_space_policy,
             self.control,
             lambda record: self._write_manifest_record(record),
             self._record_warning,
@@ -358,7 +358,7 @@ class Recorder(Runnables):
         return bool(self.live and self.live.closed)
 
     def _monitor_disk_space(self) -> None:
-        self.disk_control.monitor_disk_space()
+        self.disk_space_controller.monitor_disk_space()
 
     def _poll_devices(self) -> None:
         self.devices.poll(
@@ -484,8 +484,8 @@ class Recorder(Runnables):
             for source in self.devices.sources.values():
                 source.cfg = self.cfg
         self.control.cfg = self.cfg
-        self.disk_monitor.cfg = self.cfg
-        self.disk_control.cfg = self.cfg
+        self.disk_space_policy.cfg = self.cfg
+        self.disk_space_controller.cfg = self.cfg
         self.calibration.cfg = self.cfg
         self._start_manifest()
         self.control.session_stopped = False
@@ -493,8 +493,8 @@ class Recorder(Runnables):
     def _replace_cfg(self, cfg: Cfg) -> None:
         self.cfg = cfg
         self.devices.cfg = cfg
-        self.disk_monitor.cfg = cfg
-        self.disk_control.cfg = cfg
+        self.disk_space_policy.cfg = cfg
+        self.disk_space_controller.cfg = cfg
         self.calibration.cfg = cfg
 
     def _record_warning(self, warning: str) -> None:

@@ -15,7 +15,12 @@ from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.ui import disk_control, recorder, recording_paths, recording_track_config
+from recs.ui import (
+    disk_space_controller,
+    recorder,
+    recording_paths,
+    recording_track_config,
+)
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
@@ -1346,7 +1351,7 @@ def test_control_request_reports_device_and_disk_status(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(
-        disk_control.shutil, 'disk_usage', lambda path: DiskUsage(100, 40, 60)
+        disk_space_controller.shutil, 'disk_usage', lambda path: DiskUsage(100, 40, 60)
     )
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     devices = FakeControlRequest(gui_protocol.ListDevices(type='list_devices'))

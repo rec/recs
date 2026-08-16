@@ -12,8 +12,8 @@ from recs.cfg.track_names import DeviceTrackNames
 from recs.daemon import gui_protocol
 
 from . import (
-    disk_monitor,
     disk_space,
+    disk_space_policy,
     recording_commands,
     recording_control_protocol,
     recording_session,
@@ -50,7 +50,7 @@ class RecordingControl:
         state: FullState,
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
-        disk: disk_monitor.DiskMonitor,
+        disk: disk_space_policy.DiskSpacePolicy,
         write_record: Callable[[ManifestRecord], None],
         cfg_changed: Callable[[Cfg], None],
         rows: Callable[[], list[dict[str, object]]],

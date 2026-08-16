@@ -5,19 +5,19 @@ from pathlib import Path
 from recs.base import times
 from recs.cfg.cfg import Cfg
 
-from . import disk_monitor, disk_space, recording_paths, recording_session
+from . import disk_space, disk_space_policy, recording_paths, recording_session
 from .device_lifecycle import DeviceLifecycle
 from .recording_control import RecordingControl
 from .session_manifest import ManifestEvent, ManifestRecord, timestamp_to_json
 
 
-class DiskControl:
+class DiskSpaceController:
     def __init__(
         self,
         cfg: Cfg,
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
-        monitor: disk_monitor.DiskMonitor,
+        monitor: disk_space_policy.DiskSpacePolicy,
         recording: RecordingControl,
         write_record: Callable[[ManifestRecord], None],
         warning: Callable[[str], None],

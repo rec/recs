@@ -71,13 +71,6 @@ leaving a smaller recorder-level integration suite.
 
 ## Naming, identity, and readability issues
 
-### Disk monitor and disk control names are close
-
-`DiskMonitor` tracks disk policy and thresholds. `DiskControl` applies decisions
-and mutates recorder/session/device state. The split is reasonable, but the
-names are easy to blur. A reader can miss that `DiskControl` is the side-effect
-owner while `DiskMonitor` is mostly policy state.
-
 ### Track/channel/source terminology still needs local discipline
 
 `doc/glossary.md` now defines the main terms, but the code still uses them
