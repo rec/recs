@@ -111,7 +111,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
         rec.session.manifest.path if rec.session.manifest is not None else None
     )
     assert old_manifest is not None
-    rec.hardware['Mic'].pending_updates.append(
+    rec.devices.hardware['Mic'].pending_updates.append(
         SourceUpdate(
             channels={'1': ChannelState()},
             files=[recorded],
@@ -164,7 +164,7 @@ def test_disk_emergency_pauses_recording(
 
     rec.disk_control.monitor_disk_space()
 
-    assert rec.recording_paused
+    assert rec.control.recording_paused
     assert rec.disk_monitor.paused
 
 
@@ -199,5 +199,5 @@ def test_disk_pause_resumes_on_removable_disk(
     rec.disk_control.monitor_disk_space()
 
     assert not rec.disk_monitor.paused
-    assert not rec.recording_paused
+    assert not rec.control.recording_paused
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)

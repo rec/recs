@@ -18,7 +18,6 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
-from recs.cfg.track_names import DeviceTrackNames
 from recs.daemon import external_ipc, gui_ipc
 
 from . import (
@@ -171,66 +170,6 @@ class Recorder(Runnables):
         self.runnables = runnables
         self._record_startup_input_errors(all_tracks)
 
-    @property
-    def sources(self) -> dict[str, SourceProcess]:
-        return self.devices.sources
-
-    @property
-    def recording_paused(self) -> bool:
-        return self.control.recording_paused
-
-    @recording_paused.setter
-    def recording_paused(self, value: bool) -> None:
-        self.control.recording_paused = value
-
-    @property
-    def recording_stopped(self) -> bool:
-        return self.control.recording_stopped
-
-    @recording_stopped.setter
-    def recording_stopped(self, value: bool) -> None:
-        self.control.recording_stopped = value
-
-    @property
-    def session_stopped(self) -> bool:
-        return self.control.session_stopped
-
-    @session_stopped.setter
-    def session_stopped(self, value: bool) -> None:
-        self.control.session_stopped = value
-
-    @property
-    def track_names(self) -> DeviceTrackNames:
-        return self.control.track_names
-
-    @track_names.setter
-    def track_names(self, value: DeviceTrackNames) -> None:
-        self.control.track_names = value
-
-    @property
-    def hardware(self) -> dict[str, SourceProcess]:
-        return self.devices.hardware
-
-    @property
-    def files(self) -> dict[str, SourceProcess]:
-        return self.devices.files
-
-    @property
-    def frames(self) -> dict[str, int]:
-        return self.devices.frames
-
-    @property
-    def buffer_stats(self) -> dict[str, BufferStats]:
-        return self.devices.buffer_stats
-
-    @property
-    def poller(self) -> DevicePoller | None:
-        return self.devices.poller
-
-    @property
-    def failed(self) -> set[str]:
-        return self.devices.failed
-
     def _record_device_file_update(
         self, update: SourceUpdate, source: SourceProcess
     ) -> None:
@@ -248,7 +187,7 @@ class Recorder(Runnables):
             )
         if update.track_layout is not None:
             self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
-            self.state.set_track_names(self.track_names)
+            self.state.set_track_names(self.control.track_names)
 
     def _record_calibration_result(self, source: str, values: dict[str, float]) -> None:
         self.calibration.results[source] = values
@@ -355,8 +294,8 @@ class Recorder(Runnables):
             return 'calibration mode does not write files'
         if self.cfg.general.silence_preview:
             return 'silence preview mode does not write files'
-        if self.failed:
-            return f'sources failed: {", ".join(sorted(self.failed))}'
+        if self.devices.failed:
+            return f'sources failed: {", ".join(sorted(self.devices.failed))}'
         if self.session.files_written:
             return 'all candidate files were removed or are no longer present'
         if not any(self.devices.frames.values()):
@@ -422,8 +361,8 @@ class Recorder(Runnables):
 
     def _poll_devices(self) -> None:
         self.devices.poll(
-            self.recording_paused,
-            self.recording_stopped,
+            self.control.recording_paused,
+            self.control.recording_stopped,
             self._invocation_expired(),
         )
 
@@ -548,7 +487,7 @@ class Recorder(Runnables):
         self.disk_control.cfg = self.cfg
         self.calibration.cfg = self.cfg
         self._start_manifest()
-        self.session_stopped = False
+        self.control.session_stopped = False
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         self.cfg = cfg
