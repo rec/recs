@@ -28,6 +28,7 @@ from . import (
     gui_process,
     live,
     recording_control,
+    recording_control_protocol,
     recording_paths,
     recording_session,
     session_manifest,
@@ -399,8 +400,8 @@ class Recorder(Runnables):
             self._record_key_event(event)
 
     def _receive_control_requests(self) -> None:
-        self.control.receive(
-            cast(recording_control.ControlDisplay | None, self.live),
+        self.control.protocol.receive(
+            cast(recording_control_protocol.ControlDisplay | None, self.live),
             self.external,
             self._record_warning,
             self.stop,
@@ -411,7 +412,7 @@ class Recorder(Runnables):
         rows: list[dict[str, object]],
         errors: list[ErrorRecord],
     ) -> None:
-        self.control.publish(self.external, rows, errors)
+        self.control.protocol.publish(self.external, rows, errors)
 
     def _receive_connection(self, conn: connection.Connection) -> bool:
         return self.devices.receive_connection(conn)

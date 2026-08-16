@@ -9,7 +9,7 @@ from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
-from recs.daemon import external_ipc, gui_protocol
+from recs.daemon import gui_protocol
 
 from . import (
     disk_monitor,
@@ -21,7 +21,7 @@ from . import (
 )
 from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
-from .recording_control_protocol import ControlDisplay, RecordingControlTarget
+from .recording_control_protocol import RecordingControlTarget
 from .session_manifest import ManifestRecord
 from .source_process import SourceProcess
 
@@ -121,26 +121,6 @@ class RecordingControl:
     @property
     def hardware(self) -> dict[str, SourceProcess]:
         return self.devices.hardware
-
-    def receive(
-        self,
-        live: ControlDisplay | None,
-        external: external_ipc.ExternalServer | None,
-        warning: Callable[[str], None],
-        shutdown: Callable[[], None],
-    ) -> None:
-        self.protocol.receive(live, external, warning, shutdown)
-
-    def publish(
-        self,
-        external: external_ipc.ExternalServer | None,
-        rows: list[dict[str, object]],
-        errors: list[ErrorRecord],
-    ) -> None:
-        self.protocol.publish(external, rows, errors)
-
-    def handle(self, request: gui_protocol.Request) -> gui_protocol.Response:
-        return self.protocol.handle(request)
 
     def mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         return recording_commands.mark(self, request)
