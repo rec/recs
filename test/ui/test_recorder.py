@@ -9,13 +9,13 @@ import pytest
 from reccy import rpc
 from threa import Runnable
 
-from recs.base.errors import ErrorRecord
+from recs.base.errors import ErrorRecord, RecsError
 from recs.base.state import ChannelState
 from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.ui import disk_control, recorder, recording_paths
+from recs.ui import disk_control, recorder, recording_paths, recording_track_config
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
@@ -1510,6 +1510,30 @@ def test_buffer_overflow_records_write_latency(
     records = read_jsonl(tmp_path / 'recs-session.jsonl')
     assert records[1]['type'] == 'buffer_overflow'
     assert records[1]['max_write_seconds'] == 0.25
+
+
+def test_save_settings_failure_records_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records: list[object] = []
+    control = object.__new__(recorder.recording_control.RecordingControl)
+    control.cfg = Cfg(save_settings=True)
+    control.track_names = {}
+    control.saved_tracks = {}
+    control.write_record = records.append
+    monkeypatch.setattr(
+        recording_track_config.settings,
+        'save',
+        lambda cfg, track_names, tracks: _raise_recs_error('cannot save settings'),
+    )
+
+    recording_track_config.save_settings(control)
+
+    assert records[0].message == 'cannot save settings'
+
+
+def _raise_recs_error(message: str) -> None:
+    raise RecsError(message)
 
 
 def test_control_request_reports_mutable_attributes(

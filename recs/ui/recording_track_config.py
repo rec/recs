@@ -7,7 +7,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames, validate_track_names
 from recs.daemon import gui_protocol
 
-from .session_manifest import ManifestEvent, timestamp_to_json
+from .session_manifest import ManifestEvent, ManifestWarning, timestamp_to_json
 from .source_process import SourceProcess
 
 if TYPE_CHECKING:
@@ -244,7 +244,15 @@ def set_cfg_value(
 
 def save_settings(control: 'RecordingControl') -> None:
     if control.cfg.save_settings:
-        settings.save(control.cfg, control.track_names, control.saved_tracks)
+        try:
+            settings.save(control.cfg, control.track_names, control.saved_tracks)
+        except RecsError as e:
+            control.write_record(
+                ManifestWarning(
+                    timestamp=timestamp_to_json(times.timestamp()),
+                    message=str(e),
+                )
+            )
 
 
 def track_for_channel(

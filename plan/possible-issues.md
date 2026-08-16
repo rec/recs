@@ -19,19 +19,6 @@ manifest reads, initial source-recorder and GUI-server splits, clearer
 `DeviceLifecycle` state names, the explicit recording runtime-state object, the
 current glossary, and the current runtime architecture document.
 
-## Highest-risk correctness and race issues
-
-### Startup settings failures may restart without useful durable state
-
-Invalid JSON, invalid saved attributes, unreadable settings, missing configured
-files, or unwritable settings paths can raise during startup or settings save.
-Systemd may restart the daemon, but a separate local status snapshot may not
-explain the loop.
-
-Startup failures should write a small durable failed-status record before exit.
-Later settings-save failures should keep the in-memory recording configuration,
-report the failure, and avoid becoming a silent API failure.
-
 ## CPU, latency, and memory issues
 
 ### Disk-stall observability is missing

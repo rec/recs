@@ -1,12 +1,15 @@
 import json
 import sys
+import time
 
 import soundfile
+from reccy import settings as reccy_settings
 
-from recs.base.errors import RecsError
+from recs.base.errors import ErrorRecord, RecsError
 from recs.base.types import Format, SdType
 from recs.cfg import device
-from recs.daemon import gui_ipc
+from recs.daemon import gui_ipc, paths
+from recs.daemon.models import DaemonStatus
 from recs.daemon.root_user import raise_if_root
 from recs.ui.recorder import Recorder
 
@@ -15,23 +18,48 @@ from .cfg import FLAT_FIELDS, Cfg
 
 
 def run_cli(cfg: Cfg) -> None:
-    if gui_ipc.daemon_mode_enabled():
-        raise_if_root()
-    if cfg.general.info:
-        _info()
-    elif cfg.general.list_types:
-        _list_types()
-    elif cfg.console.remote:
-        metadata = gui_ipc.load_metadata()
-        if metadata is None or not gui_ipc.endpoint_reachable(metadata):
-            raise RecsError('recs daemon is not running')
-        gui_ipc.run_remote_gui(metadata, cfg)
-    else:
-        loaded = settings.load(cfg, _cli_overrides())
-        if loaded.cfg.save_settings:
-            Recorder(loaded.cfg, loaded).run()
+    daemon_mode = gui_ipc.daemon_mode_enabled()
+    try:
+        if daemon_mode:
+            raise_if_root()
+        if cfg.general.info:
+            _info()
+        elif cfg.general.list_types:
+            _list_types()
+        elif cfg.console.remote:
+            metadata = gui_ipc.load_metadata()
+            if metadata is None or not gui_ipc.endpoint_reachable(metadata):
+                raise RecsError('recs daemon is not running')
+            gui_ipc.run_remote_gui(metadata, cfg)
         else:
-            Recorder(loaded.cfg).run()
+            loaded = settings.load(cfg, _cli_overrides())
+            if loaded.cfg.save_settings:
+                Recorder(loaded.cfg, loaded).run()
+            else:
+                Recorder(loaded.cfg).run()
+    except Exception as e:
+        if daemon_mode:
+            _write_failed_status(e)
+        raise
+
+
+def _write_failed_status(error: Exception) -> None:
+    status = DaemonStatus(
+        errors=[
+            ErrorRecord(
+                timestamp='',
+                message=f'{type(error).__name__}: {error}',
+            )
+        ],
+        recording=False,
+        updated_at=time.time(),
+    )
+    try:
+        reccy_settings.write_json_model(
+            paths.service_paths(paths.current_platform()).status, status, sync=True
+        )
+    except OSError:
+        return
 
 
 def _list_types() -> None:

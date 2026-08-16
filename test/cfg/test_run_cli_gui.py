@@ -6,7 +6,7 @@ from reccy.models import Platform
 from recs.base.errors import RecsError
 from recs.cfg import run_cli
 from recs.cfg.cfg import Cfg
-from recs.daemon.models import DaemonMetadata
+from recs.daemon.models import DaemonMetadata, ServicePaths
 
 
 def test_remote_selects_daemon_when_endpoint_is_reachable(
@@ -88,5 +88,31 @@ def test_daemon_runtime_rejects_root_user(monkeypatch: pytest.MonkeyPatch) -> No
         run_cli.run_cli(Cfg())
 
 
+def test_daemon_startup_failure_writes_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    service_paths = ServicePaths(
+        metadata=tmp_path / 'metadata.json',
+        service=tmp_path / 'service',
+        status=tmp_path / 'status.json',
+        stdout_log=tmp_path / 'stdout.log',
+        stderr_log=tmp_path / 'stderr.log',
+        gui_endpoint=tmp_path / 'gui.sock',
+    )
+    monkeypatch.setattr(run_cli.gui_ipc, 'daemon_mode_enabled', lambda: True)
+    monkeypatch.setattr(run_cli, 'raise_if_root', lambda: None)
+    monkeypatch.setattr(run_cli.paths, 'service_paths', lambda platform: service_paths)
+    monkeypatch.setattr(run_cli.settings, 'load', _raise_settings_error)
+
+    with pytest.raises(RecsError, match='bad settings'):
+        run_cli.run_cli(Cfg())
+
+    assert 'bad settings' in service_paths.status.read_text()
+
+
 def _raise_root_error() -> None:
     raise RecsError('recs daemon must not run as root')
+
+
+def _raise_settings_error(cfg: Cfg, overrides: set[str]) -> object:
+    raise RecsError('bad settings')
