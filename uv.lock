@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-07-03T08:31:29.764776Z"
+exclude-newer = "2026-08-09T15:39:02.688078Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -580,6 +580,7 @@ source = { editable = "../reccy" }
 dependencies = [
     { name = "pydantic" },
     { name = "strenum" },
+    { name = "tomli" },
     { name = "tyro" },
 ]
 
@@ -587,6 +588,7 @@ dependencies = [
 requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "strenum" },
+    { name = "tomli", specifier = ">=2.0.1" },
     { name = "tyro", specifier = ">=1.0.13" },
 ]
 
