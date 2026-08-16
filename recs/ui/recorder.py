@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import sys
 import uuid
 from collections.abc import Iterator, Sequence
@@ -25,8 +24,8 @@ from recs.daemon import external_ipc, gui_ipc
 from . import (
     calibration,
     device_lifecycle,
+    disk_control,
     disk_monitor,
-    disk_space,
     gui_process,
     live,
     recording_control,
@@ -138,6 +137,21 @@ class Recorder(Runnables):
             self.control.set_cfg_value,
         )
         self.control.calibrate = self.calibration.calibrate
+        self.disk_control = disk_control.DiskControl(
+            self.cfg,
+            self.session,
+            self.devices,
+            self.disk_monitor,
+            self.control,
+            lambda record: self._write_manifest_record(record),
+            self._record_warning,
+            self._replace_cfg,
+            self._receive_pending_updates,
+            self._start_manifest,
+            self._finish_manifest,
+            self._manifest_path,
+            lambda: self.session_start_time,
+        )
         if isinstance(self.live, gui_ipc.DaemonGuiServer):
             self.live.external_rows = self._publish_external_rows
 
@@ -436,182 +450,7 @@ class Recorder(Runnables):
         return bool(self.live and self.live.closed)
 
     def _monitor_disk_space(self) -> None:
-        now = times.timestamp()
-        if not self.disk_monitor.ready(now):
-            return
-        if self.disk_monitor.paused:
-            for candidate in self._removable_disks():
-                if candidate.free_bytes >= self._disk_threshold(candidate):
-                    if self._switch_recording_disk(
-                        candidate, 'removable_disk_available'
-                    ):
-                        self.control.resume_recording(
-                            'removable_disk_available', candidate
-                        )
-                    return
-            return
-        path = recording_paths.existing_parent(self._manifest_path())
-        current = self._recording_disk(path)
-        if current is None:
-            self._record_warning('Cannot read recording disk space')
-            return
-        self.disk_monitor.add_sample(now, current)
-        rate = self.disk_monitor.rate.bytes_per_second
-        for threshold in self.disk_monitor.new_alerts(current):
-            self._record_disk_event('disk_space_alert', current, threshold, rate)
-            self._record_warning(
-                f'Disk space alert on {current.path}: {current.free_bytes} bytes free'
-            )
-
-        emergency = self._disk_threshold(current)
-        if current.free_bytes < emergency:
-            if self.disk_monitor.new_emergency(current):
-                self._record_disk_event('disk_space_emergency', current, None, rate)
-                self._record_warning(
-                    f'Disk space emergency on {current.path}: '
-                    f'{current.free_bytes} bytes free'
-                )
-            self._handle_disk_emergency(current)
-            return
-        if self.disk_monitor.first_alert and self.cfg.recording.disk_auto_switch:
-            candidates = self._removable_disks()
-            if candidates and candidates[0].free_bytes > current.free_bytes:
-                self._switch_recording_disk(
-                    candidates[0], 'new_removable_disk_has_more_space'
-                )
-
-    def _disk_threshold(self, disk: disk_space.Disk) -> int:
-        return self.disk_monitor.emergency_threshold(disk)
-
-    def _pause_threshold(self, disk: disk_space.Disk) -> int:
-        return self.disk_monitor.pause_threshold(disk)
-
-    def _removable_disks(self) -> list[disk_space.Disk]:
-        return self.disk_monitor.removable_disks()
-
-    def _recording_disk(self, path: Path) -> disk_space.Disk | None:
-        return self.disk_monitor.recording_disk(path)
-
-    def _record_disk_event(
-        self, event_type: str, disk: disk_space.Disk, threshold: str | None, rate: float
-    ) -> None:
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                type=event_type,
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                path=str(self.cfg.directory.output_directory),
-                disk=str(disk.path),
-                free_bytes=disk.free_bytes,
-                estimated_seconds_remaining=(disk.free_bytes / rate if rate else None),
-                threshold=threshold,
-                severity='emergency'
-                if event_type == 'disk_space_emergency'
-                else 'warning',
-                disk_kind='removable' if disk.removable else 'system',
-            )
-        )
-
-    def _handle_disk_emergency(self, current: disk_space.Disk) -> None:
-        for candidate in self._removable_disks():
-            if (
-                candidate.path != current.path
-                and not current.path.is_relative_to(candidate.path)
-                and candidate.free_bytes >= self._disk_threshold(candidate)
-            ):
-                self._switch_recording_disk(candidate, 'disk_space_emergency')
-                return
-        system = disk_space.disk(Path.home(), False)
-        if system is not None and system.free_bytes >= self._disk_threshold(system):
-            self._switch_recording_disk(system, 'disk_space_emergency')
-            return
-        if current.free_bytes >= self._pause_threshold(current):
-            return
-        self.control.pause_recording('disk_space_exhausted', current)
-        self.disk_monitor.paused = True
-
-    def _switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
-        previous = self.cfg.directory.output_directory
-        output = recording_paths.available_directory(
-            disk.path
-            / self.cfg.general.default_record_directory
-            / recording_paths.daemon_session_directory_name(times.timestamp())
-        )
-        try:
-            output.mkdir(parents=True)
-        except OSError as error:
-            self._record_warning(
-                f'Cannot switch recording disk to {disk.path}: {error}'
-            )
-            self._write_manifest_record(
-                session_manifest.ManifestEvent(
-                    type='disk_switch_failed',
-                    timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                    from_path=previous,
-                    to_path=str(output),
-                    reason=reason,
-                )
-            )
-            return False
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                type='disk_switch_started',
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                from_path=previous,
-                to_path=str(output),
-                from_free_bytes=shutil.disk_usage(
-                    recording_paths.existing_parent(self._manifest_path())
-                ).free,
-                to_free_bytes=disk.free_bytes,
-                reason=reason,
-            )
-        )
-        for source in self.hardware.values():
-            source.stop()
-            source.join()
-        self._receive_pending_updates()
-        previous_manifest = (
-            self.session.manifest.path if self.session.manifest is not None else None
-        )
-        next_manifest = (
-            recording_paths.manifest_directory(str(output), self.session_start_time)
-            / 'recs-session.jsonl'
-        )
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                type='disk_switch_finished',
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                from_path=previous,
-                to_path=str(output),
-                continued_at=str(next_manifest),
-            )
-        )
-        self._finish_manifest()
-        self.session.reset(self.session_start_time)
-        directory = self.cfg.directory.model_copy(
-            update={'output_directory': str(output)}
-        )
-        self.cfg = self.cfg.model_copy(update={'directory': directory})
-        self.cfg.__dict__.pop('output_path_pattern', None)
-        for source in self.sources.values():
-            source.set_cfg(self.cfg)
-        self.session.continued_from = (
-            str(previous_manifest) if previous_manifest else None
-        )
-        self._start_manifest()
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                type='disk_switch_finished',
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
-                from_path=previous,
-                to_path=str(output),
-                to_free_bytes=disk.free_bytes,
-                reason=reason,
-            )
-        )
-        self._record_warning(f'Switched recording disk to {disk.path}: {reason}')
-        self.recording_paused = False
-        self.disk_monitor.paused = False
-        return True
+        self.disk_control.monitor_disk_space()
 
     def _poll_devices(self) -> None:
         self.devices.poll(
@@ -743,13 +582,16 @@ class Recorder(Runnables):
                 source.cfg = self.cfg
         self.control.cfg = self.cfg
         self.disk_monitor.cfg = self.cfg
+        self.disk_control.cfg = self.cfg
         self.calibration.cfg = self.cfg
         self._start_manifest()
         self.session_stopped = False
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         self.cfg = cfg
+        self.devices.cfg = cfg
         self.disk_monitor.cfg = cfg
+        self.disk_control.cfg = cfg
         self.calibration.cfg = cfg
 
     def _record_warning(self, warning: str) -> None:
