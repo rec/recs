@@ -20,7 +20,7 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import DeviceTrackNames
-from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.daemon import external_ipc, gui_ipc
 
 from . import (
     calibration,
@@ -445,7 +445,9 @@ class Recorder(Runnables):
                     if self._switch_recording_disk(
                         candidate, 'removable_disk_available'
                     ):
-                        self._resume_recording('removable_disk_available', candidate)
+                        self.control.resume_recording(
+                            'removable_disk_available', candidate
+                        )
                     return
             return
         path = recording_paths.existing_parent(self._manifest_path())
@@ -524,7 +526,7 @@ class Recorder(Runnables):
             return
         if current.free_bytes >= self._pause_threshold(current):
             return
-        self._pause_recording('disk_space_exhausted', current)
+        self.control.pause_recording('disk_space_exhausted', current)
         self.disk_monitor.paused = True
 
     def _switch_recording_disk(self, disk: disk_space.Disk, reason: str) -> bool:
@@ -665,96 +667,6 @@ class Recorder(Runnables):
     ) -> None:
         self.control.publish(self.external, rows, errors)
 
-    def _handle_control_request(
-        self,
-        request: gui_protocol.Request,
-    ) -> gui_protocol.Response:
-        return self.control.handle(request)
-
-    def _mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
-        return self.control.mark(request)
-
-    def _pause_recording(
-        self, reason: str, disk: disk_space.Disk | None = None
-    ) -> gui_protocol.RecordingState:
-        return self.control.pause_recording(reason, disk)
-
-    def _resume_recording(
-        self, reason: str, disk: disk_space.Disk | None = None
-    ) -> gui_protocol.RecordingState:
-        return self.control.resume_recording(reason, disk)
-
-    def _stop_recording(self) -> gui_protocol.RecordingState:
-        return self.control.stop_recording()
-
-    def _set_key_label(
-        self, request: gui_protocol.SetKeyLabel
-    ) -> gui_protocol.KeyLabelSet:
-        return self.control.set_key_label(request)
-
-    def _set_noise_floor(
-        self, request: gui_protocol.SetNoiseFloor
-    ) -> gui_protocol.NoiseFloorSet:
-        return self.control.set_noise_floor(request)
-
-    def _set_track_names(
-        self, request: gui_protocol.SetTrackNames
-    ) -> gui_protocol.TrackNames:
-        return self.control.set_track_names(request)
-
-    def _set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
-        return self.control.set_tracks(request)
-
-    def _updated_tracks(
-        self,
-        source: SourceProcess,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> list[Track]:
-        return self.control.updated_tracks(source, requested)
-
-    def _updated_track_names(
-        self,
-        source_name: str,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> DeviceTrackNames:
-        return self.control.updated_track_names(source_name, requested)
-
-    def _updated_track_noise_floors(
-        self,
-        source: SourceProcess,
-        requested: list[gui_protocol.ChannelTrack],
-    ) -> dict[str, dict[str, float | None]]:
-        return self.control.updated_track_noise_floors(source, requested)
-
-    def _get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
-        return self.control.get_cfg(request)
-
-    def _set_cfg(self, request: gui_protocol.SetCfg) -> gui_protocol.CfgSet:
-        return self.control.set_cfg(request)
-
-    def _set_cfg_value(
-        self, address: str, value: object, *, save: bool = True
-    ) -> object:
-        return self.control.set_cfg_value(address, value, save=save)
-
-    def _save_settings(self) -> None:
-        self.control.save_settings()
-
-    def _reload_profiles(self) -> gui_protocol.ProfilesReloaded:
-        return self.control.reload_profiles()
-
-    def _status_snapshot(self) -> gui_protocol.StatusSnapshot:
-        return self.control.status_snapshot()
-
-    def _disk_status(self) -> gui_protocol.DiskStatus:
-        return self.control.disk_status()
-
-    def _device_status(self) -> list[dict[str, object]]:
-        return self.control.device_status()
-
-    def _recording_state(self) -> gui_protocol.RecordingState:
-        return self.control.recording_state()
-
     def _drain(self, conn: connection.Connection) -> None:
         while _connection_ready(conn):
             if not self._receive_connection(conn):
@@ -880,14 +792,6 @@ class Recorder(Runnables):
             'measurements': measurements,
             'profiles': profiles,
         }
-
-    def _calibrate_noise_floor(
-        self, request: gui_protocol.Calibrate
-    ) -> gui_protocol.Calibrated:
-        return self.calibration.calibrate(request)
-
-    def _track_for_channel(self, source_name: str, channel: int) -> Track:
-        return self.control.track_for_channel(source_name, channel)
 
     def _manifest_path(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())

@@ -1216,7 +1216,7 @@ def test_recorder_saves_and_restores_track_settings(
         ],
     )
 
-    rec._set_tracks(request)
+    rec.control.set_tracks(request)
     loaded = settings.load(Cfg(include=['Ext'], save_settings=True, silent=True))
     restored = Recorder(loaded.cfg, loaded)
 
@@ -1444,9 +1444,9 @@ def test_daemon_start_after_stop_uses_new_session_directory(
     rec._start_manifest()
     first_manifest = tmp_path / 'recs' / '2026-06-23 20-34-10' / 'recs-session.jsonl'
 
-    rec._stop_recording()
-    rec._stop_recording()
-    rec._resume_recording('start_recording')
+    rec.control.stop_recording()
+    rec.control.stop_recording()
+    rec.control.resume_recording('start_recording')
 
     second_manifest = tmp_path / 'recs' / '2026-06-23 21-34-10' / 'recs-session.jsonl'
     assert first_manifest.exists()
@@ -1514,7 +1514,7 @@ def test_status_snapshot_includes_error_timestamps(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._record_warning('Device Mic failed')
 
-    response = rec._status_snapshot()
+    response = rec.control.status_snapshot()
 
     assert response.errors == [
         ErrorRecord(
