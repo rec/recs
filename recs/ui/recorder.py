@@ -506,11 +506,6 @@ class Recorder(Runnables):
     ) -> None:
         self.control.publish(self.external, rows, errors)
 
-    def _drain(self, conn: connection.Connection) -> None:
-        while _connection_ready(conn):
-            if not self._receive_connection(conn):
-                break
-
     def _receive_connection(self, conn: connection.Connection) -> bool:
         return self.devices.receive_connection(conn)
 
@@ -614,11 +609,6 @@ class Recorder(Runnables):
     ) -> None:
         self.session.write(record)
 
-    def _manifest_source(self, source_name: str) -> str | None:
-        if isinstance(self.sources[source_name].source, FileSource):
-            return source_name
-        return None
-
     def _silence_preview_report(self) -> dict[str, object]:
         measurements = self.state.db_ranges()
         profiles = {}
@@ -660,10 +650,3 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
-
-
-def _connection_ready(conn: connection.Connection) -> bool:
-    try:
-        return conn.poll()
-    except OSError:
-        return False
