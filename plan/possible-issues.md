@@ -21,16 +21,6 @@ current glossary, and the current runtime architecture document.
 
 ## Maintainability and responsibility issues
 
-### SourceRecorder still mixes realtime and control-plane work
-
-`recs/ui/source_recorder.py` now has smaller helpers for input buffering,
-calibration, file-event collection, and update transport. It still owns the
-input stream, control pipe, channel writers, per-track layout changes, buffer
-warning generation, and transport publishing in one realtime loop.
-
-The remaining risk is that realtime audio handling and control-plane mutation
-still share one source-child loop.
-
 ### Daemon GUI IPC still combines status publication and transport
 
 `recs/daemon/gui_ipc.py` now has a smaller connection-state helper and rejects
