@@ -33,6 +33,7 @@ class Directory(BaseModel):
         tyro.conf.Positional,
         tyro.conf.arg(help='One or more files to split for silence'),
     ] = Field(default_factory=list)
+
     output_directory: Annotated[
         str,
         Mutable,
@@ -41,6 +42,7 @@ class Directory(BaseModel):
             help='Path or output_directory pattern for recorded file locations',
         ),
     ] = ''
+
     short_file_names: Annotated[
         bool,
         Mutable,
@@ -66,27 +68,34 @@ class General(BaseModel):
     calibrate: Annotated[
         bool, tyro.conf.arg(help='Detect and print noise levels, do not record')
     ] = False
+
     default_record_directory: Annotated[
         str,
         tyro.conf.arg(help='Directory name to use for automatic daemon recordings'),
     ] = 'recs'
+
     dry_run: Annotated[
         bool,
         tyro.conf.arg(aliases=('-n',), help='Display levels only, do not record'),
     ] = False
+
     verbose: Annotated[
         bool, tyro.conf.arg(aliases=('-v',), help='Print more stuff')
     ] = False
+
     info: Annotated[bool, tyro.conf.arg(help='Display device info as JSON')] = False
+
     list_types: Annotated[
         bool, tyro.conf.arg(help='List all subtypes for each format as JSON')
     ] = False
+
     silence_preview: Annotated[
         bool,
         tyro.conf.arg(
             help='Show live silence measurements and suggested recording thresholds'
         ),
     ] = False
+
     save_settings: Annotated[
         bool | None,
         tyro.conf.arg(help='Save mutable API settings for the next recording run'),
@@ -101,9 +110,11 @@ class Device(BaseModel):
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(aliases=('-a',), help='Set aliases for devices or channels'),
     ] = Field(default_factory=list)
+
     devices: Annotated[
         Path, tyro.conf.arg(help='A path to a JSON file with device definitions')
     ] = Path()
+
     profiles: Annotated[
         Path,
         Mutable,
@@ -135,6 +146,7 @@ class Selection(BaseModel):
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(aliases=('-e',), help='Exclude devices or channels'),
     ] = Field(default_factory=list)
+
     include: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         tyro.conf.arg(aliases=('-i',), help='Only include these devices or channels'),
@@ -149,17 +161,20 @@ class Audio(BaseModel):
         tyro.conf.UseAppendAction[list[Annotated[Format, cli_metadata.FORMAT_SPEC]]],
         tyro.conf.arg(aliases=('-f',), help='Audio file formats'),
     ] = Field(default_factory=list)
+
     metadata: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(aliases=('-m',), help='Metadata fields to add to output files'),
     ] = Field(default_factory=list)
+
     sdtype: Annotated[
         Annotated[SdType, cli_metadata.SDTYPE_SPEC] | None,
         tyro.conf.arg(
             aliases=('-d',), help='Integer or float number type for recording'
         ),
     ] = None
+
     subtype: Annotated[
         Annotated[Subtype, cli_metadata.SUBTYPE_SPEC] | None,
         tyro.conf.arg(aliases=('-u',), help='Audio file subtype'),
@@ -210,26 +225,32 @@ class Console(BaseModel):
     clear_terminal: Annotated[
         bool, tyro.conf.arg(aliases=('-r',), help='Clear display on shutdown')
     ] = True
+
     gui: Annotated[
         bool, tyro.conf.arg(help='Display live updates in a PySide6 window')
     ] = False
+
     open_output_folder: Annotated[
         bool, tyro.conf.arg(help='Open the output folder when recording finishes')
     ] = False
+
     remote: Annotated[
         bool,
         tyro.conf.arg(
             help='Connect to an already-running recs daemon instead of recording'
         ),
     ] = False
+
     silent: Annotated[
         bool, tyro.conf.arg(aliases=('-s',), help='Do not display live updates')
     ] = False
+
     sleep_time_device: Annotated[
         float,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How long to sleep between checking device'),
     ] = 0.1
+
     ui_refresh_rate: Annotated[
         float, tyro.conf.arg(help='How many UI refreshes per second')
     ] = 10.0
@@ -253,10 +274,12 @@ class Key(BaseModel):
             help='Add a manifest label for a key, for example g=guitar too soft'
         ),
     ] = Field(default_factory=list)
+
     record_keys: Annotated[
         Annotated[RecordKeys, cli_metadata.RECORD_KEYS_SPEC] | None,
         tyro.conf.arg(help='Record keys in the session manifest: none, press, or all'),
     ] = None
+
     record_key_all_apps: Annotated[
         bool | None,
         tyro.conf.arg(help='Record key events from all applications when supported'),
@@ -291,15 +314,18 @@ class Recording(BaseModel):
             help='Seconds of audio to buffer before dropping delayed callbacks'
         ),
     ] = 10.0
+
     memory_reserve_megabytes: Annotated[
         int,
         tyro.conf.arg(help='Free system memory to reserve while buffering audio'),
     ] = 200
+
     memory_check_period: Annotated[
         float,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to check available system memory'),
     ] = 2.0
+
     band_mode: Annotated[
         bool,
         Mutable,
@@ -307,20 +333,24 @@ class Recording(BaseModel):
             aliases=('-B',), help='Band mode: any track starting starts them all'
         ),
     ] = False
+
     channel_noise_floors: Annotated[
         dict[str, dict[str, float | None]],
         Mutable,
         tyro.conf.arg(help='Per-device mono or stereo track noise floor overrides'),
     ] = Field(default_factory=dict)
+
     infinite_length: Annotated[
         bool, tyro.conf.arg(help='Ignore file size limit: 4G on .wav')
     ] = False
+
     longest_file_time: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='Longest amount of time per file: 0 means infinite'),
     ] = 0.0
+
     minimum_free_space: Annotated[
         int,
         Mutable,
@@ -328,37 +358,44 @@ class Recording(BaseModel):
             help='Absolute disk-space reserve used with the emergency threshold'
         ),
     ] = 0
+
     disk_alert_thresholds: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Free-space alerts, such as 30m or 500MB'),
     ] = Field(default_factory=lambda: ['30m', '10m', '2m'])
+
     disk_removable_emergency: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Emergency reserve on removable disks'),
     ] = Field(default_factory=lambda: ['200MB', '30s'])
+
     disk_system_emergency: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Emergency reserve on the system disk'),
     ] = Field(default_factory=lambda: ['2GB', '2m'])
+
     disk_removable_pause: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Pause reserve on removable disks'),
     ] = Field(default_factory=lambda: ['200MB', '30s'])
+
     disk_system_pause: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Pause reserve on the system disk'),
     ] = Field(default_factory=lambda: ['2GB', '2m'])
+
     disk_poll_seconds: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to check recording disk space'),
     ] = 1.0
+
     disk_auto_switch: Annotated[
         bool,
         Mutable,
@@ -366,16 +403,19 @@ class Recording(BaseModel):
             help='Switch to a better removable disk after a disk-space alert'
         ),
     ] = True
+
     moving_average_time: Annotated[
         float,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How long to average the volume display over'),
     ] = 1.0
+
     noise_floor: Annotated[
         float,
         Mutable,
         tyro.conf.arg(aliases=('-z',), help='The noise floor in decibels'),
     ] = 70.0
+
     preview_headroom: Annotated[
         float,
         Mutable,
@@ -383,6 +423,7 @@ class Recording(BaseModel):
             help='Headroom in decibels to add to silence preview measurements'
         ),
     ] = 6.0
+
     record_everything: Annotated[
         bool,
         Mutable,
@@ -390,30 +431,35 @@ class Recording(BaseModel):
             aliases=('-R',), help='Start immediately, record everything until end'
         ),
     ] = False
+
     shortest_file_time: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='Files shorter than this duration get deleted'),
     ] = 1.0
+
     quiet_after_end: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-c',), help='How much quiet after the end'),
     ] = 2.0
+
     quiet_before_start: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-b',), help='How much quiet before a recording'),
     ] = 1.0
+
     stop_after_quiet: Annotated[
         float,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How much quiet before stopping a recording'),
     ] = 20.0
+
     total_run_time: Annotated[
         float,
         Mutable,
