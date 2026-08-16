@@ -1,5 +1,12 @@
 # Recorder Refactor Handover
 
+## Historical note
+
+This file is historical. It captures an earlier interrupted refactor state and
+must not be treated as the current source of truth. Use
+`doc/runtime-architecture.md`, `plan/possible-issues.md`, and the current code
+when planning more recorder work.
+
 ## Current State
 
 This is an incomplete attempt to implement [the recorder split plan](../plan/split-record.md). Do not treat it as finished.
