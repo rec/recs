@@ -1,6 +1,6 @@
 import contextlib
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Queue
@@ -75,6 +75,39 @@ class SourceControl(NamedTuple):
     track_names: DeviceTrackNames | None = None
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
+
+
+class SourceControlHandler:
+    def __init__(
+        self,
+        connection: Connection,
+        set_cfg: Callable[[Cfg, int | None], None],
+        set_track_names: Callable[[DeviceTrackNames], None],
+        start_calibration: Callable[[list[str]], None],
+        set_tracks: Callable[[list[Track], DeviceTrackNames], None],
+    ) -> None:
+        self.connection = connection
+        self.set_cfg = set_cfg
+        self.set_track_names = set_track_names
+        self.start_calibration = start_calibration
+        self.set_tracks = set_tracks
+
+    def receive(self) -> None:
+        while self.connection.poll():
+            try:
+                message = self.connection.recv()
+            except (EOFError, OSError):
+                return
+            if not isinstance(message, SourceControl):
+                continue
+            if message.cfg is not None:
+                self.set_cfg(message.cfg, message.cfg_revision)
+            if message.track_names is not None:
+                self.set_track_names(message.track_names)
+            if message.calibration_tracks is not None:
+                self.start_calibration(message.calibration_tracks)
+            if message.tracks is not None:
+                self.set_tracks(message.tracks, message.track_names or {})
 
 
 class SourceUpdateTransport:
@@ -377,7 +410,6 @@ class SourceRecorder(Runnables):
         track_names: DeviceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
-        self.control_connection = control_connection
         self.stop_event = stop_event
         self.update_transport = update_transport
 
@@ -396,6 +428,13 @@ class SourceRecorder(Runnables):
         self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
         self.calibration = SourceCalibration(self.source.samplerate)
+        self.control = SourceControlHandler(
+            control_connection,
+            self._set_cfg,
+            self._set_track_names,
+            self.calibration.start,
+            self._set_tracks,
+        )
 
         self.input_stream = self.source.input_stream(
             sdtype=cast(SdType, self.cfg.audio.sdtype),
@@ -415,25 +454,27 @@ class SourceRecorder(Runnables):
                     if not self.input_stream.running:
                         break
                 else:
-                    self._receive_control_messages()
+                    self.control.receive()
                     self._receive_update(update)
 
         with contextlib.suppress(Empty):
             while True:
                 update = self.buffer.get(block=False)
-                self._receive_control_messages()
+                self.control.receive()
                 self._receive_update(update)
 
     def _set_track_names(self, track_names: DeviceTrackNames) -> None:
         for writer in self.channel_writers:
             writer.set_track_names(track_names)
 
-    def _set_cfg(self, cfg: Cfg) -> None:
+    def _set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
         self.buffer.cfg = cfg
         self.times = cfg.times.scale(self.source.samplerate)
         for writer in self.channel_writers:
             writer.set_cfg(cfg, self.times)
+        if revision is not None:
+            self.pending_config_revisions.append(revision)
 
     def _set_tracks(self, tracks: list[Track], track_names: DeviceTrackNames) -> None:
         for writer in self.channel_writers:
@@ -449,28 +490,6 @@ class SourceRecorder(Runnables):
         self.file_events.reset_writers(self.channel_writers)
         self.runnables = self.input_stream, *self.channel_writers
         self.pending_track_layout = [track.name for track in tracks]
-
-    def _receive_control_messages(self) -> None:
-        while self.control_connection.poll():
-            try:
-                message = self.control_connection.recv()
-            except (EOFError, OSError):
-                return
-            if not isinstance(message, SourceControl):
-                continue
-            if message.cfg is not None:
-                self._set_cfg(message.cfg)
-                if message.cfg_revision is not None:
-                    self.pending_config_revisions.append(message.cfg_revision)
-            if message.track_names is not None:
-                self._set_track_names(message.track_names)
-            if message.calibration_tracks is not None:
-                self.calibration.start(message.calibration_tracks)
-            if message.tracks is not None:
-                self._set_tracks(message.tracks, message.track_names or {})
-
-    def _start_calibration(self, tracks: list[str]) -> None:
-        self.calibration.start(tracks)
 
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
