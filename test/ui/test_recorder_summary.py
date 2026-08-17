@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -26,6 +27,7 @@ class FakeSourceProcess:
         self,
         cfg: Cfg,
         tracks: Sequence[Track],
+        session_directory: Path,
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
         self.name = tracks[0].source.name
@@ -38,6 +40,7 @@ class FakeSourceProcess:
         self.start_count = 0
         self.track_names = track_names or {}
         self.cfg = cfg
+        self.session_directory = session_directory
         self.pending_updates: list[SourceUpdate] = []
 
     @property

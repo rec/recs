@@ -164,7 +164,7 @@ class DiskSpaceController:
             self.session.manifest.path if self.session.manifest is not None else None
         )
         next_manifest = (
-            recording_paths.manifest_directory(str(output), self.session_start_time())
+            recording_paths.session_directory(str(output), self.session_start_time())
             / 'recs-session.jsonl'
         )
         self.write_record(

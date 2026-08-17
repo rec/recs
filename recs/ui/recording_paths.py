@@ -16,9 +16,9 @@ def with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
         return cfg
 
     if (record_directory := daemon_record_directory(cfg)) is not None:
-        output_directory = record_directory
+        output_directory = record_directory / 'audio'
     else:
-        output_directory = available_directory(Path(session_directory_name(timestamp)))
+        output_directory = ''
 
     directory = cfg.directory.model_copy(
         update={'output_directory': str(output_directory)}
@@ -35,6 +35,25 @@ def daemon_record_directory(cfg: Cfg) -> Path | None:
     if path.is_absolute():
         return path
     return record_disk() / path
+
+
+def session_directory(output_directory: str, timestamp: float) -> Path:
+    if not output_directory:
+        return available_directory(Path(session_directory_name(timestamp)))
+    return available_directory(
+        manifest_directory(output_directory, timestamp)
+        / session_directory_name(timestamp)
+    )
+
+
+def midi_session_directory(audio_session_directory: Path) -> Path:
+    if audio_session_directory.parent.name == 'audio':
+        return (
+            audio_session_directory.parent.parent
+            / 'midi'
+            / audio_session_directory.name
+        )
+    return audio_session_directory.parent / 'midi' / audio_session_directory.name
 
 
 def record_disk() -> Path:
@@ -107,14 +126,6 @@ def manifest_directory(output_directory: str, timestamp: float) -> Path:
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
         return legal_filename.legal_path(Path(prefix or '.'))
-
-
-def audio_directory(output_directory: str, timestamp: float) -> Path:
-    return manifest_directory(output_directory, timestamp) / 'audio'
-
-
-def midi_directory(output_directory: str, timestamp: float) -> Path:
-    return manifest_directory(output_directory, timestamp) / 'midi'
 
 
 def existing_parent(path: Path) -> Path:
