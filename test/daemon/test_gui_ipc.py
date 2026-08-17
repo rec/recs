@@ -24,7 +24,7 @@ def test_protocol_parses_valid_messages() -> None:
 
 
 def test_protocol_parses_daemon_hello() -> None:
-    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":3}')
+    message = gui_protocol.parse_message('{"type":"hello","role":"daemon","version":4}')
 
     assert isinstance(message, gui_protocol.Hello)
     assert message.role == 'daemon'
@@ -175,7 +175,7 @@ def test_daemon_publisher_releases_pending_control_requests_on_shutdown() -> Non
     server.request_shutdown()
 
     assert request.wait_for_response() == gui_protocol.RecordingState(
-        type='recording_state', paused=False, stopped=True
+        type='recording_state', paused=False
     )
 
 
@@ -289,19 +289,19 @@ def test_status_write_is_not_synchronized(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
-    connection = FakeConnection(['{"type":"hello","role":"gui","version":3}\n'])
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":4}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
 
     listener._read()
 
-    assert connection.sent == ['{"type":"hello","role":"daemon","version":3}\n']
+    assert connection.sent == ['{"type":"hello","role":"daemon","version":4}\n']
 
 
 def test_gui_listener_accepts_key_events_after_hello() -> None:
     events: list[KeyEvent] = []
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":3}\n',
+            '{"type":"hello","role":"gui","version":4}\n',
             '{"type":"key_pressed","key":"g"}\n',
         ]
     )
@@ -324,7 +324,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
 
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":3}\n',
+            '{"type":"hello","role":"gui","version":4}\n',
             '{"type":"calibrate"}\n',
         ]
     )
@@ -333,7 +333,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
     listener._read()
 
     assert connection.sent == [
-        '{"type":"hello","role":"daemon","version":3}\n',
+        '{"type":"hello","role":"daemon","version":4}\n',
         (
             '{"type":"calibrated","measurements":{},'
             '"noise_floors":{"Mic":{"1":15.0}}}\n'
@@ -361,7 +361,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     first = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":3}\n',
+            '{"type":"hello","role":"gui","version":4}\n',
             '{"type":"shutdown"}\n',
             '{"type":"shutdown"}\n',
         ]
@@ -378,7 +378,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
 
     assert server.closed
     assert first.sent == [
-        '{"type":"hello","role":"daemon","version":3}\n',
+        '{"type":"hello","role":"daemon","version":4}\n',
         '{"type":"shutdown"}\n',
     ]
     assert first.closed
@@ -409,7 +409,7 @@ def test_gui_listener_rejects_unsupported_hello() -> None:
     assert connection.sent == [
         (
             '{"type":"error","message":"GUI protocol version 1 is not supported; '
-            'daemon requires 3"}\n'
+            'daemon requires 4"}\n'
         )
     ]
     assert connection.closed

@@ -93,7 +93,7 @@ class FakeRpcClient:
 
     def call(self, command: str) -> dict[str, object]:
         assert command == 'status_snapshot'
-        return {'recording': {'paused': True, 'stopped': False}, 'errors': []}
+        return {'recording': {'paused': True}, 'errors': []}
 
 
 class BrokenRpcClient:
