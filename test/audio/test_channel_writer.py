@@ -136,15 +136,134 @@ def test_channel_writer_record_everything_ignores_longest_file_time(
         stop_after_quiet=50,
     )
     block = Block(block=II[0])
+    timestamp = conftest.TIMESTAMP
+    expected_dt = len(block) / track.source.samplerate
 
     with ChannelWriter(cfg, times=times, track=track) as writer:
-        writer.receive_update(block, conftest.TIMESTAMP)
-        writer.receive_update(block, conftest.TIMESTAMP + 1)
-        writer.receive_update(block, conftest.TIMESTAMP + 2)
+        writer.receive_update(block, timestamp)
+        writer.receive_update(block, timestamp + expected_dt)
+        writer.receive_update(block, timestamp + expected_dt * 2)
 
     assert len(writer.files_written) == 1
     with soundfile.SoundFile(writer.files_written[0]) as fp:
         assert fp.frames == 3 * len(block)
+
+
+@tdir
+def test_channel_writer_closes_on_forward_timestamp_gap(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP)
+        writer.receive_update(block, conftest.TIMESTAMP + 1)
+
+    assert len(writer.files_written) == 2
+
+
+@tdir
+def test_channel_writer_record_everything_ignores_forward_timestamp_gap(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        record_everything=True,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP)
+        writer.receive_update(block, conftest.TIMESTAMP + 1)
+
+    assert len(writer.files_written) == 1
+    with soundfile.SoundFile(writer.files_written[0]) as fp:
+        assert fp.frames == 2 * len(block)
+
+
+@tdir
+def test_channel_writer_keeps_backward_timestamp_jump_in_same_file(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=1,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP)
+        writer.receive_update(block, conftest.TIMESTAMP - 1)
+
+    assert len(writer.files_written) == 1
+    with soundfile.SoundFile(writer.files_written[0]) as fp:
+        assert fp.frames == 2 * len(block)
+
+
+@tdir
+def test_channel_writer_record_everything_keeps_short_file(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        record_everything=True,
+        shortest_file_time=100,
+        stop_after_quiet=50,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP)
+
+    assert len(writer.files_written) == 1
+    assert writer.files_written[0].exists()
+    with soundfile.SoundFile(writer.files_written[0]) as fp:
+        assert fp.frames == len(block)
+
+
+@tdir
+def test_channel_writer_removes_discarded_short_file_from_state(
+    mock_devices: None,
+) -> None:
+    cfg = Cfg(formats=[Format.wav])
+    track = cfg.aliases.to_track('Ext+2')
+    times = TimeSettings[int](
+        quiet_before_start=0,
+        quiet_after_end=0,
+        shortest_file_time=100,
+        stop_after_quiet=0,
+    )
+    block = Block(block=II[0])
+
+    with ChannelWriter(cfg, times=times, track=track) as writer:
+        writer.receive_update(block, conftest.TIMESTAMP, should_record=True)
+        files = list(writer.files_written)
+        state = writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
+
+    assert len(files) == 1
+    assert not files[0].exists()
+    assert writer.files_written == []
+    assert state.file_count == -1
 
 
 def test_channel_writer_uses_precomputed_recording_decision(

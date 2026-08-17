@@ -357,6 +357,44 @@ def test_source_track_change_closes_writers_before_next_buffer(
     assert recorder.pending_track_layout == ['1', '2']
 
 
+def test_source_file_events_handles_discarded_candidate_files() -> None:
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 2,
+            'name': 'Mic',
+        }
+    )
+    writer = EventWriter(Track(source, '1'))
+    events = source_recorder.SourceFileEvents([writer])
+    first = Path('discarded.wav')
+    second = Path('kept.wav')
+
+    writer.add_file(first)
+    assert events.new_files([writer], bit_depth=32)[0] == [first]
+
+    writer.files_written.clear()
+    assert events.new_files([writer], bit_depth=32)[0] == []
+
+    writer.add_file(second)
+    assert events.new_files([writer], bit_depth=32)[0] == [second]
+
+
+class EventWriter:
+    def __init__(self, track: Track) -> None:
+        self.track = track
+        self.files_written: list[Path] = []
+        self.file_start_frames: dict[Path, int] = {}
+        self.file_start_timestamps: dict[Path, float] = {}
+        self.file_end_frames: dict[Path, int] = {}
+        self.file_end_timestamps: dict[Path, float] = {}
+
+    def add_file(self, path: Path) -> None:
+        self.files_written.append(path)
+        self.file_start_frames[path] = len(self.files_written)
+        self.file_start_timestamps[path] = float(len(self.files_written))
+
+
 class ReconfiguredWriter:
     def __init__(self, cfg: Cfg, times: object, track: Track) -> None:
         self.track = track
