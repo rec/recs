@@ -24,6 +24,14 @@ TRIES = 100
 DELAY = 0.001
 
 
+def _without_session_directory(path: Path) -> Path:
+    parts = path.parts
+    for index, part in enumerate(parts):
+        if part.startswith(('recs- ', 'recs ')):
+            return Path(*parts[:index], *parts[index + 1 :])
+    return path
+
+
 class FixtureInputStream(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -257,17 +265,7 @@ class RecsRunner(BaseModel):
         assert differs == []
 
     def _relative_actual_paths(self, paths: list[Path]) -> list[Path]:
-        if self.cfg.directory.output_directory or not paths:
-            return paths
-
-        parents = {
-            path.parent.parent if path.parent.name == 'audio' else path.parent
-            for path in paths
-        }
-        assert len(parents) == 1
-        parent = parents.pop()
-        assert parent.name.startswith(('recs- ', 'recs '))
-        return [path.relative_to(parent) for path in paths]
+        return [_without_session_directory(path) for path in paths]
 
     def _ready(self) -> bool:
         if (

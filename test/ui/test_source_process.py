@@ -121,7 +121,7 @@ def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
 
     owner.start()
     first = owner.process
@@ -152,7 +152,7 @@ def test_source_process_starts_recorder_with_gui_disabled(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(gui=True), [Track(source, '1')])
+    owner = SourceProcess(Cfg(gui=True), [Track(source, '1')], Path('session'))
 
     owner.start()
 
@@ -178,7 +178,7 @@ def test_source_process_names_recorder_child(
             'name': 'Mic 1',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
 
     owner.start()
 
@@ -206,7 +206,7 @@ def test_source_process_applies_device_profile(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(profiles=profiles), [Track(source, '1')])
+    owner = SourceProcess(Cfg(profiles=profiles), [Track(source, '1')], Path('session'))
 
     owner.start()
 
@@ -234,7 +234,9 @@ def test_source_process_updates_track_names(
         }
     )
     track_names = {'Mic': {'Lead Vocal': 1}}
-    owner = SourceProcess(Cfg(), [Track(source, '1')], track_names=track_names)
+    owner = SourceProcess(
+        Cfg(), [Track(source, '1')], Path('session'), track_names=track_names
+    )
 
     owner.start()
     owner.set_track_names({'Mic': {'Guitar': 1}})
@@ -242,6 +244,34 @@ def test_source_process_updates_track_names(
     assert owner.process.kwargs['track_names'] == track_names
     assert parent.sent_event.wait(0.1)
     assert parent.sent == [SourceControl(track_names={'Mic': {'Guitar': 1}})]
+
+
+def test_source_process_updates_session_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = FakeSendConnection()
+
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
+        return FakeConnection(), parent
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+
+    owner.start()
+    owner.set_session_directory(Path('session-2'))
+
+    assert parent.sent_event.wait(0.1)
+    assert parent.sent == [SourceControl(session_directory=Path('session-2'))]
 
 
 def test_source_process_requests_calibration(
@@ -265,7 +295,7 @@ def test_source_process_requests_calibration(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
 
     owner.start()
     owner.calibrate(['1'])
@@ -292,7 +322,7 @@ def test_source_process_updates_tracks(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1-2')])
+    owner = SourceProcess(Cfg(), [Track(source, '1-2')], Path('session'))
     tracks = [Track(source, '1'), Track(source, '2')]
 
     owner.start()
@@ -325,7 +355,7 @@ def test_source_controls_do_not_block_recorder_loop(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
     owner.start()
 
     start = time.monotonic()
@@ -368,8 +398,12 @@ def test_source_process_uses_per_device_noise_floor(
         }
     )
 
-    SourceProcess(Cfg(noise_floor=80, profiles=profiles), [Track(mic, '1')]).start()
-    SourceProcess(Cfg(noise_floor=80, profiles=profiles), [Track(ext, '1')]).start()
+    SourceProcess(
+        Cfg(noise_floor=80, profiles=profiles), [Track(mic, '1')], Path('session')
+    ).start()
+    SourceProcess(
+        Cfg(noise_floor=80, profiles=profiles), [Track(ext, '1')], Path('session')
+    ).start()
 
     first, second = FakeProcess.instances[-2:]
     assert first.kwargs['cfg'].recording.noise_floor == 42
@@ -393,7 +427,7 @@ def test_source_process_ignores_broken_connection_poll(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
 
     owner.start()
     owner.stop()
@@ -422,6 +456,7 @@ def test_source_process_join_drains_real_child_final_updates(
             stop_after_quiet=0,
         ),
         [Track(source, '1')],
+        output_path,
     )
 
     owner.start()
@@ -458,6 +493,7 @@ def test_source_process_reports_recorder_start_failure(
     source_process._run_source_recorder(
         cfg=Cfg(),
         control_connection=FakeConnection(),
+        session_directory=Path('session'),
         stop_event=FakeEvent(),
         tracks=[Track(source, '1')],
         update_connection=connection,
@@ -489,7 +525,7 @@ def test_source_process_reports_forced_termination(
             'name': 'Mic',
         }
     )
-    owner = SourceProcess(Cfg(), [Track(source, '1')])
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
 
     owner.start()
     owner.join()

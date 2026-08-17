@@ -16,7 +16,7 @@ files:
   channels: 1
   frame_count: 48000
   kind: audio
-  path: files/audio/mono-1.wav
+  path: files/<session>/audio/mono-1.wav
   sample_rate: 48000
   source: test/testdata/file_inputs/mono.wav
   track: 1
@@ -24,7 +24,7 @@ files:
   channels: 2
   frame_count: 48000
   kind: audio
-  path: files/audio/stereo-1.wav
+  path: files/<session>/audio/stereo-1.wav
   sample_rate: 48000
   source: test/testdata/file_inputs/stereo.wav
   track: 1

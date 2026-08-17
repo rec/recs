@@ -31,7 +31,7 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
     cfg = Cfg(output_directory=str(tmp_path))
     recorder = MidiRecorder(
         cfg,
-        session_start_time=0.0,
+        session_directory=tmp_path,
         warning=warnings.append,
         write_record=records.append,
         input_names=lambda: ['Launchkey'],
@@ -75,7 +75,7 @@ def test_midi_recorder_ignores_missing_backend_without_selected_input(
 
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
-        session_start_time=0.0,
+        session_directory=tmp_path,
         warning=warnings.append,
         write_record=records.append,
         input_names=input_names,
@@ -92,7 +92,7 @@ def test_midi_recorder_warns_when_selected_input_is_missing(tmp_path: Path) -> N
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
-        session_start_time=0.0,
+        session_directory=tmp_path,
         warning=warnings.append,
         write_record=records.append,
         input_names=lambda: [],
@@ -109,7 +109,7 @@ def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
-        session_start_time=0.0,
+        session_directory=tmp_path,
         warning=warnings.append,
         write_record=records.append,
         input_names=lambda: ['Launchkey'],

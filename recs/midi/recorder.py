@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from importlib import import_module
+from pathlib import Path
 from typing import Protocol, cast
 
 from threa import Runnable
@@ -25,7 +26,7 @@ class MidiRecorder(Runnable):
     def __init__(
         self,
         cfg: Cfg,
-        session_start_time: float,
+        session_directory: Path,
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
         *,
@@ -34,7 +35,7 @@ class MidiRecorder(Runnable):
         timestamp: Callable[[], float] = times.timestamp,
     ) -> None:
         self.cfg = cfg
-        self.session_start_time = session_start_time
+        self.session_directory = session_directory
         self.warning = warning
         self.write_record = write_record
         self.input_names = input_names
@@ -111,8 +112,7 @@ class MidiRecorder(Runnable):
             self._fail(name, str(e))
             return
         self.writers[name] = MidiWriter(
-            self.cfg.directory.output_directory,
-            self.session_start_time,
+            self.session_directory,
             name,
             cast(MidiTiming, self.cfg.midi.midi_timing),
         )

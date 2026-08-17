@@ -218,6 +218,7 @@ def test_source_recorder_applies_control_updates_without_audio(
     recorder = SourceRecorder(
         Cfg(),
         connection,
+        Path('session'),
         stop_event,
         [Track(source, '1')],
         SourceUpdateTransport(BlockingConnection()),
@@ -337,6 +338,7 @@ def test_source_track_change_closes_writers_before_next_buffer(
     )
     recorder = object.__new__(SourceRecorder)
     recorder.cfg = Cfg()
+    recorder.session_directory = Path('session')
     recorder.times = recorder.cfg.times.scale(source.samplerate)
     recorder.input_stream = object()
     original = ReconfiguredWriter(recorder.cfg, recorder.times, Track(source, '1-2'))
@@ -396,8 +398,15 @@ class EventWriter:
 
 
 class ReconfiguredWriter:
-    def __init__(self, cfg: Cfg, times: object, track: Track) -> None:
+    def __init__(
+        self,
+        cfg: Cfg,
+        times: object,
+        track: Track,
+        session_directory: Path | None = None,
+    ) -> None:
         self.track = track
+        self.session_directory = session_directory
         self.file_end_frames: dict[object, int] = {}
         self.file_end_timestamps: dict[object, float] = {}
         self.stopped = False

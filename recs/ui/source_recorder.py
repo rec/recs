@@ -72,6 +72,7 @@ class SourceFailure(NamedTuple):
 class SourceControl(NamedTuple):
     cfg: Cfg | None = None
     cfg_revision: int | None = None
+    session_directory: Path | None = None
     track_names: SourceTrackNames | None = None
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
@@ -82,12 +83,14 @@ class SourceControlHandler:
         self,
         connection: Connection,
         set_cfg: Callable[[Cfg, int | None], None],
+        set_session_directory: Callable[[Path], None],
         set_track_names: Callable[[SourceTrackNames], None],
         start_calibration: Callable[[list[str]], None],
         set_tracks: Callable[[list[Track], SourceTrackNames], None],
     ) -> None:
         self.connection = connection
         self.set_cfg = set_cfg
+        self.set_session_directory = set_session_directory
         self.set_track_names = set_track_names
         self.start_calibration = start_calibration
         self.set_tracks = set_tracks
@@ -102,6 +105,8 @@ class SourceControlHandler:
                 continue
             if message.cfg is not None:
                 self.set_cfg(message.cfg, message.cfg_revision)
+            if message.session_directory is not None:
+                self.set_session_directory(message.session_directory)
             if message.track_names is not None:
                 self.set_track_names(message.track_names)
             if message.calibration_tracks is not None:
@@ -406,6 +411,7 @@ class SourceControlApplier:
         self.handler = SourceControlHandler(
             connection,
             self.set_cfg,
+            self.set_session_directory,
             self.set_track_names,
             recorder.calibration.start,
             self.set_tracks,
@@ -417,6 +423,12 @@ class SourceControlApplier:
     def set_track_names(self, track_names: SourceTrackNames) -> None:
         for writer in self.recorder.channel_writers:
             writer.set_track_names(track_names)
+
+    def set_session_directory(self, session_directory: Path) -> None:
+        recorder = self.recorder
+        recorder.session_directory = session_directory
+        for writer in recorder.channel_writers:
+            writer.set_session_directory(session_directory)
 
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         recorder = self.recorder
@@ -436,7 +448,12 @@ class SourceControlApplier:
             writer.stop()
         recorder.file_events.remember_finished_files(recorder.channel_writers)
         recorder.channel_writers = tuple(
-            ChannelWriter(cfg=recorder.cfg, times=recorder.times, track=track)
+            ChannelWriter(
+                cfg=recorder.cfg,
+                times=recorder.times,
+                track=track,
+                session_directory=recorder.session_directory,
+            )
             for track in tracks
         )
         self.set_track_names(track_names)
@@ -452,12 +469,14 @@ class SourceRecorder(Runnables):
         self,
         cfg: Cfg,
         control_connection: Connection,
+        session_directory: Path,
         stop_event: Any,
         tracks: Sequence[Track],
         update_transport: SourceUpdateTransport,
         track_names: SourceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
+        self.session_directory = session_directory
         self.stop_event = stop_event
         self.update_transport = update_transport
 
@@ -468,7 +487,13 @@ class SourceRecorder(Runnables):
         self.buffer = InputBuffer(self.cfg, self.source.samplerate)
         self.times = self.cfg.times.scale(self.source.samplerate)
         self.channel_writers = tuple(
-            ChannelWriter(cfg=self.cfg, times=self.times, track=t) for t in tracks
+            ChannelWriter(
+                cfg=self.cfg,
+                times=self.times,
+                track=t,
+                session_directory=self.session_directory,
+            )
+            for t in tracks
         )
         self.file_events = SourceFileEvents(self.channel_writers)
         self.pending_active_channels: set[int] = set()

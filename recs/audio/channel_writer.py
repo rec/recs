@@ -14,7 +14,7 @@ from threa import Runnable
 
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, Format, SdType
-from recs.cfg import time_settings, track_names
+from recs.cfg import path_pattern, time_settings, track_names
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
@@ -59,7 +59,11 @@ class ChannelWriter(Runnable):
         return Active.active if self._sfs else Active.inactive
 
     def __init__(
-        self, cfg: Cfg, times: time_settings.TimeSettings[int], track: Track
+        self,
+        cfg: Cfg,
+        times: time_settings.TimeSettings[int],
+        track: Track,
+        session_directory: Path | None = None,
     ) -> None:
         super().__init__()
 
@@ -68,6 +72,8 @@ class ChannelWriter(Runnable):
             cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
         )
         self.metadata = cfg.metadata_dict
+        self.session_directory = session_directory
+        self.output_path_pattern = _output_path_pattern(cfg, session_directory)
         self.times = times
         self.track = track
         self.noise_floor = _noise_floor(cfg, track)
@@ -120,9 +126,14 @@ class ChannelWriter(Runnable):
             cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
         )
         self.metadata = cfg.metadata_dict
+        self.output_path_pattern = _output_path_pattern(cfg, self.session_directory)
         self.times = times
         self.noise_floor = _noise_floor(cfg, self.track)
         self.longest_file_frames = _longest_file_frames(times)
+
+    def set_session_directory(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
+        self.output_path_pattern = _output_path_pattern(self.cfg, session_directory)
 
     def to_block(self, array: NDArray) -> Block:
         return Block(block=array[:, self.track.slice])
@@ -177,11 +188,11 @@ class ChannelWriter(Runnable):
         self.frames_in_file = 0
 
         if name := track_names.track_name(self.track_names, self.track):
-            path = self.cfg.output_path_pattern.make_track_name_path(
+            path = self.output_path_pattern.make_track_name_path(
                 name, self.track, self.cfg.aliases, timestamp, index
             )
         else:
-            path = self.cfg.output_path_pattern.make_path(
+            path = self.output_path_pattern.make_path(
                 self.track, self.cfg.aliases, timestamp, index
             )
         sfs = [o.create(metadata, path) for o in self.openers]
@@ -325,6 +336,20 @@ def _noise_floor(cfg: Cfg, track: Track) -> float:
     if (noise_floor := floors.get(track.name)) is not None:
         return noise_floor
     return cfg.recording.noise_floor
+
+
+def _output_path_pattern(
+    cfg: Cfg, session_directory: Path | None
+) -> path_pattern.PathPattern:
+    if session_directory is None:
+        return cfg.output_path_pattern
+    media_directory = Path(session_directory.name)
+    if session_directory.parent.name != 'audio':
+        media_directory /= 'audio'
+    return cfg.path_pattern(
+        cfg.directory.output_directory,
+        media_directory=media_directory.as_posix(),
+    )
 
 
 def _longest_file_frames(times: time_settings.TimeSettings[int]) -> int:

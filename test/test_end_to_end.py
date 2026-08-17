@@ -85,10 +85,11 @@ def test_file_inputs(
         )
     )
 
-    outputs = sorted((Path('files') / 'audio').glob(f'*.{Format.wav}'))
+    outputs = sorted(Path('files').glob(f'*/audio/*.{Format.wav}'))
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
-    manifest = session_manifest.read(Path('files/recs-session.jsonl'))
+    session_directory = outputs[0].parent.parent
+    manifest = session_manifest.read(session_directory / 'recs-session.jsonl')
     data_regression.check(
         _stable_manifest(manifest),
         basename='file_inputs_manifest',
@@ -102,9 +103,10 @@ def test_file_inputs(
 
     summary = capsys.readouterr().out
     assert summary.startswith('Recording time: ')
-    assert summary.replace('\\', '/').endswith(
-        'Files written:\n  files/audio/mono-1.wav\n  files/audio/stereo-1.wav\n'
-    )
+    assert [line.rsplit('/', 1)[-1] for line in summary.splitlines()[-2:]] == [
+        'mono-1.wav',
+        'stereo-1.wav',
+    ]
 
 
 @tdir
@@ -237,7 +239,11 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         assert isinstance(file, dict)
         file.pop('timestamp')
         file.pop('type')
-        file['path'] = Path(str(file['path'])).as_posix()
+        path = Path(str(file['path'])).as_posix()
+        parts = Path(path).parts
+        if len(parts) >= 3 and parts[0] == 'files' and parts[1].startswith('recs- '):
+            path = Path('files', '<session>', *parts[2:]).as_posix()
+        file['path'] = path
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
     for event in result.get('events', []):
         assert isinstance(event, dict)
@@ -367,4 +373,15 @@ def _wait_for_thread(thread: HasThread, runner: RecsRunner) -> None:
 
 
 def _path_names(root: Path) -> list[str]:
-    return [path.as_posix() for path in sorted(root.glob('**/*.wav'))]
+    return [
+        _without_session_directory(path).as_posix()
+        for path in sorted(root.glob('**/*.wav'))
+    ]
+
+
+def _without_session_directory(path: Path) -> Path:
+    parts = path.parts
+    for index, part in enumerate(parts):
+        if part.startswith(('recs- ', 'recs ')):
+            return Path(*parts[:index], *parts[index + 1 :])
+    return path

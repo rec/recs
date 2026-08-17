@@ -73,6 +73,9 @@ class Recorder(Runnables):
         self.cfg = recording_paths.with_default_output_directory(
             cfg, self.state.start_time
         )
+        self.session_directory = recording_paths.session_directory(
+            self.cfg.directory.output_directory, self.session_start_time
+        )
         self.external = (
             external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
@@ -98,7 +101,7 @@ class Recorder(Runnables):
         )
         self._midi = MidiRecorder(
             self.cfg,
-            self.session_start_time,
+            recording_paths.midi_session_directory(self.session_directory),
             self._record_warning,
             lambda record: self._write_manifest_record(record),
         )
@@ -107,6 +110,7 @@ class Recorder(Runnables):
         self._devices = device_lifecycle.DeviceLifecycle(
             self.cfg,
             self.state,
+            self.session_directory,
             self.saved_tracks,
             track_names,
             all_tracks,
@@ -482,6 +486,11 @@ class Recorder(Runnables):
 
     def _start_recording_session(self) -> None:
         self.session_start_time = times.timestamp()
+        self._set_session_directory(
+            recording_paths.session_directory(
+                self.cfg.directory.output_directory, self.session_start_time
+            )
+        )
         self.session.reset(self.session_start_time)
         self._control.cfg = self.cfg
         self._disk_space_policy.cfg = self.cfg
@@ -491,11 +500,27 @@ class Recorder(Runnables):
         self._control.session_stopped = False
 
     def _replace_cfg(self, cfg: Cfg) -> None:
+        output_directory_changed = (
+            cfg.directory.output_directory != self.cfg.directory.output_directory
+        )
         self.cfg = cfg
         self._devices.cfg = cfg
         self._disk_space_policy.cfg = cfg
         self._disk_space_controller.cfg = cfg
         self._calibration.cfg = cfg
+        if output_directory_changed:
+            self._set_session_directory(
+                recording_paths.session_directory(
+                    self.cfg.directory.output_directory, self.session_start_time
+                )
+            )
+
+    def _set_session_directory(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
+        self._devices.set_session_directory(session_directory)
+        self._midi.session_directory = recording_paths.midi_session_directory(
+            session_directory
+        )
 
     def _record_warning(self, warning: str) -> None:
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
@@ -539,12 +564,7 @@ class Recorder(Runnables):
             parent = Path(os.path.commonpath([path.parent for path in paths]))
             return parent / 'recs-session.jsonl'
 
-        output_directory = self.cfg.directory.output_directory
-        if output_directory:
-            return recording_paths.manifest_directory(
-                output_directory, self.session_start_time
-            ) / ('recs-session.jsonl')
-        return Path('recs-session.jsonl')
+        return self.session_directory / 'recs-session.jsonl'
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())

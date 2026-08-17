@@ -47,6 +47,10 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
+def manifest_path(rec: Recorder) -> Path:
+    return rec.session_directory / 'recs-session.jsonl'
+
+
 class FakeConnection:
     def __init__(self) -> None:
         self.messages: list[SourceUpdate] = []
@@ -63,6 +67,7 @@ class FakeSourceProcess:
         self,
         cfg: Cfg,
         tracks: Sequence[Track],
+        session_directory: Path,
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
         self.name = tracks[0].source.name
@@ -75,6 +80,7 @@ class FakeSourceProcess:
         self.start_count = 0
         self.track_names = track_names or {}
         self.cfg = cfg
+        self.session_directory = session_directory
         self.pending_updates: list[SourceUpdate] = []
 
     @property
@@ -105,6 +111,9 @@ class FakeSourceProcess:
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
         self.cfg_revision = revision
+
+    def set_session_directory(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
 
     def calibrate(self, tracks: list[str]) -> None:
         self.connection.messages.append(
@@ -741,7 +750,7 @@ def test_recorder_records_buffer_overflow_event(
         )
     )
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1] == {
         'type': 'buffer_overflow',
         'timestamp': '1970-01-01T00:00:00.000Z',
@@ -781,7 +790,7 @@ def test_recorder_records_buffer_pressure_before_drops(
         )
     )
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1]['type'] == 'buffer_pressure'
     assert records[1]['max_queued_seconds'] == 0.8
     assert records[1]['queued_seconds'] == 0.8
@@ -900,7 +909,7 @@ def test_live_input_manifest_omits_source(
     )
     rec._finish_manifest()
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     for record in records:
         record.pop('timestamp', None)
     assert records[1:3] == [
@@ -960,7 +969,7 @@ def test_manifest_records_source_frame_counts(
     )
     rec._finish_manifest()
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     for record in records:
         record.pop('timestamp', None)
     assert records[1:4] == [
@@ -1007,7 +1016,7 @@ def test_preview_modes_do_not_write_manifest(
 
     rec._finish_manifest()
 
-    assert not Path('recs-session.jsonl').exists()
+    assert not manifest_path(rec).exists()
 
 
 def test_silence_preview_report_recommends_thresholds(
@@ -1118,6 +1127,32 @@ def test_recorder_saves_and_restores_track_settings(
     assert restored._control.track_names == {'Ext': {'VL': 1}}
 
 
+def test_control_request_saves_output_directory_root(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    settings_path = tmp_path / 'settings.json'
+    output_directory = tmp_path / 'recs' / 'audio'
+    monkeypatch.setattr(settings, 'settings_path', lambda: settings_path)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], save_settings=True, silent=True))
+
+    rec._control.set_cfg(
+        gui_protocol.SetCfg(
+            type='set_cfg',
+            address='directory.output_directory',
+            value=str(output_directory),
+        )
+    )
+    loaded = settings.load(Cfg(include=['Mic'], save_settings=True, silent=True))
+
+    assert rec.cfg.directory.output_directory == str(output_directory)
+    assert rec.session_directory.parent == output_directory
+    assert loaded.cfg.directory.output_directory == str(output_directory)
+
+
 def test_track_layout_updates_state_on_next_source_update(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
@@ -1183,7 +1218,7 @@ def test_control_request_marks_manifest(
 
     rec._receive_control_requests()
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert request.responses == [
         gui_protocol.Marked(type='marked', label='guitar solo')
     ]
@@ -1237,7 +1272,7 @@ def test_control_request_pauses_and_resumes_recording(
     assert not rec._control.recording_paused
     assert not rec._control.recording_stopped
     assert not rec._devices.hardware['Mic'].running
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1]['type'] == 'recording_paused'
     assert records[2]['type'] == 'recording_resumed'
 
@@ -1281,13 +1316,13 @@ def test_daemon_start_after_stop_uses_new_session_directory(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
-    first_manifest = tmp_path / 'recs' / 'recs-session.jsonl'
+    first_manifest = manifest_path(rec)
 
     rec._control.stop_recording()
     rec._control.stop_recording()
     rec._control.resume_recording('start_recording')
 
-    second_manifest = tmp_path / 'recs' / 'recs-session-1.jsonl'
+    second_manifest = manifest_path(rec)
     assert first_manifest.exists()
     assert read_jsonl(first_manifest)[-1]['type'] == 'footer'
     assert second_manifest.exists()
@@ -1422,7 +1457,7 @@ def test_control_request_sets_and_gets_cfg(
             type='cfg_value', address='recording.longest_file_time', value=expected
         )
     ]
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert [record['type'] for record in records[1:3]] == ['cfg_set', 'cfg_get']
     assert records[1]['cfg_revision'] == 1
 
@@ -1447,7 +1482,7 @@ def test_source_update_records_applied_cfg_revision(
         )
     )
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1]['type'] == 'cfg_applied'
     assert records[1]['source'] == 'Mic'
     assert records[1]['value'] == 3
@@ -1473,7 +1508,7 @@ def test_buffer_overflow_records_write_latency(
         ),
     )
 
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1]['type'] == 'buffer_overflow'
     assert records[1]['max_write_seconds'] == 0.25
 
@@ -1586,7 +1621,9 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_manifest()
 
-    assert Path('sessions/2026-06-23/recs-session.jsonl').exists()
+    assert Path(
+        'sessions/2026-06-23/recs- 2026-06-23 20-34-10/recs-session.jsonl'
+    ).exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -1602,7 +1639,7 @@ def test_default_output_directory_uses_session_timestamp(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
     expected = recording_paths.session_directory_name(timestamp)
-    path = Path(rec.cfg.directory.output_directory) / 'mic.wav'
+    path = rec.session_directory / 'mic.wav'
     path.parent.mkdir(exist_ok=True, parents=True)
     path.touch()
 
@@ -1626,7 +1663,8 @@ def test_default_output_directory_uses_session_timestamp(
     )
     rec._finish_manifest()
 
-    assert rec.cfg.directory.output_directory == expected
+    assert rec.cfg.directory.output_directory == ''
+    assert rec.session_directory == Path(expected)
     assert (path.parent / 'recs-session.jsonl').exists()
 
 
@@ -1644,7 +1682,8 @@ def test_default_output_directory_uses_collision_suffix(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
 
-    assert rec.cfg.directory.output_directory == f'{expected}_1'
+    assert rec.cfg.directory.output_directory == ''
+    assert rec.session_directory == Path(f'{expected}_1')
 
 
 def test_daemon_default_output_directory_uses_largest_external_disk(
@@ -1666,13 +1705,13 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
         Cfg(default_record_directory='takes'), timestamp
     )
 
-    assert cfg.directory.output_directory == str(large / 'takes')
-    assert recording_paths.audio_directory(str(large / 'takes'), timestamp) == (
-        large / 'takes' / 'audio'
-    )
-    assert recording_paths.midi_directory(str(large / 'takes'), timestamp) == (
-        large / 'takes' / 'midi'
-    )
+    assert cfg.directory.output_directory == str(large / 'takes' / 'audio')
+    assert recording_paths.session_directory(
+        str(large / 'takes' / 'audio'), timestamp
+    ) == (large / 'takes' / 'audio' / 'recs- 2026-06-23 20-34-10')
+    assert recording_paths.midi_session_directory(
+        large / 'takes' / 'audio' / 'recs- 2026-06-23 20-34-10'
+    ) == (large / 'takes' / 'midi' / 'recs- 2026-06-23 20-34-10')
 
 
 def test_daemon_default_output_directory_falls_back_to_system_disk(
@@ -1686,7 +1725,7 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
     cfg = recording_paths.with_default_output_directory(Cfg(), timestamp)
 
-    assert cfg.directory.output_directory == str(tmp_path / 'recs')
+    assert cfg.directory.output_directory == str(tmp_path / 'recs' / 'audio')
 
 
 def test_daemon_default_output_directory_keeps_explicit_directory(
@@ -1755,7 +1794,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
     rec._poll_devices()
     rec._reap_sources()
     rec._poll_devices()
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:43.000Z',
@@ -1825,7 +1864,7 @@ def test_manifest_records_key_events(
     )
 
     rec._receive_key_events()
-    records = read_jsonl(tmp_path / 'recs-session.jsonl')
+    records = read_jsonl(manifest_path(rec))
     assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:42.000Z',

@@ -4,6 +4,7 @@ import sys
 import threading
 from collections.abc import Sequence
 from multiprocessing import connection
+from pathlib import Path
 from typing import Any, cast
 
 from threa import Runnable
@@ -43,6 +44,11 @@ class SourceControlTransport:
                     control.cfg_revision
                     if control.cfg_revision is not None
                     else self.control.cfg_revision
+                ),
+                session_directory=(
+                    control.session_directory
+                    if control.session_directory is not None
+                    else self.control.session_directory
                 ),
                 track_names=(
                     control.track_names
@@ -89,12 +95,14 @@ class SourceProcess(Runnable):
         self,
         cfg: Cfg,
         tracks: Sequence[Track],
+        session_directory: Path,
         track_names: SourceTrackNames | None = None,
     ) -> None:
         self.cfg = cfg
         self.name = tracks[0].source.key
         self.source = tracks[0].source
         self.tracks = tracks
+        self.session_directory = session_directory
         self.track_names = track_names or {}
         self.started: bool = False
         self.pending_updates: list[
@@ -126,6 +134,7 @@ class SourceProcess(Runnable):
             'cfg': self.recorder_cfg,
             'control_connection': child_controls,
             'process_name': process_name,
+            'session_directory': self.session_directory,
             'stop_event': self.stop_event,
             'tracks': self.tracks,
             'track_names': self.track_names,
@@ -178,6 +187,13 @@ class SourceProcess(Runnable):
                 source_recorder.SourceControl(
                     cfg=self.recorder_cfg, cfg_revision=revision
                 )
+            )
+
+    def set_session_directory(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
+        if self.started:
+            self.control_transport.publish(
+                source_recorder.SourceControl(session_directory=session_directory)
             )
 
     def calibrate(self, tracks: list[str]) -> None:
@@ -257,6 +273,7 @@ class SourceProcess(Runnable):
 def _run_source_recorder(
     cfg: Cfg,
     control_connection: connection.Connection,
+    session_directory: Path,
     stop_event: Any,
     tracks: Sequence[Track],
     update_connection: connection.Connection,
@@ -270,6 +287,7 @@ def _run_source_recorder(
         source_recorder.SourceRecorder(
             cfg=cfg,
             control_connection=control_connection,
+            session_directory=session_directory,
             stop_event=stop_event,
             tracks=tracks,
             track_names=track_names,

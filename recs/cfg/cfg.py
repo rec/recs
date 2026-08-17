@@ -689,6 +689,13 @@ class Cfg(BaseModel):
 
     @cached_property
     def output_path_pattern(self) -> path_pattern.PathPattern:
+        return self.path_pattern(
+            self.directory.output_directory, media_directory='audio'
+        )
+
+    def path_pattern(
+        self, output_directory: str, media_directory: str = ''
+    ) -> path_pattern.PathPattern:
         excluded = self.aliases.to_tracks(self.selection.exclude)
         included = self.aliases.to_tracks(self.selection.include)
         selected_devices = sum(
@@ -697,7 +704,7 @@ class Cfg(BaseModel):
         )
         short_file_names = self.directory.short_file_names and selected_devices == 1
         return path_pattern.PathPattern(
-            self.directory.output_directory, short_file_names, media_directory='audio'
+            output_directory, short_file_names, media_directory=media_directory
         )
 
     @cached_property

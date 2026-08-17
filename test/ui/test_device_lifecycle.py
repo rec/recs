@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from pathlib import Path
 
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
@@ -25,11 +26,13 @@ class ReapedSource:
         self,
         cfg: Cfg,
         tracks: Sequence[Track],
+        session_directory: Path,
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
         self.name = tracks[0].source.name
         self.source = tracks[0].source
         self.tracks = tracks
+        self.session_directory = session_directory
         self.started = True
         self.running = False
         self.connection = DrainingConnection(
@@ -82,6 +85,7 @@ def test_reap_drains_all_pending_source_messages() -> None:
     lifecycle = DeviceLifecycle(
         Cfg(),
         state,
+        Path('session'),
         saved_tracks={},
         track_names={},
         initial_tracks=[(source, tracks)],

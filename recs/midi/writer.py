@@ -1,9 +1,9 @@
+from pathlib import Path
 from typing import Protocol
 
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.misc import legal_filename
-from recs.ui import recording_paths
 from recs.ui.session_manifest import ManifestFile, timestamp_to_json
 
 TICKS_PER_BEAT = 960
@@ -21,23 +21,20 @@ class MidiMessage(Protocol):
 class MidiWriter:
     def __init__(
         self,
-        output_directory: str,
-        session_start_time: float,
+        session_directory: Path,
         port_name: str,
         timing_source: MidiTiming,
     ) -> None:
         import mido
 
-        self.output_directory = output_directory
-        self.session_start_time = session_start_time
+        self.session_directory = session_directory
         self.port_name = port_name
         self.timing_source = timing_source
         self.message_count = 0
         self.last_timestamp: float | None = None
         self.last_tick = 0
         self.path = (
-            recording_paths.midi_directory(output_directory, session_start_time)
-            / f'{legal_filename.legal_filename(port_name)}.mid'
+            session_directory / f'{legal_filename.legal_filename(port_name)}.mid'
         )
         self.file = mido.MidiFile(type=0, ticks_per_beat=TICKS_PER_BEAT)
         self.track = mido.MidiTrack()

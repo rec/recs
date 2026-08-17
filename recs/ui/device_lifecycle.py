@@ -1,5 +1,6 @@
 from collections.abc import Callable, Mapping, Sequence
 from multiprocessing import connection
+from pathlib import Path
 from typing import cast
 
 from recs.base import times
@@ -38,6 +39,7 @@ class DeviceLifecycle:
         self,
         cfg: Cfg,
         state: FullState,
+        session_directory: Path,
         saved_tracks: dict[str, list[settings.TrackSettings]],
         track_names: SourceTrackNames,
         initial_tracks: list[tuple[Source, Sequence[Track]]],
@@ -51,6 +53,7 @@ class DeviceLifecycle:
     ) -> None:
         self.cfg = cfg
         self.state = state
+        self.session_directory = session_directory
         self.saved_tracks = saved_tracks
         self.track_names = track_names
         self.warning = warning
@@ -61,7 +64,9 @@ class DeviceLifecycle:
         self.source_process = source_process
         self.device_poller = device_poller
         self.source_processes = {
-            source.key: self.source_process(cfg, tracks, track_names=track_names)
+            source.key: self.source_process(
+                cfg, tracks, session_directory, track_names=track_names
+            )
             for source, tracks in initial_tracks
         }
         self.hardware_sources = {
@@ -121,6 +126,11 @@ class DeviceLifecycle:
         self.cfg = cfg
         for source in self.source_processes.values():
             source.set_cfg(cfg, revision=revision)
+
+    def set_session_directory(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
+        for source in self.source_processes.values():
+            source.set_session_directory(session_directory)
 
     def set_track_names(self, track_names: SourceTrackNames) -> None:
         self.track_names = track_names
@@ -275,7 +285,12 @@ class DeviceLifecycle:
     def _add_source(
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases
     ) -> None:
-        process = self.source_process(self.cfg, tracks, track_names=self.track_names)
+        process = self.source_process(
+            self.cfg,
+            tracks,
+            self.session_directory,
+            track_names=self.track_names,
+        )
         self.source_processes[source.key] = process
         self.hardware_sources[source.key] = process
         self.source_frames[source.key] = 0
