@@ -155,13 +155,16 @@ class ChannelWriter(Runnable):
     def _close(self) -> None:
         sfs, self._sfs = self._sfs, ()
         for sf in sfs:
-            if sf.frames and sf.frames >= self.times.shortest_file_time:
+            if self.times.record_everything or (
+                sf.frames and sf.frames >= self.times.shortest_file_time
+            ):
                 sf.close()
             else:
                 with contextlib.suppress(OSError, RuntimeError):
                     sf.close()
                 with contextlib.suppress(OSError):
                     Path(sf.name).unlink()
+                self._discard_file(Path(sf.name))
 
     def _open(self, offset: int) -> Sequence[SoundFile]:
         timestamp = self.timestamp + offset / self.track.source.samplerate
@@ -191,6 +194,13 @@ class ChannelWriter(Runnable):
         self.files_written.extend(paths)
         return sfs
 
+    def _discard_file(self, path: Path) -> None:
+        self.files_written.remove_path(path)
+        self.file_start_frames.pop(path, None)
+        self.file_start_timestamps.pop(path, None)
+        self.file_end_frames.pop(path, None)
+        self.file_end_timestamps.pop(path, None)
+
     def _receive_block(
         self,
         block: Block,
@@ -203,7 +213,8 @@ class ChannelWriter(Runnable):
             min_amp=min(block.min) / block.scale,
         )
 
-        dt = self.timestamp - timestamp
+        previous_timestamp = self.timestamp
+        dt = timestamp - previous_timestamp
         self.timestamp = timestamp
         if timeline_frame:
             self.timeline_frame = timeline_frame
@@ -212,7 +223,11 @@ class ChannelWriter(Runnable):
         if not self.do_not_record and (self._sfs or not self.stopped):
             expected_dt = len(block) / self.track.source.samplerate
 
-            if dt > expected_dt * BLOCK_FUZZ:  # We were asleep, or otherwise lost time
+            if (
+                previous_timestamp
+                and not self.times.record_everything
+                and dt > expected_dt * BLOCK_FUZZ
+            ):
                 self._write_and_close()
 
             self._blocks.append(block)

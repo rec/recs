@@ -49,6 +49,14 @@ class FileList(list[Path]):
             self._last_size = _getsize(path)
         return self._total_size + self._last_size
 
+    def remove_path(self, path: Path) -> None:
+        self[:] = [p for p in self if p != path]
+        self._count = 0
+        self._total_size = 0
+        self._last_size_path = None
+        self._last_size_time = float('-inf')
+        self._last_size = 0
+
 
 def _getsize(p: Path) -> int:
     try:

@@ -270,6 +270,9 @@ class SourceFileEvents:
         result: list[Path] = []
         records: list[SourceFile] = []
         for index, writer in enumerate(writers):
+            self.file_counts[index] = min(
+                self.file_counts[index], len(writer.files_written)
+            )
             new_files = writer.files_written[self.file_counts[index] :]
             result.extend(new_files)
             records.extend(
