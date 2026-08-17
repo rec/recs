@@ -27,17 +27,10 @@ from .session_manifest import ManifestRecord
 
 class RecordingRuntimeState(BaseModel):
     recording_paused: bool = False
-    recording_stopped: bool = False
-    session_stopped: bool = False
     shutdown_started: bool = False
 
     def resume(self) -> None:
         self.recording_paused = False
-        self.recording_stopped = False
-
-    def stop_session_if_active(self, active: bool) -> None:
-        self.recording_stopped = True
-        self.session_stopped = active
 
 
 class RecordingControl:
@@ -58,7 +51,6 @@ class RecordingControl:
         manifest_path: Callable[[], Path],
         receive_pending_updates: Callable[[], None],
         finish_manifest: Callable[[], None],
-        start_recording_session: Callable[[], None],
     ) -> None:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
@@ -75,7 +67,6 @@ class RecordingControl:
         self.manifest_path = manifest_path
         self.receive_pending_updates = receive_pending_updates
         self.finish_manifest = finish_manifest
-        self.start_recording_session = start_recording_session
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.runtime_state = RecordingRuntimeState()
         self.cfg_revision = 0
@@ -90,22 +81,6 @@ class RecordingControl:
     @recording_paused.setter
     def recording_paused(self, value: bool) -> None:
         self.runtime_state.recording_paused = value
-
-    @property
-    def recording_stopped(self) -> bool:
-        return self.runtime_state.recording_stopped
-
-    @recording_stopped.setter
-    def recording_stopped(self, value: bool) -> None:
-        self.runtime_state.recording_stopped = value
-
-    @property
-    def session_stopped(self) -> bool:
-        return self.runtime_state.session_stopped
-
-    @session_stopped.setter
-    def session_stopped(self, value: bool) -> None:
-        self.runtime_state.session_stopped = value
 
     @property
     def shutdown_started(self) -> bool:
@@ -127,9 +102,6 @@ class RecordingControl:
         self, reason: str, disk: disk_space.Disk | None = None
     ) -> gui_protocol.RecordingState:
         return recording_commands.resume_recording(self, reason, disk)
-
-    def stop_recording(self) -> gui_protocol.RecordingState:
-        return recording_commands.stop_recording(self)
 
     def reload_profiles(self) -> gui_protocol.ProfilesReloaded:
         return recording_commands.reload_profiles(self)

@@ -6,7 +6,7 @@ from reccy import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 3
+VERSION = 4
 
 
 class Hello(ipc.Hello):
@@ -113,16 +113,8 @@ class SetTracks(BaseModel):
     tracks: list[ChannelTrack]
 
 
-class StartRecording(BaseModel):
-    type: Literal['start_recording']
-
-
 class StatusSnapshotRequest(BaseModel):
     type: Literal['status_snapshot']
-
-
-class StopRecording(BaseModel):
-    type: Literal['stop_recording']
 
 
 class Calibrated(BaseModel):
@@ -199,7 +191,6 @@ class ProfilesReloaded(BaseModel):
 class RecordingState(BaseModel):
     type: Literal['recording_state']
     paused: bool
-    stopped: bool
 
 
 class StatusSnapshot(BaseModel):
@@ -249,9 +240,7 @@ Request = (
     | SetNoiseFloor
     | SetTrackNames
     | SetTracks
-    | StartRecording
     | StatusSnapshotRequest
-    | StopRecording
 )
 
 Response = (

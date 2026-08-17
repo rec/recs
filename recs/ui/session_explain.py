@@ -85,13 +85,6 @@ def explain_daemon() -> ExplanationReport:
                         evidence='status_snapshot recording.paused is true',
                     )
                 )
-            if recording.get('stopped'):
-                explanations.append(
-                    Explanation(
-                        reason='recording is stopped',
-                        evidence='status_snapshot recording.stopped is true',
-                    )
-                )
         errors = status.get('errors', [])
         if isinstance(errors, list):
             errors = cast(list[object], errors)

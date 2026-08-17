@@ -138,7 +138,6 @@ class Recorder(Runnables):
             self._manifest_path,
             self._receive_pending_updates,
             self._finish_manifest,
-            self._start_recording_session,
         )
         self._calibration = calibration.Calibration(
             self.cfg,
@@ -379,7 +378,6 @@ class Recorder(Runnables):
     def _poll_devices(self) -> None:
         self._devices.poll(
             self._control.recording_paused,
-            self._control.recording_stopped,
             self._invocation_expired(),
         )
 
@@ -483,21 +481,6 @@ class Recorder(Runnables):
 
     def _finish_manifest(self) -> None:
         self.session.finish(times.timestamp())
-
-    def _start_recording_session(self) -> None:
-        self.session_start_time = times.timestamp()
-        self._set_session_directory(
-            recording_paths.session_directory(
-                self.cfg.directory.output_directory, self.session_start_time
-            )
-        )
-        self.session.reset(self.session_start_time)
-        self._control.cfg = self.cfg
-        self._disk_space_policy.cfg = self.cfg
-        self._disk_space_controller.cfg = self.cfg
-        self._calibration.cfg = self.cfg
-        self._start_manifest()
-        self._control.session_stopped = False
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (

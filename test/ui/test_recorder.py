@@ -1199,7 +1199,7 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 3
+    assert response.version == 4
     assert 'status_snapshot' in response.commands
     assert 'shutdown' in response.commands
 
@@ -1270,62 +1270,10 @@ def test_control_request_pauses_and_resumes_recording(
     rec._receive_control_requests()
 
     assert not rec._control.recording_paused
-    assert not rec._control.recording_stopped
     assert not rec._devices.hardware['Mic'].running
     records = read_jsonl(manifest_path(rec))
     assert records[1]['type'] == 'recording_paused'
     assert records[2]['type'] == 'recording_resumed'
-
-
-def test_control_request_stops_and_starts_recording(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
-    stop = FakeControlRequest(gui_protocol.StopRecording(type='stop_recording'))
-    start = FakeControlRequest(gui_protocol.StartRecording(type='start_recording'))
-    rec.live = FakeControlDisplay([stop, start])
-
-    rec._receive_control_requests()
-
-    assert stop.responses == [
-        gui_protocol.RecordingState(type='recording_state', paused=True, stopped=True)
-    ]
-    assert start.responses == [
-        gui_protocol.RecordingState(type='recording_state', paused=False, stopped=False)
-    ]
-
-
-def test_daemon_start_after_stop_uses_new_session_directory(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
-    tmp_path: Path,
-) -> None:
-    first = datetime(2026, 6, 23, 20, 34, 10).timestamp()
-    second = datetime(2026, 6, 23, 21, 34, 10).timestamp()
-    times = iter([first, first, first, second, second])
-    monkeypatch.setattr(recorder.times, 'timestamp', lambda: next(times))
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(recorder.gui_ipc, 'daemon_mode_enabled', lambda: True)
-    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [tmp_path])
-
-    rec = Recorder(Cfg(include=['Mic'], silent=True))
-    rec._start_manifest()
-    first_manifest = manifest_path(rec)
-
-    rec._control.stop_recording()
-    rec._control.stop_recording()
-    rec._control.resume_recording('start_recording')
-
-    second_manifest = manifest_path(rec)
-    assert first_manifest.exists()
-    assert read_jsonl(first_manifest)[-1]['type'] == 'footer'
-    assert second_manifest.exists()
 
 
 def test_control_request_reports_device_and_disk_status(
@@ -1375,7 +1323,7 @@ def test_control_request_reports_device_and_disk_status(
     assert response.disk == disk.responses[0].model_dump(exclude={'type'})
     assert response.devices == devices.responses[0].devices
     assert response.errors == []
-    assert response.recording == {'paused': False, 'stopped': False}
+    assert response.recording == {'paused': False}
 
 
 def test_status_snapshot_includes_error_timestamps(

@@ -25,9 +25,7 @@ API_COMMANDS = [
     'set_tracks',
     'set_cfg',
     'shutdown',
-    'start_recording',
     'status_snapshot',
-    'stop_recording',
 ]
 
 
@@ -89,9 +87,6 @@ class RecordingControlTarget(Protocol):
     def status_snapshot(self) -> gui_protocol.StatusSnapshot:
         ...
 
-    def stop_recording(self) -> gui_protocol.RecordingState:
-        ...
-
 
 class RecordingControlProtocol:
     def __init__(self, control: RecordingControlTarget) -> None:
@@ -124,7 +119,7 @@ class RecordingControlProtocol:
                         self.control.shutdown_started = True
                         shutdown()
                     response = gui_protocol.RecordingState(
-                        type='recording_state', paused=False, stopped=True
+                        type='recording_state', paused=False
                     )
                 else:
                     response = self.handle(parsed)
@@ -186,10 +181,6 @@ class RecordingControlProtocol:
             return self.control.set_track_names(request)
         if isinstance(request, gui_protocol.SetTracks):
             return self.control.set_tracks(request)
-        if isinstance(request, gui_protocol.StartRecording):
-            return self.control.resume_recording('start_recording')
         if isinstance(request, gui_protocol.StatusSnapshotRequest):
             return self.control.status_snapshot()
-        if isinstance(request, gui_protocol.StopRecording):
-            return self.control.stop_recording()
         raise RecsError(f'Unsupported request: {request.type}')

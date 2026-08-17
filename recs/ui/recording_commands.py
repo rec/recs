@@ -52,8 +52,6 @@ def resume_recording(
     reason: str,
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
-    if control.session_stopped:
-        control.start_recording_session()
     control.runtime_state.resume()
     control.write_record(
         ManifestEvent(
@@ -65,19 +63,6 @@ def resume_recording(
             free_bytes=disk.free_bytes if disk else None,
         )
     )
-    return recording_state(control)
-
-
-def stop_recording(control: 'RecordingControl') -> gui_protocol.RecordingState:
-    if control.recording_stopped:
-        return recording_state(control)
-    pause_recording(control, 'stop_recording')
-    control.runtime_state.stop_session_if_active(control.session.manifest is not None)
-    if control.session_stopped:
-        for source in control.devices.hardware.values():
-            source.join()
-        control.receive_pending_updates()
-        control.finish_manifest()
     return recording_state(control)
 
 
@@ -155,5 +140,4 @@ def recording_state(control: 'RecordingControl') -> gui_protocol.RecordingState:
     return gui_protocol.RecordingState(
         type='recording_state',
         paused=control.recording_paused,
-        stopped=control.recording_stopped,
     )

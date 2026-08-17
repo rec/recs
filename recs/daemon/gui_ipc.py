@@ -261,9 +261,7 @@ class DaemonGuiServer(Runnable):
             control_requests, self.control_requests = self.control_requests, []
 
         message = ipc.message_json(gui_protocol.Shutdown(type='shutdown'))
-        response = gui_protocol.RecordingState(
-            type='recording_state', paused=False, stopped=True
-        )
+        response = gui_protocol.RecordingState(type='recording_state', paused=False)
         for request in control_requests:
             request.respond(response)
         for listener in listeners:

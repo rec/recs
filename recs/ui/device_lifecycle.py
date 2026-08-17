@@ -137,7 +137,7 @@ class DeviceLifecycle:
         for source in self.source_processes.values():
             source.set_track_names(track_names)
 
-    def poll(self, paused: bool, stopped: bool, expired: bool) -> None:
+    def poll(self, paused: bool, expired: bool) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
             return
         if snapshot:
@@ -171,7 +171,6 @@ class DeviceLifecycle:
                 not source.started
                 and name not in self.failed_sources
                 and not paused
-                and not stopped
                 and not expired
             ):
                 source.start()

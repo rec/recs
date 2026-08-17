@@ -145,7 +145,7 @@ class FakeRpcClient:
         assert command == 'status_snapshot'
         return {
             'type': 'status_snapshot_result',
-            'recording': {'paused': False, 'stopped': False},
+            'recording': {'paused': False},
         }
 
 
