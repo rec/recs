@@ -27,9 +27,13 @@ DELAY = 0.001
 def _without_session_directory(path: Path) -> Path:
     parts = path.parts
     for index, part in enumerate(parts):
-        if part.startswith(('recs- ', 'recs ')):
+        if _is_session_part(part):
             return Path(*parts[:index], *parts[index + 1 :])
     return path
+
+
+def _is_session_part(part: str) -> bool:
+    return len(part) == len('2026-06-23 20-34-10') and part[4] == '-'
 
 
 class FixtureInputStream(BaseModel):

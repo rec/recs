@@ -1569,9 +1569,7 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_manifest()
 
-    assert Path(
-        'sessions/2026-06-23/recs- 2026-06-23 20-34-10/recs-session.jsonl'
-    ).exists()
+    assert Path('sessions/2026-06-23/2026-06-23 20-34-10/recs-session.jsonl').exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -1656,10 +1654,10 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
     assert cfg.directory.output_directory == str(large / 'takes' / 'audio')
     assert recording_paths.session_directory(
         str(large / 'takes' / 'audio'), timestamp
-    ) == (large / 'takes' / 'audio' / 'recs- 2026-06-23 20-34-10')
+    ) == (large / 'takes' / 'audio' / '2026-06-23 20-34-10')
     assert recording_paths.midi_session_directory(
-        large / 'takes' / 'audio' / 'recs- 2026-06-23 20-34-10'
-    ) == (large / 'takes' / 'midi' / 'recs- 2026-06-23 20-34-10')
+        large / 'takes' / 'audio' / '2026-06-23 20-34-10'
+    ) == (large / 'takes' / 'midi' / '2026-06-23 20-34-10')
 
 
 def test_daemon_default_output_directory_falls_back_to_system_disk(
@@ -1691,9 +1689,7 @@ def test_daemon_default_output_directory_keeps_explicit_directory(
 def test_default_output_directory_replaces_problematic_characters() -> None:
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
 
-    assert (
-        recording_paths.session_directory_name(timestamp) == 'recs- 2026-06-23 20-34-10'
-    )
+    assert recording_paths.session_directory_name(timestamp) == '2026-06-23 20-34-10'
 
 
 def test_manifest_records_source_and_track_lifecycle_events(

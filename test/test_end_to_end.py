@@ -241,7 +241,7 @@ def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, ob
         file.pop('type')
         path = Path(str(file['path'])).as_posix()
         parts = Path(path).parts
-        if len(parts) >= 3 and parts[0] == 'files' and parts[1].startswith('recs- '):
+        if len(parts) >= 3 and parts[0] == 'files' and _is_session_part(parts[1]):
             path = Path('files', '<session>', *parts[2:]).as_posix()
         file['path'] = path
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
@@ -382,6 +382,10 @@ def _path_names(root: Path) -> list[str]:
 def _without_session_directory(path: Path) -> Path:
     parts = path.parts
     for index, part in enumerate(parts):
-        if part.startswith(('recs- ', 'recs ')):
+        if _is_session_part(part):
             return Path(*parts[:index], *parts[index + 1 :])
     return path
+
+
+def _is_session_part(part: str) -> bool:
+    return len(part) == len('2026-06-23 20-34-10') and part[4] == '-'

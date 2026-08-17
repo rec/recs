@@ -113,7 +113,7 @@ def available_directory(path: Path) -> Path:
 
 def session_directory_name(timestamp: float) -> str:
     return legal_filename.legal_filename(
-        datetime.fromtimestamp(timestamp).strftime('recs: %Y-%m-%d %H:%M:%S')
+        datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
     )
 
 
