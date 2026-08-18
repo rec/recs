@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 from reccy import service
-from reccy.models import Platform, ServiceSpec
+from reccy.models import DaemonMetadata, Platform, ServiceSpec
 
 from recs.daemon.controllers import ServiceController
-from recs.daemon.models import DaemonMetadata, DaemonStatus
+from recs.daemon.models import DaemonStatus
 from recs.daemon.renderers import metadata, service_metadata
 
 
@@ -34,9 +34,7 @@ class FakeRunner:
 def test_linux_controller_installs_user_service(tmp_path: Path) -> None:
     runner = FakeRunner()
     controller = ServiceController(Platform.linux, tmp_path, runner)
-    daemon_metadata = metadata(
-        Path('/opt/recs/bin/recs'), Platform.linux, ['--include', 'Mic']
-    )
+    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'])
 
     result = controller.install(daemon_metadata)
 
@@ -64,9 +62,8 @@ def test_linux_controller_supports_custom_service_identity(tmp_path: Path) -> No
     controller = ServiceController(Platform.linux, tmp_path, runner, service)
     service_paths = controller.paths
     daemon_metadata = service_metadata(
-        Path('/opt/lyte/bin/lyte'),
         Platform.linux,
-        ['run-daemon'],
+        ['-m', 'lyte', 'run-daemon'],
         service_paths,
     )
 
@@ -87,9 +84,7 @@ def test_macos_controller_installs_launch_agent(
     runner = FakeRunner()
     monkeypatch.setattr(service, '_uid', lambda: 501)
     controller = ServiceController(Platform.macos, tmp_path, runner)
-    daemon_metadata = metadata(
-        Path('/opt/recs/bin/recs'), Platform.macos, ['--include', 'Mic']
-    )
+    daemon_metadata = metadata(Platform.macos, ['--include', 'Mic'])
 
     controller.install(daemon_metadata)
 
@@ -107,9 +102,7 @@ def test_macos_controller_installs_launch_agent(
 
 def test_controller_writes_metadata_atomically(tmp_path: Path) -> None:
     controller = ServiceController(Platform.linux, tmp_path, FakeRunner())
-    daemon_metadata = metadata(
-        Path('/opt/recs/bin/recs'), Platform.linux, ['--include', 'Mic']
-    )
+    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'])
 
     controller.install(daemon_metadata)
 

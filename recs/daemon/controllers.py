@@ -6,7 +6,7 @@ from typing import cast
 from reccy import models, service
 
 from . import paths
-from .models import DaemonMetadata, DaemonStatus, StatusResult
+from .models import DaemonStatus, StatusResult
 from .spec import RECS_SERVICE
 
 
@@ -31,10 +31,8 @@ class ServiceController:
             status_error_label='GUI IPC error',
         )
 
-    def install(self, metadata: DaemonMetadata) -> StatusResult:
-        return _status_result(
-            self._controller.install(cast(models.DaemonMetadata, metadata))
-        )
+    def install(self, metadata: models.DaemonMetadata) -> StatusResult:
+        return _status_result(self._controller.install(metadata))
 
     def uninstall(self) -> StatusResult:
         return _status_result(self._controller.uninstall())

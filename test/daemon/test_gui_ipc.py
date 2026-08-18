@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from reccy.models import Platform
+from reccy.models import DaemonMetadata, Platform
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_backend, gui_ipc, gui_protocol
-from recs.daemon.models import DaemonMetadata, DaemonStatus
+from recs.daemon.models import DaemonStatus
 from recs.ui.key_events import KeyEvent
 
 
@@ -517,9 +517,8 @@ def test_endpoint_reachable_checks_metadata_socket(
 ) -> None:
     connection = FakeConnection()
     metadata = DaemonMetadata(
-        executable=Path('/opt/recs/bin/recs'),
         platform=Platform.linux,
-        gui_endpoint='/tmp/recs.sock',
+        control_endpoint='/tmp/recs.sock',
     )
 
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
@@ -533,9 +532,8 @@ def test_endpoint_reachable_checks_windows_pipe(
 ) -> None:
     connections: list[FakeConnection] = []
     metadata = DaemonMetadata(
-        executable=Path('/opt/recs/bin/recs'),
         platform=Platform.windows,
-        gui_endpoint=gui_backend.WINDOWS_PIPE,
+        control_endpoint=gui_backend.WINDOWS_PIPE,
     )
 
     def connect(endpoint: str | Path) -> FakeConnection:
@@ -554,9 +552,8 @@ def test_run_remote_gui_reports_connection_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     metadata = DaemonMetadata(
-        executable=Path('/opt/recs/bin/recs'),
         platform=Platform.linux,
-        gui_endpoint='/tmp/recs.sock',
+        control_endpoint='/tmp/recs.sock',
     )
 
     def connect(endpoint: str | Path) -> FakeConnection:

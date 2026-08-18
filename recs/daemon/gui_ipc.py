@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
-from reccy import ipc, logging, settings
+from reccy import ipc, logging, models, settings
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -13,7 +13,7 @@ from recs.cfg.cfg import Cfg
 from recs.ui.key_events import KeyEvent
 
 from . import gui_backend, gui_protocol, paths
-from .models import DaemonMetadata, DaemonStatus
+from .models import DaemonStatus
 
 LOGGER = logging.get_logger(__name__)
 STATUS_UPDATE_PERIOD = 1.0
@@ -502,29 +502,29 @@ class RemoteGuiClient:
         self.closed = True
 
 
-def endpoint_reachable(metadata: DaemonMetadata) -> bool:
+def endpoint_reachable(metadata: models.DaemonMetadata) -> bool:
     try:
-        connection = gui_backend.client_connection(_endpoint(metadata.gui_endpoint))
+        connection = gui_backend.client_connection(_endpoint(metadata.control_endpoint))
     except (OSError, ValueError):
         return False
     connection.close()
     return True
 
 
-def load_metadata() -> DaemonMetadata | None:
+def load_metadata() -> models.DaemonMetadata | None:
     path = paths.service_paths(paths.current_platform()).metadata
     if not path.exists():
         return None
     try:
-        return DaemonMetadata.model_validate_json(path.read_text())
+        return models.DaemonMetadata.model_validate_json(path.read_text())
     except ValidationError:
         return None
 
 
-def run_remote_gui(metadata: DaemonMetadata, cfg: Cfg) -> None:
+def run_remote_gui(metadata: models.DaemonMetadata, cfg: Cfg) -> None:
     from recs.ui.pyside_gui import Gui
 
-    client = RemoteGuiClient(_endpoint(metadata.gui_endpoint))
+    client = RemoteGuiClient(_endpoint(metadata.control_endpoint))
     try:
         client.start()
     except (OSError, ValueError) as e:
