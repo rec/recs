@@ -63,7 +63,7 @@ def test_linux_controller_supports_custom_service_identity(tmp_path: Path) -> No
     service_paths = controller.paths
     daemon_metadata = service_metadata(
         Platform.linux,
-        ['-m', 'lyte', 'run-daemon'],
+        ['run-daemon'],
         service_paths,
     )
 

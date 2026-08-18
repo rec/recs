@@ -9,8 +9,6 @@ from recs.daemon import paths, renderers
 
 def test_daemon_args_adds_silent() -> None:
     assert renderers.daemon_args(['--include', 'Mic']) == [
-        '-m',
-        'recs',
         '--silent',
         '--include',
         'Mic',
@@ -19,8 +17,6 @@ def test_daemon_args_adds_silent() -> None:
 
 def test_daemon_args_preserves_existing_silent() -> None:
     assert renderers.daemon_args(['--silent', '--include', 'Mic']) == [
-        '-m',
-        'recs',
         '--silent',
         '--include',
         'Mic',
@@ -41,15 +37,14 @@ def test_macos_launch_agent() -> None:
     assert plist['ProgramArguments'] == [
         sys.executable,
         '-m',
+        'reccy.service_runner',
+        '/Users/tom/Library/Logs/recs/recs.log',
         'recs',
         '--silent',
         '--include',
         'Mic',
     ]
-    assert plist['EnvironmentVariables'] == {
-        'RECCY_LOG_PATH': '/Users/tom/Library/Logs/recs/recs.log',
-        'RECS_DAEMON': '1',
-    }
+    assert plist['EnvironmentVariables'] == {'RECS_DAEMON': '1'}
     assert plist['RunAtLoad'] is True
     assert plist['KeepAlive'] is True
 
@@ -101,13 +96,13 @@ def test_linux_systemd_unit() -> None:
     definition = renderers.linux_systemd_unit(metadata, service_paths)
 
     assert definition.path == Path('/home/tom/.config/systemd/user/recs.service')
-    assert f'ExecStart={sys.executable} -m recs --silent --include Mic' in (
-        definition.content
+    assert (
+        f'ExecStart={sys.executable} -m reccy.service_runner '
+        '/home/tom/.local/state/recs/recs.log recs --silent --include Mic'
+        in definition.content
     )
     assert 'Environment=RECS_DAEMON=1' in definition.content
-    assert 'Environment=RECCY_LOG_PATH=/home/tom/.local/state/recs/recs.log' in (
-        definition.content
-    )
+    assert 'RECCY_LOG_PATH' not in definition.content
     assert 'Restart=always' in definition.content
     assert 'WantedBy=default.target' in definition.content
 
@@ -124,7 +119,7 @@ def test_linux_systemd_unit_supports_custom_service_identity() -> None:
     service_paths = paths.service_paths(Platform.linux, Path('/home/tom'), service)
     metadata = renderers.service_metadata(
         Platform.linux,
-        ['-m', 'lyte', 'run-daemon'],
+        ['run-daemon'],
         service_paths,
     )
 
@@ -132,11 +127,12 @@ def test_linux_systemd_unit_supports_custom_service_identity() -> None:
 
     assert definition.path == Path('/home/tom/.config/systemd/user/lyte.service')
     assert 'Description=lyte lighting daemon' in definition.content
-    assert f'ExecStart={sys.executable} -m lyte run-daemon' in definition.content
-    assert 'Environment=LYTE_DAEMON=1' in definition.content
-    assert 'Environment=RECCY_LOG_PATH=/home/tom/.local/state/lyte/lyte.log' in (
-        definition.content
+    assert (
+        f'ExecStart={sys.executable} -m reccy.service_runner '
+        '/home/tom/.local/state/lyte/lyte.log recs run-daemon' in definition.content
     )
+    assert 'Environment=LYTE_DAEMON=1' in definition.content
+    assert 'RECCY_LOG_PATH' not in definition.content
 
 
 def test_linux_xdg_autostart() -> None:
@@ -146,7 +142,11 @@ def test_linux_xdg_autostart() -> None:
 
     assert definition.path == Path('/home/tom/.config/autostart/recs.desktop')
     assert 'Type=Application' in definition.content
-    assert f'Exec={sys.executable} -m recs --silent --include Mic' in definition.content
+    assert (
+        f'Exec={sys.executable} -m reccy.service_runner '
+        '/home/tom/.local/state/recs/recs.log recs --silent --include Mic'
+        in definition.content
+    )
     assert 'Terminal=false' in definition.content
 
 
@@ -161,7 +161,6 @@ def test_windows_task_definition() -> None:
         '-m',
         'reccy.service_runner',
         'C:/Users/tom/AppData/Local/recs/logs/recs.log',
-        '-m',
         'recs',
         '--silent',
         '--include',
