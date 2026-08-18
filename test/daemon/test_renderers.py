@@ -40,6 +40,7 @@ def test_macos_launch_agent() -> None:
         'reccy.service_runner',
         '/Users/tom/Library/Logs/recs/recs.log',
         'recs',
+        'recs',
         '--silent',
         '--include',
         'Mic',
@@ -98,7 +99,7 @@ def test_linux_systemd_unit() -> None:
     assert definition.path == Path('/home/tom/.config/systemd/user/recs.service')
     assert (
         f'ExecStart={sys.executable} -m reccy.service_runner '
-        '/home/tom/.local/state/recs/recs.log recs --silent --include Mic'
+        '/home/tom/.local/state/recs/recs.log recs recs --silent --include Mic'
         in definition.content
     )
     assert 'Environment=RECS_DAEMON=1' in definition.content
@@ -129,7 +130,8 @@ def test_linux_systemd_unit_supports_custom_service_identity() -> None:
     assert 'Description=lyte lighting daemon' in definition.content
     assert (
         f'ExecStart={sys.executable} -m reccy.service_runner '
-        '/home/tom/.local/state/lyte/lyte.log recs run-daemon' in definition.content
+        '/home/tom/.local/state/lyte/lyte.log lyte recs run-daemon'
+        in definition.content
     )
     assert 'Environment=LYTE_DAEMON=1' in definition.content
     assert 'RECCY_LOG_PATH' not in definition.content
@@ -144,7 +146,7 @@ def test_linux_xdg_autostart() -> None:
     assert 'Type=Application' in definition.content
     assert (
         f'Exec={sys.executable} -m reccy.service_runner '
-        '/home/tom/.local/state/recs/recs.log recs --silent --include Mic'
+        '/home/tom/.local/state/recs/recs.log recs recs --silent --include Mic'
         in definition.content
     )
     assert 'Terminal=false' in definition.content
@@ -161,6 +163,7 @@ def test_windows_task_definition() -> None:
         '-m',
         'reccy.service_runner',
         'C:/Users/tom/AppData/Local/recs/logs/recs.log',
+        'recs',
         'recs',
         '--silent',
         '--include',
