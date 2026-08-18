@@ -517,6 +517,7 @@ def test_endpoint_reachable_checks_metadata_socket(
 ) -> None:
     connection = FakeConnection()
     metadata = DaemonMetadata(
+        module='recs',
         platform=Platform.linux,
         control_endpoint='/tmp/recs.sock',
     )
@@ -532,6 +533,7 @@ def test_endpoint_reachable_checks_windows_pipe(
 ) -> None:
     connections: list[FakeConnection] = []
     metadata = DaemonMetadata(
+        module='recs',
         platform=Platform.windows,
         control_endpoint=gui_backend.WINDOWS_PIPE,
     )
@@ -552,6 +554,7 @@ def test_run_remote_gui_reports_connection_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     metadata = DaemonMetadata(
+        module='recs',
         platform=Platform.linux,
         control_endpoint='/tmp/recs.sock',
     )

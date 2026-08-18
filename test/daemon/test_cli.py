@@ -45,8 +45,6 @@ def test_daemon_install_stores_recording_args(
     assert cli.main(['install', '--include', 'Mic']) == 0
 
     assert controllers[0].metadata.argv == [
-        '-m',
-        'recs',
         '--silent',
         '--include',
         'Mic',

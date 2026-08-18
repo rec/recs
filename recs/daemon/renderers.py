@@ -22,13 +22,15 @@ def service_metadata(
     daemon_argv: list[str],
     paths: ServicePaths,
 ) -> models.DaemonMetadata:
-    return renderers.service_metadata(platform, daemon_argv, _reccy_paths(paths))
+    return renderers.service_metadata(
+        platform, 'recs', daemon_argv, _reccy_paths(paths)
+    )
 
 
 def daemon_args(recording_args: list[str]) -> list[str]:
     if '--silent' in recording_args or '-s' in recording_args:
-        return ['-m', 'recs', *recording_args]
-    return ['-m', 'recs', '--silent', *recording_args]
+        return recording_args
+    return ['--silent', *recording_args]
 
 
 def metadata_json(value: models.DaemonMetadata) -> str:

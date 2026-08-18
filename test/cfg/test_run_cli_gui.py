@@ -13,6 +13,7 @@ def test_remote_selects_daemon_when_endpoint_is_reachable(
     monkeypatch,
 ) -> None:
     metadata = DaemonMetadata(
+        module='recs',
         platform=Platform.linux,
         control_endpoint='/tmp/recs.sock',
     )
@@ -44,6 +45,7 @@ def test_remote_fails_when_daemon_endpoint_is_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     metadata = DaemonMetadata(
+        module='recs',
         platform=Platform.linux,
         control_endpoint='/tmp/recs.sock',
     )
