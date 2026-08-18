@@ -1,21 +1,20 @@
 from pathlib import Path
 
 import pytest
-from reccy.models import Platform
+from reccy.models import DaemonMetadata, Platform
 
 from recs.base.errors import RecsError
 from recs.cfg import run_cli
 from recs.cfg.cfg import Cfg
-from recs.daemon.models import DaemonMetadata, ServicePaths
+from recs.daemon.models import ServicePaths
 
 
 def test_remote_selects_daemon_when_endpoint_is_reachable(
     monkeypatch,
 ) -> None:
     metadata = DaemonMetadata(
-        executable=Path('/opt/recs/bin/recs'),
         platform=Platform.linux,
-        gui_endpoint='/tmp/recs.sock',
+        control_endpoint='/tmp/recs.sock',
     )
     calls: list[str] = []
 
@@ -45,9 +44,8 @@ def test_remote_fails_when_daemon_endpoint_is_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     metadata = DaemonMetadata(
-        executable=Path('/opt/recs/bin/recs'),
         platform=Platform.linux,
-        gui_endpoint='/tmp/recs.sock',
+        control_endpoint='/tmp/recs.sock',
     )
 
     monkeypatch.setattr(run_cli.gui_ipc, 'load_metadata', lambda: metadata)

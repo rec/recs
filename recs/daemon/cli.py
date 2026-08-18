@@ -1,7 +1,4 @@
 import json
-import shutil
-import sys
-from pathlib import Path
 from typing import cast
 
 from reccy import models, rpc
@@ -44,7 +41,7 @@ def main(argv: list[str]) -> int:
     if command == 'install':
         raise_if_root()
         _validate_install_args(args)
-        metadata = renderers.metadata(_executable(), platform, args)
+        metadata = renderers.metadata(platform, args)
         result = controller.install(metadata)
     elif command == 'uninstall':
         result = controller.uninstall()
@@ -73,18 +70,6 @@ def _validate_install_args(args: list[str]) -> None:
     for arg in args:
         if arg in INTERACTIVE_OPTIONS:
             raise RecsError(f'Cannot install daemon with {arg}')
-
-
-def _executable() -> Path:
-    argv0 = Path(sys.argv[0])
-    if argv0.parent != Path('.'):
-        return argv0.resolve()
-
-    if path := shutil.which(argv0.name):
-        return Path(path).resolve()
-    if path := shutil.which('recs'):
-        return Path(path).resolve()
-    return argv0.resolve()
 
 
 def _status_payload(

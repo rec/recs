@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from recs.base.errors import RecsError
@@ -44,11 +42,15 @@ def test_daemon_install_stores_recording_args(
 
     monkeypatch.setattr(cli.paths, 'current_platform', lambda: 'linux')
     monkeypatch.setattr(cli, 'ServiceController', make_controller)
-    monkeypatch.setattr(cli, '_executable', lambda: Path('/opt/recs/bin/recs'))
-
     assert cli.main(['install', '--include', 'Mic']) == 0
 
-    assert controllers[0].metadata.argv == ['--silent', '--include', 'Mic']
+    assert controllers[0].metadata.argv == [
+        '-m',
+        'recs',
+        '--silent',
+        '--include',
+        'Mic',
+    ]
     assert '"installed":true' in capsys.readouterr().out
 
 

@@ -1,17 +1,8 @@
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from reccy import models
 
 from recs.base.errors import ErrorRecord
-
-
-class DaemonMetadata(BaseModel):
-    version: int = 1
-    argv: list[str] = Field(default_factory=list)
-    executable: Path
-    platform: models.Platform
-    gui_endpoint: str
 
 
 class DaemonStatus(BaseModel):
