@@ -95,8 +95,7 @@ def test_daemon_startup_failure_writes_status(
         metadata=tmp_path / 'metadata.json',
         service=tmp_path / 'service',
         status=tmp_path / 'status.json',
-        stdout_log=tmp_path / 'stdout.log',
-        stderr_log=tmp_path / 'stderr.log',
+        log=tmp_path / 'recs.log',
         gui_endpoint=tmp_path / 'gui.sock',
     )
     monkeypatch.setattr(run_cli.gui_ipc, 'daemon_mode_enabled', lambda: True)

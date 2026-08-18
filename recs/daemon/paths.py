@@ -20,8 +20,7 @@ def service_paths(
         metadata=value.metadata,
         service=value.service,
         status=value.status,
-        stdout_log=value.stdout_log,
-        stderr_log=value.stderr_log,
+        log=value.log,
         gui_endpoint=value.control_endpoint,
     )
 

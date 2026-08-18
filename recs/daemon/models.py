@@ -28,8 +28,7 @@ class ServicePaths(BaseModel):
     metadata: Path
     service: Path
     status: Path
-    stdout_log: Path
-    stderr_log: Path
+    log: Path
     gui_endpoint: Path | str
 
 

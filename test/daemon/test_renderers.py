@@ -41,7 +41,10 @@ def test_macos_launch_agent() -> None:
         '--include',
         'Mic',
     ]
-    assert plist['EnvironmentVariables'] == {'RECS_DAEMON': '1'}
+    assert plist['EnvironmentVariables'] == {
+        'RECCY_LOG_PATH': '/Users/tom/Library/Logs/recs/recs.log',
+        'RECS_DAEMON': '1',
+    }
     assert plist['RunAtLoad'] is True
     assert plist['KeepAlive'] is True
 
@@ -97,6 +100,9 @@ def test_linux_systemd_unit() -> None:
     assert definition.path == Path('/home/tom/.config/systemd/user/recs.service')
     assert 'ExecStart=/opt/recs/bin/recs --silent --include Mic' in definition.content
     assert 'Environment=RECS_DAEMON=1' in definition.content
+    assert 'Environment=RECCY_LOG_PATH=/home/tom/.local/state/recs/recs.log' in (
+        definition.content
+    )
     assert 'Restart=always' in definition.content
     assert 'WantedBy=default.target' in definition.content
 
@@ -124,6 +130,9 @@ def test_linux_systemd_unit_supports_custom_service_identity() -> None:
     assert 'Description=lyte lighting daemon' in definition.content
     assert 'ExecStart=/opt/lyte/bin/lyte run-daemon' in definition.content
     assert 'Environment=LYTE_DAEMON=1' in definition.content
+    assert 'Environment=RECCY_LOG_PATH=/home/tom/.local/state/lyte/lyte.log' in (
+        definition.content
+    )
 
 
 def test_linux_xdg_autostart() -> None:
@@ -148,7 +157,12 @@ def test_windows_task_definition() -> None:
     task = renderers.windows_task(metadata, service_paths)
 
     assert task.task_name == 'recs'
-    assert task.executable == Path('C:/Tools/recs.exe')
-    assert task.arguments == ['--silent', '--include', 'Mic Array']
-    assert task.argument_string == '--silent --include "Mic Array"'
-    assert task.stdout_log.name == 'recs.out.log'
+    assert task.executable == Path('cmd.exe')
+    assert task.arguments == [
+        '/d',
+        '/s',
+        '/c',
+        'set "RECCY_LOG_PATH=C:/Users/tom/AppData/Local/recs/logs/recs.log" '
+        '&& C:/Tools/recs.exe --silent --include "Mic Array"',
+    ]
+    assert task.log.name == 'recs.log'
