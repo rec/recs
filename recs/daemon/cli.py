@@ -2,6 +2,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import cast
 
 from reccy import models, rpc
 
@@ -55,7 +56,11 @@ def main(argv: list[str]) -> int:
         result = controller.restart()
     elif command == 'status':
         result = controller.status()
-        print(json.dumps(_status_payload(result, platform), separators=(',', ':')))
+        status = _status_payload(result, platform)
+        if '--json' in argv:
+            print(json.dumps(status, separators=(',', ':')))
+        else:
+            _print_status(status)
         return 0
     else:
         result = controller.status()
@@ -96,6 +101,61 @@ def _status_payload(
     except (BrokenPipeError, ConnectionError, OSError, TimeoutError) as e:
         status['recorder_error'] = str(e)
     return status
+
+
+def _print_status(status: dict[str, object]) -> None:
+    print(f"daemon: {_state(status.get('running'))}")
+    print(f"installed: {_state(status.get('installed'))}")
+    if details := status.get('details'):
+        print(f'details: {details}')
+    if error := status.get('recorder_error'):
+        print(f'recorder: unavailable ({error})')
+        return
+    if not (value := status.get('recorder')) or not isinstance(value, dict):
+        return
+    recorder = cast(dict[str, object], value)
+    recording = recorder.get('recording')
+    if isinstance(recording, dict):
+        recording = cast(dict[str, object], recording)
+        print(f"recording: {'paused' if recording.get('paused') else 'active'}")
+    if path := recorder.get('session_directory'):
+        print(f'session directory: {path}')
+    if path := recorder.get('manifest_path'):
+        print(f'manifest: {path}')
+    if (disk := recorder.get('disk')) and isinstance(disk, dict):
+        _print_disk_status(cast(dict[str, object], disk))
+    if rows := recorder.get('rows'):
+        if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+            total = cast(dict[str, object], rows[0])
+            print(f"files: {total.get('file_count', 0)}")
+            print(f"bytes: {total.get('file_size', 0)}")
+    devices = recorder.get('devices')
+    if isinstance(devices, list):
+        online = sum(
+            1
+            for device in devices
+            if isinstance(device, dict)
+            and cast(dict[str, object], device).get('online')
+        )
+        print(f'devices: {online}/{len(devices)} online')
+    errors = recorder.get('errors')
+    if isinstance(errors, list):
+        print(f'warnings: {len(errors)}')
+
+
+def _print_disk_status(disk: dict[str, object]) -> None:
+    print(f"disk: {disk.get('path', '')}")
+    print(f"disk free bytes: {disk.get('free_bytes', 0)}")
+    if remaining := disk.get('estimated_seconds_remaining'):
+        print(f'disk seconds remaining: {remaining}')
+
+
+def _state(value: object) -> str:
+    if value is True:
+        return 'yes'
+    if value is False:
+        return 'no'
+    return 'unknown'
 
 
 HELP = """Usage: recs daemon COMMAND [recs options...]

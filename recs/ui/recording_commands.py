@@ -78,14 +78,17 @@ def reload_profiles(control: 'RecordingControl') -> gui_protocol.ProfilesReloade
 
 
 def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
+    manifest_path = control.manifest_path()
     return gui_protocol.StatusSnapshot(
         type='status_snapshot_result',
         disk=disk_status(control).model_dump(exclude={'type'}),
         devices=device_status(control),
         errors=control.error_records(),
+        manifest_path=str(manifest_path),
         midi=control.midi_status(),
         recording=recording_state(control).model_dump(exclude={'type'}),
         rows=control.rows(),
+        session_directory=str(manifest_path.parent),
     )
 
 
