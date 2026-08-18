@@ -15,7 +15,6 @@ LOGGER = logging.get_logger(__name__)
 def run() -> int:
     mp.freeze_support()
     logging.configure()
-    LOGGER.info('recs starting up')
     try:
         if len(sys.argv) > 1 and sys.argv[1] == 'daemon':
             from recs.daemon.cli import main
