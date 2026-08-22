@@ -29,18 +29,11 @@ class OscRecorder(Runnable):
         session_directory: Path,
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
-        *,
-        monotonic: Callable[[], float] = time.monotonic,
-        timestamp: Callable[[], float] = times.timestamp,
-        socket_factory: Callable[..., socket.socket] = socket.socket,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
         self.warning = warning
         self.write_record = write_record
-        self.monotonic = monotonic
-        self.timestamp = timestamp
-        self.socket_factory = socket_factory
         self.nodes: dict[str, OscNodeRecorder] = {}
         super().__init__()
 
@@ -60,9 +53,6 @@ class OscRecorder(Runnable):
                 self.session_directory,
                 self.warning,
                 self.write_record,
-                monotonic=self.monotonic,
-                timestamp=self.timestamp,
-                socket_factory=self.socket_factory,
             )
             self.nodes[node.name] = recorder
             recorder.start()
@@ -97,18 +87,11 @@ class OscNodeRecorder:
         session_directory: Path,
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
-        *,
-        monotonic: Callable[[], float],
-        timestamp: Callable[[], float],
-        socket_factory: Callable[..., socket.socket],
     ) -> None:
         self.node = node
         self.directory = session_directory / 'osc'
         self.warning = warning
         self.write_record = write_record
-        self.monotonic = monotonic
-        self.timestamp = timestamp
-        self.socket_factory = socket_factory
         self.socket: socket.socket | None = None
         self.output: BinaryIO | None = None
         self.path: Path | None = None
@@ -124,13 +107,13 @@ class OscNodeRecorder:
     def start(self) -> None:
         try:
             self.open_output(self.directory.parent)
-            self.socket = self.socket_factory(socket.AF_INET, socket.SOCK_DGRAM)
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.socket.bind(('', self.node.bind_port))
             self.socket.setblocking(False)
         except OSError as error:
             self._fail('start', str(error))
             return
-        now = self.monotonic()
+        now = time.monotonic()
         for command in self.node.commands:
             if command.on_start:
                 self._send(command, 'command')
@@ -139,7 +122,7 @@ class OscNodeRecorder:
         self.write_record(
             ManifestEvent(
                 type='osc_node_started',
-                timestamp=timestamp_to_json(self.timestamp()),
+                timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,
                 path=str(self.path),
                 address=self._address(),
@@ -155,7 +138,7 @@ class OscNodeRecorder:
     def poll(self) -> None:
         if self.socket is None:
             return
-        now = self.monotonic()
+        now = time.monotonic()
         for index, poll in enumerate(self.node.polls):
             if now >= self.next_polls[index]:
                 self._send(poll, 'poll')
@@ -173,13 +156,13 @@ class OscNodeRecorder:
                 self._fail('receive', str(error))
                 return
             self.inbound_count += 1
-            self.last_packet_time = self.timestamp()
+            self.last_packet_time = times.timestamp()
             decoded = codec.decode_packet(data)
             self.decode_error_count += sum('error' in message for message in decoded)
             self._write_json(
                 {
                     'time': self.last_packet_time,
-                    'monotonic': self.monotonic(),
+                    'monotonic': time.monotonic(),
                     'direction': 'in',
                     'kind': 'osc',
                     'data_b64': base64.b64encode(data).decode('ascii'),
@@ -211,7 +194,7 @@ class OscNodeRecorder:
             ManifestFile(
                 type='file_started',
                 kind='osc',
-                timestamp=timestamp_to_json(self.timestamp()),
+                timestamp=timestamp_to_json(times.timestamp()),
                 path=str(self.path),
                 source=self.node.name,
                 osc_node=self.node.name,
@@ -227,7 +210,7 @@ class OscNodeRecorder:
             ManifestFile(
                 type='file_finished',
                 kind='osc',
-                timestamp=timestamp_to_json(self.timestamp()),
+                timestamp=timestamp_to_json(times.timestamp()),
                 path=str(self.path),
                 source=self.node.name,
                 osc_node=self.node.name,
@@ -249,8 +232,8 @@ class OscNodeRecorder:
             self._fail('send', str(error))
             self._write_json(
                 {
-                    'time': self.timestamp(),
-                    'monotonic': self.monotonic(),
+                    'time': times.timestamp(),
+                    'monotonic': time.monotonic(),
                     'direction': 'out',
                     'kind': 'error',
                     'target': [target[0], target[1]],
@@ -263,8 +246,8 @@ class OscNodeRecorder:
         if message.record_success:
             self._write_json(
                 {
-                    'time': self.timestamp(),
-                    'monotonic': self.monotonic(),
+                    'time': times.timestamp(),
+                    'monotonic': time.monotonic(),
                     'direction': 'out',
                     'kind': 'osc',
                     'data_b64': base64.b64encode(data).decode('ascii'),
@@ -295,7 +278,7 @@ class OscNodeRecorder:
         self.write_record(
             ManifestEvent(
                 type='osc_node_failed',
-                timestamp=timestamp_to_json(self.timestamp()),
+                timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,
                 value=message,
                 reason=operation,

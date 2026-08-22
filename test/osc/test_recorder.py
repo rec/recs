@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from recs.cfg.cfg import Cfg
-from recs.osc import codec
+from recs.osc import codec, recorder
 from recs.osc.recorder import OscRecorder
 from recs.ui.session_manifest import ManifestRecord
 
@@ -35,7 +35,7 @@ class FakeSocket:
 
 
 def test_subscription_records_inbound_packets_not_successful_renewals(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
     config = tmp_path / 'osc.toml'
     config.write_text(
@@ -49,34 +49,31 @@ path = "/xremote"
 resubscribe_period = 10
 """
     )
-    socket = FakeSocket()
+    fake_socket = FakeSocket()
     records: list[ManifestRecord] = []
     warnings: list[str] = []
-    clock = [0.0]
-    recorder = OscRecorder(
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
         Cfg(output_directory=str(tmp_path), osc_nodes=config),
         tmp_path / 'session',
         warnings.append,
         records.append,
-        monotonic=lambda: clock[0],
-        timestamp=lambda: 1000 + clock[0],
-        socket_factory=lambda *args: socket,
     )
 
-    recorder.start()
-    recorder.poll()
+    osc_recorder.start()
+    osc_recorder.poll()
     path = tmp_path / 'session/osc/x18.jsonl'
 
-    assert socket.sent == [
+    assert fake_socket.sent == [
         (codec.encode_message('/xremote', []), ('10.43.0.18', 10024))
     ]
     assert path.read_text() == ''
 
-    socket.received.append(
+    fake_socket.received.append(
         (codec.encode_message('/ch/01/mix/on', [True]), ('10.43.0.18', 10024))
     )
-    recorder.poll()
-    recorder.stop()
+    osc_recorder.poll()
+    osc_recorder.stop()
 
     line = json.loads(path.read_text())
     assert line['direction'] == 'in'
