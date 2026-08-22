@@ -23,6 +23,31 @@ Important collaborators:
   resuming recording when possible.
 - `Calibration`: selects tracks for calibration, waits for source results, and
   applies measured noise floors.
+- `OscRecorder`: optional per-session UDP OSC recording. It loads the TOML
+  passed with `--osc-nodes`, records each node under `osc/`, and polls
+  configured requests and feedback subscriptions without affecting audio.
+
+## OSC recording
+
+OSC nodes are configured in TOML because OSC itself does not define device
+discovery, ports, queries, or feedback. A node may have startup commands,
+periodic polls, periodic subscriptions, or no outbound messages for continuous
+telemetry. `resubscribe_period = 10` renews an X18 `/xremote` feedback lease.
+
+```toml
+[[nodes]]
+name = "x18"
+host = "10.43.0.18"
+port = 10024
+
+[[nodes.subscriptions]]
+path = "/xremote"
+resubscribe_period = 10
+```
+
+Successful subscriptions are not written to JSONL by default. This avoids
+filling an X18 log with keepalive traffic; failed sends and all received packets
+remain recorded. OSCQuery is intentionally not implemented.
 
 ## Main loop order
 

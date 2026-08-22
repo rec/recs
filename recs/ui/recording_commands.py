@@ -86,6 +86,7 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
         errors=control.error_records(),
         manifest_path=str(manifest_path),
         midi=control.midi_status(),
+        osc=control.osc_status(),
         recording=recording_state(control).model_dump(exclude={'type'}),
         rows=control.rows(),
         session_directory=str(manifest_path.parent),

@@ -52,6 +52,7 @@ class ManifestEvent(BaseModel):
     cfg_revision: int | None = None
     timing_source: str | None = None
     midi_port: str | None = None
+    osc_node: str | None = None
 
 
 class ManifestFile(BaseModel):
@@ -70,6 +71,10 @@ class ManifestFile(BaseModel):
     message_count: int | None = None
     timing_source: str | None = None
     midi_port: str | None = None
+    osc_node: str | None = None
+    inbound_count: int | None = None
+    outbound_count: int | None = None
+    decode_error_count: int | None = None
 
 
 class ManifestWarning(BaseModel):

@@ -200,6 +200,7 @@ class StatusSnapshot(BaseModel):
     errors: list[ErrorRecord]
     manifest_path: str
     midi: list[dict[str, object]] = Field(default_factory=list)
+    osc: list[dict[str, object]] = Field(default_factory=list)
     recording: dict[str, bool]
     rows: list[dict[str, object]]
     session_directory: str

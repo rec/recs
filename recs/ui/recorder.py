@@ -20,6 +20,7 @@ from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc
 from recs.midi.recorder import MidiRecorder
+from recs.osc.recorder import OscRecorder
 
 from . import (
     calibration,
@@ -105,6 +106,12 @@ class Recorder(Runnables):
             self._record_warning,
             lambda record: self._write_manifest_record(record),
         )
+        self._osc = OscRecorder(
+            self.cfg,
+            self.session_directory,
+            self._record_warning,
+            lambda record: self._write_manifest_record(record),
+        )
         self.key_recorder = make_key_recorder(cfg)
         self._disk_space_policy = disk_space_policy.DiskSpacePolicy(self.cfg)
         self._devices = device_lifecycle.DeviceLifecycle(
@@ -135,6 +142,7 @@ class Recorder(Runnables):
             lambda: list(self.rows()),
             self.error_records,
             self._midi.status,
+            self._osc.status,
             self._manifest_path,
             self._receive_pending_updates,
             self._finish_manifest,
@@ -168,6 +176,7 @@ class Recorder(Runnables):
 
         runnables = tuple(self._devices.files.values()) + (
             self._midi,
+            self._osc,
             self.key_recorder,
         )
         if self._devices.poller is not None:
@@ -332,6 +341,7 @@ class Recorder(Runnables):
                     self._receive_key_events()
                     self._receive_control_requests()
                     self._midi.poll()
+                    self._osc.poll()
                     self._poll_devices()
                     self._reap_sources()
                     self._stop_stalled_sources()
@@ -478,8 +488,10 @@ class Recorder(Runnables):
             dry_run=self.cfg.general.dry_run,
             silence_preview=self.cfg.general.silence_preview,
         )
+        self._osc.open_session(self.session_directory)
 
     def _finish_manifest(self) -> None:
+        self._osc.close_session()
         self.session.finish(times.timestamp())
 
     def _replace_cfg(self, cfg: Cfg) -> None:
@@ -504,6 +516,7 @@ class Recorder(Runnables):
         self._midi.session_directory = recording_paths.midi_session_directory(
             session_directory
         )
+        self._osc.session_directory = session_directory
 
     def _record_warning(self, warning: str) -> None:
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
