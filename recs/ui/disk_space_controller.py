@@ -113,14 +113,15 @@ class DiskSpaceController:
                 candidate.path != current.path
                 and not current.path.is_relative_to(candidate.path)
                 and candidate.free_bytes >= self.monitor.emergency_threshold(candidate)
+                and self.switch_recording_disk(candidate, 'disk_space_emergency')
             ):
-                self.switch_recording_disk(candidate, 'disk_space_emergency')
                 return
         system = disk_space.disk(Path.home(), False)
-        if system is not None and system.free_bytes >= self.monitor.emergency_threshold(
-            system
+        if (
+            system is not None
+            and system.free_bytes >= self.monitor.emergency_threshold(system)
+            and self.switch_recording_disk(system, 'disk_space_emergency')
         ):
-            self.switch_recording_disk(system, 'disk_space_emergency')
             return
         if current.free_bytes >= self.monitor.pause_threshold(current):
             return
@@ -201,7 +202,7 @@ class DiskSpaceController:
                 reason=reason,
             )
         )
-        self.warning(f'Switched recording disk to {disk.path}: {reason}')
+        self.warning(f'Switched recording from {previous} to {output}: {reason}')
         self.recording.recording_paused = False
         self.monitor.paused = False
         return True

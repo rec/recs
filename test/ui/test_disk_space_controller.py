@@ -5,7 +5,13 @@ import pytest
 
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
-from recs.ui import disk_space_controller, recorder, recording_paths, session_manifest
+from recs.ui import (
+    disk_space,
+    disk_space_controller,
+    recorder,
+    recording_paths,
+    session_manifest,
+)
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
 
@@ -29,7 +35,9 @@ def test_minimum_free_space_is_an_emergency_reserve(
 
 
 def test_disk_alert_switches_to_larger_removable_disk(
-    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
 ) -> None:
     removable = tmp_path / 'removable'
     removable.mkdir()
@@ -74,6 +82,10 @@ def test_disk_alert_switches_to_larger_removable_disk(
         event.type == 'disk_switch_continued_at'
         and event.continued_at == str(rec.session.manifest.path)
         for event in session_manifest.read(old_manifest).events
+    )
+    assert rec.error_messages()[-1] == (
+        f'Switched recording from {tmp_path} to {removable / "recs"}: '
+        'new_removable_disk_has_more_space'
     )
 
 
@@ -164,6 +176,50 @@ def test_disk_emergency_pauses_recording(
 
     rec._disk_space_controller.monitor_disk_space()
 
+    assert rec._control.recording_paused
+    assert rec._disk_space_policy.paused
+
+
+def test_disk_emergency_pauses_when_removable_switch_fails(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    removable = tmp_path / 'removable'
+    removable.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [removable])
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 1.0)
+    monkeypatch.setattr(
+        disk_space_controller.shutil,
+        'disk_usage',
+        lambda path: DiskUsage(
+            100,
+            10 if Path(path) == removable else 96,
+            90 if Path(path) == removable else 4,
+        ),
+    )
+    rec = Recorder(
+        Cfg(
+            disk_removable_emergency=['5'],
+            disk_system_emergency=['5'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+    attempts: list[Path] = []
+
+    def failed_switch(disk: disk_space.Disk, reason: str) -> bool:
+        attempts.append(disk.path)
+        return False
+
+    monkeypatch.setattr(
+        rec._disk_space_controller, 'switch_recording_disk', failed_switch
+    )
+
+    rec._disk_space_controller.monitor_disk_space()
+
+    assert attempts == [removable]
     assert rec._control.recording_paused
     assert rec._disk_space_policy.paused
 
