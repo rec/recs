@@ -251,6 +251,23 @@ class Midi(BaseModel):
     ] = MidiTiming.mido
 
 
+class Osc(BaseModel):
+    #
+    # OSC recording
+    #
+    osc_nodes: Annotated[
+        Path,
+        tyro.conf.arg(help='TOML file describing OSC nodes to record'),
+    ] = Path()
+
+    @field_validator('osc_nodes')
+    @classmethod
+    def validate_osc_nodes(cls, path: Path) -> Path:
+        if path.name and not path.exists():
+            raise ValueError(f'{path} does not exist')
+        return path
+
+
 class Console(BaseModel):
     #
     # Console and UI settings
@@ -540,6 +557,7 @@ CFG_PARTS = (
     'selection',
     'audio',
     'midi',
+    'osc',
     'console',
     'keys',
     'recording',
@@ -552,6 +570,7 @@ CFG_MODEL_TYPES = {
     'selection': Selection,
     'audio': Audio,
     'midi': Midi,
+    'osc': Osc,
     'console': Console,
     'keys': Key,
     'recording': Recording,
@@ -577,6 +596,7 @@ class Cfg(BaseModel):
     selection: Selection = Field(default_factory=Selection)
     audio: Audio = Field(default_factory=Audio)
     midi: Midi = Field(default_factory=Midi)
+    osc: Osc = Field(default_factory=Osc)
     console: Console = Field(default_factory=Console)
     keys: Key = Field(default_factory=Key)
     recording: Recording = Field(default_factory=Recording)
