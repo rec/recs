@@ -57,6 +57,7 @@ class Node(BaseModel):
     host: str | None = None
     port: int | None = None
     bind_port: int = 0
+    jsonl_compression: bool = True
     commands: list[Command] = Field(default_factory=list)
     polls: list[Poll] = Field(default_factory=list)
     subscriptions: list[Subscription] = Field(default_factory=list)

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import BinaryIO
 
+from reccy.jsonl import Compress
 from threa import Runnable
 
 from recs.base import times
@@ -103,6 +104,7 @@ class OscNodeRecorder:
         self.last_error: str | None = None
         self.next_polls: list[float] = []
         self.next_subscriptions: list[float] = []
+        self.compressor = Compress(key='kind') if node.jsonl_compression else None
 
     def start(self) -> None:
         try:
@@ -260,6 +262,8 @@ class OscNodeRecorder:
     def _write_json(self, record: dict[str, object]) -> None:
         if self.output is None:
             return
+        if self.compressor is not None:
+            record = next(self.compressor([record]))
         data = json.dumps(record, separators=(',', ':')).encode() + b'\n'
         try:
             if self.bytes_written and self.bytes_written + len(data) > MAX_FILE_BYTES:

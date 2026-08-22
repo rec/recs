@@ -45,6 +45,10 @@ path = "/xremote"
 resubscribe_period = 10
 ```
 
+JSONL compression is enabled by default per node. It omits fields unchanged
+from the preceding record with the same `kind`; set `jsonl_compression = false`
+for a node that needs complete records on every line.
+
 Successful subscriptions are not written to JSONL by default. This avoids
 filling an X18 log with keepalive traffic; failed sends and all received packets
 remain recorded. OSCQuery is intentionally not implemented.

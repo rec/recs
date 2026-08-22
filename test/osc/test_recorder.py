@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from recs.cfg.cfg import Cfg
-from recs.osc import codec
+from recs.osc import codec, recorder
 from recs.osc.recorder import OscRecorder
 from recs.ui.session_manifest import ManifestRecord
 
@@ -35,7 +35,7 @@ class FakeSocket:
 
 
 def test_subscription_records_inbound_packets_not_successful_renewals(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
     config = tmp_path / 'osc.toml'
     config.write_text(
@@ -49,41 +49,78 @@ path = "/xremote"
 resubscribe_period = 10
 """
     )
-    socket = FakeSocket()
+    fake_socket = FakeSocket()
     records: list[ManifestRecord] = []
     warnings: list[str] = []
-    clock = [0.0]
-    recorder = OscRecorder(
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
         Cfg(output_directory=str(tmp_path), osc_nodes=config),
         tmp_path / 'session',
         warnings.append,
         records.append,
-        monotonic=lambda: clock[0],
-        timestamp=lambda: 1000 + clock[0],
-        socket_factory=lambda *args: socket,
     )
 
-    recorder.start()
-    recorder.poll()
+    osc_recorder.start()
+    osc_recorder.poll()
     path = tmp_path / 'session/osc/x18.jsonl'
 
-    assert socket.sent == [
+    assert fake_socket.sent == [
         (codec.encode_message('/xremote', []), ('10.43.0.18', 10024))
     ]
     assert path.read_text() == ''
 
-    socket.received.append(
+    fake_socket.received.append(
         (codec.encode_message('/ch/01/mix/on', [True]), ('10.43.0.18', 10024))
     )
-    recorder.poll()
-    recorder.stop()
+    fake_socket.received.append(
+        (codec.encode_message('/ch/01/mix/on', [True]), ('10.43.0.18', 10024))
+    )
+    osc_recorder.poll()
+    osc_recorder.stop()
 
-    line = json.loads(path.read_text())
-    assert line['direction'] == 'in'
-    assert line['decoded'] == [{'path': '/ch/01/mix/on', 'types': 'T', 'args': [True]}]
+    first, second = (json.loads(line) for line in path.read_text().splitlines())
+    assert first['direction'] == 'in'
+    assert first['decoded'] == [{'path': '/ch/01/mix/on', 'types': 'T', 'args': [True]}]
+    assert second['kind'] == 'osc'
+    assert 'source' not in second
     assert warnings == []
     assert [record.type for record in records] == [
         'file_started',
         'osc_node_started',
         'file_finished',
     ]
+
+
+def test_jsonl_compression_can_be_disabled(tmp_path: Path, monkeypatch) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        """[[nodes]]
+name = "telemetry"
+bind_port = 7000
+jsonl_compression = false
+"""
+    )
+    fake_socket = FakeSocket()
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'session',
+        lambda warning: None,
+        lambda record: None,
+    )
+
+    osc_recorder.start()
+    fake_socket.received.extend(
+        [
+            (codec.encode_message('/level', [0.5]), ('10.43.0.31', 7000)),
+            (codec.encode_message('/level', [0.5]), ('10.43.0.31', 7000)),
+        ]
+    )
+    osc_recorder.poll()
+    osc_recorder.stop()
+
+    lines = [
+        json.loads(line)
+        for line in (tmp_path / 'session/osc/telemetry.jsonl').read_text().splitlines()
+    ]
+    assert all('source' in line for line in lines)
