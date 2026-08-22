@@ -25,7 +25,7 @@ def test_minimum_free_space_is_an_emergency_reserve(
     rec._disk_space_controller.monitor_disk_space()
 
     assert rec._disk_space_policy.paused
-    assert caplog.messages == ['Disk space emergency on .: 4 bytes free']
+    assert caplog.messages == ['Disk space emergency on .: 0.0 M free']
 
 
 def test_disk_alert_switches_to_larger_removable_disk(

@@ -19,3 +19,11 @@ def test_parse_disk_threshold(
 
 def test_time_threshold_uses_recent_write_rate() -> None:
     assert disk_space.threshold_bytes(['100MB', '10m'], 200_000) == 120_000_000
+
+
+@pytest.mark.parametrize(
+    ('value', 'formatted'),
+    [(200_000_000, '200.0 M'), (5_300_000_000, '5.3 G')],
+)
+def test_free_space_uses_metric_units(value: int, formatted: str) -> None:
+    assert disk_space.free_space(value) == formatted

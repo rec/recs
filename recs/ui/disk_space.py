@@ -72,6 +72,12 @@ def threshold_bytes(values: Iterable[str], write_rate: float) -> int:
     )
 
 
+def free_space(value: int) -> str:
+    if value >= 1_000_000_000:
+        return f'{value / 1_000_000_000:.1f} G'
+    return f'{value / 1_000_000:.1f} M'
+
+
 def disk(path: Path, removable: bool) -> Disk | None:
     try:
         usage = shutil.disk_usage(path)

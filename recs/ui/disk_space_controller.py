@@ -67,7 +67,8 @@ class DiskSpaceController:
         for threshold in self.monitor.new_alerts(current):
             self.record_disk_event('disk_space_alert', current, threshold, rate)
             self.warning(
-                f'Disk space alert on {current.path}: {current.free_bytes} bytes free'
+                f'Disk space alert on {current.path}: '
+                f'{disk_space.free_space(current.free_bytes)} free'
             )
 
         emergency = self.monitor.emergency_threshold(current)
@@ -76,7 +77,7 @@ class DiskSpaceController:
                 self.record_disk_event('disk_space_emergency', current, None, rate)
                 self.warning(
                     f'Disk space emergency on {current.path}: '
-                    f'{current.free_bytes} bytes free'
+                    f'{disk_space.free_space(current.free_bytes)} free'
                 )
             self.handle_disk_emergency(current)
             return
