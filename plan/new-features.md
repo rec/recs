@@ -22,140 +22,6 @@ smaller feature could land first.
 5. Explore larger "universal recorder" directions only after the audio recorder
    is operationally solid.
 
-## High-value near-term features
-
-### Recording health summary command
-
-Add a command that reports the current daemon state in a compact human and JSON
-form:
-
-```sh
-recs daemon status
-recs daemon status --json
-```
-
-Useful fields:
-
-- daemon process state;
-- recording state, including paused or stopped;
-- device online/offline status;
-- active output directory and manifest path;
-- disk free space and estimated time remaining;
-- files written during the current session;
-- last update timestamp per source;
-- buffer pressure and dropped frames;
-- recent warnings and protocol errors.
-
-Why it matters: a background recorder needs a quick trust check. Users should
-not have to inspect logs, manifests, and GUI sockets separately to know whether
-recording is healthy.
-
-Implementation notes: prefer using the existing external RPC
-`status_snapshot` command rather than adding another daemon state path.
-
-### Session browser and manifest index
-
-Add a CLI command that lists recent recording sessions from manifests:
-
-```sh
-recs sessions
-recs sessions --json
-recs session show PATH
-```
-
-Useful fields:
-
-- start and end time;
-- duration;
-- output directories;
-- devices and tracks recorded;
-- file count and total bytes;
-- warnings and disk events;
-- markers;
-- continued-from and continued-at disk-switch links.
-
-Why it matters: once `recs` runs continuously, finding the right session becomes
-as important as capturing it.
-
-Implementation notes: start with a read-only manifest scanner. Avoid a database
-until JSONL manifest scanning is proven too slow.
-
-### "Why did it not record?" command
-
-Add a diagnostic command for a session or current daemon state:
-
-```sh
-recs explain
-recs explain PATH/to/recs-session.jsonl
-```
-
-The command should explain likely causes for no files or unexpectedly few files:
-
-- no matching devices;
-- selected device offline;
-- selected channels missing;
-- signal stayed below noise floor;
-- files were shorter than `shortest_file_time`;
-- dry-run, calibration, or silence-preview mode was active;
-- disk switch or disk emergency paused recording;
-- output directory was not writable;
-- source process failed or lagged.
-
-Why it matters: this is the shortest path from a bad recording outcome to a
-correct next run.
-
-Implementation notes: make explanations evidence-based. Each reason should point
-to a manifest event, status field, config value, or missing expected event.
-
-### Input self-test
-
-Add a command that records a short diagnostic file and prints measured input
-health:
-
-```sh
-recs test-input --include "X18" --seconds 5
-```
-
-Useful output:
-
-- detected devices and selected channels;
-- sample rate and channel count;
-- peak and RMS-like level per channel;
-- inferred silence/noise floor range;
-- buffer drops or PortAudio overflow status;
-- path to the diagnostic WAV file.
-
-Why it matters: users need a safe pre-show check that proves device permissions,
-channel routing, levels, and disk writes before committing to a long unattended
-run.
-
-Implementation notes: this is a runtime flow, so it should be explicit and short.
-Do not overload normal recording mode with hidden test behavior.
-
-### Manifest validation
-
-Add a command that checks manifests and associated files:
-
-```sh
-recs manifest check PATH/to/recs-session.jsonl
-```
-
-Checks:
-
-- JSONL records parse;
-- required header fields are present;
-- referenced files exist;
-- file start and end frames are monotonic;
-- disk-switch links are consistent;
-- recorded duration is plausible for file sizes;
-- unknown event types are reported without failing old manifests.
-
-Why it matters: manifests are the recovery and audit trail. A validator makes
-format changes safer and helps diagnose interrupted sessions.
-
-Implementation notes: this should be read-only and should not attempt repair in
-the first version.
-
 ## Daemon and control features
 
 ### Local web control panel
@@ -372,21 +238,6 @@ a report beside the manifest if persistence is needed.
 
 ## Longer-term universal recorder features
 
-### MIDI event recording
-
-Record MIDI streams into the same session model as audio:
-
-- device online/offline events;
-- timestamped MIDI messages;
-- markers aligned with audio;
-- playback/export later.
-
-Why it matters: the README's universal recorder direction explicitly includes
-timed non-audio data, and MIDI is a practical next stream type.
-
-Implementation notes: keep MIDI in a separate source pipeline. Do not complicate
-the audio hot path.
-
 ### DMX and lighting event recording
 
 Record DMX, Art-Net, sACN, or related lighting-control streams as timed data.
@@ -439,16 +290,10 @@ post-processing concerns and should not add risk to capture.
 
 ## Suggested first implementation order
 
-1. `recs daemon status --json`
-2. `recs manifest check`
-3. `recs sessions` and `recs session show`
-4. `recs explain`
-5. `recs test-input`
-6. `recs control ...` RPC client commands
-7. local web control panel
-8. session export
-9. guided calibration workflow
-10. MIDI event recording
+1. `recs control ...` RPC client commands
+2. local web control panel
+3. session export
+4. guided calibration workflow
 
 ## Additional work beyond the prompt
 
