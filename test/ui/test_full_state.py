@@ -61,3 +61,4 @@ def test_rows_use_aliases() -> None:
 
     assert rows[1]['device'] == 'm'
     assert rows[2]['channel'] == 'main'
+    assert rows[2]['channels'] == [1]

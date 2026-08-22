@@ -102,6 +102,7 @@ class FullState:
                 volume = len(s.volume) and sum(s.volume) / len(s.volume)
                 yield {
                     'channel': self.track_names[(source_key, c)],
+                    'channels': _track_channels(c),
                     'on': Active.active if s.is_active else Active.inactive,
                     'recorded': s.recorded_time,
                     'file_size': s.file_size,
