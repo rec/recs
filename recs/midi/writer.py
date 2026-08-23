@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -24,6 +25,7 @@ class MidiWriter:
         session_directory: Path,
         port_name: str,
         timing_source: MidiTiming,
+        started_at: float,
     ) -> None:
         import mido
 
@@ -33,7 +35,7 @@ class MidiWriter:
         self.message_count = 0
         self.last_timestamp: float | None = None
         self.last_tick = 0
-        self.path = _next_path(session_directory, port_name)
+        self.path = _next_path(session_directory, port_name, started_at)
         self.file = mido.MidiFile(type=0, ticks_per_beat=TICKS_PER_BEAT)
         self.track = mido.MidiTrack()
         self.file.tracks.append(self.track)
@@ -72,11 +74,12 @@ class MidiWriter:
         return max(delta, 0.0)
 
 
-def _next_path(session_directory: Path, port_name: str) -> Path:
+def _next_path(session_directory: Path, port_name: str, started_at: float) -> Path:
     stem = legal_filename.legal_filename(port_name)
-    path = session_directory / f'{stem}.mid'
+    stamp = datetime.fromtimestamp(started_at).strftime('%Y%m%d-%H%M%S')
+    path = session_directory / f'{stem}-{stamp}.mid'
     index = 2
     while path.exists():
-        path = session_directory / f'{stem}-{index}.mid'
+        path = session_directory / f'{stem}-{stamp}-{index}.mid'
         index += 1
     return path

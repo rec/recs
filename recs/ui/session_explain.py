@@ -193,6 +193,13 @@ def _event_explanations(
                     else event.timestamp,
                 )
             )
+        elif event.type == 'midi_source_stopped':
+            explanations.append(
+                Explanation(
+                    reason='MIDI input disconnected',
+                    evidence=event.midi_port or event.timestamp,
+                )
+            )
     return explanations
 
 
