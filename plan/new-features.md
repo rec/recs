@@ -220,22 +220,6 @@ review-oriented files afterward.
 Implementation notes: this can be CPU and disk intensive. It should be an
 explicit post-processing command, not part of live recording.
 
-### Recovery report after abnormal exit
-
-On the next start, detect an unfinished previous manifest and offer a report:
-
-- last known source updates;
-- files that were open;
-- files that exist but have no final manifest event;
-- disk status at last event;
-- likely completeness of each track.
-
-Why it matters: a power loss or crash should leave the user with a clear damage
-assessment.
-
-Implementation notes: do not mutate old manifests in the first version. Produce
-a report beside the manifest if persistence is needed.
-
 ## Longer-term universal recorder features
 
 ### DMX and lighting event recording

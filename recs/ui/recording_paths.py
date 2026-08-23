@@ -128,6 +128,17 @@ def manifest_directory(output_directory: str, timestamp: float) -> Path:
         return legal_filename.legal_path(Path(prefix or '.'))
 
 
+def recovery_root(output_directory: str) -> Path:
+    positions = [
+        position
+        for marker in ('%', '{')
+        if (position := output_directory.find(marker)) >= 0
+    ]
+    end = min(positions, default=len(output_directory))
+    root = output_directory[:end].rstrip('/\\')
+    return legal_filename.legal_path(Path(root or '.'))
+
+
 def existing_parent(path: Path) -> Path:
     for candidate in (path, *path.parents):
         if candidate.exists():

@@ -763,6 +763,23 @@ def test_recorder_records_buffer_overflow_event(
     }
 
 
+def test_recorder_checks_for_unfinished_sessions_before_starting_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    roots: list[Path] = []
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(
+        recorder.recovery_report, 'report_unfinished_sessions', roots.append
+    )
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+
+    rec._start_manifest()
+
+    assert roots == [tmp_path]
+
+
 def test_recorder_records_buffer_pressure_before_drops(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

@@ -33,6 +33,7 @@ from . import (
     recording_control_protocol,
     recording_paths,
     recording_session,
+    recovery_report,
     session_manifest,
 )
 from .device_poller import DevicePoller
@@ -484,6 +485,10 @@ class Recorder(Runnables):
         )
 
     def _start_manifest(self) -> None:
+        if not self.cfg.general.dry_run and not self.cfg.general.silence_preview:
+            recovery_report.report_unfinished_sessions(
+                recording_paths.recovery_root(self.cfg.directory.output_directory)
+            )
         self.session.start(
             self._manifest_path(),
             dry_run=self.cfg.general.dry_run,

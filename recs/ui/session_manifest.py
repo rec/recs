@@ -165,7 +165,7 @@ class SessionManifestWriter:
 
 
 def read(path: Path) -> SessionManifest:
-    records, errors = _read_records(path)
+    records, errors = read_records(path)
     header = next((r for r in records if isinstance(r, ManifestHeader)), None)
     footer = next((r for r in reversed(records) if isinstance(r, ManifestFooter)), None)
     return SessionManifest(
@@ -179,6 +179,10 @@ def read(path: Path) -> SessionManifest:
         warnings=[r.message for r in records if isinstance(r, ManifestWarning)],
         errors=errors,
     )
+
+
+def read_records(path: Path) -> tuple[list[ManifestRecord], list[str]]:
+    return _read_records(path)
 
 
 def timestamp_to_json(timestamp: float) -> str:
