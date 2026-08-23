@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from . import session_manifest
 
-MANIFEST_GLOB = '*-session.jsonl'
+MANIFEST_GLOB = '*-manifest.jsonl'
 
 
 class SessionSummary(BaseModel):

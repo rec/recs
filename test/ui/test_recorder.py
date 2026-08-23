@@ -49,7 +49,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def manifest_path(rec: Recorder) -> Path:
-    return rec.session_directory / 'audio/audio-session.jsonl'
+    return rec.session_directory / 'audio/audio-manifest.jsonl'
 
 
 class FakeConnection:
@@ -991,9 +991,9 @@ def test_recorder_writes_one_local_manifest_per_medium(
     rec._finish_manifest()
 
     for medium, name in (
-        ('audio', 'audio-session.jsonl'),
-        ('midi', 'midi-session.jsonl'),
-        ('osc', 'osc-session.jsonl'),
+        ('audio', 'audio-manifest.jsonl'),
+        ('midi', 'midi-manifest.jsonl'),
+        ('osc', 'osc-manifest.jsonl'),
     ):
         manifest = rec.session_directory / medium / name
         records = read_jsonl(manifest)
@@ -1639,7 +1639,7 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     rec._start_manifest()
 
     assert Path(
-        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-session.jsonl'
+        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-manifest.jsonl'
     ).exists()
 
 
@@ -1682,7 +1682,7 @@ def test_default_output_directory_uses_session_timestamp(
 
     assert rec.cfg.directory.output_directory == ''
     assert rec.session_directory == Path(expected)
-    assert (path.parent / 'audio-session.jsonl').exists()
+    assert (path.parent / 'audio-manifest.jsonl').exists()
 
 
 def test_default_output_directory_uses_collision_suffix(

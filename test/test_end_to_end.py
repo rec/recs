@@ -89,7 +89,7 @@ def test_file_inputs(
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
     session_directory = outputs[0].parent.parent
-    manifest = session_manifest.read(session_directory / 'audio/audio-session.jsonl')
+    manifest = session_manifest.read(session_directory / 'audio/audio-manifest.jsonl')
     data_regression.check(
         _stable_manifest(manifest),
         basename='file_inputs_manifest',

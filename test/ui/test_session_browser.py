@@ -48,7 +48,7 @@ def test_session_browser_lists_session_manifests_as_json(
             'disk_events': 1,
             'markers': 2,
             'continued_from': None,
-            'continued_at': ['next/audio-session.jsonl'],
+            'continued_at': ['next/audio-manifest.jsonl'],
         }
     ]
 
@@ -83,19 +83,19 @@ def _manifest(tmp_path: Path) -> Path:
     midi.mkdir()
     (audio / 'take.wav').write_bytes(b'data')
     (midi / 'keys.mid').write_bytes(b'midi')
-    (audio / 'audio-session.jsonl').write_text(
+    (audio / 'audio-manifest.jsonl').write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"key_pressed","timestamp":"mark","key":"g"}\n'
         '{"type":"mark","timestamp":"mark","label":"solo"}\n'
         '{"type":"disk_switch_continued_at","timestamp":"switch",'
-        '"continued_at":"next/audio-session.jsonl"}\n'
+        '"continued_at":"next/audio-manifest.jsonl"}\n'
         '{"type":"file_finished","timestamp":"done","path":"take.wav",'
         '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
         '"bit_depth":32}\n'
         '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
         '{"type":"footer","ended_at":"end","duration":1.5}\n'
     )
-    (midi / 'midi-session.jsonl').write_text(
+    (midi / 'midi-manifest.jsonl').write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"file_finished","kind":"midi","timestamp":"done",'
         '"path":"keys.mid","source":"Launchkey","message_count":3,'

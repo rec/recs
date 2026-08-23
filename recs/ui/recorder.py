@@ -498,14 +498,14 @@ class Recorder(Runnables):
             )
         self.session.start(
             recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-session.jsonl',
+            / 'audio-manifest.jsonl',
             dry_run=self.cfg.general.dry_run,
             silence_preview=self.cfg.general.silence_preview,
         )
         if self.cfg.midi.record_midi:
             self.midi_session.start(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
-                / 'midi-session.jsonl',
+                / 'midi-manifest.jsonl',
                 dry_run=self.cfg.general.dry_run,
                 silence_preview=self.cfg.general.silence_preview,
             )
@@ -515,7 +515,7 @@ class Recorder(Runnables):
         if self.cfg.osc.osc_nodes.name:
             self.osc_session.start(
                 recording_paths.media_session_directory(self.session_directory, 'osc')
-                / 'osc-session.jsonl',
+                / 'osc-manifest.jsonl',
                 dry_run=self.cfg.general.dry_run,
                 silence_preview=self.cfg.general.silence_preview,
             )
@@ -601,7 +601,7 @@ class Recorder(Runnables):
     def _manifest_path(self) -> Path:
         return (
             recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-session.jsonl'
+            / 'audio-manifest.jsonl'
         )
 
     def _output_folder(self) -> Path:

@@ -12,7 +12,7 @@ def test_writes_recovery_report_beside_unfinished_manifest(
     session = tmp_path / 'session/audio'
     session.mkdir(parents=True)
     (session / 'open.wav').write_bytes(b'audio')
-    manifest = session / 'audio-session.jsonl'
+    manifest = session / 'audio-manifest.jsonl'
     manifest.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"file_started","timestamp":"file-start",'
