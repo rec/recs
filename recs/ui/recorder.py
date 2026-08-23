@@ -276,7 +276,8 @@ class Recorder(Runnables):
         if self._devices.files:
             return
         if not self.cfg.input_devices:
-            self._report_no_devices()
+            if not self.cfg.selection.include:
+                self._report_no_devices()
         elif not all_tracks:
             self._report_no_channels()
 

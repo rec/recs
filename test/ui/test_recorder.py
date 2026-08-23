@@ -241,6 +241,7 @@ def test_recorder_adds_device_detected_after_start(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     assert rec._devices.poller is not None
+    assert rec.error_messages() == []
     rec._devices.poller.snapshots = [{'Mic': mic_info}]
     rec._poll_devices()
 

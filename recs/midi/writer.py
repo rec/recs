@@ -33,9 +33,7 @@ class MidiWriter:
         self.message_count = 0
         self.last_timestamp: float | None = None
         self.last_tick = 0
-        self.path = (
-            session_directory / f'{legal_filename.legal_filename(port_name)}.mid'
-        )
+        self.path = _next_path(session_directory, port_name)
         self.file = mido.MidiFile(type=0, ticks_per_beat=TICKS_PER_BEAT)
         self.track = mido.MidiTrack()
         self.file.tracks.append(self.track)
@@ -72,3 +70,13 @@ class MidiWriter:
         delta = now - self.last_timestamp
         self.last_timestamp = now
         return max(delta, 0.0)
+
+
+def _next_path(session_directory: Path, port_name: str) -> Path:
+    stem = legal_filename.legal_filename(port_name)
+    path = session_directory / f'{stem}.mid'
+    index = 2
+    while path.exists():
+        path = session_directory / f'{stem}-{index}.mid'
+        index += 1
+    return path

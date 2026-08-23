@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import numpy as np
 from overrides import override
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from threa import Runnable, Wrapper
 
 from recs.base import app_command, times
@@ -16,6 +17,28 @@ from .source import Source, Update
 DeviceDict = dict[str, float | int | str]
 DEVICE_QUERY_TIMEOUT = 5.0
 STABLE_DEVICE_ID_FIELDS = ('uid', 'unique_id', 'persistent_id', 'guid', 'identifier')
+
+
+class DeviceSpec(BaseModel):
+    name: str
+    audio_device_names: list[str] = Field(default_factory=list)
+    midi_input_names: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(frozen=True)
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError('must not be empty')
+        return value
+
+    @field_validator('audio_device_names', 'midi_input_names')
+    @classmethod
+    def validate_names(cls, values: list[str]) -> list[str]:
+        if any(not value.strip() for value in values):
+            raise ValueError('must not contain empty values')
+        return values
 
 
 class InputDevice(Source):

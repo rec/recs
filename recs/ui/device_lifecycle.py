@@ -142,7 +142,7 @@ class DeviceLifecycle:
             return
         if snapshot:
             self.no_devices_reported = False
-        elif not self.present_hardware:
+        elif not self.present_hardware and not self.cfg.selection.include:
             self._report_no_devices()
         self._add_detected_hardware(snapshot)
         compatible: set[str] = set()

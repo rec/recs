@@ -53,17 +53,7 @@ class MidiRecorder(Runnable):
             super().start()
             return
         self.started = True
-        try:
-            names = device.selected_inputs(self.cfg, self.input_names())
-        except ModuleNotFoundError as e:
-            if self.cfg.midi.midi_include:
-                self.warning(f'MIDI inputs unavailable: {e}')
-            super().start()
-            return
-        if not names and self.cfg.midi.midi_include:
-            self.warning('No selected MIDI inputs detected')
-        for name in names:
-            self._open(name)
+        self._discover()
         super().start()
 
     def stop(self) -> None:
@@ -82,6 +72,7 @@ class MidiRecorder(Runnable):
         super().stop()
 
     def poll(self) -> None:
+        self._discover()
         for name, port in list(self.ports.items()):
             try:
                 messages = list(port.iter_pending())
@@ -94,16 +85,39 @@ class MidiRecorder(Runnable):
                 self.last_message_timestamp[name] = timestamp
 
     def status(self) -> list[dict[str, object]]:
-        return [
+        states = [
             {
                 'name': name,
-                'open': name in self.ports,
+                'state': 'recording',
                 'failed': name in self.failed,
                 'message_count': self.writers[name].message_count,
                 'last_message_timestamp': self.last_message_timestamp.get(name),
             }
             for name in sorted(self.writers)
         ]
+        states.extend(
+            {
+                'name': name,
+                'state': 'waiting',
+                'failed': False,
+                'message_count': 0,
+                'last_message_timestamp': None,
+            }
+            for name in self.cfg.midi.midi_include
+            if not any(value.startswith(name) for value in self.writers)
+        )
+        return states
+
+    def _discover(self) -> None:
+        try:
+            names = device.selected_inputs(self.cfg, self.input_names())
+        except ModuleNotFoundError as error:
+            if self.cfg.midi.midi_include:
+                self.warning(f'MIDI inputs unavailable: {error}')
+            return
+        for name in names:
+            if name not in self.ports:
+                self._open(name)
 
     def _open(self, name: str) -> None:
         try:
@@ -128,7 +142,10 @@ class MidiRecorder(Runnable):
 
     def _fail(self, name: str, message: str) -> None:
         self.failed.add(name)
-        self.ports.pop(name, None)
+        if (port := self.ports.pop(name, None)) is not None:
+            port.close()
+        if (writer := self.writers.pop(name, None)) is not None:
+            self.write_record(writer.finish())
         self.warning(f'MIDI input {name} failed: {message}')
         self.write_record(
             ManifestEvent(

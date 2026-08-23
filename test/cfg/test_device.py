@@ -40,6 +40,14 @@ def test_input_devices_use_stable_host_identity() -> None:
     assert [source.name for source in devices.values()] == ['USB Audio', 'USB Audio']
 
 
+def test_device_spec_rejects_empty_identifiers() -> None:
+    with pytest.raises(ValueError, match='name'):
+        device.DeviceSpec(name='')
+
+    with pytest.raises(ValueError, match='audio_device_names'):
+        device.DeviceSpec(name='Flow 8', audio_device_names=[''])
+
+
 def test_input_device_uses_sounddevice_adc_time(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
