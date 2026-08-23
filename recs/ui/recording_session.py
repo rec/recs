@@ -91,5 +91,15 @@ class RecordingSession:
 
     def write(self, record: session_manifest.ManifestRecord) -> None:
         if self.manifest is not None:
+            if isinstance(record, session_manifest.ManifestFile):
+                path = Path(record.path)
+                if path.is_absolute():
+                    record = record.model_copy(
+                        update={
+                            'path': path.relative_to(
+                                self.manifest.path.parent
+                            ).as_posix()
+                        }
+                    )
             self.manifest.write(record)
             self.manifest_errors.extend(self.manifest.take_errors())

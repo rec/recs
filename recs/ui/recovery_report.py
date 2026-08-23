@@ -53,7 +53,7 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
     if not root.exists():
         return []
     reports: list[Path] = []
-    for manifest_path in sorted(root.rglob('recs-session*.jsonl')):
+    for manifest_path in sorted(root.rglob('*-session*.jsonl')):
         try:
             report = recovery_report(manifest_path)
         except OSError as e:

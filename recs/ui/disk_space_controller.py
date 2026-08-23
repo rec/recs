@@ -162,22 +162,6 @@ class DiskSpaceController:
             source.stop()
             source.join()
         self.receive_pending_updates()
-        previous_manifest = (
-            self.session.manifest.path if self.session.manifest is not None else None
-        )
-        next_manifest = (
-            recording_paths.session_directory(str(output), self.session_start_time())
-            / 'recs-session.jsonl'
-        )
-        self.write_record(
-            ManifestEvent(
-                type='disk_switch_continued_at',
-                timestamp=timestamp_to_json(times.timestamp()),
-                from_path=previous,
-                to_path=str(output),
-                continued_at=str(next_manifest),
-            )
-        )
         self.finish_manifest()
         self.session.reset(self.session_start_time())
         directory = self.cfg.directory.model_copy(
@@ -187,9 +171,6 @@ class DiskSpaceController:
         cfg.__dict__.pop('output_path_pattern', None)
         for source in self.devices.sources.values():
             source.set_cfg(cfg)
-        self.session.continued_from = (
-            str(previous_manifest) if previous_manifest else None
-        )
         self.cfg_changed(cfg)
         self.start_manifest()
         self.write_record(

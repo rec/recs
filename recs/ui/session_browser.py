@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from . import session_manifest
 
-MANIFEST_NAME = 'recs-session.jsonl'
+MANIFEST_GLOB = '*-session.jsonl'
 
 
 class SessionSummary(BaseModel):
@@ -47,29 +47,46 @@ def main(argv: list[str]) -> int:
 
 
 def scan(root: Path) -> list[SessionSummary]:
-    if root.name == MANIFEST_NAME:
-        manifests = [root]
+    if root.match(MANIFEST_GLOB):
+        directories = [root.parent.parent]
+    elif any(root.glob(MANIFEST_GLOB)):
+        directories = [root]
     else:
-        manifests = sorted(root.glob(f'**/{MANIFEST_NAME}'))
-    return [summary for path in manifests if (summary := summarize(path))]
+        directories = sorted(
+            {path.parent.parent for path in root.glob(f'**/{MANIFEST_GLOB}')}
+        )
+    return [summary for path in directories if (summary := summarize(path))]
 
 
 def summarize(path: Path) -> SessionSummary | None:
-    try:
-        manifest = session_manifest.read(path)
-    except OSError:
+    if path.match(MANIFEST_GLOB):
+        path = path.parent.parent
+    manifests = _manifests(path)
+    if not manifests:
         return None
-    if not manifest.started_at:
-        return None
-    finished = [f for f in manifest.files if f.type == 'file_finished']
+    primary = next(
+        (manifest for manifest in manifests if manifest[0].parent.name == 'audio'),
+        manifests[0],
+    )
+    finished = [
+        file
+        for manifest_path, manifest in manifests
+        for file in manifest.files
+        if file.type == 'file_finished'
+    ]
     audio = [f for f in finished if f.kind == 'audio']
     midi = [f for f in finished if f.kind == 'midi']
-    paths = [_file_path(path, f.path) for f in finished]
+    paths = [
+        _file_path(manifest_path, file.path)
+        for manifest_path, manifest in manifests
+        for file in manifest.files
+        if file.type == 'file_finished'
+    ]
     return SessionSummary(
         path=path.as_posix(),
-        started_at=manifest.started_at,
-        ended_at=manifest.ended_at,
-        duration=manifest.duration,
+        started_at=primary[1].started_at,
+        ended_at=primary[1].ended_at,
+        duration=primary[1].duration,
         output_directories=sorted({p.parent.as_posix() for p in paths}),
         devices=sorted({f.source for f in audio if f.source}),
         tracks=sorted(
@@ -81,16 +98,31 @@ def summarize(path: Path) -> SessionSummary | None:
         midi_files=len(midi),
         midi_messages=sum(f.message_count or 0 for f in midi),
         total_bytes=sum(p.stat().st_size for p in paths if p.exists()),
-        warnings=manifest.warnings + manifest.errors,
-        disk_events=sum(1 for e in manifest.events if e.type.startswith('disk_')),
-        markers=sum(1 for e in manifest.events if e.type in {'key_pressed', 'mark'}),
-        continued_from=manifest.continued_from,
+        warnings=primary[1].warnings + primary[1].errors,
+        disk_events=sum(1 for e in primary[1].events if e.type.startswith('disk_')),
+        markers=sum(
+            1 for event in primary[1].events if event.type in {'key_pressed', 'mark'}
+        ),
+        continued_from=primary[1].continued_from,
         continued_at=[
-            e.continued_at
-            for e in manifest.events
-            if e.type == 'disk_switch_continued_at' and e.continued_at is not None
+            event.continued_at
+            for event in primary[1].events
+            if event.type == 'disk_switch_continued_at'
+            and event.continued_at is not None
         ],
     )
+
+
+def _manifests(path: Path) -> list[tuple[Path, session_manifest.SessionManifest]]:
+    manifests: list[tuple[Path, session_manifest.SessionManifest]] = []
+    for manifest_path in sorted(path.glob(f'*/{MANIFEST_GLOB}')):
+        try:
+            manifest = session_manifest.read(manifest_path)
+        except OSError:
+            continue
+        if manifest.started_at:
+            manifests.append((manifest_path, manifest))
+    return manifests
 
 
 def _midi_ports(files: list[session_manifest.ManifestFile]) -> list[str]:
@@ -154,7 +186,4 @@ def _print_summary(value: SessionSummary) -> None:
 
 
 def _file_path(manifest_path: Path, path: str) -> Path:
-    result = Path(path)
-    if result.is_absolute():
-        return result
-    return manifest_path.parent / result
+    return manifest_path.parent / Path(path)

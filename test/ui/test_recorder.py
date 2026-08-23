@@ -20,6 +20,7 @@ from recs.ui import (
     recorder,
     recording_paths,
     recording_track_config,
+    session_manifest,
 )
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
@@ -48,7 +49,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def manifest_path(rec: Recorder) -> Path:
-    return rec.session_directory / 'recs-session.jsonl'
+    return rec.session_directory / 'audio/audio-session.jsonl'
 
 
 class FakeConnection:
@@ -904,7 +905,8 @@ def test_live_input_manifest_omits_source(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     rec._start_manifest()
-    path = tmp_path / 'mic.wav'
+    path = rec.session_directory / 'audio/mic.wav'
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()
 
     rec._receive_update(
@@ -934,7 +936,7 @@ def test_live_input_manifest_omits_source(
         {
             'type': 'file_started',
             'kind': 'audio',
-            'path': path.as_posix(),
+            'path': 'mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -943,13 +945,61 @@ def test_live_input_manifest_omits_source(
         {
             'type': 'file_finished',
             'kind': 'audio',
-            'path': path.as_posix(),
+            'path': 'mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
             'bit_depth': 64,
         },
     ]
+
+
+def test_recorder_writes_one_local_manifest_per_medium(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    nodes = tmp_path / 'osc.toml'
+    nodes.write_text('')
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(
+        Cfg(
+            include=['Mic'],
+            output_directory=str(tmp_path),
+            osc_nodes=nodes,
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+
+    for session, medium, name in (
+        (rec.session, 'audio', 'take.wav'),
+        (rec.midi_session, 'midi', 'keys.mid'),
+        (rec.osc_session, 'osc', 'x18.jsonl'),
+    ):
+        path = rec.session_directory / medium / name
+        path.touch()
+        session.write(
+            session_manifest.ManifestFile(
+                type='file_finished',
+                kind=medium,
+                timestamp='now',
+                path=path.as_posix(),
+            )
+        )
+    rec._finish_manifest()
+
+    for medium, name in (
+        ('audio', 'audio-session.jsonl'),
+        ('midi', 'midi-session.jsonl'),
+        ('osc', 'osc-session.jsonl'),
+    ):
+        manifest = rec.session_directory / medium / name
+        records = read_jsonl(manifest)
+        assert [record['path'] for record in records if 'path' in record] == [
+            {'audio': 'take.wav', 'midi': 'keys.mid', 'osc': 'x18.jsonl'}[medium]
+        ]
 
 
 def test_manifest_records_source_frame_counts(
@@ -961,7 +1011,8 @@ def test_manifest_records_source_frame_counts(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     rec._start_manifest()
-    path = tmp_path / 'mic.wav'
+    path = rec.session_directory / 'audio/mic.wav'
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()
 
     rec._receive_update(
@@ -995,7 +1046,7 @@ def test_manifest_records_source_frame_counts(
             'type': 'file_started',
             'kind': 'audio',
             'frame_count': 256,
-            'path': path.as_posix(),
+            'path': 'mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -1011,7 +1062,7 @@ def test_manifest_records_source_frame_counts(
             'type': 'file_finished',
             'kind': 'audio',
             'frame_count': 768,
-            'path': path.as_posix(),
+            'path': 'mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -1587,7 +1638,9 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_manifest()
 
-    assert Path('sessions/2026-06-23/2026-06-23 20-34-10/recs-session.jsonl').exists()
+    assert Path(
+        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-session.jsonl'
+    ).exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -1603,7 +1656,7 @@ def test_default_output_directory_uses_session_timestamp(
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_manifest()
     expected = recording_paths.session_directory_name(timestamp)
-    path = rec.session_directory / 'mic.wav'
+    path = rec.session_directory / 'audio/mic.wav'
     path.parent.mkdir(exist_ok=True, parents=True)
     path.touch()
 
@@ -1629,7 +1682,7 @@ def test_default_output_directory_uses_session_timestamp(
 
     assert rec.cfg.directory.output_directory == ''
     assert rec.session_directory == Path(expected)
-    assert (path.parent / 'recs-session.jsonl').exists()
+    assert (path.parent / 'audio-session.jsonl').exists()
 
 
 def test_default_output_directory_uses_collision_suffix(
@@ -1669,13 +1722,13 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
         Cfg(default_record_directory='takes'), timestamp
     )
 
-    assert cfg.directory.output_directory == str(large / 'takes' / 'audio')
-    assert recording_paths.session_directory(
-        str(large / 'takes' / 'audio'), timestamp
-    ) == (large / 'takes' / 'audio' / '2026-06-23 20-34-10')
-    assert recording_paths.midi_session_directory(
-        large / 'takes' / 'audio' / '2026-06-23 20-34-10'
-    ) == (large / 'takes' / 'midi' / '2026-06-23 20-34-10')
+    assert cfg.directory.output_directory == str(large / 'takes')
+    assert recording_paths.session_directory(str(large / 'takes'), timestamp) == (
+        large / 'takes' / '2026-06-23 20-34-10'
+    )
+    assert recording_paths.media_session_directory(
+        large / 'takes' / '2026-06-23 20-34-10', 'midi'
+    ) == (large / 'takes' / '2026-06-23 20-34-10' / 'midi')
 
 
 def test_daemon_default_output_directory_falls_back_to_system_disk(
@@ -1689,7 +1742,7 @@ def test_daemon_default_output_directory_falls_back_to_system_disk(
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
     cfg = recording_paths.with_default_output_directory(Cfg(), timestamp)
 
-    assert cfg.directory.output_directory == str(tmp_path / 'recs' / 'audio')
+    assert cfg.directory.output_directory == str(tmp_path / 'recs')
 
 
 def test_daemon_default_output_directory_keeps_explicit_directory(

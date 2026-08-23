@@ -72,15 +72,11 @@ def test_disk_alert_switches_to_larger_removable_disk(
 
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
     assert rec.session.manifest is not None
-    assert rec.session.continued_from is None
     assert old_manifest is not None
     assert rec.session.manifest is not None
-    assert session_manifest.read(rec.session.manifest.path).continued_from == str(
-        old_manifest
-    )
-    assert any(
+    assert session_manifest.read(rec.session.manifest.path).continued_from is None
+    assert not any(
         event.type == 'disk_switch_continued_at'
-        and event.continued_at == str(rec.session.manifest.path)
         for event in session_manifest.read(old_manifest).events
     )
     assert rec.error_messages()[-1] == (
@@ -94,8 +90,6 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
 ) -> None:
     removable = tmp_path / 'removable'
     removable.mkdir()
-    recorded = tmp_path / 'late.wav'
-    recorded.write_bytes(b'audio')
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [removable])
@@ -119,6 +113,8 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
         )
     )
     rec._start_manifest()
+    recorded = rec.session_directory / 'audio/late.wav'
+    recorded.write_bytes(b'audio')
     old_manifest = (
         rec.session.manifest.path if rec.session.manifest is not None else None
     )
@@ -151,7 +147,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
     rec._disk_space_controller.monitor_disk_space()
 
     manifest = session_manifest.read(old_manifest)
-    assert any(Path(file.path) == recorded for file in manifest.files)
+    assert any(file.path == 'late.wav' for file in manifest.files)
 
 
 def test_disk_emergency_pauses_recording(

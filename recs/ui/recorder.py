@@ -98,20 +98,27 @@ class Recorder(Runnables):
             if display
             else None
         )
+        session_id = str(uuid.uuid4())
         self.session = recording_session.RecordingSession(
-            str(uuid.uuid4()), self.session_start_time
+            session_id, self.session_start_time
+        )
+        self.midi_session = recording_session.RecordingSession(
+            session_id, self.session_start_time
+        )
+        self.osc_session = recording_session.RecordingSession(
+            session_id, self.session_start_time
         )
         self._midi = MidiRecorder(
             self.cfg,
-            recording_paths.midi_session_directory(self.session_directory),
-            self._record_warning,
-            lambda record: self._write_manifest_record(record),
+            recording_paths.media_session_directory(self.session_directory, 'midi'),
+            lambda warning: self._record_warning(warning, self.midi_session),
+            self.midi_session.write,
         )
         self._osc = OscRecorder(
             self.cfg,
-            self.session_directory,
-            self._record_warning,
-            lambda record: self._write_manifest_record(record),
+            recording_paths.media_session_directory(self.session_directory, 'osc'),
+            lambda warning: self._record_warning(warning, self.osc_session),
+            self.osc_session.write,
         )
         self.key_recorder = make_key_recorder(cfg)
         self._disk_space_policy = disk_space_policy.DiskSpacePolicy(self.cfg)
@@ -490,15 +497,40 @@ class Recorder(Runnables):
                 recording_paths.recovery_root(self.cfg.directory.output_directory)
             )
         self.session.start(
-            self._manifest_path(),
+            recording_paths.media_session_directory(self.session_directory, 'audio')
+            / 'audio-session.jsonl',
             dry_run=self.cfg.general.dry_run,
             silence_preview=self.cfg.general.silence_preview,
         )
-        self._osc.open_session(self.session_directory)
+        if self.cfg.midi.record_midi:
+            self.midi_session.start(
+                recording_paths.media_session_directory(self.session_directory, 'midi')
+                / 'midi-session.jsonl',
+                dry_run=self.cfg.general.dry_run,
+                silence_preview=self.cfg.general.silence_preview,
+            )
+            self._midi.open_session(
+                recording_paths.media_session_directory(self.session_directory, 'midi')
+            )
+        if self.cfg.osc.osc_nodes.name:
+            self.osc_session.start(
+                recording_paths.media_session_directory(self.session_directory, 'osc')
+                / 'osc-session.jsonl',
+                dry_run=self.cfg.general.dry_run,
+                silence_preview=self.cfg.general.silence_preview,
+            )
+        if self.cfg.osc.osc_nodes.name:
+            self._osc.open_session(
+                recording_paths.media_session_directory(self.session_directory, 'osc')
+            )
 
     def _finish_manifest(self) -> None:
+        self._midi.close_session()
         self._osc.close_session()
-        self.session.finish(times.timestamp())
+        timestamp = times.timestamp()
+        self.session.finish(timestamp)
+        self.midi_session.finish(timestamp)
+        self.osc_session.finish(timestamp)
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (
@@ -519,16 +551,20 @@ class Recorder(Runnables):
     def _set_session_directory(self, session_directory: Path) -> None:
         self.session_directory = session_directory
         self._devices.set_session_directory(session_directory)
-        self._midi.session_directory = recording_paths.midi_session_directory(
-            session_directory
+        self._midi.session_directory = recording_paths.media_session_directory(
+            session_directory, 'midi'
         )
-        self._osc.session_directory = session_directory
+        self._osc.session_directory = recording_paths.media_session_directory(
+            session_directory, 'osc'
+        )
 
-    def _record_warning(self, warning: str) -> None:
+    def _record_warning(
+        self, warning: str, session: recording_session.RecordingSession | None = None
+    ) -> None:
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
         LOGGER.error('%s', warning)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
-        self._write_manifest_record(
+        (session or self.session).write(
             session_manifest.ManifestWarning(
                 timestamp=timestamp,
                 message=warning,
@@ -543,6 +579,8 @@ class Recorder(Runnables):
         | session_manifest.ManifestWarning,
     ) -> None:
         self.session.write(record)
+        self.midi_session.write(record)
+        self.osc_session.write(record)
 
     def _silence_preview_report(self) -> dict[str, object]:
         measurements = self.state.db_ranges()
@@ -561,12 +599,10 @@ class Recorder(Runnables):
         }
 
     def _manifest_path(self) -> Path:
-        paths = sorted(path for path in self.session.files_written if path.exists())
-        if paths:
-            parent = Path(os.path.commonpath([path.parent for path in paths]))
-            return parent / 'recs-session.jsonl'
-
-        return self.session_directory / 'recs-session.jsonl'
+        return (
+            recording_paths.media_session_directory(self.session_directory, 'audio')
+            / 'audio-session.jsonl'
+        )
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())

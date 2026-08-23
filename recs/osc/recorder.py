@@ -90,7 +90,7 @@ class OscNodeRecorder:
         write_record: Callable[[ManifestRecord], None],
     ) -> None:
         self.node = node
-        self.directory = session_directory / 'osc'
+        self.directory = session_directory
         self.warning = warning
         self.write_record = write_record
         self.socket: socket.socket | None = None
@@ -108,7 +108,7 @@ class OscNodeRecorder:
 
     def start(self) -> None:
         try:
-            self.open_output(self.directory.parent)
+            self.open_output(self.directory)
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.socket.bind(('', self.node.bind_port))
             self.socket.setblocking(False)
@@ -126,7 +126,7 @@ class OscNodeRecorder:
                 type='osc_node_started',
                 timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,
-                path=str(self.path),
+                path=self.path.name if self.path is not None else None,
                 address=self._address(),
             )
         )
@@ -187,7 +187,7 @@ class OscNodeRecorder:
         }
 
     def open_output(self, session_directory: Path) -> None:
-        self.directory = session_directory / 'osc'
+        self.directory = session_directory
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path = _next_path(self.directory, self.node.name)
         self.output = self.path.open('ab')
@@ -197,7 +197,7 @@ class OscNodeRecorder:
                 type='file_started',
                 kind='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
-                path=str(self.path),
+                path=self.path.name,
                 source=self.node.name,
                 osc_node=self.node.name,
             )
@@ -213,7 +213,7 @@ class OscNodeRecorder:
                 type='file_finished',
                 kind='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
-                path=str(self.path),
+                path=self.path.name,
                 source=self.node.name,
                 osc_node=self.node.name,
                 inbound_count=self.inbound_count,
@@ -268,7 +268,7 @@ class OscNodeRecorder:
         try:
             if self.bytes_written and self.bytes_written + len(data) > MAX_FILE_BYTES:
                 self.close_output()
-                self.open_output(self.directory.parent)
+                self.open_output(self.directory)
             assert self.output is not None
             self.output.write(data)
             self.output.flush()

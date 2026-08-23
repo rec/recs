@@ -39,6 +39,9 @@ def check(path: Path) -> list[str]:
         if not file.path:
             errors.append(f'{path}: file path must not be empty')
             continue
+        if Path(file.path).is_absolute():
+            errors.append(f'{path}: file path must be relative: {file.path}')
+            continue
         file_path = _file_path(path, file.path)
         if not file_path.exists():
             errors.append(f'{path}: missing file {file.path}')
@@ -119,11 +122,17 @@ def _disk_switch_errors(
 ) -> list[str]:
     errors: list[str] = []
     if manifest.continued_from:
-        source = _file_path(manifest_path, manifest.continued_from)
-        if not source.exists():
-            errors.append(f'{manifest_path}: continued_from manifest is missing')
+        if Path(manifest.continued_from).is_absolute():
+            errors.append(f'{manifest_path}: continued_from must be relative')
+        else:
+            source = _file_path(manifest_path, manifest.continued_from)
+            if not source.exists():
+                errors.append(f'{manifest_path}: continued_from manifest is missing')
     for event in manifest.events:
         if event.type != 'disk_switch_continued_at' or event.continued_at is None:
+            continue
+        if Path(event.continued_at).is_absolute():
+            errors.append(f'{manifest_path}: continued manifest path must be relative')
             continue
         continued = _file_path(manifest_path, event.continued_at)
         if not continued.exists():
@@ -144,10 +153,7 @@ def _file_paths(manifest_path: Path, paths: list[str]) -> set[Path]:
 
 
 def _file_path(manifest_path: Path, path: str) -> Path:
-    result = Path(path)
-    if result.is_absolute():
-        return result
-    return manifest_path.parent / result
+    return manifest_path.parent / Path(path)
 
 
 def _parser() -> argparse.ArgumentParser:

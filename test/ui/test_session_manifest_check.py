@@ -33,6 +33,34 @@ def test_manifest_check_reports_missing_files(tmp_path: Path) -> None:
     ]
 
 
+def test_manifest_check_rejects_absolute_file_paths(tmp_path: Path) -> None:
+    audio = tmp_path / 'take.wav'
+    audio.touch()
+    manifest = tmp_path / 'audio-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start"}\n'
+        f'{{"type":"file_finished","timestamp":"end","path":"{audio}"}}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: file path must be relative: {audio}'
+    ]
+
+
+def test_manifest_check_rejects_absolute_continuation_paths(tmp_path: Path) -> None:
+    manifest = tmp_path / 'audio-session.jsonl'
+    manifest.write_text(
+        '{"type":"header","version":2,"started_at":"start",'
+        '"continued_from":"/outside/audio-session.jsonl"}\n'
+        '{"type":"footer","ended_at":"end","duration":1}\n'
+    )
+
+    assert session_manifest_check.check(manifest) == [
+        f'{manifest}: continued_from must be relative'
+    ]
+
+
 def test_manifest_check_reports_unknown_fields(tmp_path: Path) -> None:
     manifest = tmp_path / 'recs-session.jsonl'
     manifest.write_text(

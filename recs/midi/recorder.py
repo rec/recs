@@ -66,6 +66,19 @@ class MidiRecorder(Runnable):
             self._remove(name)
         super().stop()
 
+    def close_session(self) -> None:
+        for name, writer in list(self.writers.items()):
+            try:
+                self.write_record(writer.finish())
+            except OSError as error:
+                self._record_failure(name, self._selector(name), str(error))
+            del self.writers[name]
+
+    def open_session(self, session_directory: Path) -> None:
+        self.session_directory = session_directory
+        for name in self.ports:
+            self._new_writer(name, self.timestamp())
+
     def poll(self) -> None:
         if not self.cfg.midi.record_midi:
             return
@@ -184,6 +197,23 @@ class MidiRecorder(Runnable):
         self.writers[name] = writer
         self.port_selectors[name] = selector
         self.failures.pop(selector, None)
+        self.write_record(
+            ManifestEvent(
+                timestamp=timestamp_to_json(started_at),
+                type='midi_source_started',
+                source=name,
+                timing_source=str(self.cfg.midi.midi_timing),
+                midi_port=name,
+            )
+        )
+
+    def _new_writer(self, name: str, started_at: float) -> None:
+        self.writers[name] = MidiWriter(
+            self.session_directory,
+            name,
+            cast(MidiTiming, self.cfg.midi.midi_timing),
+            started_at,
+        )
         self.write_record(
             ManifestEvent(
                 timestamp=timestamp_to_json(started_at),

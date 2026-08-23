@@ -16,7 +16,7 @@ def with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
         return cfg
 
     if (record_directory := daemon_record_directory(cfg)) is not None:
-        output_directory = record_directory / 'audio'
+        output_directory = record_directory
     else:
         output_directory = ''
 
@@ -46,14 +46,8 @@ def session_directory(output_directory: str, timestamp: float) -> Path:
     )
 
 
-def midi_session_directory(audio_session_directory: Path) -> Path:
-    if audio_session_directory.parent.name == 'audio':
-        return (
-            audio_session_directory.parent.parent
-            / 'midi'
-            / audio_session_directory.name
-        )
-    return audio_session_directory.parent / 'midi' / audio_session_directory.name
+def media_session_directory(session_directory: Path, medium: str) -> Path:
+    return session_directory / medium
 
 
 def record_disk() -> Path:

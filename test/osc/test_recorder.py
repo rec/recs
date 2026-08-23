@@ -55,7 +55,7 @@ resubscribe_period = 10
     monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
     osc_recorder = OscRecorder(
         Cfg(output_directory=str(tmp_path), osc_nodes=config),
-        tmp_path / 'session',
+        tmp_path / 'session/osc',
         warnings.append,
         records.append,
     )
@@ -104,7 +104,7 @@ jsonl_compression = false
     monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
     osc_recorder = OscRecorder(
         Cfg(output_directory=str(tmp_path), osc_nodes=config),
-        tmp_path / 'session',
+        tmp_path / 'session/osc',
         lambda warning: None,
         lambda record: None,
     )

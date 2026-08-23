@@ -9,10 +9,10 @@ from recs.ui import recovery_report
 def test_writes_recovery_report_beside_unfinished_manifest(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:
-    session = tmp_path / 'session'
-    session.mkdir()
+    session = tmp_path / 'session/audio'
+    session.mkdir(parents=True)
     (session / 'open.wav').write_bytes(b'audio')
-    manifest = session / 'recs-session.jsonl'
+    manifest = session / 'audio-session.jsonl'
     manifest.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"file_started","timestamp":"file-start",'
