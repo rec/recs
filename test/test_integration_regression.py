@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import soundfile
 import tdir
+from reccy.device import DeviceDict
 
 from recs.base.types import Format
 from recs.cfg import device
@@ -19,7 +20,7 @@ RUN_TIME = 0.5
 BLOCKS = round(SAMPLERATE * RUN_TIME / BLOCK_SIZE)
 INPUTS = Path(__file__).parent / 'testdata/integration/inputs'
 
-DEVICES: list[device.DeviceDict] = [
+DEVICES: list[DeviceDict] = [
     {
         'default_samplerate': SAMPLERATE,
         'max_input_channels': 1,
@@ -72,7 +73,7 @@ def test_hardware_recording_regression(
             assert fp.subtype == 'PCM_16'
 
 
-def query_devices() -> list[device.DeviceDict]:
+def query_devices() -> list[DeviceDict]:
     return copy.deepcopy(DEVICES)
 
 

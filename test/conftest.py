@@ -5,6 +5,7 @@ from multiprocessing import connection, dummy
 from pathlib import Path
 
 import pytest
+from reccy.device import DeviceDict
 
 from recs.cfg import device
 from recs.ui import device_poller, source_process, source_recorder
@@ -32,7 +33,7 @@ class FakeDeviceQueryStream:
     def stop(self) -> None:
         pass
 
-    def devices(self) -> list[device.DeviceDict]:
+    def devices(self) -> list[DeviceDict]:
         return device.query_devices()
 
 

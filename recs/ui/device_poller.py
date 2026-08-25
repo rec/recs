@@ -5,6 +5,7 @@ import time
 from queue import Empty, Queue
 from typing import TypeVar
 
+from reccy.device import DeviceDict
 from threa import HasThread
 
 from recs.base import app_command
@@ -18,7 +19,7 @@ _T = TypeVar('_T')
 
 class DevicePoller(HasThread):
     def __init__(self, interval: float) -> None:
-        self.snapshots: Queue[dict[str, device.DeviceDict]] = Queue(maxsize=1)
+        self.snapshots: Queue[dict[str, DeviceDict]] = Queue(maxsize=1)
         self.query_stream = DeviceQueryStream()
         super().__init__(
             self.poll,
@@ -47,7 +48,7 @@ class DevicePoller(HasThread):
         }
         _put_latest(self.snapshots, snapshot)
 
-    def latest(self) -> dict[str, device.DeviceDict] | None:
+    def latest(self) -> dict[str, DeviceDict] | None:
         latest = None
         try:
             while True:
@@ -58,7 +59,7 @@ class DevicePoller(HasThread):
 
 class DeviceQueryStream:
     def __init__(self) -> None:
-        self.updates: Queue[list[device.DeviceDict]] = Queue(maxsize=1)
+        self.updates: Queue[list[DeviceDict]] = Queue(maxsize=1)
         self.process: subprocess.Popen[str] | None = None
         self.reader: threading.Thread | None = None
         self.last_update = time.monotonic()
@@ -101,7 +102,7 @@ class DeviceQueryStream:
         self.process = None
         self.reader = None
 
-    def devices(self) -> list[device.DeviceDict] | None:
+    def devices(self) -> list[DeviceDict] | None:
         latest = None
         try:
             while True:

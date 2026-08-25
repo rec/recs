@@ -8,6 +8,7 @@ import pytest
 import soundfile
 import tdir
 from pytest_regressions.data_regression import DataRegressionFixture
+from reccy.device import DeviceDict
 from threa import HasThread
 
 from recs.base import times
@@ -285,9 +286,9 @@ class DeviceSchedule:
     def set(self, *names: str) -> None:
         self.names = set(names)
 
-    def __call__(self) -> list[device.DeviceDict]:
+    def __call__(self) -> list[DeviceDict]:
         return [
-            cast(device.DeviceDict, info.copy())
+            cast(DeviceDict, info.copy())
             for info in DEVICES
             if info['name'] in self.names
         ]

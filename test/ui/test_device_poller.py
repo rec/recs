@@ -2,15 +2,15 @@ import subprocess
 from typing import cast
 
 import pytest
+from reccy.device import DeviceDict
 
-from recs.cfg import device
 from recs.ui import device_poller
 from recs.ui.device_poller import DevicePoller, DeviceQueryStream
 
 
 class FakeQueryStream:
     def __init__(self) -> None:
-        self.snapshots: list[list[device.DeviceDict]] = [
+        self.snapshots: list[list[DeviceDict]] = [
             [
                 {'max_input_channels': 1, 'name': 'Mic'},
                 {'max_input_channels': 0, 'name': 'Speaker'},
@@ -26,7 +26,7 @@ class FakeQueryStream:
     def stop(self) -> None:
         self.stopped = True
 
-    def devices(self) -> list[device.DeviceDict] | None:
+    def devices(self) -> list[DeviceDict] | None:
         if self.snapshots:
             return self.snapshots.pop(0)
         return None

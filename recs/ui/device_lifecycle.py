@@ -3,12 +3,14 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import cast
 
+from reccy.device import DeviceDict
+
 from recs.base import times
 from recs.base.errors import RecsError
 from recs.cfg import settings
 from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
-from recs.cfg.device import DeviceDict, InputDevice, get_input_devices
+from recs.cfg.device import InputDevice, get_input_devices
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
