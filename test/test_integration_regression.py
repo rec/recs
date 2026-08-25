@@ -6,6 +6,7 @@ import pytest
 import soundfile
 import tdir
 
+from recs.base.types import Format
 from recs.cfg import device
 from recs.ui import device_poller
 
@@ -52,8 +53,8 @@ def test_hardware_recording_regression(
     second = _run(monkeypatch, tmp_path / 'second')
 
     assert [path.name for path in first] == [
-        'device-mic + 1 + 20231015-164921.wav',
-        'device-mixer + 1-2 + 20231015-164921.wav',
+        f'device-mic + 1 + 20231015-164921.{Format._default}',
+        f'device-mixer + 1-2 + 20231015-164921.{Format._default}',
     ]
     assert [path.name for path in second] == [path.name for path in first]
     inputs = _input_audio()
@@ -68,7 +69,7 @@ def test_hardware_recording_regression(
         assert np.array_equal(actual, audio[: len(actual), : actual.shape[1]])
         assert np.array_equal(later, actual)
         with soundfile.SoundFile(first_path) as fp:
-            assert fp.subtype == 'FLOAT'
+            assert fp.subtype == 'PCM_16'
 
 
 def query_devices() -> list[device.DeviceDict]:

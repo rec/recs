@@ -137,8 +137,8 @@ def test_flaky_device_end_to_end(
         _wait_for_thread(thread, runner)
 
     assert _path_names(Path('flaky')) == [
-        'flaky/audio/Mic/1/1.wav',
-        'flaky/audio/Mic/1/1_1.wav',
+        f'flaky/audio/Mic/1/1.{Format._default}',
+        f'flaky/audio/Mic/1/1_1.{Format._default}',
     ]
 
 
@@ -169,10 +169,10 @@ def test_long_gaps_end_to_end(
     runner.run()
 
     assert _path_names(Path('long-gaps')) == [
-        'long-gaps/audio/Flower 8/1-2/1.wav',
-        'long-gaps/audio/Flower 8/1-2/2.wav',
-        'long-gaps/audio/Flower 8/3-4/1.wav',
-        'long-gaps/audio/Flower 8/3-4/2.wav',
+        f'long-gaps/audio/Flower 8/1-2/1.{Format._default}',
+        f'long-gaps/audio/Flower 8/1-2/2.{Format._default}',
+        f'long-gaps/audio/Flower 8/3-4/1.{Format._default}',
+        f'long-gaps/audio/Flower 8/3-4/2.{Format._default}',
     ]
 
 
@@ -216,12 +216,12 @@ def test_flaky_device_and_long_gaps_end_to_end(
         _wait_for_thread(thread, runner)
 
     assert _path_names(Path('flaky-and-gaps')) == [
-        'flaky-and-gaps/audio/Ext/1-2/1.wav',
-        'flaky-and-gaps/audio/Ext/1-2/2.wav',
-        'flaky-and-gaps/audio/Flower 8/1-2/1.wav',
-        'flaky-and-gaps/audio/Flower 8/1-2/2.wav',
-        'flaky-and-gaps/audio/Mic/1/1.wav',
-        'flaky-and-gaps/audio/Mic/1/1_1.wav',
+        f'flaky-and-gaps/audio/Ext/1-2/1.{Format._default}',
+        f'flaky-and-gaps/audio/Ext/1-2/2.{Format._default}',
+        f'flaky-and-gaps/audio/Flower 8/1-2/1.{Format._default}',
+        f'flaky-and-gaps/audio/Flower 8/1-2/2.{Format._default}',
+        f'flaky-and-gaps/audio/Mic/1/1.{Format._default}',
+        f'flaky-and-gaps/audio/Mic/1/1_1.{Format._default}',
     ]
 
 
@@ -375,7 +375,7 @@ def _wait_for_thread(thread: HasThread, runner: RecsRunner) -> None:
 def _path_names(root: Path) -> list[str]:
     return [
         _without_session_directory(path).as_posix()
-        for path in sorted(root.glob('**/*.wav'))
+        for path in sorted(root.glob(f'**/*.{Format._default}'))
     ]
 
 

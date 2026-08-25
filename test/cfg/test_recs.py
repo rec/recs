@@ -31,7 +31,9 @@ def test_error_subtype():
 
 
 def test_default_dtype1():
-    assert Cfg().audio.sdtype == 'float32'
+    audio = Cfg().audio
+    assert audio.formats == [Format.flac]
+    assert audio.sdtype == SdType.float32
 
 
 def test_default_dtype2():
