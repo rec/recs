@@ -44,6 +44,13 @@ class FakePoller(Runnable):
         pass
 
 
+@pytest.fixture(autouse=True)
+def use_temporary_working_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
