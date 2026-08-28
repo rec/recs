@@ -51,6 +51,8 @@ class MidiRecorder(Runnable):
         self.port_selectors: dict[str, str] = {}
         self.last_message_timestamp: dict[str, float] = {}
         self.failures: dict[str, tuple[str, float]] = {}
+        self.card_replace_backlog: list[tuple[str, MidiMessage, float]] = []
+        self.card_replace_paused = False
         self.next_discovery = float('-inf')
         super().__init__()
 
@@ -74,10 +76,20 @@ class MidiRecorder(Runnable):
                 self._record_failure(name, self._selector(name), str(error))
             del self.writers[name]
 
+    def suspend_for_card_replace(self) -> None:
+        self.close_session()
+        self.card_replace_paused = True
+
     def open_session(self, session_directory: Path) -> None:
         self.session_directory = session_directory
         for name in self.ports:
             self._new_writer(name, self.timestamp())
+        self.card_replace_paused = False
+        for name, message, timestamp in self.card_replace_backlog:
+            if name not in self.writers:
+                self._new_writer(name, timestamp)
+            self.writers[name].record(message, timestamp)
+        self.card_replace_backlog = []
 
     def poll(self) -> None:
         if not self.cfg.midi.record_midi:
@@ -92,6 +104,10 @@ class MidiRecorder(Runnable):
                 continue
             for message in messages:
                 timestamp = self.timestamp()
+                if self.card_replace_paused:
+                    self.card_replace_backlog.append((name, message, timestamp))
+                    self.last_message_timestamp[name] = timestamp
+                    continue
                 try:
                     self.writers[name].record(message, timestamp)
                 except OSError as error:
@@ -179,12 +195,14 @@ class MidiRecorder(Runnable):
         started_at = self.timestamp()
         try:
             port = self.open_input(name)
-            writer = MidiWriter(
-                self.session_directory,
-                name,
-                cast(MidiTiming, self.cfg.midi.midi_timing),
-                started_at,
-            )
+            writer = None
+            if not self.card_replace_paused:
+                writer = MidiWriter(
+                    self.session_directory,
+                    name,
+                    cast(MidiTiming, self.cfg.midi.midi_timing),
+                    started_at,
+                )
         except (ModuleNotFoundError, OSError) as error:
             if port is not None:
                 try:
@@ -194,18 +212,20 @@ class MidiRecorder(Runnable):
             self._record_failure(name, selector, str(error))
             return
         self.ports[name] = port
-        self.writers[name] = writer
+        if writer is not None:
+            self.writers[name] = writer
         self.port_selectors[name] = selector
         self.failures.pop(selector, None)
-        self.write_record(
-            ManifestEvent(
-                timestamp=timestamp_to_json(started_at),
-                type='midi_source_started',
-                source=name,
-                timing_source=str(self.cfg.midi.midi_timing),
-                midi_port=name,
+        if writer is not None:
+            self.write_record(
+                ManifestEvent(
+                    timestamp=timestamp_to_json(started_at),
+                    type='midi_source_started',
+                    source=name,
+                    timing_source=str(self.cfg.midi.midi_timing),
+                    midi_port=name,
+                )
             )
-        )
 
     def _new_writer(self, name: str, started_at: float) -> None:
         self.writers[name] = MidiWriter(

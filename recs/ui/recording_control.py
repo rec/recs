@@ -52,6 +52,7 @@ class RecordingControl:
         manifest_path: Callable[[], Path],
         receive_pending_updates: Callable[[], None],
         finish_manifest: Callable[[], None],
+        card_replace: Callable[[], gui_protocol.CardReplaceStarted],
     ) -> None:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
@@ -69,6 +70,7 @@ class RecordingControl:
         self.manifest_path = manifest_path
         self.receive_pending_updates = receive_pending_updates
         self.finish_manifest = finish_manifest
+        self.card_replace_callback = card_replace
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.runtime_state = RecordingRuntimeState()
         self.cfg_revision = 0
@@ -94,6 +96,9 @@ class RecordingControl:
 
     def mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         return recording_commands.mark(self, request)
+
+    def card_replace(self) -> gui_protocol.CardReplaceStarted:
+        return self.card_replace_callback()
 
     def pause_recording(
         self, reason: str, disk: disk_space.Disk | None = None

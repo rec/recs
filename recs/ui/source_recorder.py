@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Queue
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any, NamedTuple, TypeVar, cast
 
 import numpy as np
@@ -17,7 +17,7 @@ from recs.audio.live_waveform import LiveWaveform
 from recs.base import memory
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
-from recs.base.types import Active, Format, SdType
+from recs.base.types import SDTYPE, Active, Format, SdType
 from recs.base.waveform import (
     WaveformBatchData,
     WaveformLayoutData,
@@ -66,6 +66,7 @@ class SourceUpdate(NamedTuple):
     config_revisions_applied: list[int] | None = None
     waveform_layout: WaveformLayoutData | None = None
     waveform_batches: list[WaveformBatchData] | None = None
+    writing_enabled: bool | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -86,6 +87,7 @@ class SourceControl(NamedTuple):
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
     waveforms_enabled: bool | None = None
+    writing_enabled: bool | None = None
 
 
 class SourceControlHandler:
@@ -98,6 +100,7 @@ class SourceControlHandler:
         start_calibration: Callable[[list[str]], None],
         set_tracks: Callable[[list[Track], SourceTrackNames], None],
         set_waveforms_enabled: Callable[[bool], None],
+        set_writing_enabled: Callable[[bool], None],
     ) -> None:
         self.connection = connection
         self.set_cfg = set_cfg
@@ -106,6 +109,7 @@ class SourceControlHandler:
         self.start_calibration = start_calibration
         self.set_tracks = set_tracks
         self.set_waveforms_enabled = set_waveforms_enabled
+        self.set_writing_enabled = set_writing_enabled
 
     def receive(self) -> None:
         while self.connection.poll():
@@ -127,6 +131,8 @@ class SourceControlHandler:
                 self.set_tracks(message.tracks, message.track_names or {})
             if message.waveforms_enabled is not None:
                 self.set_waveforms_enabled(message.waveforms_enabled)
+            if message.writing_enabled is not None:
+                self.set_writing_enabled(message.writing_enabled)
 
 
 class SourceUpdateTransport:
@@ -430,6 +436,7 @@ class SourceControlApplier:
             recorder.calibration.start,
             self.set_tracks,
             recorder.set_waveforms_enabled,
+            self.set_writing_enabled,
         )
 
     def receive(self) -> None:
@@ -478,6 +485,51 @@ class SourceControlApplier:
         recorder.runnables = recorder.input_stream, *recorder.channel_writers
         recorder.pending_track_layout = [track.name for track in tracks]
 
+    def set_writing_enabled(self, enabled: bool) -> None:
+        recorder = self.recorder
+        if enabled == recorder.writing_enabled:
+            return
+        if not enabled:
+            for writer in recorder.channel_writers:
+                writer.stop()
+            recorder.file_events.remember_finished_files(recorder.channel_writers)
+            files, file_records = recorder.file_events.new_files(
+                recorder.channel_writers, recorder.sample_bit_depth
+            )
+            recorder.writing_enabled = False
+            recorder.update_transport.publish(
+                SourceUpdate(
+                    channels={},
+                    files=files,
+                    file_end_frames=recorder.file_events.end_frames(
+                        recorder.channel_writers
+                    ),
+                    file_end_timestamps=recorder.file_events.end_timestamps(
+                        recorder.channel_writers
+                    ),
+                    file_records=file_records,
+                    frames=0,
+                    source_name=recorder.source.key,
+                    writing_enabled=False,
+                )
+            )
+            return
+        tracks = [writer.track for writer in recorder.channel_writers]
+        recorder.channel_writers = tuple(
+            ChannelWriter(
+                cfg=recorder.cfg,
+                times=recorder.times,
+                track=track,
+                session_directory=recorder.session_directory,
+            )
+            for track in tracks
+        )
+        for writer in recorder.channel_writers:
+            writer.set_track_names(recorder.track_names)
+        recorder.file_events.reset_writers(recorder.channel_writers)
+        recorder.runnables = recorder.input_stream, *recorder.channel_writers
+        recorder.writing_enabled = True
+
 
 class SourceRecorder(Runnables):
     sample_count: int = 0
@@ -493,6 +545,7 @@ class SourceRecorder(Runnables):
         track_names: SourceTrackNames | None = None,
         waveforms_enabled: bool = False,
         waveform_generation: int = 0,
+        writing_enabled: bool = True,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
@@ -521,6 +574,7 @@ class SourceRecorder(Runnables):
         self.track_names: SourceTrackNames = {}
         self.waveform_generation = max(0, waveform_generation - int(waveforms_enabled))
         self.waveforms_enabled = False
+        self.writing_enabled = writing_enabled
         self.waveform: LiveWaveform | None = None
         self.pending_waveform_layout: WaveformLayoutData | None = None
         self.calibration = SourceCalibration(self.source.samplerate)
@@ -533,22 +587,33 @@ class SourceRecorder(Runnables):
             update_callback=self.buffer.put,
         )
         super().__init__(self.input_stream, *self.channel_writers)
+        self.sample_bit_depth = (
+            np.dtype((self.cfg.audio.sdtype or SDTYPE).value).itemsize * 8
+        )
 
         with (
             raise_keyboard_interrupt_on_signal(),
             contextlib.suppress(KeyboardInterrupt),
             self,
         ):
+            pending: BufferedUpdate | None = None
             while self.running and not self.stop_event.is_set():
+                self.control.receive()
+                if not self.writing_enabled:
+                    sleep(POLL_TIMEOUT)
+                    continue
                 try:
-                    update = self.buffer.get(timeout=POLL_TIMEOUT)
+                    update = pending or self.buffer.get(timeout=POLL_TIMEOUT)
+                    pending = None
                 except Empty:
-                    self.control.receive()
                     if not self.input_stream.running:
                         break
                 else:
                     self.control.receive()
-                    self._receive_update(update)
+                    if self.writing_enabled:
+                        self._receive_update(update)
+                    else:
+                        pending = update
 
         with contextlib.suppress(Empty):
             while True:
@@ -715,6 +780,11 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         or None,
         waveform_layout=waveform_layout,
         waveform_batches=waveform_batches or None,
+        writing_enabled=(
+            second.writing_enabled
+            if second.writing_enabled is not None
+            else first.writing_enabled
+        ),
     )
 
 

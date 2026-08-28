@@ -124,3 +124,39 @@ jsonl_compression = false
         for line in (tmp_path / 'session/osc/telemetry.jsonl').read_text().splitlines()
     ]
     assert all('source' in line for line in lines)
+
+
+def test_osc_recorder_writes_packets_received_during_card_replacement(
+    tmp_path: Path, monkeypatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        """[[nodes]]
+name = "telemetry"
+bind_port = 7000
+jsonl_compression = false
+"""
+    )
+    fake_socket = FakeSocket()
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'old/osc',
+        lambda warning: None,
+        lambda record: None,
+    )
+
+    osc_recorder.start()
+    osc_recorder.suspend_for_card_replace()
+    fake_socket.received.append(
+        (codec.encode_message('/level', [0.5]), ('10.43.0.31', 7000))
+    )
+    osc_recorder.poll()
+    osc_recorder.open_session(tmp_path / 'new/osc')
+    osc_recorder.stop()
+
+    lines = [
+        json.loads(line)
+        for line in (tmp_path / 'new/osc/telemetry.jsonl').read_text().splitlines()
+    ]
+    assert lines[0]['decoded'] == [{'path': '/level', 'types': 'f', 'args': [0.5]}]

@@ -75,10 +75,14 @@ class OscRecorder(Runnable):
         for node in self.nodes.values():
             node.close_output()
 
+    def suspend_for_card_replace(self) -> None:
+        for node in self.nodes.values():
+            node.suspend_for_card_replace()
+
     def open_session(self, session_directory: Path) -> None:
         self.session_directory = session_directory
         for node in self.nodes.values():
-            node.open_output(session_directory)
+            node.open_session(session_directory)
 
 
 class OscNodeRecorder:
@@ -105,6 +109,8 @@ class OscNodeRecorder:
         self.next_polls: list[float] = []
         self.next_subscriptions: list[float] = []
         self.compressor = Compress(key='kind') if node.jsonl_compression else None
+        self.card_replace_backlog: list[dict[str, object]] = []
+        self.card_replace_paused = False
 
     def start(self) -> None:
         try:
@@ -222,6 +228,17 @@ class OscNodeRecorder:
             )
         )
 
+    def suspend_for_card_replace(self) -> None:
+        self.close_output()
+        self.card_replace_paused = True
+
+    def open_session(self, session_directory: Path) -> None:
+        self.card_replace_paused = False
+        self.open_output(session_directory)
+        for record in self.card_replace_backlog:
+            self._write_json(record)
+        self.card_replace_backlog = []
+
     def _send(self, message: config.Command, reason: str) -> None:
         assert self.socket is not None
         assert self.node.host is not None
@@ -260,6 +277,9 @@ class OscNodeRecorder:
             )
 
     def _write_json(self, record: dict[str, object]) -> None:
+        if self.card_replace_paused:
+            self.card_replace_backlog.append(record)
+            return
         if self.output is None:
             return
         if self.compressor is not None:

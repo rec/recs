@@ -127,6 +127,9 @@ class FakeSourceProcess:
     def set_waveforms_enabled(self, enabled: bool) -> None:
         self.waveforms_enabled = enabled
 
+    def set_writing_enabled(self, enabled: bool) -> None:
+        self.writing_enabled = enabled
+
     def calibrate(self, tracks: list[str]) -> None:
         self.connection.messages.append(
             SourceUpdate(
@@ -1203,6 +1206,45 @@ def test_calibrate_control_request_sets_channel_noise_floor(
             noise_floors={'Mic': {'1': 15.0}},
         )
     ]
+
+
+def test_card_replace_uses_new_session_without_changing_output_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'old-card'
+    new = tmp_path / 'new-card'
+    output = old / 'recs'
+    old.mkdir()
+    new.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    clock = [100.0]
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: clock[0])
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(output), silent=True))
+    old_disk = recording_paths.MountedDisk(old, 'old-uuid')
+    new_disk = recording_paths.MountedDisk(new, 'new-uuid')
+    monkeypatch.setattr(recording_paths, 'mounted_disk', lambda path: old_disk)
+    mounts = [old_disk]
+    monkeypatch.setattr(recording_paths, 'mounted_disks_with_uuid', lambda: mounts)
+    rec._start_manifest()
+    old_manifest = rec._manifest_path()
+
+    result = rec._card_replace()
+
+    assert result.old_uuid == 'old-uuid'
+    assert rec.cfg.directory.output_directory == str(output)
+    assert not rec._devices.writing_enabled
+    assert session_manifest.read(old_manifest).events[-1].type == 'card_replace_started'
+
+    mounts[:] = [new_disk]
+    clock[0] = 101.0
+
+    assert not rec._monitor_card_replacement()
+    assert rec.cfg.directory.output_directory == str(output)
+    assert rec.session_directory.parent == new / 'recs'
+    assert rec._devices.writing_enabled
 
 
 def test_calibrate_control_request_requires_online_channels(

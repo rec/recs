@@ -47,6 +47,7 @@ class ManifestEvent(BaseModel):
     from_free_bytes: int | None = None
     to_free_bytes: int | None = None
     disk_kind: str | None = None
+    disk_uuid: str | None = None
     current_path: str | None = None
     continued_at: str | None = None
     cfg_revision: int | None = None

@@ -5,13 +5,14 @@ import uuid
 from collections.abc import Iterator, Sequence
 from multiprocessing import connection
 from pathlib import Path
+from time import monotonic
 from typing import cast
 
 from reccy import logging
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
-from recs.base.errors import ErrorRecord
+from recs.base.errors import ErrorRecord, RecsError
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.waveform import WaveformBatchData, WaveformLayoutData
 from recs.cfg import settings
@@ -19,12 +20,13 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
-from recs.daemon import external_ipc, gui_ipc
+from recs.daemon import external_ipc, gui_ipc, gui_protocol
 from recs.midi.recorder import MidiRecorder
 from recs.osc.recorder import OscRecorder
 
 from . import (
     calibration,
+    card_replacement,
     device_lifecycle,
     disk_space_controller,
     disk_space_policy,
@@ -156,7 +158,9 @@ class Recorder(Runnables):
             self._manifest_path,
             self._receive_pending_updates,
             self._finish_manifest,
+            self._card_replace,
         )
+        self._card_replacement = card_replacement.CardReplacement()
         self._calibration = calibration.Calibration(
             self.cfg,
             self._devices.hardware,
@@ -348,7 +352,8 @@ class Recorder(Runnables):
                 while self.running:
                     if self._display_closed():
                         break
-                    self._monitor_disk_space()
+                    if not self._monitor_card_replacement():
+                        self._monitor_disk_space()
                     self._receive_key_events()
                     self._receive_control_requests()
                     self._midi.poll()
@@ -395,6 +400,68 @@ class Recorder(Runnables):
 
     def _monitor_disk_space(self) -> None:
         self._disk_space_controller.monitor_disk_space()
+
+    def _card_replace(self) -> gui_protocol.CardReplaceStarted:
+        result = self._card_replacement.start(
+            self.cfg, self.session_directory, times.timestamp()
+        )
+        self._devices.set_writing_enabled(False)
+        deadline = monotonic() + external_ipc.EXTERNAL_RESPONSE_TIMEOUT
+        while not self._devices.writing_is_suspended:
+            connections = [
+                source.connection
+                for source in self._devices.sources.values()
+                if source.is_alive
+            ]
+            if connections:
+                for conn in connection.wait(connections, timeout=POLL_TIMEOUT):
+                    self._receive_connection(cast(connection.Connection, conn))
+            if monotonic() >= deadline:
+                self._devices.set_writing_enabled(True)
+                self._card_replacement.active = False
+                raise RecsError('Timed out closing audio files for card replacement')
+        self._midi.suspend_for_card_replace()
+        self._osc.suspend_for_card_replace()
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='card_replace_started',
+                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                disk=str(result.old_mount),
+                disk_uuid=result.old_uuid,
+            )
+        )
+        self._finish_manifest()
+        return result
+
+    def _monitor_card_replacement(self) -> bool:
+        if (
+            destination := self._card_replacement.destination(
+                self.cfg, times.timestamp()
+            )
+        ) is None:
+            return self._card_replacement.active
+        timestamp = times.timestamp()
+        self.session_start_time = timestamp
+        self.session.reset(timestamp)
+        self.midi_session.reset(timestamp)
+        self.osc_session.reset(timestamp)
+        self._set_session_directory(
+            recording_paths.session_directory(
+                str(destination.output_directory), timestamp
+            )
+        )
+        self._devices.set_runtime_output_directory(destination.output_directory)
+        self._start_manifest()
+        self._write_manifest_record(
+            session_manifest.ManifestEvent(
+                type='card_replace_finished',
+                timestamp=session_manifest.timestamp_to_json(timestamp),
+                to_path=str(destination.output_directory),
+                reason=destination.reason,
+            )
+        )
+        self._devices.set_writing_enabled(True)
+        return False
 
     def _poll_devices(self) -> None:
         self._devices.poll(
@@ -552,6 +619,7 @@ class Recorder(Runnables):
         self._disk_space_controller.cfg = cfg
         self._calibration.cfg = cfg
         if output_directory_changed:
+            self._devices.set_runtime_output_directory(None)
             self._set_session_directory(
                 recording_paths.session_directory(
                     self.cfg.directory.output_directory, self.session_start_time

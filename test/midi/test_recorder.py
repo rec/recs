@@ -68,6 +68,33 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
     assert saved.tracks[0][2].type == 'note_on'
 
 
+def test_midi_recorder_writes_messages_received_during_card_replacement(
+    tmp_path: Path,
+) -> None:
+    records: list[ManifestRecord] = []
+    port = FakePort()
+    recorder = MidiRecorder(
+        Cfg(output_directory=str(tmp_path)),
+        session_directory=tmp_path / 'old',
+        warning=lambda warning: None,
+        write_record=records.append,
+        input_names=lambda: ['Launchkey'],
+        open_input=lambda name: port,
+        timestamp=lambda: 12.0,
+    )
+
+    recorder.start()
+    recorder.suspend_for_card_replace()
+    port.messages.append(mido.Message('note_on', note=60, velocity=64))
+    recorder.poll()
+    recorder.open_session(tmp_path / 'new')
+    recorder.close_session()
+
+    path = next((tmp_path / 'new').glob('*.mid'))
+    saved = mido.MidiFile(path)
+    assert saved.tracks[0][2].type == 'note_on'
+
+
 def test_midi_recorder_ignores_missing_backend_without_selected_input(
     tmp_path: Path,
 ) -> None:

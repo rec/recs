@@ -21,6 +21,9 @@ class RecordingControlTarget(Protocol):
     def calibrate(self, request: gui_protocol.Calibrate) -> gui_protocol.Calibrated:
         ...
 
+    def card_replace(self) -> gui_protocol.CardReplaceStarted:
+        ...
+
     def device_status(self) -> list[dict[str, object]]:
         ...
 
@@ -128,6 +131,8 @@ class RecordingControlProtocol:
     def handle(self, request: gui_protocol.Request) -> gui_protocol.Response:
         if isinstance(request, gui_protocol.Calibrate):
             return self.control.calibrate(request)
+        if isinstance(request, gui_protocol.CardReplace):
+            return self.control.card_replace()
         if isinstance(request, gui_protocol.Capabilities):
             return gui_protocol.CapabilitiesResult(
                 type='capabilities_result',

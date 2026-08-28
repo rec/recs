@@ -72,6 +72,9 @@ class DeviceLifecycle:
         self.device_poller = device_poller
         self.waveform_update = waveform_update
         self.waveforms_enabled = False
+        self.runtime_output_directory: Path | None = None
+        self.writing_enabled = True
+        self.writing_suspended: set[str] = set()
         self.source_processes = {
             source.key: self.source_process(
                 cfg, tracks, session_directory, track_names=track_names
@@ -134,7 +137,11 @@ class DeviceLifecycle:
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
         for source in self.source_processes.values():
-            source.set_cfg(cfg, revision=revision)
+            source.set_cfg(self._source_cfg(cfg), revision=revision)
+
+    def set_runtime_output_directory(self, output_directory: Path | None) -> None:
+        self.runtime_output_directory = output_directory
+        self.set_cfg(self.cfg)
 
     def set_session_directory(self, session_directory: Path) -> None:
         self.session_directory = session_directory
@@ -150,6 +157,24 @@ class DeviceLifecycle:
         self.waveforms_enabled = enabled
         for source in self.source_processes.values():
             source.set_waveforms_enabled(enabled)
+
+    def set_writing_enabled(self, enabled: bool) -> None:
+        self.writing_enabled = enabled
+        self.writing_suspended = {
+            name
+            for name, source in self.source_processes.items()
+            if not source.is_alive
+        }
+        for name, source in self.source_processes.items():
+            source.set_writing_enabled(enabled)
+            if enabled:
+                self.writing_suspended.discard(name)
+
+    @property
+    def writing_is_suspended(self) -> bool:
+        return self.writing_suspended >= {
+            name for name, source in self.source_processes.items() if source.is_alive
+        }
 
     def poll(self, paused: bool, expired: bool) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
@@ -185,6 +210,7 @@ class DeviceLifecycle:
                 not source.started
                 and name not in self.failed_sources
                 and not paused
+                and self.writing_enabled
                 and not expired
             ):
                 source.start()
@@ -263,6 +289,14 @@ class DeviceLifecycle:
                 update.waveform_layout.generation,
             )
         self.file_update(update, source)
+        if update.writing_enabled is False:
+            self.writing_suspended.add(update.source_name)
+        if update.calibration is not None:
+            self.calibration_update(update.source_name, update.calibration)
+        for revision in update.config_revisions_applied or []:
+            self.event('cfg_applied', source=update.source_name, value=revision)
+        if not update.channels:
+            return
         if self.waveform_update is not None:
             self.waveform_update(
                 update.waveform_layout,
@@ -284,10 +318,6 @@ class DeviceLifecycle:
         )
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
-        if update.calibration is not None:
-            self.calibration_update(update.source_name, update.calibration)
-        for revision in update.config_revisions_applied or []:
-            self.event('cfg_applied', source=update.source_name, value=revision)
         if source.running and not self._frame_clock_valid(source, now):
             source.stop()
             self.failed_sources.add(update.source_name)
@@ -309,7 +339,7 @@ class DeviceLifecycle:
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases
     ) -> None:
         process = self.source_process(
-            self.cfg,
+            self._source_cfg(self.cfg),
             tracks,
             self.session_directory,
             track_names=self.track_names,
@@ -414,6 +444,16 @@ class DeviceLifecycle:
                     frame_count=frame_count,
                     timestamp=timestamp,
                 )
+
+    def _source_cfg(self, cfg: Cfg) -> Cfg:
+        if self.runtime_output_directory is None:
+            return cfg
+        directory = cfg.directory.model_copy(
+            update={'output_directory': str(self.runtime_output_directory)}
+        )
+        result = cfg.model_copy(update={'directory': directory})
+        result.__dict__.pop('output_path_pattern', None)
+        return result
 
     def _drain(self, conn: connection.Connection) -> None:
         while conn.poll():

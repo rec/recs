@@ -1,7 +1,9 @@
 import os
+import plistlib
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -9,6 +11,12 @@ from recs.base import times
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_ipc
 from recs.misc import legal_filename
+
+
+@dataclass(frozen=True)
+class MountedDisk:
+    path: Path
+    uuid: str
 
 
 def with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
@@ -73,6 +81,49 @@ def mounted_record_disks() -> list[Path]:
             continue
         disks.extend(p for p in children if p.is_dir() and p.is_mount())
     return disks
+
+
+def mounted_disk(path: Path) -> MountedDisk | None:
+    resolved = path.resolve()
+    mounts = sorted(mounted_record_disks(), key=lambda p: len(p.parts), reverse=True)
+    for mount in mounts:
+        if not resolved.is_relative_to(mount.resolve()):
+            continue
+        if uuid := mounted_disk_uuid(mount):
+            return MountedDisk(mount, uuid)
+    return None
+
+
+def mounted_disks_with_uuid() -> list[MountedDisk]:
+    return [
+        MountedDisk(path, uuid)
+        for path in mounted_record_disks()
+        if (uuid := mounted_disk_uuid(path))
+    ]
+
+
+def mounted_disk_uuid(path: Path) -> str | None:
+    if sys.platform == 'darwin':
+        result = subprocess.run(
+            ['diskutil', 'info', '-plist', str(path)], capture_output=True, check=False
+        )
+        if result.returncode:
+            return None
+        data = plistlib.loads(result.stdout)
+        value = data.get('VolumeUUID')
+        return value if isinstance(value, str) else None
+    if sys.platform.startswith('linux'):
+        result = subprocess.run(
+            ['findmnt', '--noheadings', '--output', 'UUID', '--target', str(path)],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        value = result.stdout.strip()
+        if result.returncode:
+            return None
+        return value or None
+    return None
 
 
 def record_disk_parents() -> list[Path]:

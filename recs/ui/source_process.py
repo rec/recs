@@ -68,6 +68,11 @@ class SourceControlTransport:
                     if control.waveforms_enabled is not None
                     else self.control.waveforms_enabled
                 ),
+                writing_enabled=(
+                    control.writing_enabled
+                    if control.writing_enabled is not None
+                    else self.control.writing_enabled
+                ),
             )
             self.available.set()
 
@@ -110,6 +115,7 @@ class SourceProcess(Runnable):
         self.session_directory = session_directory
         self.track_names = track_names or {}
         self.waveforms_enabled = False
+        self.writing_enabled = True
         self.waveform_generation = 0
         self.started: bool = False
         self.pending_updates: list[
@@ -149,6 +155,7 @@ class SourceProcess(Runnable):
             'track_names': self.track_names,
             'update_connection': child_updates,
             'waveforms_enabled': self.waveforms_enabled,
+            'writing_enabled': self.writing_enabled,
             'waveform_generation': self.waveform_generation,
         }
         self.process = mp.Process(
@@ -218,6 +225,13 @@ class SourceProcess(Runnable):
         if self.started:
             self.control_transport.publish(
                 source_recorder.SourceControl(waveforms_enabled=enabled)
+            )
+
+    def set_writing_enabled(self, enabled: bool) -> None:
+        self.writing_enabled = enabled
+        if self.started:
+            self.control_transport.publish(
+                source_recorder.SourceControl(writing_enabled=enabled)
             )
 
     def join(self, timeout: float | None = None) -> None:
@@ -299,6 +313,7 @@ def _run_source_recorder(
     process_name: str | None = None,
     waveforms_enabled: bool = False,
     waveform_generation: int = 0,
+    writing_enabled: bool = True,
 ) -> None:
     _set_process_name(process_name)
     transport = source_recorder.SourceUpdateTransport(update_connection)
@@ -314,6 +329,7 @@ def _run_source_recorder(
             update_transport=transport,
             waveforms_enabled=waveforms_enabled,
             waveform_generation=waveform_generation,
+            writing_enabled=writing_enabled,
         )
     except Exception as e:
         source_name = tracks[0].source.key
