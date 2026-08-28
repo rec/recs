@@ -472,6 +472,20 @@ class Recording(BaseModel):
         tyro.conf.arg(help='How often to check recording disk space'),
     ] = 1.0
 
+    card_replace_poll_seconds: Annotated[
+        float,
+        Mutable,
+        cli_metadata.TIME_SPEC,
+        tyro.conf.arg(help='How often to poll for a replacement recording card'),
+    ] = 1.0
+
+    card_replace_timeout_seconds: Annotated[
+        float,
+        Mutable,
+        cli_metadata.TIME_SPEC,
+        tyro.conf.arg(help='How long to wait for a replacement recording card'),
+    ] = 300.0
+
     disk_auto_switch: Annotated[
         bool,
         Mutable,
@@ -545,7 +559,13 @@ class Recording(BaseModel):
         ),
     ] = 0.0
 
-    @field_validator('audio_buffer_seconds', 'disk_poll_seconds', 'memory_check_period')
+    @field_validator(
+        'audio_buffer_seconds',
+        'card_replace_poll_seconds',
+        'card_replace_timeout_seconds',
+        'disk_poll_seconds',
+        'memory_check_period',
+    )
     @classmethod
     def validate_positive(cls, value: float) -> float:
         if value <= 0:

@@ -230,6 +230,7 @@ def response(
         return ipc.Error(type='error', message=value.message)
     if request.command in {
         'calibrate',
+        'card_replace',
         'capabilities',
         'disk_status',
         'get_cfg',

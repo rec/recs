@@ -79,6 +79,12 @@ def test_external_request_uses_recs_command_model() -> None:
     )
 
 
+def test_external_request_uses_card_replace_command() -> None:
+    message = external_ipc.recs_request(rpc.Request(command='card_replace'))
+
+    assert message == gui_protocol.CardReplace(type='card_replace')
+
+
 def test_external_request_rejects_non_request_protocol_message() -> None:
     request = rpc.Request(command='rows', params={'rows': []})
 
@@ -106,6 +112,25 @@ def test_external_response_preserves_recs_response_type() -> None:
         'type': 'cfg_value',
         'address': 'recording.longest_file_time',
         'value': 3600,
+    }
+
+
+def test_external_response_preserves_card_replace_started() -> None:
+    result = external_ipc.response(
+        rpc.Request(command='card_replace'),
+        gui_protocol.CardReplaceStarted(
+            type='card_replace_started',
+            deadline='2026-08-28T12:05:00.000Z',
+            old_mount='/mnt/openloop',
+            old_uuid='6A1B-2C3D',
+        ),
+    )
+
+    assert result == {
+        'type': 'card_replace_started',
+        'deadline': '2026-08-28T12:05:00.000Z',
+        'old_mount': '/mnt/openloop',
+        'old_uuid': '6A1B-2C3D',
     }
 
 

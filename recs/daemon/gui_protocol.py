@@ -6,7 +6,7 @@ from reccy import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 5
+VERSION = 6
 
 
 class Hello(ipc.Hello):
@@ -34,6 +34,10 @@ class KeyReleased(BaseModel):
 class Calibrate(BaseModel):
     type: Literal['calibrate']
     channels: dict[str, list[int]] = Field(default_factory=dict)
+
+
+class CardReplace(BaseModel):
+    type: Literal['card_replace']
 
 
 class Capabilities(BaseModel):
@@ -129,6 +133,13 @@ class Calibrated(BaseModel):
     type: Literal['calibrated']
     measurements: dict[str, float]
     noise_floors: dict[str, dict[str, float]]
+
+
+class CardReplaceStarted(BaseModel):
+    type: Literal['card_replace_started']
+    deadline: str
+    old_mount: str
+    old_uuid: str
 
 
 class CapabilitiesResult(BaseModel):
@@ -243,6 +254,7 @@ class Error(ipc.Error):
 
 Request = (
     Calibrate
+    | CardReplace
     | Capabilities
     | DiskStatusRequest
     | GetCfg
@@ -263,6 +275,7 @@ Request = (
 
 Response = (
     Calibrated
+    | CardReplaceStarted
     | CapabilitiesResult
     | CfgSet
     | CfgValue
@@ -293,6 +306,7 @@ def parse_message(line: str) -> Message:
 
 API_COMMANDS = [
     'calibrate',
+    'card_replace',
     'capabilities',
     'disk_status',
     'get_cfg',

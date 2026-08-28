@@ -1,6 +1,7 @@
 import pytest
 
 from recs.cfg import time_settings
+from recs.cfg.cfg import Cfg
 
 
 @pytest.mark.parametrize('db', (-10, 0, 3.1, 35, 123, float('inf')))
@@ -20,3 +21,11 @@ def test_record_everything_is_not_scaled_to_samples() -> None:
     result = time_settings.TimeSettings(record_everything=True).scale(48_000)
 
     assert result.record_everything is True
+
+
+def test_card_replace_times_must_be_positive() -> None:
+    with pytest.raises(ValueError, match='must be positive'):
+        Cfg(card_replace_poll_seconds=0)
+
+    with pytest.raises(ValueError, match='must be positive'):
+        Cfg(card_replace_timeout_seconds=0)

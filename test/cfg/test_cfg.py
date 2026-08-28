@@ -59,6 +59,8 @@ def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
         'directory.short_file_names',
         'keys.key_label',
         'recording.band_mode',
+        'recording.card_replace_poll_seconds',
+        'recording.card_replace_timeout_seconds',
         'recording.channel_noise_floors',
         'recording.disk_alert_thresholds',
         'recording.disk_auto_switch',
@@ -176,7 +178,15 @@ def test_waveform_batch_must_contain_whole_buckets(mock_devices: None) -> None:
         Cfg(waveform_bucket_milliseconds=30, waveform_batch_milliseconds=100)
 
 
-@pytest.mark.parametrize('field', ['disk_poll_seconds', 'memory_check_period'])
+@pytest.mark.parametrize(
+    'field',
+    [
+        'card_replace_poll_seconds',
+        'card_replace_timeout_seconds',
+        'disk_poll_seconds',
+        'memory_check_period',
+    ],
+)
 def test_buffer_times_must_be_positive(field: str, mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='must be positive'):
         Cfg(**{field: 0})
