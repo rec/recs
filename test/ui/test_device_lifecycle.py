@@ -94,6 +94,7 @@ def test_reap_drains_all_pending_source_messages() -> None:
         file_update=lambda update, source: updates.append(update),
         calibration_update=lambda source, values: None,
         buffer_update=lambda source, stats: None,
+        write_error=lambda source, error: None,
         source_process=ReapedSource,
         device_poller=lambda interval: FakePoller(),
     )

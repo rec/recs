@@ -51,6 +51,7 @@ class DeviceLifecycle:
         file_update: Callable[[SourceUpdate, SourceProcess], None],
         calibration_update: Callable[[str, dict[str, float]], None],
         buffer_update: Callable[[str, BufferStats], None],
+        write_error: Callable[[str, str], None],
         source_process: Callable[..., SourceProcess],
         device_poller: Callable[[float], DevicePoller],
         waveform_update: Callable[
@@ -68,6 +69,7 @@ class DeviceLifecycle:
         self.file_update = file_update
         self.calibration_update = calibration_update
         self.buffer_update = buffer_update
+        self.write_error = write_error
         self.source_process = source_process
         self.device_poller = device_poller
         self.waveform_update = waveform_update
@@ -289,6 +291,8 @@ class DeviceLifecycle:
                 update.waveform_layout.generation,
             )
         self.file_update(update, source)
+        if update.write_error is not None:
+            self.write_error(update.source_name, update.write_error)
         if update.writing_enabled is False:
             self.writing_suspended.add(update.source_name)
         if update.calibration is not None:

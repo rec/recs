@@ -33,6 +33,7 @@ class MidiRecorder(Runnable):
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
         *,
+        write_error: Callable[[str, str], None] | None = None,
         input_names: Callable[[], list[str]] = device.input_names,
         open_input: Callable[[str], MidiPort] | None = None,
         timestamp: Callable[[], float] = times.timestamp,
@@ -42,6 +43,7 @@ class MidiRecorder(Runnable):
         self.session_directory = session_directory
         self.warning = warning
         self.write_record = write_record
+        self.write_error = write_error
         self.input_names = input_names
         self.open_input = open_input or _open_input
         self.timestamp = timestamp
@@ -73,11 +75,16 @@ class MidiRecorder(Runnable):
             try:
                 self.write_record(writer.finish())
             except OSError as error:
+                self._record_write_error(name, error)
                 self._record_failure(name, self._selector(name), str(error))
-            del self.writers[name]
+            self.writers.pop(name, None)
 
     def suspend_for_card_replace(self) -> None:
         self.close_session()
+        self.card_replace_paused = True
+
+    def suspend_after_unmount(self) -> None:
+        self.writers = {}
         self.card_replace_paused = True
 
     def open_session(self, session_directory: Path) -> None:
@@ -262,6 +269,7 @@ class MidiRecorder(Runnable):
             try:
                 self.write_record(writer.finish())
             except OSError as error:
+                self._record_write_error(name, error)
                 errors.append(str(error))
         self.last_message_timestamp.pop(name, None)
         if errors:
@@ -290,6 +298,10 @@ class MidiRecorder(Runnable):
                 midi_port=name,
             )
         )
+
+    def _record_write_error(self, name: str, error: OSError) -> None:
+        if self.write_error is not None:
+            self.write_error(name, str(error))
 
     def _selector(self, name: str) -> str:
         return next(

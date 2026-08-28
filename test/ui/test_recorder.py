@@ -1247,6 +1247,28 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     assert rec._devices.writing_enabled
 
 
+def test_unmounted_recording_disk_starts_card_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'old-card'
+    output = old / 'recs'
+    old.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(output), silent=True))
+    old_disk = recording_paths.MountedDisk(old, 'old-uuid')
+    rec._recording_disk = old_disk
+    monkeypatch.setattr(recording_paths, 'mounted_disks_with_uuid', lambda: [])
+
+    rec._record_write_error('Mic', 'Input/output error')
+
+    assert rec._card_replacement.active
+    assert rec._card_replacement.use_old_mount_immediately
+    assert not rec._devices.writing_enabled
+
+
 def test_calibrate_control_request_requires_online_channels(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

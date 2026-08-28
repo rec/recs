@@ -163,6 +163,15 @@ class ChannelWriter(Runnable):
             self._write_and_close()
             self.stopped = True
 
+    def stop_after_write_error(self) -> None:
+        with self._lock:
+            self.running = False
+            sfs, self._sfs = self._sfs, ()
+            for sf in sfs:
+                with contextlib.suppress(OSError, RuntimeError):
+                    sf.close()
+            self.stopped = True
+
     def _close(self) -> None:
         sfs, self._sfs = self._sfs, ()
         for sf in sfs:

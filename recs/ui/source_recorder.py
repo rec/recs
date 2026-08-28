@@ -67,6 +67,7 @@ class SourceUpdate(NamedTuple):
     waveform_layout: WaveformLayoutData | None = None
     waveform_batches: list[WaveformBatchData] | None = None
     writing_enabled: bool | None = None
+    write_error: str | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -491,7 +492,10 @@ class SourceControlApplier:
             return
         if not enabled:
             for writer in recorder.channel_writers:
-                writer.stop()
+                try:
+                    writer.stop()
+                except OSError:
+                    writer.stop_after_write_error()
             recorder.file_events.remember_finished_files(recorder.channel_writers)
             files, file_records = recorder.file_events.new_files(
                 recorder.channel_writers, recorder.sample_bit_depth
@@ -529,6 +533,23 @@ class SourceControlApplier:
         recorder.file_events.reset_writers(recorder.channel_writers)
         recorder.runnables = recorder.input_stream, *recorder.channel_writers
         recorder.writing_enabled = True
+
+    def suspend_after_write_error(self, error: OSError) -> None:
+        recorder = self.recorder
+        for writer in recorder.channel_writers:
+            writer.stop_after_write_error()
+        recorder.file_events.remember_finished_files(recorder.channel_writers)
+        recorder.writing_enabled = False
+        recorder.update_transport.publish(
+            SourceUpdate(
+                channels={},
+                files=[],
+                frames=0,
+                source_name=recorder.source.key,
+                writing_enabled=False,
+                write_error=str(error),
+            )
+        )
 
 
 class SourceRecorder(Runnables):
@@ -680,14 +701,18 @@ class SourceRecorder(Runnables):
             should_record.values()
         )
         msgs: dict[str, ChannelState] = {}
-        for writer, block in cb.items():
-            forced = bool(set(writer.track.channels) & self.pending_active_channels)
-            msgs[writer.track.name] = writer.receive_update(
-                block,
-                end_timestamp,
-                should_record[writer] or band_should_record or forced,
-                u.end_frame,
-            )
+        try:
+            for writer, block in cb.items():
+                forced = bool(set(writer.track.channels) & self.pending_active_channels)
+                msgs[writer.track.name] = writer.receive_update(
+                    block,
+                    end_timestamp,
+                    should_record[writer] or band_should_record or forced,
+                    u.end_frame,
+                )
+        except OSError as error:
+            self.control.suspend_after_write_error(error)
+            return
         self.pending_active_channels = set()
         calibration = self.calibration.update(cb)
         files, file_records = self.file_events.new_files(
@@ -785,6 +810,7 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
             if second.writing_enabled is not None
             else first.writing_enabled
         ),
+        write_error=second.write_error or first.write_error,
     )
 
 

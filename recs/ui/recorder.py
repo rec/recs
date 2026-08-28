@@ -67,6 +67,7 @@ class Recorder(Runnables):
             cfg, self.saved_tracks
         )
         self.warnings: list[ErrorRecord] = []
+        self._output_unmounted = False
         track_names = saved_settings.track_names
         self.state = FullState(all_tracks, cfg.aliases)
         self.session_start_time = self.state.start_time
@@ -116,12 +117,14 @@ class Recorder(Runnables):
             recording_paths.media_session_directory(self.session_directory, 'midi'),
             lambda warning: self._record_warning(warning, self.midi_session),
             self.midi_session.write,
+            write_error=self._record_write_error,
         )
         self._osc = OscRecorder(
             self.cfg,
             recording_paths.media_session_directory(self.session_directory, 'osc'),
             lambda warning: self._record_warning(warning, self.osc_session),
             self.osc_session.write,
+            self._record_write_error,
         )
         self.key_recorder = make_key_recorder(cfg)
         self._disk_space_policy = disk_space_policy.DiskSpacePolicy(self.cfg)
@@ -137,6 +140,7 @@ class Recorder(Runnables):
             self._record_device_file_update,
             self._record_calibration_result,
             self._record_device_buffer_update,
+            self._record_write_error,
             SourceProcess,
             DevicePoller,
             waveform_update=self._publish_live_waveforms,
@@ -161,6 +165,7 @@ class Recorder(Runnables):
             self._card_replace,
         )
         self._card_replacement = card_replacement.CardReplacement()
+        self._recording_disk = recording_paths.mounted_disk(self.session_directory)
         self._calibration = calibration.Calibration(
             self.cfg,
             self._devices.hardware,
@@ -211,18 +216,19 @@ class Recorder(Runnables):
     def _record_device_file_update(
         self, update: SourceUpdate, source: SourceProcess
     ) -> None:
-        self.session.record_files(
-            update.files,
-            update.file_end_frames or {},
-            update.file_end_timestamps or {},
-        )
-        for file_record in update.file_records or []:
-            self.session.record_file_started(
-                file_record,
-                file_record.source_name
-                if isinstance(source.source, FileSource)
-                else None,
+        if not self._output_unmounted:
+            self.session.record_files(
+                update.files,
+                update.file_end_frames or {},
+                update.file_end_timestamps or {},
             )
+            for file_record in update.file_records or []:
+                self.session.record_file_started(
+                    file_record,
+                    file_record.source_name
+                    if isinstance(source.source, FileSource)
+                    else None,
+                )
         if update.track_layout is not None:
             self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
             self.state.set_track_names(self._control.track_names)
@@ -399,7 +405,36 @@ class Recorder(Runnables):
         return bool(self.live and self.live.closed)
 
     def _monitor_disk_space(self) -> None:
+        if disk := recording_paths.mounted_disk(self.session_directory):
+            self._recording_disk = disk
         self._disk_space_controller.monitor_disk_space()
+
+    def _record_write_error(self, source: str, error: str) -> None:
+        if self._card_replacement.active:
+            return
+        old_mount = self._recording_disk
+        if old_mount is None or any(
+            disk.uuid == old_mount.uuid
+            for disk in recording_paths.mounted_disks_with_uuid()
+        ):
+            self._record_warning(f'Device {source} write failed: {error}')
+            return
+        self._card_replacement.start_after_unmount(
+            self.cfg,
+            Path(self.cfg.directory.output_directory),
+            old_mount,
+            times.timestamp(),
+        )
+        self._output_unmounted = True
+        self._devices.set_writing_enabled(False)
+        self._midi.suspend_after_unmount()
+        self._osc.suspend_after_unmount()
+        LOGGER.error(
+            'Device %s write failed after %s was unmounted: %s',
+            source,
+            old_mount.path,
+            error,
+        )
 
     def _card_replace(self) -> gui_protocol.CardReplaceStarted:
         result = self._card_replacement.start(
@@ -451,6 +486,10 @@ class Recorder(Runnables):
             )
         )
         self._devices.set_runtime_output_directory(destination.output_directory)
+        self._recording_disk = recording_paths.mounted_disk(
+            destination.output_directory
+        )
+        self._output_unmounted = False
         self._start_manifest()
         self._write_manifest_record(
             session_manifest.ManifestEvent(
@@ -642,12 +681,13 @@ class Recorder(Runnables):
         timestamp = session_manifest.timestamp_to_json(times.timestamp())
         LOGGER.error('%s', warning)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
-        (session or self.session).write(
-            session_manifest.ManifestWarning(
-                timestamp=timestamp,
-                message=warning,
+        if not self._output_unmounted:
+            (session or self.session).write(
+                session_manifest.ManifestWarning(
+                    timestamp=timestamp,
+                    message=warning,
+                )
             )
-        )
 
     def _write_manifest_record(
         self,
@@ -656,6 +696,8 @@ class Recorder(Runnables):
         | session_manifest.ManifestFooter
         | session_manifest.ManifestWarning,
     ) -> None:
+        if self._output_unmounted:
+            return
         self.session.write(record)
         self.midi_session.write(record)
         self.osc_session.write(record)

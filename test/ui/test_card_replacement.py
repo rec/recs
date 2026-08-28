@@ -57,3 +57,23 @@ def test_card_replacement_falls_back_to_old_card_after_timeout(
     assert replacement.destination(
         cfg, 400
     ) == card_replacement.CardReplacementDestination(output, 'replacement_timeout')
+
+
+def test_unmounted_card_replacement_uses_remounted_original_immediately(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    old = tmp_path / 'old-card'
+    output = old / 'recs'
+    old_disk = recording_paths.MountedDisk(old, 'old-uuid')
+    mounts: list[recording_paths.MountedDisk] = []
+    monkeypatch.setattr(recording_paths, 'mounted_disks_with_uuid', lambda: mounts)
+    replacement = card_replacement.CardReplacement()
+    cfg = Cfg(output_directory=str(output), card_replace_poll_seconds=1)
+
+    replacement.start_after_unmount(cfg, output, old_disk, 100)
+    assert replacement.destination(cfg, 100) is None
+
+    mounts.append(old_disk)
+    assert replacement.destination(
+        cfg, 101
+    ) == card_replacement.CardReplacementDestination(output, 'original_card_remounted')

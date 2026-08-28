@@ -30,11 +30,13 @@ class OscRecorder(Runnable):
         session_directory: Path,
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
+        write_error: Callable[[str, str], None] | None = None,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
         self.warning = warning
         self.write_record = write_record
+        self.write_error = write_error
         self.nodes: dict[str, OscNodeRecorder] = {}
         super().__init__()
 
@@ -54,6 +56,7 @@ class OscRecorder(Runnable):
                 self.session_directory,
                 self.warning,
                 self.write_record,
+                self.write_error,
             )
             self.nodes[node.name] = recorder
             recorder.start()
@@ -79,6 +82,10 @@ class OscRecorder(Runnable):
         for node in self.nodes.values():
             node.suspend_for_card_replace()
 
+    def suspend_after_unmount(self) -> None:
+        for node in self.nodes.values():
+            node.suspend_after_unmount()
+
     def open_session(self, session_directory: Path) -> None:
         self.session_directory = session_directory
         for node in self.nodes.values():
@@ -92,11 +99,13 @@ class OscNodeRecorder:
         session_directory: Path,
         warning: Callable[[str], None],
         write_record: Callable[[ManifestRecord], None],
+        write_error: Callable[[str, str], None] | None,
     ) -> None:
         self.node = node
         self.directory = session_directory
         self.warning = warning
         self.write_record = write_record
+        self.write_error = write_error
         self.socket: socket.socket | None = None
         self.output: BinaryIO | None = None
         self.path: Path | None = None
@@ -232,6 +241,10 @@ class OscNodeRecorder:
         self.close_output()
         self.card_replace_paused = True
 
+    def suspend_after_unmount(self) -> None:
+        self.output = None
+        self.card_replace_paused = True
+
     def open_session(self, session_directory: Path) -> None:
         self.card_replace_paused = False
         self.open_output(session_directory)
@@ -294,6 +307,8 @@ class OscNodeRecorder:
             self.output.flush()
             self.bytes_written += len(data)
         except OSError as error:
+            if self.write_error is not None:
+                self.write_error(self.node.name, str(error))
             self._fail('write', str(error))
 
     def _fail(self, operation: str, message: str) -> None:

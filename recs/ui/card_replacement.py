@@ -21,6 +21,7 @@ class CardReplacement:
         self.next_poll = 0.0
         self.old_mount: recording_paths.MountedDisk | None = None
         self.output_relative = Path()
+        self.use_old_mount_immediately = False
 
     def start(
         self, cfg: Cfg, session_directory: Path, timestamp: float
@@ -43,12 +44,37 @@ class CardReplacement:
         self.next_poll = timestamp
         self.old_mount = disk
         self.output_relative = output_relative
+        self.use_old_mount_immediately = False
         return gui_protocol.CardReplaceStarted(
             type='card_replace_started',
             deadline=session_manifest.timestamp_to_json(self.deadline),
             old_mount=str(disk.path),
             old_uuid=disk.uuid,
         )
+
+    def start_after_unmount(
+        self,
+        cfg: Cfg,
+        output_directory: Path,
+        old_mount: recording_paths.MountedDisk,
+        timestamp: float,
+    ) -> None:
+        if self.active:
+            return
+        try:
+            output_relative = output_directory.resolve().relative_to(
+                old_mount.path.resolve()
+            )
+        except ValueError as error:
+            raise RecsError(
+                'Current output directory is not on the recording disk'
+            ) from error
+        self.active = True
+        self.deadline = timestamp + cfg.recording.card_replace_timeout_seconds
+        self.next_poll = timestamp
+        self.old_mount = old_mount
+        self.output_relative = output_relative
+        self.use_old_mount_immediately = True
 
     def destination(
         self, cfg: Cfg, timestamp: float
@@ -58,10 +84,15 @@ class CardReplacement:
         self.next_poll = timestamp + cfg.recording.card_replace_poll_seconds
         assert self.old_mount is not None
         for disk in recording_paths.mounted_disks_with_uuid():
-            if disk.uuid != self.old_mount.uuid:
+            if disk.uuid != self.old_mount.uuid or self.use_old_mount_immediately:
                 self.active = False
                 return CardReplacementDestination(
-                    disk.path / self.output_relative, 'replacement_card_available'
+                    disk.path / self.output_relative,
+                    (
+                        'original_card_remounted'
+                        if disk.uuid == self.old_mount.uuid
+                        else 'replacement_card_available'
+                    ),
                 )
         if timestamp < self.deadline:
             return None
