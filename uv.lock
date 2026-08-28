@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-08-16T12:02:29.898065Z"
+exclude-newer = "2026-08-21T09:52:17.474254Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -588,28 +588,12 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.1.0"
-source = { editable = "../reccy" }
+source = { git = "ssh://git@github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106#446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" }
 dependencies = [
     { name = "pydantic" },
     { name = "strenum" },
     { name = "tomli" },
     { name = "tyro" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "strenum" },
-    { name = "tomli", specifier = ">=2.0.1" },
-    { name = "tyro", specifier = ">=1.0.13" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest" },
-    { name = "pyupgrade", specifier = ">=3.21.2" },
-    { name = "ruff" },
-    { name = "ty", specifier = ">=0.0.14" },
 ]
 
 [[package]]
@@ -654,7 +638,7 @@ requires-dist = [
     { name = "overrides" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyside6", specifier = ">=6.11.1" },
-    { name = "reccy", editable = "../reccy" },
+    { name = "reccy", git = "ssh://git@github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
