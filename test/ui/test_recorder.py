@@ -1236,6 +1236,9 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     assert result.old_uuid == 'old-uuid'
     assert rec.cfg.directory.output_directory == str(output)
     assert not rec._devices.writing_enabled
+    assert rec.awaiting_card is not None
+    assert rec.awaiting_card.value
+    assert rec._control.status_snapshot().errors == [rec.awaiting_card]
     assert session_manifest.read(old_manifest).events[-1].type == 'card_replace_started'
 
     mounts[:] = [new_disk]
@@ -1245,6 +1248,9 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     assert rec.cfg.directory.output_directory == str(output)
     assert rec.session_directory.parent == new / 'recs'
     assert rec._devices.writing_enabled
+    assert rec.awaiting_card is not None
+    assert not rec.awaiting_card.value
+    assert rec._control.status_snapshot().errors == [rec.awaiting_card]
 
 
 def test_unmounted_recording_disk_starts_card_replacement(
@@ -1267,6 +1273,8 @@ def test_unmounted_recording_disk_starts_card_replacement(
     assert rec._card_replacement.active
     assert rec._card_replacement.use_old_mount_immediately
     assert not rec._devices.writing_enabled
+    assert rec.awaiting_card is not None
+    assert rec.awaiting_card.value
 
 
 def test_calibrate_control_request_requires_online_channels(

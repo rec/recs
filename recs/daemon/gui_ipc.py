@@ -240,7 +240,8 @@ class DaemonGuiServer(Runnable):
         self, rows: list[dict[str, object]], errors: list[ErrorRecord]
     ) -> None:
         message = ipc.message_json(
-            gui_protocol.RowsMessage(type='rows', rows=rows, errors=errors)
+            gui_protocol.RowsMessage(type='rows', rows=rows, errors=errors),
+            exclude_none=True,
         )
         with self.lock:
             listeners = list(self.clients)

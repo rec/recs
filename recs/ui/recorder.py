@@ -67,6 +67,7 @@ class Recorder(Runnables):
             cfg, self.saved_tracks
         )
         self.warnings: list[ErrorRecord] = []
+        self.awaiting_card: ErrorRecord | None = None
         self._output_unmounted = False
         track_names = saved_settings.track_names
         self.state = FullState(all_tracks, cfg.aliases)
@@ -287,7 +288,11 @@ class Recorder(Runnables):
             )
             for message in self.session.manifest_errors
         ]
-        return [*self.warnings, *manifest_errors]
+        return [
+            *self.warnings,
+            *([self.awaiting_card] if self.awaiting_card is not None else []),
+            *manifest_errors,
+        ]
 
     def _record_startup_input_errors(
         self,
@@ -425,6 +430,7 @@ class Recorder(Runnables):
             old_mount,
             times.timestamp(),
         )
+        self._set_awaiting_card(True)
         self._output_unmounted = True
         self._devices.set_writing_enabled(False)
         self._midi.suspend_after_unmount()
@@ -440,6 +446,7 @@ class Recorder(Runnables):
         result = self._card_replacement.start(
             self.cfg, self.session_directory, times.timestamp()
         )
+        self._set_awaiting_card(True)
         self._devices.set_writing_enabled(False)
         deadline = monotonic() + external_ipc.EXTERNAL_RESPONSE_TIMEOUT
         while not self._devices.writing_is_suspended:
@@ -454,6 +461,7 @@ class Recorder(Runnables):
             if monotonic() >= deadline:
                 self._devices.set_writing_enabled(True)
                 self._card_replacement.active = False
+                self._set_awaiting_card(False)
                 raise RecsError('Timed out closing audio files for card replacement')
         self._midi.suspend_for_card_replace()
         self._osc.suspend_for_card_replace()
@@ -490,6 +498,7 @@ class Recorder(Runnables):
             destination.output_directory
         )
         self._output_unmounted = False
+        self._set_awaiting_card(False)
         self._start_manifest()
         self._write_manifest_record(
             session_manifest.ManifestEvent(
@@ -688,6 +697,13 @@ class Recorder(Runnables):
                     message=warning,
                 )
             )
+
+    def _set_awaiting_card(self, value: bool) -> None:
+        self.awaiting_card = ErrorRecord(
+            timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+            message='awaiting card',
+            value=value,
+        )
 
     def _write_manifest_record(
         self,

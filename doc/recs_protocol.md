@@ -147,7 +147,7 @@ The fields have these meanings:
 | --- | --- |
 | `devices` | Configured audio sources, including channel count, sample rate, and whether each source is online |
 | `disk` | The same object returned by `disk_status`, without its `type` field |
-| `errors` | Recorded errors, each with `timestamp` and `message` |
+| `errors` | Recorded errors, each with `timestamp`, `message`, and optional boolean `value` |
 | `manifest_path` | Absolute path of the current session manifest |
 | `midi` | Current MIDI input states |
 | `osc` | Current OSC recorder states |
@@ -319,6 +319,11 @@ their new session files, and then writes newly received data normally. The
 configured output directory is not changed or saved: Recs applies the relative
 path from the old card's mount point to the new card's mount point for this
 session only.
+
+While Recs is waiting for a replacement card, `rows` events and
+`status_snapshot` include an error record with `message` set to `"awaiting
+card"` and `value` set to `true`. When Recs finds a destination card, that
+same record has `value` set to `false`.
 
 If no different UUID appears within
 `recording.card_replace_timeout_seconds` (default `300`), Recs resumes on the

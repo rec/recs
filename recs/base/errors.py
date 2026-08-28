@@ -8,5 +8,6 @@ class RecsError(ValueError):
 class ErrorRecord(BaseModel):
     timestamp: str
     message: str
+    value: bool | None = None
 
     model_config = ConfigDict(frozen=True)
