@@ -77,14 +77,20 @@ class CardReplacement:
         self.use_old_mount_immediately = True
 
     def destination(
-        self, cfg: Cfg, timestamp: float
+        self,
+        cfg: Cfg,
+        timestamp: float,
+        replacement_uuids: set[str] | None = None,
     ) -> CardReplacementDestination | None:
         if not self.active or timestamp < self.next_poll:
             return None
         self.next_poll = timestamp + cfg.recording.card_replace_poll_seconds
         assert self.old_mount is not None
         for disk in recording_paths.mounted_disks_with_uuid():
-            if disk.uuid != self.old_mount.uuid or self.use_old_mount_immediately:
+            if (
+                disk.uuid != self.old_mount.uuid
+                and (replacement_uuids is None or disk.uuid in replacement_uuids)
+            ) or (disk.uuid == self.old_mount.uuid and self.use_old_mount_immediately):
                 self.active = False
                 return CardReplacementDestination(
                     disk.path / self.output_relative,

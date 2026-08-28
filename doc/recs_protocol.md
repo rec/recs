@@ -313,12 +313,14 @@ replacement deadline:
 
 Recs polls mounted recording disks every
 `recording.card_replace_poll_seconds` (default `1`) for a disk whose UUID
-differs from `old_uuid`. On finding one, it creates a new session directory on
-that disk, writes the retained audio blocks, MIDI messages, and OSC packets to
-their new session files, and then writes newly received data normally. The
-configured output directory is not changed or saved: Recs applies the relative
-path from the old card's mount point to the new card's mount point for this
-session only.
+differs from `old_uuid` and has at least the configured removable-disk
+emergency reserve free. If such a disk is already mounted when replacement
+begins, Recs switches immediately. On finding one, it creates a new session
+directory on that disk, writes the retained audio blocks, MIDI messages, and
+OSC packets to their new session files, and then writes newly received data
+normally. The configured output directory is not changed or saved: Recs applies
+the relative path from the old card's mount point to the new card's mount point
+for this session only.
 
 While Recs is waiting for a replacement card, `rows` events and
 `status_snapshot` include an error record with `message` set to `"awaiting

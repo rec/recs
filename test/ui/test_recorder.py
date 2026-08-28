@@ -16,6 +16,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 from recs.ui import (
+    disk_space,
     disk_space_controller,
     recorder,
     recording_paths,
@@ -1222,12 +1223,25 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     clock = [100.0]
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: clock[0])
-    rec = Recorder(Cfg(include=['Mic'], output_directory=str(output), silent=True))
     old_disk = recording_paths.MountedDisk(old, 'old-uuid')
     new_disk = recording_paths.MountedDisk(new, 'new-uuid')
     monkeypatch.setattr(recording_paths, 'mounted_disk', lambda path: old_disk)
     mounts = [old_disk]
     monkeypatch.setattr(recording_paths, 'mounted_disks_with_uuid', lambda: mounts)
+    monkeypatch.setattr(
+        recording_paths, 'mounted_record_disks', lambda: [disk.path for disk in mounts]
+    )
+    monkeypatch.setattr(
+        disk_space.shutil, 'disk_usage', lambda path: DiskUsage(100, 0, 100)
+    )
+    rec = Recorder(
+        Cfg(
+            include=['Mic'],
+            output_directory=str(output),
+            disk_removable_emergency=['1'],
+            silent=True,
+        )
+    )
     rec._start_manifest()
     old_manifest = rec._manifest_path()
 
@@ -1275,6 +1289,53 @@ def test_unmounted_recording_disk_starts_card_replacement(
     assert not rec._devices.writing_enabled
     assert rec.awaiting_card is not None
     assert rec.awaiting_card.value
+
+
+def test_card_replacement_uses_mounted_disk_with_emergency_reserve(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'old-card'
+    new = tmp_path / 'new-card'
+    output = old / 'recs'
+    old.mkdir()
+    new.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recording_paths, 'mounted_record_disks', lambda: [old, new])
+    monkeypatch.setattr(
+        disk_space.shutil,
+        'disk_usage',
+        lambda path: DiskUsage(
+            100,
+            10 if Path(path) == new else 90,
+            90 if Path(path) == new else 10,
+        ),
+    )
+    now = [100.0]
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now[0])
+    old_disk = recording_paths.MountedDisk(old, 'old-uuid')
+    new_disk = recording_paths.MountedDisk(new, 'new-uuid')
+    monkeypatch.setattr(recording_paths, 'mounted_disk', lambda path: old_disk)
+    monkeypatch.setattr(
+        recording_paths, 'mounted_disks_with_uuid', lambda: [old_disk, new_disk]
+    )
+    rec = Recorder(
+        Cfg(
+            include=['Mic'],
+            output_directory=str(output),
+            disk_removable_emergency=['50'],
+            silent=True,
+        )
+    )
+    rec._start_manifest()
+
+    rec._card_replace()
+
+    assert rec.session_directory.parent == new / 'recs'
+    assert rec.awaiting_card is not None
+    assert not rec.awaiting_card.value
 
 
 def test_calibrate_control_request_requires_online_channels(

@@ -435,6 +435,7 @@ class Recorder(Runnables):
         self._devices.set_writing_enabled(False)
         self._midi.suspend_after_unmount()
         self._osc.suspend_after_unmount()
+        self._monitor_card_replacement()
         LOGGER.error(
             'Device %s write failed after %s was unmounted: %s',
             source,
@@ -474,12 +475,29 @@ class Recorder(Runnables):
             )
         )
         self._finish_manifest()
+        self._monitor_card_replacement()
         return result
 
+    def _replacement_disk_uuids(self) -> set[str]:
+        mounts = {
+            disk.path.resolve(): disk.uuid
+            for disk in recording_paths.mounted_disks_with_uuid()
+        }
+        return {
+            mounts[disk.path.resolve()]
+            for disk in self._disk_space_policy.removable_disks()
+            if disk.free_bytes >= self._disk_space_policy.emergency_threshold(disk)
+            and disk.path.resolve() in mounts
+        }
+
     def _monitor_card_replacement(self) -> bool:
+        if not self._card_replacement.active:
+            return False
         if (
             destination := self._card_replacement.destination(
-                self.cfg, times.timestamp()
+                self.cfg,
+                times.timestamp(),
+                self._replacement_disk_uuids(),
             )
         ) is None:
             return self._card_replacement.active
