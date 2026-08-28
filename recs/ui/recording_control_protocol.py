@@ -7,27 +7,6 @@ from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 
-API_COMMANDS = [
-    'calibrate',
-    'capabilities',
-    'disk_status',
-    'get_cfg',
-    'get_track_names',
-    'list_devices',
-    'mutable_attributes',
-    'mark',
-    'pause_recording',
-    'reload_profiles',
-    'resume_recording',
-    'set_key_label',
-    'set_noise_floor',
-    'set_track_names',
-    'set_tracks',
-    'set_cfg',
-    'shutdown',
-    'status_snapshot',
-]
-
 
 class ControlDisplay(Protocol):
     def take_control_requests(self) -> list[gui_ipc.ControlRequest]:
@@ -87,6 +66,9 @@ class RecordingControlTarget(Protocol):
     def status_snapshot(self) -> gui_protocol.StatusSnapshot:
         ...
 
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        ...
+
 
 class RecordingControlProtocol:
     def __init__(self, control: RecordingControlTarget) -> None:
@@ -121,6 +103,12 @@ class RecordingControlProtocol:
                     response = gui_protocol.RecordingState(
                         type='recording_state', paused=False
                     )
+                elif isinstance(parsed, gui_protocol.WaveformRequest):
+                    active = isinstance(parsed, gui_protocol.SubscribeWaveforms)
+                    response = external.set_waveform_subscription(
+                        active, self.control.cfg
+                    )
+                    self.control.set_waveforms_enabled(active)
                 else:
                     response = self.handle(parsed)
             except (RecsError, ValidationError) as error:
@@ -143,7 +131,7 @@ class RecordingControlProtocol:
         if isinstance(request, gui_protocol.Capabilities):
             return gui_protocol.CapabilitiesResult(
                 type='capabilities_result',
-                commands=API_COMMANDS,
+                commands=gui_protocol.API_COMMANDS,
                 version=gui_protocol.VERSION,
             )
         if isinstance(request, gui_protocol.DiskStatusRequest):

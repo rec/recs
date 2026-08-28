@@ -304,6 +304,62 @@ def test_source_process_requests_calibration(
     assert parent.sent == [SourceControl(calibration_tracks=['1'])]
 
 
+def test_source_process_enables_live_waveforms(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = FakeSendConnection()
+
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeSendConnection]:
+        return FakeConnection(), parent
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+
+    owner.start()
+    owner.set_waveforms_enabled(True)
+
+    assert parent.sent_event.wait(0.1)
+    assert parent.sent == [SourceControl(waveforms_enabled=True)]
+
+
+def test_source_process_changes_waveform_generation_after_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+    owner.set_waveforms_enabled(True)
+
+    owner.start()
+    first_generation = owner.process.kwargs['waveform_generation']
+    owner.stop()
+    owner.join()
+    owner.start()
+
+    assert first_generation == 1
+    assert owner.process.kwargs['waveform_generation'] == 2
+
+
 def test_source_process_updates_tracks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

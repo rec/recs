@@ -6,7 +6,7 @@ from reccy import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 4
+VERSION = 5
 
 
 class Hello(ipc.Hello):
@@ -117,6 +117,14 @@ class StatusSnapshotRequest(BaseModel):
     type: Literal['status_snapshot']
 
 
+class SubscribeWaveforms(BaseModel, frozen=True):
+    type: Literal['subscribe_waveforms']
+
+
+class UnsubscribeWaveforms(BaseModel, frozen=True):
+    type: Literal['unsubscribe_waveforms']
+
+
 class Calibrated(BaseModel):
     type: Literal['calibrated']
     measurements: dict[str, float]
@@ -217,6 +225,13 @@ class TracksSet(BaseModel):
     tracks: list[ChannelTrack]
 
 
+class WaveformSubscription(BaseModel, frozen=True):
+    type: Literal['waveform_subscription']
+    active: bool
+    bucket_milliseconds: int
+    batch_milliseconds: int
+
+
 class Shutdown(ipc.Shutdown):
     type: Literal['shutdown']
 
@@ -265,6 +280,8 @@ Response = (
     | Error
 )
 
+WaveformRequest = SubscribeWaveforms | UnsubscribeWaveforms
+
 Message = Hello | RowsMessage | KeyPressed | KeyReleased | Request | Response | Shutdown
 
 MESSAGE = TypeAdapter(Message)
@@ -272,3 +289,27 @@ MESSAGE = TypeAdapter(Message)
 
 def parse_message(line: str) -> Message:
     return MESSAGE.validate_json(line)
+
+
+API_COMMANDS = [
+    'calibrate',
+    'capabilities',
+    'disk_status',
+    'get_cfg',
+    'get_track_names',
+    'list_devices',
+    'mutable_attributes',
+    'mark',
+    'pause_recording',
+    'reload_profiles',
+    'resume_recording',
+    'set_key_label',
+    'set_noise_floor',
+    'set_track_names',
+    'set_tracks',
+    'set_cfg',
+    'shutdown',
+    'status_snapshot',
+    'subscribe_waveforms',
+    'unsubscribe_waveforms',
+]

@@ -63,6 +63,11 @@ class SourceControlTransport:
                 tracks=control.tracks
                 if control.tracks is not None
                 else self.control.tracks,
+                waveforms_enabled=(
+                    control.waveforms_enabled
+                    if control.waveforms_enabled is not None
+                    else self.control.waveforms_enabled
+                ),
             )
             self.available.set()
 
@@ -104,6 +109,8 @@ class SourceProcess(Runnable):
         self.tracks = tracks
         self.session_directory = session_directory
         self.track_names = track_names or {}
+        self.waveforms_enabled = False
+        self.waveform_generation = 0
         self.started: bool = False
         self.pending_updates: list[
             source_recorder.SourceUpdate | source_recorder.SourceFailure
@@ -126,6 +133,8 @@ class SourceProcess(Runnable):
 
     def start(self) -> None:
         assert not self.started
+        if self.waveforms_enabled:
+            self.waveform_generation += 1
         self.connection, child_updates = mp.Pipe(duplex=False)
         child_controls, self.control_connection = mp.Pipe(duplex=False)
         self.stop_event = mp.Event()
@@ -139,6 +148,8 @@ class SourceProcess(Runnable):
             'tracks': self.tracks,
             'track_names': self.track_names,
             'update_connection': child_updates,
+            'waveforms_enabled': self.waveforms_enabled,
+            'waveform_generation': self.waveform_generation,
         }
         self.process = mp.Process(
             target=_run_source_recorder,
@@ -200,6 +211,13 @@ class SourceProcess(Runnable):
         if self.started:
             self.control_transport.publish(
                 source_recorder.SourceControl(calibration_tracks=tracks)
+            )
+
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        self.waveforms_enabled = enabled
+        if self.started:
+            self.control_transport.publish(
+                source_recorder.SourceControl(waveforms_enabled=enabled)
             )
 
     def join(self, timeout: float | None = None) -> None:
@@ -279,6 +297,8 @@ def _run_source_recorder(
     update_connection: connection.Connection,
     track_names: SourceTrackNames | None = None,
     process_name: str | None = None,
+    waveforms_enabled: bool = False,
+    waveform_generation: int = 0,
 ) -> None:
     _set_process_name(process_name)
     transport = source_recorder.SourceUpdateTransport(update_connection)
@@ -292,6 +312,8 @@ def _run_source_recorder(
             tracks=tracks,
             track_names=track_names,
             update_transport=transport,
+            waveforms_enabled=waveforms_enabled,
+            waveform_generation=waveform_generation,
         )
     except Exception as e:
         source_name = tracks[0].source.key

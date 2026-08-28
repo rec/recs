@@ -59,6 +59,10 @@ def test_option_parsing() -> None:
             'Network',
             '--midi-timing',
             'system',
+            '--waveform-bucket-milliseconds',
+            '10',
+            '--waveform-batch-milliseconds',
+            '40',
         ],
     )
 
@@ -72,6 +76,8 @@ def test_option_parsing() -> None:
     assert parsed.midi.midi_include == ['Launchkey']
     assert parsed.midi.midi_exclude == ['Network']
     assert parsed.midi.midi_timing == MidiTiming.system
+    assert parsed.console.waveform_bucket_milliseconds == 10
+    assert parsed.console.waveform_batch_milliseconds == 40
 
 
 @pytest.mark.parametrize('option', ['-f', '--formats'])

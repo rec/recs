@@ -388,14 +388,26 @@ class GuiListener:
         while not self._write_stopped.is_set():
             self._write_available.wait()
             self._write_available.clear()
-            with self._write_lock:
-                message, self._pending_message = self._pending_message, None
+            message = self._take_pending()
             if message is None:
                 continue
             if not self.protocol.write(message):
                 self._failed = True
                 self.close()
                 return
+            with self._write_lock:
+                if self._has_pending():
+                    self._write_available.set()
+
+    def _take_pending(self) -> str | None:
+        with self._write_lock:
+            if self._pending_message is not None:
+                message, self._pending_message = self._pending_message, None
+                return message
+            return None
+
+    def _has_pending(self) -> bool:
+        return self._pending_message is not None
 
     def write_now(self, message: str) -> bool:
         return self.protocol.write(message)
@@ -406,6 +418,8 @@ class GuiListener:
     def close(self) -> None:
         self._write_stopped.set()
         self._write_available.set()
+        with self._write_lock:
+            self._pending_message = None
         self.protocol.close()
 
     def _read(self) -> None:

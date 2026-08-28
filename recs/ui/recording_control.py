@@ -120,6 +120,9 @@ class RecordingControl:
     def recording_state(self) -> gui_protocol.RecordingState:
         return recording_commands.recording_state(self)
 
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        self.devices.set_waveforms_enabled(enabled)
+
     def set_key_label(
         self, request: gui_protocol.SetKeyLabel
     ) -> gui_protocol.KeyLabelSet:

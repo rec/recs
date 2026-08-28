@@ -1,0 +1,60 @@
+first:
+  bucket_frames: 960
+  dropped_batches: 0
+  generation: 1
+  present:
+  - true
+  - true
+  - true
+  - true
+  - true
+  sample_rate: 48000
+  sequence: 0
+  source: Mic
+  start_frame: 0
+  start_timestamp: 100.0
+  tracks:
+  - channels:
+    - 1
+    maximum:
+    - - 0.009999999776482582
+      - 0.019999999552965164
+      - 0.029999999329447746
+      - 0.03999999910593033
+      - 0.05000000074505806
+    minimum:
+    - - -0.009999999776482582
+      - -0.019999999552965164
+      - -0.029999999329447746
+      - -0.03999999910593033
+      - -0.05000000074505806
+last:
+  bucket_frames: 960
+  dropped_batches: 0
+  generation: 1
+  present:
+  - true
+  - true
+  - true
+  - true
+  - true
+  sample_rate: 48000
+  sequence: 9
+  source: Mic
+  start_frame: 43200
+  start_timestamp: 100.9
+  tracks:
+  - channels:
+    - 1
+    maximum:
+    - - 0.46000000834465027
+      - 0.4699999988079071
+      - 0.47999998927116394
+      - 0.49000000953674316
+      - 0.5
+    minimum:
+    - - -0.46000000834465027
+      - -0.4699999988079071
+      - -0.47999998927116394
+      - -0.49000000953674316
+      - -0.5

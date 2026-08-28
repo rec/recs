@@ -13,19 +13,26 @@ from threa import Runnables
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
+from recs.audio.live_waveform import LiveWaveform
 from recs.base import memory
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
 from recs.base.types import Active, Format, SdType
+from recs.base.waveform import (
+    WaveformBatchData,
+    WaveformLayoutData,
+    WaveformTrackLayout,
+)
 from recs.cfg import time_settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
-from recs.cfg.track_names import SourceTrackNames
+from recs.cfg.track_names import SourceTrackNames, track_name
 
 POLL_TIMEOUT = 0.05
 MAX_MERGED_WARNINGS = 64
 MAX_MERGED_FILES = 512
+MAX_MERGED_WAVEFORM_BATCHES = 5
 _N = TypeVar('_N', int, float)
 
 
@@ -57,6 +64,8 @@ class SourceUpdate(NamedTuple):
     calibration: dict[str, float] | None = None
     track_layout: list[str] | None = None
     config_revisions_applied: list[int] | None = None
+    waveform_layout: WaveformLayoutData | None = None
+    waveform_batches: list[WaveformBatchData] | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -76,6 +85,7 @@ class SourceControl(NamedTuple):
     track_names: SourceTrackNames | None = None
     calibration_tracks: list[str] | None = None
     tracks: list[Track] | None = None
+    waveforms_enabled: bool | None = None
 
 
 class SourceControlHandler:
@@ -87,6 +97,7 @@ class SourceControlHandler:
         set_track_names: Callable[[SourceTrackNames], None],
         start_calibration: Callable[[list[str]], None],
         set_tracks: Callable[[list[Track], SourceTrackNames], None],
+        set_waveforms_enabled: Callable[[bool], None],
     ) -> None:
         self.connection = connection
         self.set_cfg = set_cfg
@@ -94,6 +105,7 @@ class SourceControlHandler:
         self.set_track_names = set_track_names
         self.start_calibration = start_calibration
         self.set_tracks = set_tracks
+        self.set_waveforms_enabled = set_waveforms_enabled
 
     def receive(self) -> None:
         while self.connection.poll():
@@ -113,6 +125,8 @@ class SourceControlHandler:
                 self.start_calibration(message.calibration_tracks)
             if message.tracks is not None:
                 self.set_tracks(message.tracks, message.track_names or {})
+            if message.waveforms_enabled is not None:
+                self.set_waveforms_enabled(message.waveforms_enabled)
 
 
 class SourceUpdateTransport:
@@ -415,14 +429,17 @@ class SourceControlApplier:
             self.set_track_names,
             recorder.calibration.start,
             self.set_tracks,
+            recorder.set_waveforms_enabled,
         )
 
     def receive(self) -> None:
         self.handler.receive()
 
     def set_track_names(self, track_names: SourceTrackNames) -> None:
+        self.recorder.track_names = track_names
         for writer in self.recorder.channel_writers:
             writer.set_track_names(track_names)
+        self.recorder.reset_waveform()
 
     def set_session_directory(self, session_directory: Path) -> None:
         recorder = self.recorder
@@ -474,6 +491,8 @@ class SourceRecorder(Runnables):
         tracks: Sequence[Track],
         update_transport: SourceUpdateTransport,
         track_names: SourceTrackNames | None = None,
+        waveforms_enabled: bool = False,
+        waveform_generation: int = 0,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
@@ -499,9 +518,15 @@ class SourceRecorder(Runnables):
         self.pending_active_channels: set[int] = set()
         self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
+        self.track_names: SourceTrackNames = {}
+        self.waveform_generation = max(0, waveform_generation - int(waveforms_enabled))
+        self.waveforms_enabled = False
+        self.waveform: LiveWaveform | None = None
+        self.pending_waveform_layout: WaveformLayoutData | None = None
         self.calibration = SourceCalibration(self.source.samplerate)
         self.control = SourceControlApplier(self, control_connection)
         self.control.set_track_names(track_names or {})
+        self.set_waveforms_enabled(waveforms_enabled)
 
         self.input_stream = self.source.input_stream(
             sdtype=cast(SdType, self.cfg.audio.sdtype),
@@ -531,6 +556,37 @@ class SourceRecorder(Runnables):
                 self.control.receive()
                 self._receive_update(update)
 
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        if enabled == self.waveforms_enabled:
+            return
+        self.waveforms_enabled = enabled
+        if not enabled:
+            self.waveform = None
+            self.pending_waveform_layout = None
+            return
+        self.reset_waveform()
+
+    def reset_waveform(self) -> None:
+        if not self.waveforms_enabled:
+            return
+        self.waveform_generation += 1
+        tracks = [
+            WaveformTrackLayout(
+                channels=list(writer.track.channels),
+                name=track_name(self.track_names, writer.track) or writer.track.name,
+            )
+            for writer in self.channel_writers
+        ]
+        self.waveform = LiveWaveform(
+            source=self.source.key,
+            sample_rate=self.source.samplerate,
+            tracks=tracks,
+            generation=self.waveform_generation,
+            bucket_milliseconds=self.cfg.console.waveform_bucket_milliseconds,
+            batch_milliseconds=self.cfg.console.waveform_batch_milliseconds,
+        )
+        self.pending_waveform_layout = self.waveform.layout
+
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
         if Format.mp3 in self.cfg.audio.formats and update.array.dtype == np.float32:
@@ -540,6 +596,20 @@ class SourceRecorder(Runnables):
 
         end_timestamp = update.timestamp + len(update.array) / self.source.samplerate
         cb = {c: c.to_block(update.array) for c in self.channel_writers}
+        waveform_batches: list[WaveformBatchData] = []
+        waveform_warning: str | None = None
+        if self.waveform is not None:
+            try:
+                waveform_batches = self.waveform.receive(
+                    list(cb.values()), u.start_frame, update.timestamp
+                )
+            except ValueError as e:
+                self.waveforms_enabled = False
+                self.waveform = None
+                self.pending_waveform_layout = None
+                waveform_warning = (
+                    f'Device {self.source.name}: Live waveforms disabled: {e}'
+                )
         should_record = {c: c.should_record(b) for c, b in cb.items()}
         band_should_record = self.cfg.recording.band_mode and any(
             should_record.values()
@@ -564,6 +634,8 @@ class SourceRecorder(Runnables):
             *(state.max_write_seconds for state in msgs.values()),
         )
         buffer_warnings = self.buffer.warnings(self.source.name, update.timestamp)
+        if waveform_warning is not None:
+            buffer_warnings.append(waveform_warning)
         if update.status:
             if update.status == 'input overflow':
                 buffer_warnings.append(
@@ -580,6 +652,10 @@ class SourceRecorder(Runnables):
         )
         file_end_frames = self.file_events.end_frames(self.channel_writers)
         file_end_timestamps = self.file_events.end_timestamps(self.channel_writers)
+        waveform_layout, self.pending_waveform_layout = (
+            self.pending_waveform_layout,
+            None,
+        )
         self.update_transport.publish(
             SourceUpdate(
                 channels=msgs,
@@ -596,6 +672,8 @@ class SourceRecorder(Runnables):
                 calibration=calibration,
                 track_layout=track_layout,
                 config_revisions_applied=config_revisions or None,
+                waveform_layout=waveform_layout,
+                waveform_batches=waveform_batches or None,
             )
         )
 
@@ -609,6 +687,11 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
     file_records.update({r.path: r for r in second.file_records or []})
     files = _merge_files(first.files, second.files)
     file_paths = set(files)
+    waveform_layout = second.waveform_layout or first.waveform_layout
+    waveform_batches = _merge_waveform_batches(
+        [] if second.waveform_layout is not None else first.waveform_batches,
+        second.waveform_batches,
+    )
     return SourceUpdate(
         channels=second.channels,
         files=files,
@@ -630,6 +713,8 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
             *(second.config_revisions_applied or []),
         ]
         or None,
+        waveform_layout=waveform_layout,
+        waveform_batches=waveform_batches or None,
     )
 
 
@@ -648,6 +733,24 @@ def _merge_warnings(
         f'Dropped {dropped} older source warnings while parent was busy',
         *warnings[-(MAX_MERGED_WARNINGS - 1) :],
     ]
+
+
+def _merge_waveform_batches(
+    first: list[WaveformBatchData] | None,
+    second: list[WaveformBatchData] | None,
+) -> list[WaveformBatchData]:
+    batches = [*(first or []), *(second or [])]
+    if len(batches) <= MAX_MERGED_WAVEFORM_BATCHES:
+        return batches
+    dropped = batches[:-MAX_MERGED_WAVEFORM_BATCHES]
+    batches = batches[-MAX_MERGED_WAVEFORM_BATCHES:]
+    batches[0] = batches[0].model_copy(
+        update={
+            'dropped_batches': batches[0].dropped_batches
+            + sum(1 + b.dropped_batches for b in dropped)
+        }
+    )
+    return batches
 
 
 def _merge_file_map(

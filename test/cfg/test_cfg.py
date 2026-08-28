@@ -21,6 +21,13 @@ def test_ui_refresh_default_is_conservative(mock_devices: None) -> None:
     assert Cfg().console.ui_refresh_rate == 10
 
 
+def test_live_waveform_timing_defaults(mock_devices: None) -> None:
+    console = Cfg().console
+
+    assert console.waveform_bucket_milliseconds == 20
+    assert console.waveform_batch_milliseconds == 100
+
+
 def test_midi_recording_is_enabled_by_default(mock_devices: None) -> None:
     cfg = Cfg()
 
@@ -151,6 +158,22 @@ def test_unknown_config_field_is_validation_error(mock_devices: None) -> None:
 def test_console_rates_must_be_positive(field: str, mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='must be positive'):
         Cfg(**{field: 0})
+
+
+@pytest.mark.parametrize(
+    'field', ['waveform_bucket_milliseconds', 'waveform_batch_milliseconds']
+)
+def test_waveform_times_must_be_positive(field: str, mock_devices: None) -> None:
+    with pytest.raises(ValidationError, match='must be positive'):
+        Cfg(**{field: 0})
+
+
+def test_waveform_batch_must_contain_whole_buckets(mock_devices: None) -> None:
+    with pytest.raises(
+        ValidationError,
+        match='waveform_batch_milliseconds must be a multiple',
+    ):
+        Cfg(waveform_bucket_milliseconds=30, waveform_batch_milliseconds=100)
 
 
 @pytest.mark.parametrize('field', ['disk_poll_seconds', 'memory_check_period'])

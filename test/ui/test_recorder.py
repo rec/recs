@@ -90,6 +90,7 @@ class FakeSourceProcess:
         self.cfg = cfg
         self.session_directory = session_directory
         self.pending_updates: list[SourceUpdate] = []
+        self.waveforms_enabled = False
 
     @property
     def is_alive(self) -> bool:
@@ -122,6 +123,9 @@ class FakeSourceProcess:
 
     def set_session_directory(self, session_directory: Path) -> None:
         self.session_directory = session_directory
+
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        self.waveforms_enabled = enabled
 
     def calibrate(self, tracks: list[str]) -> None:
         self.connection.messages.append(
@@ -502,6 +506,66 @@ def test_external_control_requests_use_recorder_handler(
             'type': 'mutable_attributes_result',
             'mutable_attributes': sorted(rec.cfg.mutable_attributes),
         }
+    ]
+
+
+def test_external_waveform_subscription_enables_source_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    class External:
+        def __init__(self) -> None:
+            self.requests = [
+                external_ipc.ControlRequest(rpc.Request(command='subscribe_waveforms'))
+            ]
+            self.responses: list[rpc.Result] = []
+            self.subscription_changes: list[bool] = []
+
+        def take_requests(self) -> list[external_ipc.ControlRequest]:
+            return self.requests
+
+        def set_waveform_subscription(
+            self, active: bool, cfg: Cfg
+        ) -> gui_protocol.WaveformSubscription:
+            self.subscription_changes.append(active)
+            return gui_protocol.WaveformSubscription(
+                type='waveform_subscription',
+                active=active,
+                bucket_milliseconds=cfg.console.waveform_bucket_milliseconds,
+                batch_milliseconds=cfg.console.waveform_batch_milliseconds,
+            )
+
+        def respond(
+            self, request: external_ipc.ControlRequest, response: rpc.Result
+        ) -> None:
+            self.responses.append(response)
+
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(silent=True))
+    external = External()
+    rec.external = external
+
+    rec._receive_control_requests()
+    external.requests = [
+        external_ipc.ControlRequest(rpc.Request(command='unsubscribe_waveforms'))
+    ]
+    rec._receive_control_requests()
+
+    assert external.subscription_changes == [True, False]
+    assert not rec._devices.waveforms_enabled
+    assert external.responses == [
+        {
+            'type': 'waveform_subscription',
+            'active': True,
+            'bucket_milliseconds': 20,
+            'batch_milliseconds': 100,
+        },
+        {
+            'type': 'waveform_subscription',
+            'active': False,
+            'bucket_milliseconds': 20,
+            'batch_milliseconds': 100,
+        },
     ]
 
 
@@ -1275,8 +1339,10 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 4
+    assert response.version == 5
     assert 'status_snapshot' in response.commands
+    assert 'subscribe_waveforms' in response.commands
+    assert 'unsubscribe_waveforms' in response.commands
     assert 'shutdown' in response.commands
 
 

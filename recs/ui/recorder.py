@@ -13,6 +13,7 @@ from threa import HasThread, Runnable, Runnables
 from recs.base import times
 from recs.base.errors import ErrorRecord
 from recs.base.signals import raise_keyboard_interrupt_on_signal
+from recs.base.waveform import WaveformBatchData, WaveformLayoutData
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.file_source import FileSource
@@ -136,6 +137,7 @@ class Recorder(Runnables):
             self._record_device_buffer_update,
             SourceProcess,
             DevicePoller,
+            waveform_update=self._publish_live_waveforms,
         )
         self._control = recording_control.RecordingControl(
             self.cfg,
@@ -439,6 +441,14 @@ class Recorder(Runnables):
             self._record_warning,
             self.stop,
         )
+
+    def _publish_live_waveforms(
+        self,
+        layout: WaveformLayoutData | None,
+        batches: list[WaveformBatchData],
+    ) -> None:
+        if self.external is not None:
+            self.external.publish_waveforms(layout, batches)
 
     def _publish_external_rows(
         self,

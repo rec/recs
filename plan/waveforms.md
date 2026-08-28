@@ -123,9 +123,11 @@ gap until the source returns with a new generation.
 
 ## Waveform Batches
 
-Use 20 ms envelope buckets, which gives 50 horizontal samples per second. Group
-five buckets into one batch per source, producing at most ten waveform messages
-per second per source under normal operation.
+Configure the envelope bucket and network batch durations with
+`waveform_bucket_milliseconds` and `waveform_batch_milliseconds`. They default
+to 20 ms and 100 ms. The batch duration must be an exact multiple of the bucket
+duration. The defaults give 50 horizontal samples per second and group five
+buckets into each of at most ten waveform messages per source per second.
 
 A `waveform` event's `data` object has one timeline shared by every configured
 track on that source:
@@ -171,7 +173,8 @@ data.
 Source frames are authoritative for bucket continuity. `start_timestamp` maps
 the first bucket to wall-clock time for alignment and labeling. Every complete
 bucket spans exactly `bucket_frames`; the source process derives
-`bucket_frames` by rounding 20 ms at that source's sample rate.
+`bucket_frames` by rounding the configured bucket duration at that source's
+sample rate.
 
 `present` distinguishes captured digital silence from unavailable waveform
 data. A bucket touched by a known processing drop or source-frame discontinuity
@@ -219,9 +222,9 @@ recorder's main loop.
 
 `SourceUpdateTransport` currently coalesces pending source updates. Extend its
 merge behavior to preserve waveform batches in order up to a fixed limit of
-five batches per source, representing approximately 500 ms. When the limit is
-exceeded, discard the oldest batches and increment `dropped_batches` on the
-next retained batch.
+five batches per source, representing five configured batch intervals (500 ms
+by default). When the limit is exceeded, discard the oldest batches and
+increment `dropped_batches` on the next retained batch.
 
 The public RPC server owns a separate asynchronous bounded waveform queue. It
 must preserve layout-before-data ordering and hold no more than five batches
@@ -239,7 +242,8 @@ The client keeps a bounded ring buffer for each track and generation. A useful
 default is the visible duration plus one batch on either side; the exact
 visible duration is client presentation policy.
 
-The client must not move the viewport only when a 100 ms network batch arrives.
+The client must not move the viewport only when a network batch arrives (every
+100 ms by default).
 It advances the time axis from its own monotonic clock on every display frame,
 normally through `requestAnimationFrame` for a web client. Each incoming batch
 adds envelope data at its source-frame position. This separates the 10 Hz data
@@ -252,10 +256,10 @@ or a large sequence gap. The waveform geometry may be drawn with Canvas or
 another retained client-side renderer. Repeatedly reparsing or replacing an
 SVG document is not part of this design.
 
-At 20 ms per bucket, a 20-second viewport contains 1,000 envelope columns per
-channel. The client may combine adjacent buckets when displaying a longer
-window, but it must combine them by taking the minimum of minima and maximum of
-maxima so peaks are not lost.
+At the default 20 ms per bucket, a 20-second viewport contains 1,000 envelope
+columns per channel. The client may combine adjacent buckets when displaying a
+longer window, but it must combine them by taking the minimum of minima and
+maximum of maxima so peaks are not lost.
 
 ## Architecture
 
@@ -298,8 +302,8 @@ digital audio.
    and batch messages, including the Recs payload version change.
 2. Verify that a new client is unsubscribed and that no source process performs
    reductions before subscription.
-3. Reduce one second of mono audio into exact 20 ms buckets and compare minima
-   and maxima with regression data.
+3. Reduce one second of mono audio into buckets of the configured duration and
+   compare minima and maxima with regression data.
 4. Reduce a stereo track and verify channel order and separate extrema.
 5. Configure one stereo track on channels 2-3 and verify one track entry;
    configure channels 2 and 3 as mono tracks and verify two entries.

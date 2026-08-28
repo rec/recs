@@ -7,6 +7,7 @@ from reccy.device import DeviceDict
 
 from recs.base import times
 from recs.base.errors import RecsError
+from recs.base.waveform import WaveformBatchData, WaveformLayoutData
 from recs.cfg import settings
 from recs.cfg.aliases import Aliases
 from recs.cfg.cfg import Cfg
@@ -52,6 +53,10 @@ class DeviceLifecycle:
         buffer_update: Callable[[str, BufferStats], None],
         source_process: Callable[..., SourceProcess],
         device_poller: Callable[[float], DevicePoller],
+        waveform_update: Callable[
+            [WaveformLayoutData | None, list[WaveformBatchData]], None
+        ]
+        | None = None,
     ) -> None:
         self.cfg = cfg
         self.state = state
@@ -65,6 +70,8 @@ class DeviceLifecycle:
         self.buffer_update = buffer_update
         self.source_process = source_process
         self.device_poller = device_poller
+        self.waveform_update = waveform_update
+        self.waveforms_enabled = False
         self.source_processes = {
             source.key: self.source_process(
                 cfg, tracks, session_directory, track_names=track_names
@@ -138,6 +145,11 @@ class DeviceLifecycle:
         self.track_names = track_names
         for source in self.source_processes.values():
             source.set_track_names(track_names)
+
+    def set_waveforms_enabled(self, enabled: bool) -> None:
+        self.waveforms_enabled = enabled
+        for source in self.source_processes.values():
+            source.set_waveforms_enabled(enabled)
 
     def poll(self, paused: bool, expired: bool) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
@@ -245,7 +257,17 @@ class DeviceLifecycle:
         self.source_frames[update.source_name] += update.frames
         self._record_buffer_status(update)
         source = self.source_processes[update.source_name]
+        if update.waveform_layout is not None:
+            source.waveform_generation = max(
+                getattr(source, 'waveform_generation', 0),
+                update.waveform_layout.generation,
+            )
         self.file_update(update, source)
+        if self.waveform_update is not None:
+            self.waveform_update(
+                update.waveform_layout,
+                update.waveform_batches or [],
+            )
         previous = {
             track_name: channel_state.is_active
             for track_name, channel_state in self.state.state[
@@ -292,6 +314,7 @@ class DeviceLifecycle:
             self.session_directory,
             track_names=self.track_names,
         )
+        process.set_waveforms_enabled(self.waveforms_enabled)
         self.source_processes[source.key] = process
         self.hardware_sources[source.key] = process
         self.source_frames[source.key] = 0

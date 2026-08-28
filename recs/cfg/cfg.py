@@ -305,12 +305,38 @@ class Console(BaseModel):
         float, tyro.conf.arg(help='How many UI refreshes per second')
     ] = 10.0
 
+    waveform_bucket_milliseconds: Annotated[
+        int,
+        tyro.conf.arg(help='Milliseconds represented by each live waveform bucket'),
+    ] = 20
+
+    waveform_batch_milliseconds: Annotated[
+        int,
+        tyro.conf.arg(help='Milliseconds represented by each live waveform batch'),
+    ] = 100
+
     @field_validator('sleep_time_device', 'ui_refresh_rate')
     @classmethod
     def validate_positive(cls, value: float) -> float:
         if value <= 0:
             raise ValueError('must be positive')
         return value
+
+    @field_validator('waveform_bucket_milliseconds', 'waveform_batch_milliseconds')
+    @classmethod
+    def validate_waveform_milliseconds(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError('must be positive')
+        return value
+
+    @model_validator(mode='after')
+    def validate_waveform_batch(self) -> Self:
+        if self.waveform_batch_milliseconds % self.waveform_bucket_milliseconds:
+            raise ValueError(
+                'waveform_batch_milliseconds must be a multiple of '
+                'waveform_bucket_milliseconds'
+            )
+        return self
 
 
 class Key(BaseModel):

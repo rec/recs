@@ -10,6 +10,7 @@ from threa import Runnable
 from recs.audio.block import Block
 from recs.base.state import ChannelState
 from recs.base.types import Active
+from recs.base.waveform import WaveformBatchData, WaveformTrackData
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
@@ -209,7 +210,11 @@ def test_source_recorder_applies_control_updates_without_audio(
     stop_event = threading.Event()
     cfg = Cfg(record_everything=True)
     connection = OneMessageControlConnection(
-        source_recorder.SourceControl(cfg=cfg, cfg_revision=1),
+        source_recorder.SourceControl(
+            cfg=cfg,
+            cfg_revision=1,
+            waveforms_enabled=True,
+        ),
         stop_event,
     )
     source.input_stream = lambda sdtype, update_callback: IdleInputStream()
@@ -227,6 +232,8 @@ def test_source_recorder_applies_control_updates_without_audio(
     assert recorder.cfg.recording.record_everything is True
     assert recorder.buffer.cfg.recording.record_everything is True
     assert recorder.pending_config_revisions == [1]
+    assert recorder.waveform is not None
+    assert recorder.pending_waveform_layout is not None
 
 
 def test_source_update_merge_summarizes_warning_backlog() -> None:
@@ -302,6 +309,26 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
     assert len(result.file_end_frames) == source_recorder.MAX_MERGED_FILES
 
 
+def test_source_update_merge_bounds_live_waveform_backlog() -> None:
+    first = SourceUpdate(
+        channels={'1': ChannelState()},
+        files=[],
+        frames=1,
+        source_name='Mic',
+        waveform_batches=[_waveform_batch(i) for i in range(4)],
+    )
+    second = first._replace(
+        frames=2,
+        waveform_batches=[_waveform_batch(i) for i in range(4, 8)],
+    )
+
+    result = source_recorder._merge_updates(first, second)
+
+    assert result.waveform_batches is not None
+    assert [b.sequence for b in result.waveform_batches] == [3, 4, 5, 6, 7]
+    assert result.waveform_batches[0].dropped_batches == 3
+
+
 def test_source_calibration_measures_exactly_half_a_second() -> None:
     source = InputDevice(
         {
@@ -347,6 +374,7 @@ def test_source_track_change_closes_writers_before_next_buffer(
     recorder.file_events = source_recorder.SourceFileEvents(recorder.channel_writers)
     recorder.pending_active_channels = set()
     recorder.pending_track_layout = None
+    recorder.waveforms_enabled = False
     recorder.calibration = SourceCalibration(source.samplerate)
     monkeypatch.setattr(source_recorder, 'ChannelWriter', ReconfiguredWriter)
     control = source_recorder.SourceControlApplier(recorder, EmptyControlConnection())
@@ -481,3 +509,23 @@ def _eventually(check: Callable[[], bool]) -> bool:
             return True
         time.sleep(0.01)
     return False
+
+
+def _waveform_batch(sequence: int) -> WaveformBatchData:
+    return WaveformBatchData(
+        source='Mic',
+        generation=1,
+        sequence=sequence,
+        sample_rate=48_000,
+        bucket_frames=960,
+        start_frame=sequence * 4_800,
+        start_timestamp=100 + sequence / 10,
+        present=[True] * 5,
+        tracks=[
+            WaveformTrackData(
+                channels=[1],
+                minimum=[[-0.1] * 5],
+                maximum=[[0.1] * 5],
+            )
+        ],
+    )
