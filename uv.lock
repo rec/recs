@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-08-21T09:52:17.474254Z"
+exclude-newer = "2026-08-22T17:48:40.963241Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -588,7 +588,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106#446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" }
+source = { git = "https://github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106#446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" }
 dependencies = [
     { name = "pydantic" },
     { name = "strenum" },
@@ -638,7 +638,7 @@ requires-dist = [
     { name = "overrides" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyside6", specifier = ">=6.11.1" },
-    { name = "reccy", git = "ssh://git@github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" },
+    { name = "reccy", git = "https://github.com/rec/reccy.git?rev=446a2c4a6f0437463e4a3e6eaa39b4b5597ec106" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
