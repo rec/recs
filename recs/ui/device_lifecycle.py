@@ -185,7 +185,7 @@ class DeviceLifecycle:
             self.no_devices_reported = False
         elif not self.present_hardware and not self.cfg.selection.include:
             self._report_no_devices()
-        self._add_detected_hardware(snapshot)
+        selected_device_present = self._add_detected_hardware(snapshot)
         compatible: set[str] = set()
         for name, source in self.hardware_sources.items():
             info = snapshot.get(name)
@@ -221,7 +221,7 @@ class DeviceLifecycle:
                 self.source_last_updates[name] = self.source_start_times[name]
         self._record_presence(compatible)
         self.present_hardware = compatible
-        if snapshot and not self.hardware_sources:
+        if snapshot and not self.hardware_sources and selected_device_present:
             self._report_no_channels()
 
     def reap(self) -> None:
@@ -328,9 +328,9 @@ class DeviceLifecycle:
         elif source.running and self._source_time_expired(source):
             source.stop()
 
-    def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> None:
+    def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> bool:
         if self.cfg.device.devices.name:
-            return
+            return True
         devices = get_input_devices(list(snapshot.values()))
         aliases = Aliases(self.cfg.device.alias, devices)
         for source, tracks in input_device_tracks(self.cfg, devices):
@@ -338,6 +338,9 @@ class DeviceLifecycle:
                 continue
             tracks = _restored_tracks(source, tracks, self.saved_tracks)
             self._add_source(source, tracks, aliases)
+        return not self.cfg.selection.include or bool(
+            aliases.to_tracks(self.cfg.selection.include, allow_missing=True)
+        )
 
     def _add_source(
         self, source: InputDevice, tracks: Sequence[Track], aliases: Aliases

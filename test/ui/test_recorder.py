@@ -266,6 +266,28 @@ def test_recorder_adds_device_detected_after_start(
     assert list(rec.state.state) == ['Mic']
 
 
+def test_recorder_waits_for_missing_included_devices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ext_info = next(info for info in DEVICES if info['name'] == 'Ext')
+    mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
+    monkeypatch.setattr(device, 'query_devices', lambda: [ext_info])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+
+    rec = Recorder(Cfg(include=['Mic', 'XR18', 'Flow 8'], silent=True))
+
+    assert rec._devices.hardware == {}
+    assert rec.error_messages() == []
+
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [{'Ext': ext_info, 'Mic': mic_info}]
+    rec._poll_devices()
+
+    assert list(rec._devices.hardware) == ['Mic']
+    assert rec._devices.hardware['Mic'].started
+
+
 def test_recorder_replaces_returning_device(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

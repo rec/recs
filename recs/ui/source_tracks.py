@@ -28,8 +28,10 @@ def input_device_tracks(
         return
 
     aliases = Aliases(cfg.device.alias, input_devices)
-    exc = aliases.to_tracks(cfg.selection.exclude)
-    inc = aliases.to_tracks(cfg.selection.include)
+    exc = aliases.to_tracks(cfg.selection.exclude, allow_missing=True)
+    inc = aliases.to_tracks(cfg.selection.include, allow_missing=True)
+    if cfg.selection.include and not inc:
+        return
     for d in input_devices.values():
         if tracks := list(source_track(d, exc, inc)):
             yield d, tracks

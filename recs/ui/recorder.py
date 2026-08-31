@@ -304,7 +304,11 @@ class Recorder(Runnables):
             if not self.cfg.selection.include:
                 self._report_no_devices()
         elif not all_tracks:
-            self._report_no_channels()
+            included = self.cfg.aliases.to_tracks(
+                self.cfg.selection.include, allow_missing=True
+            )
+            if included or not self.cfg.selection.include:
+                self._report_no_channels()
 
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():

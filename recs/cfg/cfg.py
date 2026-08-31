@@ -762,11 +762,15 @@ class Cfg(BaseModel):
     def path_pattern(
         self, output_directory: str, media_directory: str = ''
     ) -> path_pattern.PathPattern:
-        excluded = self.aliases.to_tracks(self.selection.exclude)
-        included = self.aliases.to_tracks(self.selection.include)
-        selected_devices = sum(
-            any(source_track(input_device, excluded, included))
-            for input_device in self.input_devices.values()
+        excluded = self.aliases.to_tracks(self.selection.exclude, allow_missing=True)
+        included = self.aliases.to_tracks(self.selection.include, allow_missing=True)
+        selected_devices = (
+            sum(
+                any(source_track(input_device, excluded, included))
+                for input_device in self.input_devices.values()
+            )
+            if included or not self.selection.include
+            else 0
         )
         short_file_names = self.directory.short_file_names and selected_devices == 1
         return path_pattern.PathPattern(

@@ -41,7 +41,9 @@ class Aliases:
 
         self.inv = {k: v[0] for k, v in sorted(inv.items())}
 
-    def to_tracks(self, names: Iterable[str]) -> Sequence[Track]:
+    def to_tracks(
+        self, names: Iterable[str], *, allow_missing: bool = False
+    ) -> Sequence[Track]:
         errors: dict[str, list[str]] = {}
         result: list[Track] = []
 
@@ -50,6 +52,8 @@ class Aliases:
                 result.append(self.to_track(name))
             except KeyError as e:
                 key, error = e.args
+                if allow_missing and error == 'unknown':
+                    continue
                 errors.setdefault(error, []).append(key)
 
         if not errors:

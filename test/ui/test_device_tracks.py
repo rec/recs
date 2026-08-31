@@ -36,6 +36,16 @@ def test_no_devices_have_no_tracks(monkeypatch):
     assert list(source_tracks(Cfg())) == []
 
 
+def test_missing_included_devices_have_no_tracks(mock_devices):
+    assert list(source_tracks(Cfg(include=['XR18', 'Not connected']))) == []
+
+
+def test_missing_included_devices_do_not_hide_present_matches(mock_devices):
+    tracks = list(source_tracks(Cfg(include=['Mic', 'XR18', 'Not connected'])))
+
+    assert [source.name for source, _ in tracks] == ['Mic']
+
+
 def test_device_tracks_inc(mock_devices):
     aliases = 'e', 'Main = fl + 1', 'mai=Mic'
     actual, to_track = _device_tracks(aliases, include=['Main'])
