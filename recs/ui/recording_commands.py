@@ -6,7 +6,7 @@ from recs.base.errors import RecsError
 from recs.daemon import gui_protocol
 
 from . import disk_space, recording_paths
-from .session_manifest import ManifestEvent, timestamp_to_json
+from .session_record import EventEntry, timestamp_to_json
 
 if TYPE_CHECKING:
     from .recording_control import RecordingControl
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 def mark(
     control: 'RecordingControl', request: gui_protocol.Mark
 ) -> gui_protocol.Marked:
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='mark',
             label=request.label,
@@ -34,8 +34,8 @@ def pause_recording(
     for source in control.devices.hardware.values():
         if source.running:
             source.stop()
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='recording_paused',
             label=reason,
@@ -53,8 +53,8 @@ def resume_recording(
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
     control.runtime_state.resume()
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='recording_resumed',
             label=reason,
@@ -78,23 +78,23 @@ def reload_profiles(control: 'RecordingControl') -> gui_protocol.ProfilesReloade
 
 
 def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
-    manifest_path = control.manifest_path()
+    record_path = control.record_path()
     return gui_protocol.StatusSnapshot(
         type='status_snapshot_result',
         disk=disk_status(control).model_dump(exclude={'type'}),
         devices=device_status(control),
         errors=control.error_records(),
-        manifest_path=str(manifest_path),
+        record_path=str(record_path),
         midi=control.midi_status(),
         osc=control.osc_status(),
         recording=recording_state(control).model_dump(exclude={'type'}),
         rows=control.rows(),
-        session_directory=str(manifest_path.parent),
+        session_directory=str(record_path.parent),
     )
 
 
 def disk_status(control: 'RecordingControl') -> gui_protocol.DiskStatus:
-    path = recording_paths.existing_parent(control.manifest_path()).resolve()
+    path = recording_paths.existing_parent(control.record_path()).resolve()
     usage = shutil.disk_usage(path)
     resume_disk = next(
         (

@@ -8,7 +8,7 @@ min/max envelopes and sends those envelopes through the public Reccy event
 protocol. A client draws and scrolls the waveforms.
 
 This feature does not create SVGs, images, waveform cache files, edit files, or
-manifest records. It does not process existing recordings. Existing tools are
+record entries. It does not process existing recordings. Existing tools are
 better suited to generating waveforms from completed audio files.
 
 Waveform streaming is inactive until the public control client subscribes. Recs

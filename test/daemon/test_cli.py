@@ -114,7 +114,7 @@ def test_daemon_status_includes_live_recorder_status(
         'details: active\n'
         'recording: active\n'
         'session directory: /recordings/2026-08-18 12:00:00\n'
-        'manifest: /recordings/2026-08-18 12:00:00/audio/audio-manifest.jsonl\n'
+        'record: /recordings/2026-08-18 12:00:00/audio/audio-record.jsonl\n'
         'disk: /recordings\n'
         'disk free bytes: 100\n'
         'disk seconds remaining: 2.0\n'
@@ -168,9 +168,7 @@ class FakeRpcClient:
             'type': 'status_snapshot_result',
             'recording': {'paused': False},
             'session_directory': '/recordings/2026-08-18 12:00:00',
-            'manifest_path': (
-                '/recordings/2026-08-18 12:00:00/audio/audio-manifest.jsonl'
-            ),
+            'record_path': ('/recordings/2026-08-18 12:00:00/audio/audio-record.jsonl'),
             'disk': {
                 'path': '/recordings',
                 'free_bytes': 100,

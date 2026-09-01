@@ -2,8 +2,8 @@
 
 Recs exposes a local RPC API while its daemon is running. Clients can use it
 to inspect recording state, change mutable recording settings, configure
-tracks, add manifest marks, pause or resume recording, and shut down the
-daemon.
+tracks, add marks to the session record, pause or resume recording, and shut
+down the daemon.
 
 The public API uses `reccy.rpc`. The separate daemon GUI socket remains a
 private implementation detail. Live waveforms are available through the public
@@ -59,7 +59,7 @@ There are two independent versions:
 - `reccy.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the Recs payload version. It is
-  currently `5` and is returned by `capabilities`.
+  currently `7` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.rpc.Client` handles the transport handshake and `capabilities` reports
@@ -103,7 +103,7 @@ Call this first when a client needs to adapt to different Recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 6
+  "version": 7
 }
 ```
 
@@ -121,7 +121,7 @@ client:
   "devices": [],
   "disk": {
     "free_bytes": 700000000000,
-    "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-manifest.jsonl",
+    "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
     "total_bytes": 1000000000000,
     "used_bytes": 300000000000,
     "estimated_seconds_remaining": 86400.0,
@@ -132,7 +132,7 @@ client:
     "resume_disk": null
   },
   "errors": [],
-  "manifest_path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-manifest.jsonl",
+  "record_path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
   "midi": [],
   "osc": [],
   "recording": {"paused": false},
@@ -148,21 +148,21 @@ The fields have these meanings:
 | `devices` | Configured audio sources, including channel count, sample rate, and whether each source is online |
 | `disk` | The same object returned by `disk_status`, without its `type` field |
 | `errors` | Recorded errors, each with `timestamp`, `message`, and optional boolean `value` |
-| `manifest_path` | Absolute path of the current session manifest |
+| `record_path` | Absolute path of the current session record |
 | `midi` | Current MIDI input states |
 | `osc` | Current OSC recorder states |
 | `recording.paused` | Whether recording is globally paused |
 | `rows` | The current live-display rows described under Events |
 | `session_directory` | Absolute path of the current session directory |
 
-`disk_status` returns filesystem usage for the current manifest path, or its
-nearest existing ancestor when the manifest does not exist yet:
+`disk_status` returns filesystem usage for the current record path, or its
+nearest existing ancestor when the record does not exist yet:
 
 ```json
 {
   "type": "disk_status_result",
   "free_bytes": 700000000000,
-  "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-manifest.jsonl",
+  "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
   "total_bytes": 1000000000000,
   "used_bytes": 300000000000,
   "estimated_seconds_remaining": 86400.0,
@@ -208,7 +208,7 @@ client.call(
 `get_cfg` can read any valid configuration address. `set_cfg` can change only
 addresses returned by `mutable_attributes`. Recs validates and coerces the new
 value, applies it to active source processes, records the change in the
-manifest, and saves it when `save_settings` is enabled.
+record, and saves it when `save_settings` is enabled.
 
 ### Tracks and names
 
@@ -296,8 +296,8 @@ reader: send the command before removing the old card, then insert the new
 one in the same reader.
 
 The command closes and syncs every active audio, MIDI, and OSC file and
-manifest on the old card, records the old card's filesystem UUID in those
-manifests, and leaves the card mounted. Capture continues, but Recs holds
+record on the old card, records the old card's filesystem UUID in those
+records, and leaves the card mounted. Capture continues, but Recs holds
 received audio blocks, MIDI messages, and OSC packets in memory instead of
 writing to the old card. The success response identifies the old card and the
 replacement deadline:
@@ -344,11 +344,11 @@ UUID.
 `pause_recording` closes active audio recordings and prevents further audio
 recording. `resume_recording` clears that global pause, allowing audio sources
 to begin writing new files. MIDI and OSC recording continue while audio is
-paused. Both transitions are recorded in the manifest.
+paused. Both transitions are recorded in the record.
 
 Use `status_snapshot` to read the resulting `recording.paused` state.
 
-`mark` appends a labeled event to the current manifest. `set_key_label`
+`mark` appends a labeled event to the current record. `set_key_label`
 updates the label associated with a recorded key. `reload_profiles` reloads the
 configured profiles file and fails if Recs was not started with a profiles
 path.

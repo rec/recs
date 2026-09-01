@@ -78,7 +78,7 @@ appears:
    runtime configuration update path.
 6. Write `RECS_CALIBRATE_DONE` or `RECS_CALIBRATE_FAILED` to the command stick.
 7. Record calibration events and the resulting configuration update in the
-   session manifest.
+   session record.
 
 The operation should be one-shot per insertion. Leaving the command stick inserted
 should not repeatedly recalibrate unless the marker or insertion state changes in

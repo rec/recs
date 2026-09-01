@@ -28,7 +28,7 @@ Earlier committed extractions are present in history:
 ## Extracted Modules
 
 - `recs/ui/recording_paths.py`: output paths and removable-disk discovery.
-- `recs/ui/recording_session.py`: active manifest and session-file bookkeeping.
+- `recs/ui/recording_session.py`: active record and session-file bookkeeping.
 - `recs/ui/disk_monitor.py`: disk rate and threshold state.
 - `recs/ui/calibration.py`: calibration selection and source-response waiting.
 - `recs/ui/device_lifecycle.py`: source children, polling, source pipes, frame clocks, presence, and buffer state.
@@ -40,7 +40,7 @@ Earlier committed extractions are present in history:
 
 These active recorder entry points delegate to the lifecycle: `_poll_devices`, `_reap_sources`, `_stop_stalled_sources`, `_receive_pending_updates`, `_receive_connection`, `_receive_source_message`, and `_receive_update`.
 
-`DeviceLifecycle` owns source dictionaries, frame counters, buffer statistics, source clocks, presence state, failure state, and the poller. It calls recorder callbacks only for manifest/session file records, calibration results, warnings, and manifest events.
+`DeviceLifecycle` owns source dictionaries, frame counters, buffer statistics, source clocks, presence state, failure state, and the poller. It calls recorder callbacks only for record/session file records, calibration results, warnings, and record events.
 
 ### Remaining Device Work
 
@@ -50,7 +50,7 @@ The properties near the top of `Recorder` expose lifecycle state for remaining o
 
 Initial source layout restoration still calls `Recorder._restored_tracks` before `DeviceLifecycle` is built. Move it into `DeviceLifecycle` so it owns all source construction.
 
-The buffer-overflow callback retains the established manifest fields. Do not replace those fields with a generic `value` payload.
+The buffer-overflow callback retains the established record fields. Do not replace those fields with a generic `value` payload.
 
 ## Recording Control
 
@@ -67,12 +67,12 @@ The buffer-overflow callback retains the established manifest fields. Do not rep
 - profile reload
 - status snapshots and device/disk status
 
-Do not implement a dispatcher that simply calls existing recorder methods. Give `RecordingControl` a small explicit interface for configuration changes, `DeviceLifecycle`, `RecordingSession`, manifest warnings/events, status rows, and settings persistence. `Recorder` should then retain only top-level startup, shutdown, display/key setup, and loop ordering.
+Do not implement a dispatcher that simply calls existing recorder methods. Give `RecordingControl` a small explicit interface for configuration changes, `DeviceLifecycle`, `RecordingSession`, record warnings/events, status rows, and settings persistence. `Recorder` should then retain only top-level startup, shutdown, display/key setup, and loop ordering.
 
 ## Required End State
 
 - No `recs.ui` import cycle.
-- External protocol and manifest schema unchanged.
+- External protocol and record schema unchanged.
 - `Recorder` is orchestration only, without device, disk, calibration, session, or control state.
 - Focused tests accompany extracted behavior.
 - Full suite passes.

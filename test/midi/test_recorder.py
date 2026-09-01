@@ -4,7 +4,7 @@ import mido
 
 from recs.cfg.cfg import Cfg
 from recs.midi.recorder import MidiRecorder
-from recs.ui.session_manifest import ManifestRecord
+from recs.ui.session_record import RecordEntry
 
 
 class FakePort:
@@ -25,7 +25,7 @@ class FakePort:
 
 
 def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
     port = FakePort(mido.Message('note_on', note=60, velocity=64, time=0.5))
     cfg = Cfg(output_directory=str(tmp_path))
@@ -33,7 +33,7 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
         cfg,
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: ['Launchkey'],
         open_input=lambda name: port,
         timestamp=lambda: 12.0,
@@ -71,13 +71,13 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
 def test_midi_recorder_writes_messages_received_during_card_replacement(
     tmp_path: Path,
 ) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     port = FakePort()
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
         session_directory=tmp_path / 'old',
         warning=lambda warning: None,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: ['Launchkey'],
         open_input=lambda name: port,
         timestamp=lambda: 12.0,
@@ -98,7 +98,7 @@ def test_midi_recorder_writes_messages_received_during_card_replacement(
 def test_midi_recorder_ignores_missing_backend_without_selected_input(
     tmp_path: Path,
 ) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
 
     def input_names() -> list[str]:
@@ -108,7 +108,7 @@ def test_midi_recorder_ignores_missing_backend_without_selected_input(
         Cfg(output_directory=str(tmp_path)),
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=input_names,
     )
 
@@ -119,13 +119,13 @@ def test_midi_recorder_ignores_missing_backend_without_selected_input(
 
 
 def test_midi_recorder_waits_for_selected_input(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: [],
     )
 
@@ -149,13 +149,13 @@ def test_midi_recorder_waits_for_selected_input(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: ['Launchkey'],
         open_input=lambda name: FakePort(error=OSError('lost input')),
         timestamp=lambda: 12.0,
@@ -174,7 +174,7 @@ def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
     names: list[str] = []
     clock = [0.0]
@@ -184,7 +184,7 @@ def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: names,
         open_input=lambda name: ports.pop(0),
         timestamp=lambda: 12.0,
@@ -219,7 +219,7 @@ def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     names = ['Launchkey']
     clock = [0.0]
     port = FakePort()
@@ -227,7 +227,7 @@ def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> No
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
         session_directory=tmp_path,
         warning=lambda message: None,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=lambda: names,
         open_input=lambda name: port,
         monotonic_clock=lambda: clock[0],
@@ -249,7 +249,7 @@ def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> No
 
 
 def test_midi_recorder_discovers_inputs_at_a_bounded_interval(tmp_path: Path) -> None:
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     clock = [0.0]
     names: list[str] = []
     calls = 0
@@ -263,7 +263,7 @@ def test_midi_recorder_discovers_inputs_at_a_bounded_interval(tmp_path: Path) ->
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
         session_directory=tmp_path,
         warning=lambda message: None,
-        write_record=records.append,
+        write_entry=records.append,
         input_names=input_names,
         open_input=lambda name: FakePort(),
         monotonic_clock=lambda: clock[0],
@@ -290,7 +290,7 @@ def test_midi_recorder_rate_limits_unavailable_backend_warnings(tmp_path: Path) 
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
         session_directory=tmp_path,
         warning=warnings.append,
-        write_record=lambda record: None,
+        write_entry=lambda record: None,
         input_names=input_names,
         monotonic_clock=lambda: clock[0],
     )

@@ -21,7 +21,7 @@ from recs.ui import (
     recorder,
     recording_paths,
     recording_track_config,
-    session_manifest,
+    session_record,
 )
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
@@ -56,8 +56,8 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def manifest_path(rec: Recorder) -> Path:
-    return rec.session_directory / 'audio/audio-manifest.jsonl'
+def record_path(rec: Recorder) -> Path:
+    return rec.session_directory / 'audio/audio-record.jsonl'
 
 
 class FakeConnection:
@@ -832,7 +832,7 @@ def test_recorder_records_buffer_overflow_event(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_update(
         SourceUpdate(
@@ -849,7 +849,7 @@ def test_recorder_records_buffer_overflow_event(
         )
     )
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1] == {
         'type': 'buffer_overflow',
         'timestamp': '1970-01-01T00:00:00.000Z',
@@ -861,7 +861,7 @@ def test_recorder_records_buffer_overflow_event(
     }
 
 
-def test_recorder_checks_for_unfinished_sessions_before_starting_manifest(
+def test_recorder_checks_for_unfinished_sessions_before_starting_record(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -873,7 +873,7 @@ def test_recorder_checks_for_unfinished_sessions_before_starting_manifest(
     )
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
 
-    rec._start_manifest()
+    rec._start_record()
 
     assert roots == [tmp_path]
 
@@ -894,7 +894,7 @@ def test_recorder_records_buffer_pressure_before_drops(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_update(
         SourceUpdate(
@@ -906,7 +906,7 @@ def test_recorder_records_buffer_pressure_before_drops(
         )
     )
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1]['type'] == 'buffer_pressure'
     assert records[1]['max_queued_seconds'] == 0.8
     assert records[1]['queued_seconds'] == 0.8
@@ -993,7 +993,7 @@ def test_open_folder_uses_platform_file_manager(
     assert commands == [['open', str(tmp_path)]]
 
 
-def test_live_input_manifest_omits_source(
+def test_live_input_record_omits_source(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1001,7 +1001,7 @@ def test_live_input_manifest_omits_source(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
-    rec._start_manifest()
+    rec._start_record()
     path = rec.session_directory / 'audio/mic.wav'
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()
@@ -1024,9 +1024,9 @@ def test_live_input_manifest_omits_source(
             ],
         )
     )
-    rec._finish_manifest()
+    rec._finish_record()
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     for record in records:
         record.pop('timestamp', None)
     assert records[1:3] == [
@@ -1051,7 +1051,7 @@ def test_live_input_manifest_omits_source(
     ]
 
 
-def test_recorder_writes_one_local_manifest_per_medium(
+def test_recorder_writes_one_local_record_per_medium(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1068,7 +1068,7 @@ def test_recorder_writes_one_local_manifest_per_medium(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
 
     for session, medium, name in (
         (rec.session, 'audio', 'take.wav'),
@@ -1078,28 +1078,28 @@ def test_recorder_writes_one_local_manifest_per_medium(
         path = rec.session_directory / medium / name
         path.touch()
         session.write(
-            session_manifest.ManifestFile(
+            session_record.FileEntry(
                 type='file_finished',
                 kind=medium,
                 timestamp='now',
                 path=path.as_posix(),
             )
         )
-    rec._finish_manifest()
+    rec._finish_record()
 
     for medium, name in (
-        ('audio', 'audio-manifest.jsonl'),
-        ('midi', 'midi-manifest.jsonl'),
-        ('osc', 'osc-manifest.jsonl'),
+        ('audio', 'audio-record.jsonl'),
+        ('midi', 'midi-record.jsonl'),
+        ('osc', 'osc-record.jsonl'),
     ):
-        manifest = rec.session_directory / medium / name
-        records = read_jsonl(manifest)
+        record = rec.session_directory / medium / name
+        records = read_jsonl(record)
         assert [record['path'] for record in records if 'path' in record] == [
             {'audio': 'take.wav', 'midi': 'keys.mid', 'osc': 'x18.jsonl'}[medium]
         ]
 
 
-def test_manifest_records_source_frame_counts(
+def test_record_records_source_frame_counts(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1107,7 +1107,7 @@ def test_manifest_records_source_frame_counts(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
-    rec._start_manifest()
+    rec._start_record()
     path = rec.session_directory / 'audio/mic.wav'
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()
@@ -1133,9 +1133,9 @@ def test_manifest_records_source_frame_counts(
             frame_count=1024,
         )
     )
-    rec._finish_manifest()
+    rec._finish_record()
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     for record in records:
         record.pop('timestamp', None)
     assert records[1:4] == [
@@ -1169,7 +1169,7 @@ def test_manifest_records_source_frame_counts(
 
 
 @pytest.mark.parametrize('field', ['dry_run', 'silence_preview'])
-def test_preview_modes_do_not_write_manifest(
+def test_preview_modes_do_not_write_record(
     field: str,
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
@@ -1180,9 +1180,9 @@ def test_preview_modes_do_not_write_manifest(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(**{field: True}, include=['Mic'], silent=True))
 
-    rec._finish_manifest()
+    rec._finish_record()
 
-    assert not manifest_path(rec).exists()
+    assert not record_path(rec).exists()
 
 
 def test_silence_preview_report_recommends_thresholds(
@@ -1264,8 +1264,8 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
             silent=True,
         )
     )
-    rec._start_manifest()
-    old_manifest = rec._manifest_path()
+    rec._start_record()
+    old_record = rec._record_path()
 
     result = rec._card_replace()
 
@@ -1275,7 +1275,7 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     assert rec.awaiting_card is not None
     assert rec.awaiting_card.value
     assert rec._control.status_snapshot().errors == [rec.awaiting_card]
-    assert session_manifest.read(old_manifest).events[-1].type == 'card_replace_started'
+    assert session_record.read(old_record).events[-1].type == 'card_replace_started'
 
     mounts[:] = [new_disk]
     clock[0] = 101.0
@@ -1351,7 +1351,7 @@ def test_card_replacement_uses_mounted_disk_with_emergency_reserve(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
 
     rec._card_replace()
 
@@ -1494,14 +1494,14 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 6
+    assert response.version == 7
     assert 'status_snapshot' in response.commands
     assert 'subscribe_waveforms' in response.commands
     assert 'unsubscribe_waveforms' in response.commands
     assert 'shutdown' in response.commands
 
 
-def test_control_request_marks_manifest(
+def test_control_request_marks_record(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1511,11 +1511,11 @@ def test_control_request_marks_manifest(
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     request = FakeControlRequest(gui_protocol.Mark(type='mark', label='guitar solo'))
     rec.live = FakeControlDisplay([request])
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_control_requests()
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert request.responses == [
         gui_protocol.Marked(type='marked', label='guitar solo')
     ]
@@ -1562,13 +1562,13 @@ def test_control_request_pauses_and_resumes_recording(
     pause = FakeControlRequest(gui_protocol.PauseRecording(type='pause_recording'))
     resume = FakeControlRequest(gui_protocol.ResumeRecording(type='resume_recording'))
     rec.live = FakeControlDisplay([pause, resume])
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_control_requests()
 
     assert not rec._control.recording_paused
     assert not rec._devices.hardware['Mic'].running
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1]['type'] == 'recording_paused'
     assert records[2]['type'] == 'recording_resumed'
 
@@ -1685,7 +1685,7 @@ def test_control_request_sets_and_gets_cfg(
         gui_protocol.GetCfg(type='get_cfg', address='recording.longest_file_time')
     )
     rec.live = FakeControlDisplay([set_request, get_request])
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_control_requests()
 
@@ -1702,7 +1702,7 @@ def test_control_request_sets_and_gets_cfg(
             type='cfg_value', address='recording.longest_file_time', value=expected
         )
     ]
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert [record['type'] for record in records[1:3]] == ['cfg_set', 'cfg_get']
     assert records[1]['cfg_revision'] == 1
 
@@ -1715,7 +1715,7 @@ def test_source_update_records_applied_cfg_revision(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
-    rec._start_manifest()
+    rec._start_record()
 
     rec._receive_update(
         SourceUpdate(
@@ -1727,7 +1727,7 @@ def test_source_update_records_applied_cfg_revision(
         )
     )
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1]['type'] == 'cfg_applied'
     assert records[1]['source'] == 'Mic'
     assert records[1]['value'] == 3
@@ -1741,7 +1741,7 @@ def test_buffer_overflow_records_write_latency(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
-    rec._start_manifest()
+    rec._start_record()
 
     rec._record_device_buffer_update(
         'Mic',
@@ -1753,7 +1753,7 @@ def test_buffer_overflow_records_write_latency(
         ),
     )
 
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1]['type'] == 'buffer_overflow'
     assert records[1]['max_write_seconds'] == 0.25
 
@@ -1766,7 +1766,7 @@ def test_save_settings_failure_records_warning(
     control.cfg = Cfg(save_settings=True)
     control.track_names = {}
     control.saved_tracks = {}
-    control.write_record = records.append
+    control.write_entry = records.append
     monkeypatch.setattr(
         recording_track_config.settings,
         'save',
@@ -1853,7 +1853,7 @@ def test_control_request_reload_profiles(
     ]
 
 
-def test_empty_template_output_directory_manifest_uses_time_template(
+def test_empty_template_output_directory_record_uses_time_template(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1864,10 +1864,10 @@ def test_empty_template_output_directory_manifest_uses_time_template(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
-    rec._start_manifest()
+    rec._start_record()
 
     assert Path(
-        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-manifest.jsonl'
+        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-record.jsonl'
     ).exists()
 
 
@@ -1882,7 +1882,7 @@ def test_default_output_directory_uses_session_timestamp(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
-    rec._start_manifest()
+    rec._start_record()
     expected = recording_paths.session_directory_name(timestamp)
     path = rec.session_directory / 'audio/mic.wav'
     path.parent.mkdir(exist_ok=True, parents=True)
@@ -1906,11 +1906,11 @@ def test_default_output_directory_uses_session_timestamp(
             ],
         )
     )
-    rec._finish_manifest()
+    rec._finish_record()
 
     assert rec.cfg.directory.output_directory == ''
     assert rec.session_directory == Path(expected)
-    assert (path.parent / 'audio-manifest.jsonl').exists()
+    assert (path.parent / 'audio-record.jsonl').exists()
 
 
 def test_default_output_directory_uses_collision_suffix(
@@ -1991,7 +1991,7 @@ def test_default_output_directory_replaces_problematic_characters() -> None:
     assert recording_paths.session_directory_name(timestamp) == '2026-06-23 20-34-10'
 
 
-def test_manifest_records_source_and_track_lifecycle_events(
+def test_record_records_source_and_track_lifecycle_events(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -2013,7 +2013,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     rec._devices.poller.snapshots = [{'Mic': mic_info}, {}, {'Mic': mic_info}]
 
@@ -2037,7 +2037,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
     rec._poll_devices()
     rec._reap_sources()
     rec._poll_devices()
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:43.000Z',
@@ -2076,7 +2076,7 @@ def test_manifest_records_source_and_track_lifecycle_events(
     ]
 
 
-def test_manifest_records_key_events(
+def test_record_records_key_events(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -2098,7 +2098,7 @@ def test_manifest_records_key_events(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
     rec.key_recorder = FakeKeyRecorder(
         [
             KeyEvent(type='key_pressed', key='g'),
@@ -2107,7 +2107,7 @@ def test_manifest_records_key_events(
     )
 
     rec._receive_key_events()
-    records = read_jsonl(manifest_path(rec))
+    records = read_jsonl(record_path(rec))
     assert records[1:] == [
         {
             'timestamp': '1970-01-01T00:01:42.000Z',

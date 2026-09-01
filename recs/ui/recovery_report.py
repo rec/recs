@@ -4,7 +4,7 @@ import tomlkit
 from pydantic import BaseModel, Field
 from reccy import logging
 
-from . import recording_paths, session_manifest
+from . import recording_paths, session_record
 
 REPORT_FILE = 'recs-recovery-report.toml'
 LOGGER = logging.get_logger(__name__)
@@ -37,7 +37,7 @@ class DiskReport(BaseModel, frozen=True):
 
 
 class RecoveryReport(BaseModel, frozen=True):
-    manifest: Path
+    record: Path
     started_at: str | None = None
     last_record_type: str | None = None
     last_record_timestamp: str | None = None
@@ -53,15 +53,21 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
     if not root.exists():
         return []
     reports: list[Path] = []
-    for manifest_path in sorted(root.rglob('*-manifest*.jsonl')):
+    record_paths = (
+        path
+        for medium in ('audio', 'midi', 'osc')
+        for path in root.rglob(f'{medium}-record*.jsonl')
+        if path.parent.name == medium
+    )
+    for record_path in sorted(record_paths):
         try:
-            report = recovery_report(manifest_path)
+            report = recovery_report(record_path)
         except OSError as e:
-            LOGGER.error('Cannot inspect manifest %s: %s', manifest_path, e)
+            LOGGER.error('Cannot inspect record %s: %s', record_path, e)
             continue
         if report is None:
             continue
-        report_path = manifest_path.parent / REPORT_FILE
+        report_path = record_path.parent / REPORT_FILE
         try:
             recording_paths.write_text_atomically(report_path, _toml(report))
         except OSError as e:
@@ -73,21 +79,19 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
 
 
 def recovery_report(path: Path) -> RecoveryReport | None:
-    records, errors = session_manifest.read_records(path)
-    if any(isinstance(record, session_manifest.ManifestFooter) for record in records):
+    records, errors = session_record.read_entries(path)
+    if any(isinstance(record, session_record.FooterEntry) for record in records):
         return None
     header = next(
         (
             record
             for record in records
-            if isinstance(record, session_manifest.ManifestHeader)
+            if isinstance(record, session_record.HeaderEntry)
         ),
         None,
     )
     files = [
-        record
-        for record in records
-        if isinstance(record, session_manifest.ManifestFile)
+        record for record in records if isinstance(record, session_record.FileEntry)
     ]
     started = {record.path: record for record in files if record.type == 'file_started'}
     finished = {record.path for record in files if record.type == 'file_finished'}
@@ -97,12 +101,12 @@ def recovery_report(path: Path) -> RecoveryReport | None:
         (
             record
             for record in reversed(records)
-            if not isinstance(record, session_manifest.ManifestHeader)
+            if not isinstance(record, session_record.HeaderEntry)
         ),
         None,
     )
     return RecoveryReport(
-        manifest=path,
+        record=path,
         started_at=header.started_at if header is not None else None,
         last_record_type=last.type if last is not None else None,
         last_record_timestamp=_timestamp(last),
@@ -116,11 +120,11 @@ def recovery_report(path: Path) -> RecoveryReport | None:
 
 
 def _source_reports(
-    records: list[session_manifest.ManifestRecord],
+    records: list[session_record.RecordEntry],
 ) -> list[SourceReport]:
     latest: dict[str, SourceReport] = {}
     for record in records:
-        if not isinstance(record, session_manifest.ManifestEvent):
+        if not isinstance(record, session_record.EventEntry):
             continue
         if record.source is not None:
             latest[record.source] = SourceReport(
@@ -132,7 +136,7 @@ def _source_reports(
 
 
 def _track_reports(
-    files: list[session_manifest.ManifestFile],
+    files: list[session_record.FileEntry],
     open_files: list[str],
     missing_files: list[str],
 ) -> list[TrackReport]:
@@ -176,10 +180,10 @@ def _track_reports(
 
 
 def _disk_report(
-    records: list[session_manifest.ManifestRecord],
+    records: list[session_record.RecordEntry],
 ) -> DiskReport | None:
     for record in reversed(records):
-        if not isinstance(record, session_manifest.ManifestEvent):
+        if not isinstance(record, session_record.EventEntry):
             continue
         if (
             record.disk is not None
@@ -196,20 +200,20 @@ def _disk_report(
     return None
 
 
-def _timestamp(record: session_manifest.ManifestRecord | None) -> str | None:
+def _timestamp(record: session_record.RecordEntry | None) -> str | None:
     if isinstance(
         record,
-        session_manifest.ManifestEvent
-        | session_manifest.ManifestFile
-        | session_manifest.ManifestWarning,
+        session_record.EventEntry
+        | session_record.FileEntry
+        | session_record.WarningEntry,
     ):
         return record.timestamp
     return None
 
 
-def _file_path(manifest_path: Path, path: str) -> Path:
+def _file_path(record_path: Path, path: str) -> Path:
     value = Path(path)
-    return value if value.is_absolute() else manifest_path.parent / value
+    return value if value.is_absolute() else record_path.parent / value
 
 
 def _summary(report: RecoveryReport) -> str:
@@ -231,7 +235,7 @@ def _count(value: int, name: str) -> str:
 
 def _toml(report: RecoveryReport) -> str:
     values: dict[str, object] = {
-        'manifest': str(report.manifest.resolve()),
+        'record': str(report.record.resolve()),
         'started_at': report.started_at or '',
         'last_record_type': report.last_record_type or '',
         'last_record_timestamp': report.last_record_timestamp or '',

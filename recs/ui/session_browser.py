@@ -4,9 +4,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from . import session_manifest
+from . import session_record
 
-MANIFEST_GLOB = '*-manifest.jsonl'
+RECORD_GLOB = '*-record.jsonl'
 
 
 class SessionSummary(BaseModel):
@@ -47,39 +47,39 @@ def main(argv: list[str]) -> int:
 
 
 def scan(root: Path) -> list[SessionSummary]:
-    if root.match(MANIFEST_GLOB):
+    if root.match(RECORD_GLOB):
         directories = [root.parent.parent]
-    elif any(root.glob(MANIFEST_GLOB)):
+    elif any(root.glob(RECORD_GLOB)):
         directories = [root]
     else:
         directories = sorted(
-            {path.parent.parent for path in root.glob(f'**/{MANIFEST_GLOB}')}
+            {path.parent.parent for path in root.glob(f'**/{RECORD_GLOB}')}
         )
     return [summary for path in directories if (summary := summarize(path))]
 
 
 def summarize(path: Path) -> SessionSummary | None:
-    if path.match(MANIFEST_GLOB):
+    if path.match(RECORD_GLOB):
         path = path.parent.parent
-    manifests = _manifests(path)
-    if not manifests:
+    records = _records(path)
+    if not records:
         return None
     primary = next(
-        (manifest for manifest in manifests if manifest[0].parent.name == 'audio'),
-        manifests[0],
+        (record for record in records if record[0].parent.name == 'audio'),
+        records[0],
     )
     finished = [
         file
-        for manifest_path, manifest in manifests
-        for file in manifest.files
+        for record_path, record in records
+        for file in record.files
         if file.type == 'file_finished'
     ]
     audio = [f for f in finished if f.kind == 'audio']
     midi = [f for f in finished if f.kind == 'midi']
     paths = [
-        _file_path(manifest_path, file.path)
-        for manifest_path, manifest in manifests
-        for file in manifest.files
+        _file_path(record_path, file.path)
+        for record_path, record in records
+        for file in record.files
         if file.type == 'file_finished'
     ]
     return SessionSummary(
@@ -113,19 +113,19 @@ def summarize(path: Path) -> SessionSummary | None:
     )
 
 
-def _manifests(path: Path) -> list[tuple[Path, session_manifest.SessionManifest]]:
-    manifests: list[tuple[Path, session_manifest.SessionManifest]] = []
-    for manifest_path in sorted(path.glob(f'*/{MANIFEST_GLOB}')):
+def _records(path: Path) -> list[tuple[Path, session_record.SessionRecord]]:
+    records: list[tuple[Path, session_record.SessionRecord]] = []
+    for record_path in sorted(path.glob(f'*/{RECORD_GLOB}')):
         try:
-            manifest = session_manifest.read(manifest_path)
+            record = session_record.read(record_path)
         except OSError:
             continue
-        if manifest.started_at:
-            manifests.append((manifest_path, manifest))
-    return manifests
+        if record.started_at:
+            records.append((record_path, record))
+    return records
 
 
-def _midi_ports(files: list[session_manifest.ManifestFile]) -> list[str]:
+def _midi_ports(files: list[session_record.FileEntry]) -> list[str]:
     names: set[str] = set()
     for file in files:
         if file.midi_port is not None:
@@ -144,7 +144,7 @@ def _show(argv: list[str]) -> int:
         print('Usage: recs session show PATH [--json]', file=sys.stderr)
         return 2
     if (value := summarize(Path(argv[0]))) is None:
-        print(f'{argv[0]}: not a readable recs manifest', file=sys.stderr)
+        print(f'{argv[0]}: not a readable recs record', file=sys.stderr)
         return 1
     if json_output:
         print(value.model_dump_json(indent=2))
@@ -185,5 +185,5 @@ def _print_summary(value: SessionSummary) -> None:
         print(f'continued_at: {path}')
 
 
-def _file_path(manifest_path: Path, path: str) -> Path:
-    return manifest_path.parent / Path(path)
+def _file_path(record_path: Path, path: str) -> Path:
+    return record_path.parent / Path(path)

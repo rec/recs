@@ -3,21 +3,21 @@
 ## Scope
 
 Implement a built-in `recs edit` command family for editing audio described by a
-Recs audio manifest:
+Recs audio record:
 
 ```text
-recs edit split [MANIFEST] ...
-recs edit stitch [MANIFEST] ...
-recs edit clip [MANIFEST] --start START --end END ...
-recs edit NAME [MANIFEST] ...
-recs edit PATH.toml [MANIFEST] ...
+recs edit split [RECORD] ...
+recs edit stitch [RECORD] ...
+recs edit clip [RECORD] --start START --end END ...
+recs edit NAME [RECORD] ...
+recs edit PATH.toml [RECORD] ...
 ```
 
-Every command accepts an optional positional audio manifest. When omitted,
-Recs selects the most recently modified `audio-manifest.jsonl` below the current
-directory. It rejects MIDI and OSC manifests, unreadable manifests, manifests
+Every command accepts an optional positional audio record. When omitted,
+Recs selects the most recently modified `audio-record.jsonl` below the current
+directory. It rejects MIDI and OSC records, unreadable records, records
 without finished audio files, and ambiguous relative paths. It never edits the
-source manifest or source recordings.
+source record or source recordings.
 
 `~/code/fmix` is superseded, not imported or treated as a compatibility target.
 Its ordered `[[edit_points]]` are too narrow to represent general editing:
@@ -37,7 +37,7 @@ but cannot introduce executable code or a new DSP primitive.
 
 The canonical document describes the desired arrangement, not a sequence of
 destructive editing commands. Rendering the same document against the same
-manifest must produce the same timeline and routing decisions.
+record must produce the same timeline and routing decisions.
 
 - All timeline positions and source positions are integer sample frames.
 - One declared sample rate defines the edit timebase.
@@ -53,15 +53,15 @@ Human-readable durations remain available on the CLI. Recs converts them to
 frames before writing canonical TOML. The durable file never depends on decimal
 seconds, musical tempo, filesystem timestamps, or floating-point time.
 
-## Manifest Input Model
+## Record Input Model
 
-A source refers to one `audio-manifest.jsonl` and selects one logical channel or
-one configured multichannel track from it. A finished manifest file record
+A source refers to one `audio-record.jsonl` and selects one logical channel or
+one configured multichannel track from it. A finished record file record
 provides its relative path, source, track number, channel count, sample rate,
 bit depth, and source-frame start/end positions. The editor resolves segmented
 files, reconnects, and known gaps behind each source ID.
 
-Manifest selectors use this stable identity:
+Record selectors use this stable identity:
 
 ```text
 SOURCE:TRACK[:OFFSET]
@@ -72,7 +72,7 @@ starting at one, selects one logical channel. A source records its channel width
 after resolution so later tracks, routes, and clips can be validated without
 reopening media files.
 
-File ranges are positioned by manifest frame counts, not wall-clock timestamps.
+File ranges are positioned by record frame counts, not wall-clock timestamps.
 A known gap in a source is rendered as zero-valued samples. An overlap between
 distinct source files for the same logical channel is an error; the editor must
 not silently sum or choose one file.
@@ -104,13 +104,13 @@ sample_rate = 48000
 
 [[sources]]
 id = "ben"
-manifest = "../audio/audio-manifest.jsonl"
+record = "../audio/audio-record.jsonl"
 channel = "X18:3"
 input_format = "flac"
 
 [[sources]]
 id = "room"
-manifest = "../audio/audio-manifest.jsonl"
+record = "../audio/audio-record.jsonl"
 channel = "X18:5"
 
 [[tracks]]
@@ -193,22 +193,22 @@ command line are relative to the current directory.
 
 ### Sources
 
-Each `[[sources]]` entry has a unique `id`, a manifest path, and one manifest
+Each `[[sources]]` entry has a unique `id`, a record path, and one record
 channel selector. It may constrain `input_format`. A complete track selector
 creates a source with that track's width; an offset selector creates a mono
 source. Multiple source IDs may select the same recorded material when the
 arrangement intentionally reuses it.
 
-The manifest path belongs to the source rather than the whole edit. This allows
+The record path belongs to the source rather than the whole edit. This allows
 one arrangement to combine independently recorded sessions without inventing a
-second input format. All manifests must still resolve to the declared edit
+second input format. All records must still resolve to the declared edit
 sample rate and have unambiguous frame origins.
 
 ### Tracks And Buses
 
 Each `[[tracks]]` entry declares a unique `id` and fixed channel count. Clips
 place material directly on tracks. Overlapping clips on one track are summed;
-this is an explicit arrangement decision, unlike overlapping manifest fragments
+this is an explicit arrangement decision, unlike overlapping record fragments
 inside one source, which remain an error.
 
 Each `[[buses]]` entry also has a unique ID and channel count. Buses receive
@@ -286,7 +286,7 @@ render pass.
 
 The same versioned data classes parse complete edits and partial named-command
 TOMLs. A partial recipe may omit values supplied by another recipe, the
-manifest, command-line options, or generated command behavior. A reserved
+record, command-line options, or generated command behavior. A reserved
 `_command` table contains CLI metadata rather than edit data.
 
 `extends` names another command TOML and applies its values first. Extension
@@ -336,7 +336,7 @@ paths.
 
 ### `recs edit clip`
 
-`clip` selects manifest channels and one interval. It generates one source and
+`clip` selects record channels and one interval. It generates one source and
 track per selected configured track, one clip per source, and one output for the
 result. CLI durations are converted to source and timeline frames. No gain,
 normalization, or fades are introduced unless the recipe requests them.
@@ -346,7 +346,7 @@ normalization, or fades are introduced unless the recipe requests them.
 `stitch` generates consecutive clips from selected source intervals. Each
 clip's `timeline_start` is the end of the preceding clip, so disjoint or
 reordered source intervals become one continuous arrangement. With no explicit
-intervals, it places the complete manifest timeline at frame zero and preserves
+intervals, it places the complete record timeline at frame zero and preserves
 known gaps as silence.
 
 ### `recs edit split`
@@ -375,7 +375,7 @@ each file. Effective values are applied in this order:
 schema defaults
 extended command TOML files
 selected named or explicit-path command TOML
-positional manifest
+positional record
 command-line options
 generated command arrangement
 ```
@@ -385,7 +385,7 @@ into explicit sources, tracks, clips, routes, automation, and outputs. It must
 not override an explicit complete edit silently.
 
 Before writing audio, commands print a concise plan: command and command-file
-path, source manifests, selected channels, sample rate, timeline bounds, tracks,
+path, source records, selected channels, sample rate, timeline bounds, tracks,
 buses, output formats, and output paths.
 
 Every successful run writes a canonical, fully resolved TOML beside its output,
@@ -395,12 +395,12 @@ and `_command`, converts all time values to frames, and rewrites paths relative
 to its own directory when possible. It therefore keeps the same meaning if an
 installed command recipe later changes or disappears.
 
-Each invocation also writes an adjacent `edit-manifest.jsonl`. It records the
-canonical edit path, input manifests and selectors, resolved source files,
+Each invocation also writes an adjacent `edit-record.jsonl`. It records the
+canonical edit path, input records and selectors, resolved source files,
 track and bus widths, clip source-to-timeline mappings, automation, output paths
-relative to the edit manifest, sample rate, format, gaps rendered as silence,
+relative to the edit record, sample rate, format, gaps rendered as silence,
 and warnings. It describes what was actually read and written; it does not
-modify any recording session manifest.
+modify any recording session record.
 
 ## Output Channel Limits
 
@@ -432,7 +432,7 @@ recs/edit/
     stitch.toml
     split.toml
     mix.toml
-  manifest.py     resolve manifests, selectors, files, variants, and gaps
+  record.py     resolve records, selectors, files, variants, and gaps
   graph.py        validate IDs, channel widths, routing, and timeline extents
   automation.py   typed targets and bounded curve evaluation
   render.py       bounded source placement, summing, routing, and analysis
@@ -444,8 +444,8 @@ command-line overlay. `commands.py` reads TOML with `tomlkit`, validates the
 reserved `_command` table separately, resolves `extends`, and generates a fully
 explicit `EditSpec`. Command files contain data only.
 
-`manifest.py` resolves each recorded path relative to its manifest and requires
-it to remain under that manifest directory. It validates matching
+`record.py` resolves each recorded path relative to its record and requires
+it to remain under that record directory. It validates matching
 started/finished records, source-frame ordering, file existence, and recorded
 audio metadata before rendering.
 
@@ -459,9 +459,9 @@ one NumPy array covering an entire recording. It opens output files only after
 all validation succeeds and closes all outputs on an ordinary error.
 
 `output.py` owns collision checks, format validation, encoding, canonical edit
-TOML, and the edit manifest. Arrangement logic does not belong in the encoder.
+TOML, and the edit record. Arrangement logic does not belong in the encoder.
 
-Wire `recs edit` in `recs/__main__.py` beside the existing `manifest`,
+Wire `recs edit` in `recs/__main__.py` beside the existing `record`,
 `session`, and `explain` command families. It must not start the recorder or
 contact the daemon.
 
@@ -469,19 +469,19 @@ contact the daemon.
 
 - Unknown schema versions, fields, IDs, parameters, interpolation modes,
   inheritance cycles, duplicate command names, and invalid partial-value merges
-  fail before manifest or audio I/O.
+  fail before record or audio I/O.
 - A command file cannot name a Python module, executable, or shell command.
-- Missing, unreadable, incomplete, or non-audio manifest records fail before
+- Missing, unreadable, incomplete, or non-audio session records fail before
   output creation.
 - Missing input files fail with the source ID and frame range. Silence is used
-  only for known manifest gaps and empty arrangement regions.
+  only for known record gaps and empty arrangement regions.
 - Different sample rates, ambiguous variants, overlapping files within one
-  manifest source, routing cycles, channel-width mismatches, and incompatible
+  record source, routing cycles, channel-width mismatches, and incompatible
   output formats or subtypes fail explicitly.
 - Existing output paths fail unless that output has `overwrite = true`.
 - A write failure removes no source data and leaves completed output paths named
-  in the error and edit manifest when one can be written safely.
-- No command modifies source audio, source manifests, configuration, or
+  in the error and edit record when one can be written safely.
+- No command modifies source audio, source records, configuration, or
   `~/code/fmix`.
 
 ## Tests
@@ -494,7 +494,7 @@ tests. Test generated audio and provenance files, not private renderer methods.
    collisions, extension cycles, and executable/plugin fields.
 3. Verify scalar, table, and whole-list merge rules and CLI precedence, then
    compare emitted canonical TOML with the fully resolved edit.
-4. Resolve multiple manifests and selectors, including mono offsets, stereo
+4. Resolve multiple records and selectors, including mono offsets, stereo
    tracks, segmented files, known gaps, and parallel output variants.
 5. Reject ambiguous variants, mixed sample rates, overlapping source files,
    missing files, and selectors with no unique match.
@@ -526,7 +526,7 @@ tests. Test generated audio and provenance files, not private renderer methods.
    buses, clips, routes, automation, and outputs, including canonical TOML.
 2. Add exact merge and inheritance rules, packaged command recipes, safe command
    discovery, and the uniform Pydantic/Tyro dispatcher.
-3. Implement manifest and selector resolution, source-file variant selection,
+3. Implement record and selector resolution, source-file variant selection,
    gap descriptions, and sample-rate validation.
 4. Implement graph validation for IDs, intervals, widths, routing cycles,
    automation targets, and output extents.
@@ -534,7 +534,7 @@ tests. Test generated audio and provenance files, not private renderer methods.
    output, then expose this path through generated `clip` and `stitch` edits.
 6. Add buses, routes, block-wise gain automation, and generated `mix` edits.
 7. Add multiple outputs and generated `split` edits, then write canonical TOML
-   and edit-manifest provenance beside them.
+   and edit-record provenance beside them.
 8. Add bounded output gain, limiting, normalization, and equal-power curves.
 9. Add remaining supported Recs formats, validating channel capacity and subtype
    through the active `soundfile` backend.

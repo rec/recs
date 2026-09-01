@@ -167,7 +167,7 @@ It should provide explicit buttons:
 - calibrate noise floor;
 - start/stop/restart Twitch stream;
 - safe shutdown;
-- possibly download or inspect recent manifests.
+- possibly download or inspect recent records.
 
 `stage-control` communicates with `recs` through a local daemon control API,
 preferably a Unix domain socket with JSON request/response messages. It should
@@ -249,7 +249,7 @@ Check after each test:
 - no dropped frames;
 - expected file sizes;
 - readable WAV/RF64 files;
-- valid manifest;
+- valid record;
 - no kernel USB/storage errors;
 - no swap pressure;
 - acceptable drive and case temperature.

@@ -49,7 +49,7 @@ def session_directory(output_directory: str, timestamp: float) -> Path:
     if not output_directory:
         return available_directory(Path(session_directory_name(timestamp)))
     return available_directory(
-        manifest_directory(output_directory, timestamp)
+        formatted_output_directory(output_directory, timestamp)
         / session_directory_name(timestamp)
     )
 
@@ -162,11 +162,11 @@ def session_directory_name(timestamp: float) -> str:
     )
 
 
-def manifest_directory(output_directory: str, timestamp: float) -> Path:
+def formatted_output_directory(output_directory: str, timestamp: float) -> Path:
     ts = datetime.fromtimestamp(timestamp)
     try:
         return legal_filename.legal_path(
-            Path(ts.strftime(output_directory).format(**manifest_times(ts)))
+            Path(ts.strftime(output_directory).format(**path_times(ts)))
         )
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
@@ -209,7 +209,7 @@ def open_folder(path: Path) -> None:
     subprocess.run(command, check=False)
 
 
-def manifest_times(ts: datetime) -> dict[str, str]:
+def path_times(ts: datetime) -> dict[str, str]:
     return {
         'date': ts.strftime('%Y%m%d'),
         'ddate': ts.strftime('%Y-%m-%d'),

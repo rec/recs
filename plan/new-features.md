@@ -134,7 +134,7 @@ Useful behavior:
 - allow a subset of tracks;
 - show measured values and previous values;
 - apply per-track noise floors;
-- write a manifest event when calibration changes live recording state.
+- write a record event when calibration changes live recording state.
 
 Why it matters: noise-floor setup is one of the most important quality knobs and
 one of the easiest to get wrong.
@@ -172,35 +172,35 @@ Expand markers beyond plain labels:
 Why it matters: markers turn long unattended recordings into usable session
 material.
 
-Implementation notes: keep the manifest event format append-only and simple.
+Implementation notes: keep the record event format append-only and simple.
 Avoid adding editing semantics until there is a session browser.
 
 ## Recovery and export features
 
 ### Session package export
 
-Add a command that copies a session manifest and all referenced files into a
+Add a command that copies a session record and all referenced files into a
 portable folder:
 
 ```sh
-recs session export PATH/to/recs-session.jsonl DEST
+recs session export PATH/to/audio/audio-record.jsonl DEST
 ```
 
 Useful behavior:
 
 - preserve relative track paths where possible;
-- include continued manifests after disk switches;
+- include continued records after disk switches;
 - write an export summary;
 - optionally verify file sizes after copy.
 
 Why it matters: recordings often need to move from a stage disk to a laptop or
-archive disk without losing manifest context.
+archive disk without losing record context.
 
 Implementation notes: keep export read-only relative to the original session.
 
 ### Split and stitch tools
 
-Add post-processing commands based on manifest timing:
+Add post-processing commands based on record timing:
 
 ```sh
 recs session split PATH --markers
@@ -227,7 +227,7 @@ explicit post-processing command, not part of live recording.
 Record DMX, Art-Net, sACN, or related lighting-control streams as timed data.
 
 Why it matters: this fits the broader live-show recording goal and can share the
-manifest/session model.
+record/session model.
 
 Implementation notes: treat this as a separate protocol source with its own
 storage format. Avoid coupling it to audio tracks or channel writers.
@@ -244,7 +244,7 @@ Add a read-only player that can play a session timeline:
 Why it matters: capture is only half the recorder story. A timeline player makes
 the recorded data useful without requiring manual file hunting.
 
-Implementation notes: this should come after the manifest index and validation
+Implementation notes: this should come after the record index and validation
 commands so playback has a reliable source of truth.
 
 ## Features to avoid for now
@@ -263,8 +263,8 @@ problems.
 
 ### Database-backed session history
 
-Do not add a database until manifest scanning is proven insufficient. JSONL
-manifests are easier to inspect, copy, recover, and test.
+Do not add a database until record scanning is proven insufficient. JSONL
+records are easier to inspect, copy, recover, and test.
 
 ### Complex automatic editing
 

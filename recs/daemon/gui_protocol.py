@@ -6,7 +6,7 @@ from reccy import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 6
+VERSION = 7
 
 
 class Hello(ipc.Hello):
@@ -217,7 +217,7 @@ class StatusSnapshot(BaseModel):
     devices: list[dict[str, object]]
     disk: dict[str, object]
     errors: list[ErrorRecord]
-    manifest_path: str
+    record_path: str
     midi: list[dict[str, object]] = Field(default_factory=list)
     osc: list[dict[str, object]] = Field(default_factory=list)
     recording: dict[str, bool]

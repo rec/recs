@@ -11,10 +11,10 @@ from threa import Runnable
 
 from recs.base import times
 from recs.cfg.cfg import Cfg
-from recs.ui.session_manifest import (
-    ManifestEvent,
-    ManifestFile,
-    ManifestRecord,
+from recs.ui.session_record import (
+    EventEntry,
+    FileEntry,
+    RecordEntry,
     timestamp_to_json,
 )
 
@@ -29,13 +29,13 @@ class OscRecorder(Runnable):
         cfg: Cfg,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_record: Callable[[ManifestRecord], None],
+        write_entry: Callable[[RecordEntry], None],
         write_error: Callable[[str, str], None] | None = None,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
         self.warning = warning
-        self.write_record = write_record
+        self.write_entry = write_entry
         self.write_error = write_error
         self.nodes: dict[str, OscNodeRecorder] = {}
         super().__init__()
@@ -55,7 +55,7 @@ class OscRecorder(Runnable):
                 node,
                 self.session_directory,
                 self.warning,
-                self.write_record,
+                self.write_entry,
                 self.write_error,
             )
             self.nodes[node.name] = recorder
@@ -98,13 +98,13 @@ class OscNodeRecorder:
         node: config.Node,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_record: Callable[[ManifestRecord], None],
+        write_entry: Callable[[RecordEntry], None],
         write_error: Callable[[str, str], None] | None,
     ) -> None:
         self.node = node
         self.directory = session_directory
         self.warning = warning
-        self.write_record = write_record
+        self.write_entry = write_entry
         self.write_error = write_error
         self.socket: socket.socket | None = None
         self.output: BinaryIO | None = None
@@ -136,8 +136,8 @@ class OscNodeRecorder:
                 self._send(command, 'command')
         self.next_polls = [now for _ in self.node.polls]
         self.next_subscriptions = [now for _ in self.node.subscriptions]
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 type='osc_node_started',
                 timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,
@@ -207,8 +207,8 @@ class OscNodeRecorder:
         self.path = _next_path(self.directory, self.node.name)
         self.output = self.path.open('ab')
         self.bytes_written = 0
-        self.write_record(
-            ManifestFile(
+        self.write_entry(
+            FileEntry(
                 type='file_started',
                 kind='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
@@ -223,8 +223,8 @@ class OscNodeRecorder:
             return
         self.output.close()
         self.output = None
-        self.write_record(
-            ManifestFile(
+        self.write_entry(
+            FileEntry(
                 type='file_finished',
                 kind='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
@@ -314,8 +314,8 @@ class OscNodeRecorder:
     def _fail(self, operation: str, message: str) -> None:
         self.last_error = message
         self.warning(f'OSC node {self.node.name} {operation} failed: {message}')
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 type='osc_node_failed',
                 timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,

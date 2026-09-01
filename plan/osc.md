@@ -137,9 +137,9 @@ At session start, create the `osc/` directory and output file for every enabled
 node before opening sockets. Start-up failures are then visible even for a node
 that never receives a packet.
 
-## Manifest And Status
+## Record And Status
 
-Extend the manifest with OSC-specific records rather than overloading audio
+Extend the record with OSC-specific records rather than overloading audio
 file fields:
 
 - `osc_node_started`: name, endpoint, bound address, and output path.
@@ -161,7 +161,7 @@ in `recs explain` separately from audio-device failures.
 - A failed periodic send remains due for its next configured interval; do not
   add retries or change the configured cadence.
 - A node whose output file cannot be opened is disabled for that session with a
-  manifest error. It must not silently discard packets.
+  record error. It must not silently discard packets.
 
 ## Tests
 
@@ -177,16 +177,16 @@ Use local UDP sockets and a deterministic monotonic clock:
    `resubscribe_period=10`, including the X18 `/xremote` configuration.
 5. Verify a telemetry-only node records unsolicited packets.
 6. Verify raw malformed data is retained with a decode error.
-7. Verify node failures populate status and manifest records while audio
+7. Verify node failures populate status and record entries while audio
    recording continues.
-8. Verify output files, rotation, manifest summaries, and `recs explain`.
+8. Verify output files, rotation, record summaries, and `recs explain`.
 
 ## Implementation Order
 
 1. Add the TOML configuration models and validation tests.
 2. Add JSONL record and writer tests, including decoded and malformed packets.
 3. Add `OscNodeRecorder` with fake sockets and deterministic scheduling tests.
-4. Add `OscRecorder` lifecycle, status, and manifest integration.
+4. Add `OscRecorder` lifecycle, status, and record integration.
 5. Integrate it into `Recorder` start, loop, disk-switch, and shutdown paths.
 6. Update session inspection and explanation commands for OSC files and errors.
 7. Run a bounded manual X18 test that confirms `/xremote` is sent every ten

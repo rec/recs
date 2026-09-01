@@ -11,16 +11,17 @@ session directory to separating recorded media by kind:
 
 ```text
 /mnt/openloop/recs/
-  recs-session.jsonl
   audio/
+    audio-record.jsonl
     X18-1-2.wav
   midi/
+    midi-record.jsonl
     Launchkey.mid
 ```
 
-For a patterned output directory, the manifest remains in the session directory
-chosen by the existing pattern. Audio paths move under `audio/`, and MIDI paths
-go under `midi/`.
+For a patterned output directory, each record remains in its media directory
+under the session directory chosen by the existing pattern. Audio paths move
+under `audio/`, and MIDI paths go under `midi/`.
 
 ## Goals
 
@@ -28,7 +29,7 @@ go under `midi/`.
 - Keep MIDI capture independent from the audio callback and audio writers.
 - Write one MIDI file per input device per session.
 - Preserve enough timing information for later playback and session review.
-- Record MIDI lifecycle and file records in the existing manifest.
+- Record MIDI lifecycle and file records in the existing record.
 - Keep the first version local, file-based, and free of database state.
 
 ## Non-Goals
@@ -50,7 +51,7 @@ Timing source:
 - Prefer `mido` message timing when the input backend provides useful deltas.
 - Otherwise use `time.time()` at receive time and compute deltas from the
   previous recorded MIDI event on that input.
-- Store the selected timing source in the manifest so later diagnostics know
+- Store the selected timing source in the record so later diagnostics know
   whether the file used backend timing or system receive timing.
 
 ## Configuration
@@ -83,7 +84,7 @@ Write standard MIDI files with one track per input file:
 
 The writer should keep an in-memory `mido.MidiTrack` for the current session and
 write the `.mid` file at shutdown. This is acceptable for the first version
-because MIDI event volume is small compared with audio. Add a manifest warning
+because MIDI event volume is small compared with audio. Add a record warning
 if the file cannot be written.
 
 If later tests show very high event counts, replace the writer with a streaming
@@ -131,20 +132,21 @@ Then update audio path generation so recorded audio goes under `audio/`.
 Examples:
 
 - session directory: `/mnt/openloop/recs`
-- manifest: `/mnt/openloop/recs/recs-session.jsonl`
+- audio record: `/mnt/openloop/recs/audio/audio-record.jsonl`
+- MIDI record: `/mnt/openloop/recs/midi/midi-record.jsonl`
 - audio: `/mnt/openloop/recs/audio/X18-1-2.wav`
 - MIDI: `/mnt/openloop/recs/midi/Launchkey.mid`
 
 Make the path change deliberately and update tests that currently expect audio
-files beside the manifest.
+files beside the record.
 
 Disk switching should keep the same structure in the new session directory. A
 continued session after a disk switch should have its own `audio/` and `midi/`
-directories, with manifest continuation links unchanged.
+directories, with record continuation links unchanged.
 
-## Manifest Records
+## Session Record Entries
 
-Extend manifest file records so MIDI files can be represented without pretending
+Extend file entries in the session record so MIDI files can be represented without pretending
 they are audio:
 
 - Add a `kind` field to file records: `audio` or `midi`.
@@ -164,7 +166,7 @@ Add MIDI lifecycle events:
   MIDI file was written at session shutdown. This can also be represented as a
   `file_finished` record with `kind='midi'` if that keeps scanners simpler.
 
-The session browser, manifest validator, and explain command should distinguish
+The session browser, record validator, and explain command should distinguish
 audio and MIDI files in their summaries.
 
 ## Error Handling
@@ -174,8 +176,8 @@ MIDI failures should not stop audio recording.
 - If a MIDI input cannot open, record a warning and continue.
 - If a MIDI input fails while recording, close that input, record a
   `midi_source_failed` event, and continue audio recording.
-- If writing the final `.mid` file fails, record a manifest warning before the
-  manifest closes if possible.
+- If writing the final `.mid` file fails, record a record warning before the
+  record closes if possible.
 - If there are no MIDI devices, do not warn by default. Always-on MIDI should be
   silent when there is nothing to record unless the user explicitly selected a
   MIDI input.
@@ -191,7 +193,7 @@ Expose MIDI state in existing status surfaces:
   Count audio files and MIDI files separately.
 - `recs session show`
   Show MIDI device names and message counts.
-- `recs manifest check`
+- `recs record check`
   Check referenced MIDI files exist and have a plausible nonzero size when
   message_count is nonzero.
 - `recs explain`
@@ -203,17 +205,17 @@ needed for tests.
 ## Implementation Order
 
 1. Add `mido` as a dependency in a dedicated commit.
-2. Add path helpers and move audio output into `audio/`, updating manifest and
+2. Add path helpers and move audio output into `audio/`, updating record and
    session-browser tests.
-3. Add manifest support for `kind='audio'` and `kind='midi'` file records while
-   keeping old manifests readable.
+3. Add record support for `kind='audio'` and `kind='midi'` file records while
+   keeping old records readable.
 4. Add MIDI config fields and MIDI input selection tests.
 5. Add `MidiWriter` unit tests for converting timed mido messages to a `.mid`
    file.
 6. Add `MidiRecorder` with fake mido ports in tests, covering open, poll,
    message count, close, and failure warnings.
 7. Integrate `MidiRecorder` into `Recorder` start, loop, status, and shutdown.
-8. Update `recs sessions`, `recs session show`, `recs manifest check`, and
+8. Update `recs sessions`, `recs session show`, `recs record check`, and
    `recs explain` for MIDI file records and MIDI source failures.
 9. Add an end-to-end regression using fake MIDI input ports and audio disabled
    or mocked.
@@ -228,18 +230,18 @@ needed for tests.
 - Unit-test that MIDI input failure records warnings without stopping audio.
 - Regression-test that audio files move under `audio/`.
 - Regression-test that MIDI files are written under `midi/`.
-- Regression-test manifest validation on mixed audio and MIDI manifests.
+- Regression-test record validation on mixed audio and MIDI records.
 - Manually verify real MIDI recording with a connected controller.
 
 ## Migration Notes
 
-Old manifests and sessions without `kind` should be treated as audio sessions.
-This keeps `recs sessions`, `recs session show`, `recs manifest check`, and
+Old records and sessions without `kind` should be treated as audio sessions.
+This keeps `recs sessions`, `recs session show`, `recs record check`, and
 `recs explain` useful for already-recorded material.
 
 The audio path move is not backward compatible for tests and new sessions, but
-existing manifests with old audio paths must remain readable because session
-tools operate on paths recorded in the manifest.
+existing records with old audio paths must remain readable because session
+tools operate on paths recorded in the record.
 
 ## Open Questions
 

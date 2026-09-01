@@ -37,7 +37,7 @@ from . import (
     recording_paths,
     recording_session,
     recovery_report,
-    session_manifest,
+    session_record,
 )
 from .device_poller import DevicePoller
 from .full_state import FullState
@@ -154,15 +154,15 @@ class Recorder(Runnables):
             self.session,
             self._devices,
             self._disk_space_policy,
-            lambda record: self._write_manifest_record(record),
+            lambda record: self._write_record_entry(record),
             self._replace_cfg,
             lambda: list(self.rows()),
             self.error_records,
             self._midi.status,
             self._osc.status,
-            self._manifest_path,
+            self._record_path,
             self._receive_pending_updates,
-            self._finish_manifest,
+            self._finish_record,
             self._card_replace,
         )
         self._card_replacement = card_replacement.CardReplacement()
@@ -182,13 +182,13 @@ class Recorder(Runnables):
             self._devices,
             self._disk_space_policy,
             self._control,
-            lambda record: self._write_manifest_record(record),
+            lambda record: self._write_record_entry(record),
             self._record_warning,
             self._replace_cfg,
             self._receive_pending_updates,
-            self._start_manifest,
-            self._finish_manifest,
-            self._manifest_path,
+            self._start_record,
+            self._finish_record,
+            self._record_path,
             lambda: self.session_start_time,
         )
         if isinstance(self.live, gui_ipc.DaemonGuiServer):
@@ -238,10 +238,10 @@ class Recorder(Runnables):
         self._calibration.results[source] = values
 
     def _record_device_buffer_update(self, source: str, stats: BufferStats) -> None:
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
+        self._write_record_entry(
+            session_record.EventEntry(
                 type='buffer_overflow' if stats.dropped_frames else 'buffer_pressure',
-                timestamp=session_manifest.timestamp_to_json(stats.last_drop_timestamp),
+                timestamp=session_record.timestamp_to_json(stats.last_drop_timestamp),
                 source=source,
                 dropped_blocks=stats.dropped_blocks,
                 dropped_frames=stats.dropped_frames,
@@ -281,17 +281,17 @@ class Recorder(Runnables):
         return [warning.message for warning in self.warnings]
 
     def error_records(self) -> list[ErrorRecord]:
-        manifest_errors = [
+        record_errors = [
             ErrorRecord(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                timestamp=session_record.timestamp_to_json(times.timestamp()),
                 message=message,
             )
-            for message in self.session.manifest_errors
+            for message in self.session.record_errors
         ]
         return [
             *self.warnings,
             *([self.awaiting_card] if self.awaiting_card is not None else []),
-            *manifest_errors,
+            *record_errors,
         ]
 
     def _record_startup_input_errors(
@@ -313,7 +313,7 @@ class Recorder(Runnables):
     def run(self) -> None:
         with raise_keyboard_interrupt_on_signal():
             try:
-                self._start_manifest()
+                self._start_record()
                 self._run()
             except KeyboardInterrupt:
                 print('Interrupted', file=sys.stderr)
@@ -321,7 +321,7 @@ class Recorder(Runnables):
                 if self.external is not None:
                     self.external.close()
                 self._receive_pending_updates()
-                self._finish_manifest()
+                self._finish_record()
                 if self.cfg.general.silence_preview:
                     print(json.dumps(self._silence_preview_report(), indent=2))
                 elif self.cfg.general.calibrate or self.cfg.general.verbose:
@@ -470,15 +470,15 @@ class Recorder(Runnables):
                 raise RecsError('Timed out closing audio files for card replacement')
         self._midi.suspend_for_card_replace()
         self._osc.suspend_for_card_replace()
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
+        self._write_record_entry(
+            session_record.EventEntry(
                 type='card_replace_started',
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+                timestamp=session_record.timestamp_to_json(times.timestamp()),
                 disk=str(result.old_mount),
                 disk_uuid=result.old_uuid,
             )
         )
-        self._finish_manifest()
+        self._finish_record()
         self._monitor_card_replacement()
         return result
 
@@ -521,11 +521,11 @@ class Recorder(Runnables):
         )
         self._output_unmounted = False
         self._set_awaiting_card(False)
-        self._start_manifest()
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
+        self._start_record()
+        self._write_record_entry(
+            session_record.EventEntry(
                 type='card_replace_finished',
-                timestamp=session_manifest.timestamp_to_json(timestamp),
+                timestamp=session_record.timestamp_to_json(timestamp),
                 to_path=str(destination.output_directory),
                 reason=destination.reason,
             )
@@ -614,9 +614,9 @@ class Recorder(Runnables):
         timestamp: float | None = None,
         value: object | None = None,
     ) -> None:
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(
+        self._write_record_entry(
+            session_record.EventEntry(
+                timestamp=session_record.timestamp_to_json(
                     recording_paths.timestamp_or_now(timestamp)
                 ),
                 type=event_type,
@@ -629,30 +629,30 @@ class Recorder(Runnables):
         )
 
     def _record_key_event(self, event: KeyEvent) -> None:
-        self._write_manifest_record(
-            session_manifest.ManifestEvent(
-                timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+        self._write_record_entry(
+            session_record.EventEntry(
+                timestamp=session_record.timestamp_to_json(times.timestamp()),
                 type=event.type,
                 key=event.key,
                 label=self.cfg.keys.labels.get(event.key),
             )
         )
 
-    def _start_manifest(self) -> None:
+    def _start_record(self) -> None:
         if not self.cfg.general.dry_run and not self.cfg.general.silence_preview:
             recovery_report.report_unfinished_sessions(
                 recording_paths.recovery_root(self.cfg.directory.output_directory)
             )
         self.session.start(
             recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-manifest.jsonl',
+            / 'audio-record.jsonl',
             dry_run=self.cfg.general.dry_run,
             silence_preview=self.cfg.general.silence_preview,
         )
         if self.cfg.midi.record_midi:
             self.midi_session.start(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
-                / 'midi-manifest.jsonl',
+                / 'midi-record.jsonl',
                 dry_run=self.cfg.general.dry_run,
                 silence_preview=self.cfg.general.silence_preview,
             )
@@ -662,7 +662,7 @@ class Recorder(Runnables):
         if self.cfg.osc.osc_nodes.name:
             self.osc_session.start(
                 recording_paths.media_session_directory(self.session_directory, 'osc')
-                / 'osc-manifest.jsonl',
+                / 'osc-record.jsonl',
                 dry_run=self.cfg.general.dry_run,
                 silence_preview=self.cfg.general.silence_preview,
             )
@@ -671,7 +671,7 @@ class Recorder(Runnables):
                 recording_paths.media_session_directory(self.session_directory, 'osc')
             )
 
-    def _finish_manifest(self) -> None:
+    def _finish_record(self) -> None:
         self._midi.close_session()
         self._osc.close_session()
         timestamp = times.timestamp()
@@ -709,12 +709,12 @@ class Recorder(Runnables):
     def _record_warning(
         self, warning: str, session: recording_session.RecordingSession | None = None
     ) -> None:
-        timestamp = session_manifest.timestamp_to_json(times.timestamp())
+        timestamp = session_record.timestamp_to_json(times.timestamp())
         LOGGER.error('%s', warning)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         if not self._output_unmounted:
             (session or self.session).write(
-                session_manifest.ManifestWarning(
+                session_record.WarningEntry(
                     timestamp=timestamp,
                     message=warning,
                 )
@@ -722,17 +722,17 @@ class Recorder(Runnables):
 
     def _set_awaiting_card(self, value: bool) -> None:
         self.awaiting_card = ErrorRecord(
-            timestamp=session_manifest.timestamp_to_json(times.timestamp()),
+            timestamp=session_record.timestamp_to_json(times.timestamp()),
             message='awaiting card',
             value=value,
         )
 
-    def _write_manifest_record(
+    def _write_record_entry(
         self,
-        record: session_manifest.ManifestEvent
-        | session_manifest.ManifestFile
-        | session_manifest.ManifestFooter
-        | session_manifest.ManifestWarning,
+        record: session_record.EventEntry
+        | session_record.FileEntry
+        | session_record.FooterEntry
+        | session_record.WarningEntry,
     ) -> None:
         if self._output_unmounted:
             return
@@ -756,17 +756,17 @@ class Recorder(Runnables):
             'profiles': profiles,
         }
 
-    def _manifest_path(self) -> Path:
+    def _record_path(self) -> Path:
         return (
             recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-manifest.jsonl'
+            / 'audio-record.jsonl'
         )
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())
         if paths:
             return Path(os.path.commonpath([path.parent for path in paths]))
-        return recording_paths.existing_parent(self._manifest_path()).resolve()
+        return recording_paths.existing_parent(self._record_path()).resolve()
 
 
 def _summary_time(seconds: float) -> str:

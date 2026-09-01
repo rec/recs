@@ -13,9 +13,9 @@ disks, network failure, or long recordings still need runtime verification.
 
 Resolved items from earlier reviews have been removed. That includes the GUI and
 external single-client guards, GUI shutdown-response timeout, live config
-revision manifest events, distinct disk-switch continuation events, bounded
+revision record events, distinct disk-switch continuation events, bounded
 audio callback buffering, bounded merged source-update metadata, streaming
-manifest reads, initial source-recorder and GUI-server splits, clearer
+record reads, initial source-recorder and GUI-server splits, clearer
 `DeviceLifecycle` state names, the explicit recording runtime-state object, the
 current glossary, and the current runtime architecture document.
 
@@ -24,7 +24,7 @@ current glossary, and the current runtime architecture document.
 ### Automatic disk switching still needs hardware fault-injection tests
 
 Automatic disk switching can save a recording, but it changes output paths,
-manifest continuity, source process lifecycles, and pause/resume state at the
+record continuity, source process lifecycles, and pause/resume state at the
 same time. It also depends on platform-specific removable disk detection.
 
 The code has isolated unit tests, but it still needs Pi/X18/USB-media tests for
@@ -42,7 +42,7 @@ devices, settings validity, and expected singleton ownership before a show.
 ### Error floods can hide first cause
 
 Malformed control commands, repeated device failures, disk warnings, or protocol
-errors can flood status and manifests. The system should rate-limit identical
+errors can flood status and records. The system should rate-limit identical
 errors while preserving first timestamp, most recent timestamp, and count.
 
 ### Recs must stay local when networks fail
@@ -70,9 +70,9 @@ goals and can obscure which parts of the recording pipeline are active.
 1. Add disk-stall observability: write latency, callback queue high-water marks,
    dropped-frame trends, and emergency reporting before overflow.
 2. Runtime-test disk switching and source shutdown with real child processes,
-   final manifest records, and late source updates.
-3. Replace per-record manifest `fsync` with bounded batching plus final durable
-   flush and visible manifest-write failures.
+   final record entries, and late source updates.
+3. Replace per-record-entry `fsync` with bounded batching plus final durable
+   flush and visible record-write failures.
 4. Add external RPC request deadlines that mirror GUI control timeout behavior.
 5. Improve source child failure diagnostics: exception type, exit code, final
    frame count, last callback timestamp, and expected versus forced stop.

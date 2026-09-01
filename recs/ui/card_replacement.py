@@ -5,7 +5,7 @@ from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_protocol
 
-from . import recording_paths, session_manifest
+from . import recording_paths, session_record
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ class CardReplacement:
         self.use_old_mount_immediately = False
         return gui_protocol.CardReplaceStarted(
             type='card_replace_started',
-            deadline=session_manifest.timestamp_to_json(self.deadline),
+            deadline=session_record.timestamp_to_json(self.deadline),
             old_mount=str(disk.path),
             old_uuid=disk.uuid,
         )

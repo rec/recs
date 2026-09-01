@@ -5,20 +5,20 @@ from recs.ui import session_explain
 
 
 def test_explain_reports_no_finished_files(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+    record = tmp_path / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
-    report = session_explain.explain(manifest)
+    report = session_explain.explain(record)
 
     assert report.explanations[0].reason == 'no files were recorded'
 
 
-def test_explain_reports_manifest_warnings_and_pause(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+def test_explain_reports_record_warnings_and_pause(tmp_path: Path) -> None:
+    record = tmp_path / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"recording_paused","timestamp":"pause","reason":"disk space"}\n'
         '{"type":"warning","timestamp":"warn",'
@@ -26,7 +26,7 @@ def test_explain_reports_manifest_warnings_and_pause(tmp_path: Path) -> None:
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
-    report = session_explain.explain(manifest)
+    report = session_explain.explain(record)
 
     assert [explanation.reason for explanation in report.explanations] == [
         'no files were recorded',
@@ -36,15 +36,15 @@ def test_explain_reports_manifest_warnings_and_pause(tmp_path: Path) -> None:
 
 
 def test_explain_reports_midi_source_failures(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+    record = tmp_path / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"midi_source_failed","timestamp":"fail",'
         '"midi_port":"Launchkey","value":"lost input"}\n'
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
-    report = session_explain.explain(manifest)
+    report = session_explain.explain(record)
 
     assert report.explanations[-1] == session_explain.Explanation(
         reason='MIDI input failed', evidence='lost input'
@@ -52,15 +52,15 @@ def test_explain_reports_midi_source_failures(tmp_path: Path) -> None:
 
 
 def test_explain_reports_midi_disconnection(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+    record = tmp_path / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"midi_source_stopped","timestamp":"stopped",'
         '"midi_port":"Launchkey","reason":"disconnected"}\n'
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
-    report = session_explain.explain(manifest)
+    report = session_explain.explain(record)
 
     assert report.explanations[-1] == session_explain.Explanation(
         reason='MIDI input disconnected', evidence='Launchkey'
@@ -71,15 +71,15 @@ def test_explain_prints_json(
     capsys,
     tmp_path: Path,
 ) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+    record = tmp_path / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
 
-    assert session_explain.main(['--json', str(manifest)]) == 0
+    assert session_explain.main(['--json', str(record)]) == 0
 
-    assert json.loads(capsys.readouterr().out)['target'] == manifest.as_posix()
+    assert json.loads(capsys.readouterr().out)['target'] == record.as_posix()
 
 
 def test_explain_daemon_reports_paused_status(monkeypatch) -> None:

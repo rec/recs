@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
-class ManifestHeader(BaseModel):
+class HeaderEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'header'
@@ -17,7 +17,7 @@ class ManifestHeader(BaseModel):
     continued_from: str | None = None
 
 
-class ManifestEvent(BaseModel):
+class EventEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
@@ -56,7 +56,7 @@ class ManifestEvent(BaseModel):
     osc_node: str | None = None
 
 
-class ManifestFile(BaseModel):
+class FileEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
@@ -78,7 +78,7 @@ class ManifestFile(BaseModel):
     decode_error_count: int | None = None
 
 
-class ManifestWarning(BaseModel):
+class WarningEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'warning'
@@ -86,7 +86,7 @@ class ManifestWarning(BaseModel):
     message: str
 
 
-class ManifestFooter(BaseModel):
+class FooterEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'footer'
@@ -94,7 +94,7 @@ class ManifestFooter(BaseModel):
     duration: float
 
 
-class SessionManifest(BaseModel):
+class SessionRecord(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     started_at: str
@@ -102,18 +102,16 @@ class SessionManifest(BaseModel):
     continued_from: str | None = None
     ended_at: str | None = None
     duration: float | None = None
-    events: list[ManifestEvent] = Field(default_factory=list)
-    files: list[ManifestFile] = Field(default_factory=list)
+    events: list[EventEntry] = Field(default_factory=list)
+    files: list[FileEntry] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
 
-ManifestRecord = (
-    ManifestEvent | ManifestFile | ManifestFooter | ManifestHeader | ManifestWarning
-)
+RecordEntry = EventEntry | FileEntry | FooterEntry | HeaderEntry | WarningEntry
 
 
-class SessionManifestWriter:
+class SessionRecordWriter:
     def __init__(
         self,
         path: Path,
@@ -129,7 +127,7 @@ class SessionManifestWriter:
         self.last_sync = float('-inf')
         self.errors: list[str] = []
         self.write(
-            ManifestHeader(
+            HeaderEntry(
                 started_at=started_at,
                 session_id=session_id,
                 continued_from=continued_from,
@@ -139,11 +137,11 @@ class SessionManifestWriter:
 
     def write(
         self,
-        record: ManifestRecord,
+        entry: RecordEntry,
         *,
         sync: bool = False,
     ) -> None:
-        self.fp.write(record.model_dump_json(exclude_none=True) + '\n')
+        self.fp.write(entry.model_dump_json(exclude_none=True) + '\n')
         self.fp.flush()
         if sync or time.monotonic() - self.last_sync >= self.sync_interval:
             self.sync()
@@ -156,7 +154,7 @@ class SessionManifestWriter:
         try:
             os.fsync(self.fp.fileno())
         except OSError as e:
-            self.errors.append(f'Cannot sync manifest {self.path}: {e}')
+            self.errors.append(f'Cannot sync record {self.path}: {e}')
         else:
             self.last_sync = time.monotonic()
 
@@ -165,25 +163,25 @@ class SessionManifestWriter:
         return errors
 
 
-def read(path: Path) -> SessionManifest:
-    records, errors = read_records(path)
-    header = next((r for r in records if isinstance(r, ManifestHeader)), None)
-    footer = next((r for r in reversed(records) if isinstance(r, ManifestFooter)), None)
-    return SessionManifest(
+def read(path: Path) -> SessionRecord:
+    entries, errors = read_entries(path)
+    header = next((e for e in entries if isinstance(e, HeaderEntry)), None)
+    footer = next((e for e in reversed(entries) if isinstance(e, FooterEntry)), None)
+    return SessionRecord(
         started_at=header.started_at if header else '',
         session_id=header.session_id if header else None,
         continued_from=header.continued_from if header else None,
         ended_at=footer.ended_at if footer else None,
         duration=footer.duration if footer else None,
-        events=[r for r in records if isinstance(r, ManifestEvent)],
-        files=[r for r in records if isinstance(r, ManifestFile)],
-        warnings=[r.message for r in records if isinstance(r, ManifestWarning)],
+        events=[e for e in entries if isinstance(e, EventEntry)],
+        files=[e for e in entries if isinstance(e, FileEntry)],
+        warnings=[e.message for e in entries if isinstance(e, WarningEntry)],
         errors=errors,
     )
 
 
-def read_records(path: Path) -> tuple[list[ManifestRecord], list[str]]:
-    return _read_records(path)
+def read_entries(path: Path) -> tuple[list[RecordEntry], list[str]]:
+    return _read_entries(path)
 
 
 def timestamp_to_json(timestamp: float) -> str:
@@ -194,10 +192,10 @@ def timestamp_to_json(timestamp: float) -> str:
     )
 
 
-def _read_records(
+def _read_entries(
     path: Path,
-) -> tuple[list[ManifestRecord], list[str]]:
-    records: list[ManifestRecord] = []
+) -> tuple[list[RecordEntry], list[str]]:
+    entries: list[RecordEntry] = []
     errors: list[str] = []
     parse_errors: list[
         tuple[int, json.JSONDecodeError | ValidationError | ValueError]
@@ -210,33 +208,33 @@ def _read_records(
             if not line:
                 continue
             try:
-                records.append(_parse_record(line))
+                entries.append(_parse_entry(line))
             except (json.JSONDecodeError, ValidationError, ValueError) as e:
                 parse_errors.append((i, e))
     for i, error in parse_errors:
         prefix = 'truncated final line' if i == last_line else f'line {i}'
         errors.append(f'{path}: {prefix}: {error}')
-    return records, errors
+    return entries, errors
 
 
-def _parse_record(
+def _parse_entry(
     line: str,
-) -> ManifestRecord:
+) -> RecordEntry:
     data = json.loads(line)
     if not isinstance(data, dict):
-        raise ValueError('manifest line must be a JSON object')
+        raise ValueError('record line must be a JSON object')
     record_type = data.get('type')
     if record_type == 'header':
-        return ManifestHeader.model_validate(data)
+        return HeaderEntry.model_validate(data)
     if record_type in {'file_finished', 'file_started'}:
-        return ManifestFile.model_validate(data)
+        return FileEntry.model_validate(data)
     if record_type == 'footer':
-        return ManifestFooter.model_validate(data)
+        return FooterEntry.model_validate(data)
     if record_type == 'warning':
-        return ManifestWarning.model_validate(data)
+        return WarningEntry.model_validate(data)
     if isinstance(record_type, str):
-        return ManifestEvent.model_validate(data)
-    raise ValueError('manifest line is missing a string type')
+        return EventEntry.model_validate(data)
+    raise ValueError('record line is missing a string type')
 
 
 def _available_path(path: Path) -> Path:

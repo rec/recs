@@ -15,7 +15,7 @@ from recs.base import times
 from recs.base.types import Format
 from recs.cfg import device, run_cli
 from recs.cfg.cfg import Cfg
-from recs.ui import session_manifest
+from recs.ui import session_record
 
 from .conftest import BLOCK_SIZE, DEVICES, DEVICES_FILE
 from .recs_runner import RecsRunner
@@ -90,10 +90,10 @@ def test_file_inputs(
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
     session_directory = outputs[0].parent.parent
-    manifest = session_manifest.read(session_directory / 'audio/audio-manifest.jsonl')
+    record = session_record.read(session_directory / 'audio/audio-record.jsonl')
     data_regression.check(
-        _stable_manifest(manifest),
-        basename='file_inputs_manifest',
+        _stable_record(record),
+        basename='file_inputs_record',
     )
 
     for source, output in zip(files, outputs, strict=True):
@@ -226,8 +226,8 @@ def test_flaky_device_and_long_gaps_end_to_end(
     ]
 
 
-def _stable_manifest(manifest: session_manifest.SessionManifest) -> dict[str, object]:
-    result = manifest.model_dump(mode='json', exclude_none=True) | {
+def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
+    result = record.model_dump(mode='json', exclude_none=True) | {
         'started_at': '<timestamp>',
         'ended_at': '<timestamp>',
         'duration': '<duration>',

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from recs.ui import recording_paths, session_manifest
+from recs.ui import recording_paths, session_record
 from recs.ui.source_recorder import SourceFile
 
 
@@ -12,23 +12,23 @@ class RecordingSession:
         self.files_written: set[Path] = set()
         self.file_end_frames: dict[Path, int] = {}
         self.file_end_timestamps: dict[Path, float] = {}
-        self.files: dict[Path, session_manifest.ManifestFile] = {}
-        self.manifest: session_manifest.SessionManifestWriter | None = None
-        self.manifest_errors: list[str] = []
+        self.files: dict[Path, session_record.FileEntry] = {}
+        self.record_writer: session_record.SessionRecordWriter | None = None
+        self.record_errors: list[str] = []
 
     def start(self, path: Path, *, dry_run: bool, silence_preview: bool) -> None:
         if dry_run or silence_preview:
             return
-        self.manifest = session_manifest.SessionManifestWriter(
+        self.record_writer = session_record.SessionRecordWriter(
             path,
-            started_at=session_manifest.timestamp_to_json(self.started_at),
+            started_at=session_record.timestamp_to_json(self.started_at),
             session_id=self.session_id,
             continued_from=self.continued_from,
         )
         self.continued_from = None
 
     def finish(self, timestamp: float) -> None:
-        if self.manifest is None:
+        if self.record_writer is None:
             return
         for path, file in sorted(self.files.items()):
             if path.exists():
@@ -36,7 +36,7 @@ class RecordingSession:
                     file.model_copy(
                         update={
                             'type': 'file_finished',
-                            'timestamp': session_manifest.timestamp_to_json(
+                            'timestamp': session_record.timestamp_to_json(
                                 recording_paths.timestamp_or_now(
                                     self.file_end_timestamps.get(path)
                                 )
@@ -46,14 +46,14 @@ class RecordingSession:
                     )
                 )
         self.write(
-            session_manifest.ManifestFooter(
-                ended_at=session_manifest.timestamp_to_json(timestamp),
+            session_record.FooterEntry(
+                ended_at=session_record.timestamp_to_json(timestamp),
                 duration=timestamp - self.started_at,
             )
         )
-        self.manifest.close()
-        self.manifest_errors.extend(self.manifest.take_errors())
-        self.manifest = None
+        self.record_writer.close()
+        self.record_errors.extend(self.record_writer.take_errors())
+        self.record_writer = None
 
     def reset(self, started_at: float) -> None:
         self.started_at = started_at
@@ -73,9 +73,9 @@ class RecordingSession:
         self.file_end_timestamps.update(end_timestamps)
 
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
-        record = session_manifest.ManifestFile(
+        entry = session_record.FileEntry(
             type='file_started',
-            timestamp=session_manifest.timestamp_to_json(
+            timestamp=session_record.timestamp_to_json(
                 recording_paths.timestamp_or_now(file.start_timestamp)
             ),
             frame_count=file.start_frame,
@@ -86,20 +86,20 @@ class RecordingSession:
             sample_rate=file.sample_rate,
             bit_depth=file.bit_depth,
         )
-        self.files[file.path] = record
-        self.write(record)
+        self.files[file.path] = entry
+        self.write(entry)
 
-    def write(self, record: session_manifest.ManifestRecord) -> None:
-        if self.manifest is not None:
-            if isinstance(record, session_manifest.ManifestFile):
-                path = Path(record.path)
+    def write(self, entry: session_record.RecordEntry) -> None:
+        if self.record_writer is not None:
+            if isinstance(entry, session_record.FileEntry):
+                path = Path(entry.path)
                 if path.is_absolute():
-                    record = record.model_copy(
+                    entry = entry.model_copy(
                         update={
                             'path': path.relative_to(
-                                self.manifest.path.parent
+                                self.record_writer.path.parent
                             ).as_posix()
                         }
                     )
-            self.manifest.write(record)
-            self.manifest_errors.extend(self.manifest.take_errors())
+            self.record_writer.write(entry)
+            self.record_errors.extend(self.record_writer.take_errors())

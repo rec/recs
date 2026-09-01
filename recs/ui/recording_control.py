@@ -22,7 +22,7 @@ from . import (
 from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
 from .recording_control_protocol import RecordingControlTarget
-from .session_manifest import ManifestRecord
+from .session_record import RecordEntry
 
 
 class RecordingRuntimeState(BaseModel):
@@ -43,15 +43,15 @@ class RecordingControl:
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
         disk: disk_space_policy.DiskSpacePolicy,
-        write_record: Callable[[ManifestRecord], None],
+        write_entry: Callable[[RecordEntry], None],
         cfg_changed: Callable[[Cfg], None],
         rows: Callable[[], list[dict[str, object]]],
         error_records: Callable[[], list[ErrorRecord]],
         midi_status: Callable[[], list[dict[str, object]]],
         osc_status: Callable[[], list[dict[str, object]]],
-        manifest_path: Callable[[], Path],
+        record_path: Callable[[], Path],
         receive_pending_updates: Callable[[], None],
-        finish_manifest: Callable[[], None],
+        finish_record: Callable[[], None],
         card_replace: Callable[[], gui_protocol.CardReplaceStarted],
     ) -> None:
         self.cfg = cfg
@@ -61,15 +61,15 @@ class RecordingControl:
         self.session = session
         self.devices = devices
         self.disk = disk
-        self.write_record = write_record
+        self.write_entry = write_entry
         self.cfg_changed = cfg_changed
         self.rows = rows
         self.error_records = error_records
         self.midi_status = midi_status
         self.osc_status = osc_status
-        self.manifest_path = manifest_path
+        self.record_path = record_path
         self.receive_pending_updates = receive_pending_updates
-        self.finish_manifest = finish_manifest
+        self.finish_record = finish_record
         self.card_replace_callback = card_replace
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.runtime_state = RecordingRuntimeState()

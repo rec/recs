@@ -347,13 +347,13 @@ class Key(BaseModel):
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(
-            help='Add a manifest label for a key, for example g=guitar too soft'
+            help='Add a record label for a key, for example g=guitar too soft'
         ),
     ] = Field(default_factory=list)
 
     record_keys: Annotated[
         Annotated[RecordKeys, cli_metadata.RECORD_KEYS_SPEC] | None,
-        tyro.conf.arg(help='Record keys in the session manifest: none, press, or all'),
+        tyro.conf.arg(help='Record keys in the session record: none, press, or all'),
     ] = None
 
     record_key_all_apps: Annotated[

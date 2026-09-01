@@ -4,11 +4,11 @@ from pathlib import Path
 from recs.ui import session_browser
 
 
-def test_session_browser_lists_session_manifests(
+def test_session_browser_lists_session_records(
     capsys,
     tmp_path: Path,
 ) -> None:
-    session = _manifest(tmp_path)
+    session = _record(tmp_path)
 
     assert session_browser.main([str(tmp_path)]) == 0
 
@@ -17,11 +17,11 @@ def test_session_browser_lists_session_manifests(
     )
 
 
-def test_session_browser_lists_session_manifests_as_json(
+def test_session_browser_lists_session_records_as_json(
     capsys,
     tmp_path: Path,
 ) -> None:
-    session = _manifest(tmp_path)
+    session = _record(tmp_path)
 
     assert session_browser.main(['--json', str(tmp_path)]) == 0
 
@@ -48,14 +48,16 @@ def test_session_browser_lists_session_manifests_as_json(
             'disk_events': 1,
             'markers': 2,
             'continued_from': None,
-            'continued_at': ['next/audio-manifest.jsonl'],
+            'continued_at': ['next/audio-record.jsonl'],
         }
     ]
 
 
-def test_session_browser_ignores_invalid_manifests(tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text('{')
+def test_session_browser_ignores_invalid_records(tmp_path: Path) -> None:
+    directory = tmp_path / 'session/audio'
+    directory.mkdir(parents=True)
+    record = directory / 'audio-record.jsonl'
+    record.write_text('{')
 
     assert session_browser.scan(tmp_path) == []
 
@@ -64,7 +66,7 @@ def test_session_browser_shows_one_session(
     capsys,
     tmp_path: Path,
 ) -> None:
-    session = _manifest(tmp_path)
+    session = _record(tmp_path)
 
     assert session_browser.main(['show', str(session)]) == 0
 
@@ -75,7 +77,7 @@ def test_session_browser_shows_one_session(
     assert 'midi_ports: Launchkey\n' in output
 
 
-def _manifest(tmp_path: Path) -> Path:
+def _record(tmp_path: Path) -> Path:
     session = tmp_path / 'take'
     audio = session / 'audio'
     midi = session / 'midi'
@@ -83,19 +85,19 @@ def _manifest(tmp_path: Path) -> Path:
     midi.mkdir()
     (audio / 'take.wav').write_bytes(b'data')
     (midi / 'keys.mid').write_bytes(b'midi')
-    (audio / 'audio-manifest.jsonl').write_text(
+    (audio / 'audio-record.jsonl').write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"key_pressed","timestamp":"mark","key":"g"}\n'
         '{"type":"mark","timestamp":"mark","label":"solo"}\n'
         '{"type":"disk_switch_continued_at","timestamp":"switch",'
-        '"continued_at":"next/audio-manifest.jsonl"}\n'
+        '"continued_at":"next/audio-record.jsonl"}\n'
         '{"type":"file_finished","timestamp":"done","path":"take.wav",'
         '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
         '"bit_depth":32}\n'
         '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
         '{"type":"footer","ended_at":"end","duration":1.5}\n'
     )
-    (midi / 'midi-manifest.jsonl').write_text(
+    (midi / 'midi-record.jsonl').write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"file_finished","kind":"midi","timestamp":"done",'
         '"path":"keys.mid","source":"Launchkey","message_count":3,'

@@ -67,7 +67,7 @@ At every discovery:
 2. Mark configured selectors without a matching concrete port as `waiting`.
 3. For a newly matching concrete name, open the port and create a writer.
 4. For an open port no longer returned by enumeration, close it, finish its
-   current file, emit a `midi_source_stopped` manifest event with reason
+   current file, emit a `midi_source_stopped` record event with reason
    `disconnected`, and move its selector to `waiting`.
 5. Do not reopen a port in the same discovery pass after an open failure. It is
    retried at the next interval.
@@ -76,7 +76,7 @@ During normal message polling, a read failure follows the same close-and-finish
 path, emits `midi_source_failed`, and waits until a later discovery. The next
 successful appearance creates a new writer and `midi_source_started` event.
 
-## Files And Manifest
+## Files And Record
 
 Each connected period writes a separate standard MIDI file. Its name includes
 the concrete port and the local start timestamp, using the same compact
@@ -89,7 +89,7 @@ midi/FLOW 8-20260823-163829-2.mid
 ```
 
 Every writer is finished exactly once, whether through normal shutdown,
-disconnect detection, or read failure. Its `file_finished` manifest record is
+disconnect detection, or read failure. Its `file_finished` record entry is
 written before the corresponding stopped or failed source event. Do not retain
 an in-memory writer after it has been finished.
 
@@ -114,7 +114,7 @@ block audio recording or other MIDI inputs.
 ## Tests
 
 1. Start with no matching ports and assert a `waiting` status row with no
-   warnings or manifest errors.
+   warnings or record errors.
 2. Advance a fake monotonic clock, add a matching port, and assert it opens and
    records a message without restarting the recorder.
 3. Remove that port from discovery while its reads still succeed; assert the
@@ -128,14 +128,14 @@ block audio recording or other MIDI inputs.
 7. Verify two selected ports can independently wait, connect, fail, and
    reconnect.
 8. Run a manual USB test: start Recs with no controller, attach one, remove it,
-   reattach it, and inspect status plus both MIDI files and manifest events.
+   reattach it, and inspect status plus both MIDI files and record events.
 
 ## Implementation Order
 
 1. Add explicit selector and concrete-port runtime state plus a fake monotonic
    clock to MIDI recorder tests.
 2. Add interval-based discovery and clean-disconnect handling.
-3. Centralize port close, writer finish, and manifest-event ordering.
+3. Centralize port close, writer finish, and record-event ordering.
 4. Update status snapshots and session explanation for waiting/stopped state.
 5. Add regression tests, run the Recs suite, then run the USB lifecycle test.
 

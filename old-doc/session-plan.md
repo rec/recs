@@ -1,24 +1,24 @@
-# Feature proposal: session manifests
+# Feature proposal: session records
 
 `recs` already solves the hardest part of recording: it can sit in the
 background, watch many inputs, ignore quiet, and write usable audio files
 without asking the user to press a record button at the right moment. A useful
-next feature would be a session manifest: a small machine-readable file written
+next feature would be a session record: a small machine-readable file written
 next to the recordings that describes what happened during one invocation.
 
-The manifest would not replace audio metadata. Audio metadata is tied to a
-single file and is limited by what each format supports. A manifest can describe
+The record would not replace audio metadata. Audio metadata is tied to a
+single file and is limited by what each format supports. A record can describe
 the whole recording session, including files, devices, channels, timestamps,
 configuration, and warnings. The natural format is JSON because `recs --info`
 already emits JSON and many downstream tools can read it.
 
-For each run, `recs` could write something like `recs-session.json` in the
-output directory. If several sessions write to the same directory, the manifest
+For each run, `recs` could write something like `audio-record.jsonl` in the
+output directory. If several sessions write to the same directory, the record
 could use the same timestamp or collision-avoidance naming rules as audio files.
 The file should be written incrementally or finalized safely during shutdown,
 so it remains useful after Ctrl-C or a normal termination signal.
 
-The manifest should answer practical questions a user will have later:
+The record should answer practical questions a user will have later:
 
 - Which device and channel produced this file?
 - What start and end time does the session cover?
@@ -77,7 +77,7 @@ A minimal first version could record only stable, high-value data:
 
 This is especially useful for long-running and unattended recording. Today, the
 file name carries a lot of meaning, but the filename is still optimized for
-humans. A manifest lets software reconstruct the session without parsing names.
+humans. A record lets software reconstruct the session without parsing names.
 That makes it easier to import files into a DAW, build a web index, generate
 cue sheets, diagnose missing audio, or sync recordings against notes taken
 during the session.
@@ -90,7 +90,7 @@ that a source was stopped because it lagged behind real time. That is valuable
 when `recs` is used as a safety recorder, where knowing why a file is missing
 can matter as much as the file itself.
 
-The manifest should also record the two lifecycle streams that explain gaps in
+The record should also record the two lifecycle streams that explain gaps in
 the resulting files. Source events describe when a device or file source became
 available or unavailable during the session. Track events describe when an
 individual track actually started or stopped writing audio after quiet filtering.
@@ -107,6 +107,6 @@ and optional append-only event logging, but the initial feature should avoid
 becoming a database or project format.
 
 The success criterion is simple: after a recording session, a user should be
-able to hand someone the audio files plus the manifest and have them understand
+able to hand someone the audio files plus the record and have them understand
 what was recorded, where each file came from, and whether anything unusual
 happened.

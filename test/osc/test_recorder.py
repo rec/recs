@@ -4,7 +4,7 @@ from pathlib import Path
 from recs.cfg.cfg import Cfg
 from recs.osc import codec, recorder
 from recs.osc.recorder import OscRecorder
-from recs.ui.session_manifest import ManifestRecord
+from recs.ui.session_record import RecordEntry
 
 
 class FakeSocket:
@@ -50,7 +50,7 @@ resubscribe_period = 10
 """
     )
     fake_socket = FakeSocket()
-    records: list[ManifestRecord] = []
+    records: list[RecordEntry] = []
     warnings: list[str] = []
     monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
     osc_recorder = OscRecorder(

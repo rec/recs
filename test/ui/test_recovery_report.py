@@ -6,14 +6,14 @@ from pytest import MonkeyPatch
 from recs.ui import recovery_report
 
 
-def test_writes_recovery_report_beside_unfinished_manifest(
+def test_writes_recovery_report_beside_unfinished_record(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:
     session = tmp_path / 'session/audio'
     session.mkdir(parents=True)
     (session / 'open.wav').write_bytes(b'audio')
-    manifest = session / 'audio-manifest.jsonl'
-    manifest.write_text(
+    record = session / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"file_started","timestamp":"file-start",'
         '"path":"open.wav","track":1,"channels":1,'
@@ -41,7 +41,7 @@ def test_writes_recovery_report_beside_unfinished_manifest(
         f'Unfinished session, 2 open files, 1 missing file: see {report_path.resolve()}'
     ]
     report = tomlkit.parse(report_path.read_text())
-    assert report['manifest'] == str(manifest.resolve())
+    assert report['record'] == str(record.resolve())
     assert report['last_record_type'] == 'disk_emergency'
     assert report['open_files'] == ['missing.wav', 'open.wav']
     assert report['missing_files'] == ['missing.wav']
@@ -71,9 +71,11 @@ def test_writes_recovery_report_beside_unfinished_manifest(
     ]
 
 
-def test_skips_finished_manifest(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
-    manifest = tmp_path / 'recs-session.jsonl'
-    manifest.write_text(
+def test_skips_finished_record(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    directory = tmp_path / 'session/audio'
+    directory.mkdir(parents=True)
+    record = directory / 'audio-record.jsonl'
+    record.write_text(
         '{"type":"header","version":2,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration":1}\n'
     )
@@ -88,4 +90,15 @@ def test_skips_finished_manifest(monkeypatch: MonkeyPatch, tmp_path: Path) -> No
 
     assert reports == []
     assert messages == []
-    assert not (tmp_path / 'recs-recovery-report.toml').exists()
+    assert not (directory / 'recs-recovery-report.toml').exists()
+
+
+def test_ignores_osc_data_file_named_record(tmp_path: Path) -> None:
+    directory = tmp_path / 'session/osc'
+    directory.mkdir(parents=True)
+    (directory / 'lighting-record.jsonl').write_text(
+        '{"kind":"packet","timestamp":"event"}\n'
+    )
+
+    assert recovery_report.report_unfinished_sessions(tmp_path) == []
+    assert not (directory / 'recs-recovery-report.toml').exists()

@@ -8,7 +8,7 @@ from recs.cfg.cfg import Cfg
 from . import disk_space, disk_space_policy, recording_paths, recording_session
 from .device_lifecycle import DeviceLifecycle
 from .recording_control import RecordingControl
-from .session_manifest import ManifestEvent, ManifestRecord, timestamp_to_json
+from .session_record import EventEntry, RecordEntry, timestamp_to_json
 
 
 class DiskSpaceController:
@@ -19,13 +19,13 @@ class DiskSpaceController:
         devices: DeviceLifecycle,
         monitor: disk_space_policy.DiskSpacePolicy,
         recording: RecordingControl,
-        write_record: Callable[[ManifestRecord], None],
+        write_entry: Callable[[RecordEntry], None],
         warning: Callable[[str], None],
         cfg_changed: Callable[[Cfg], None],
         receive_pending_updates: Callable[[], None],
-        start_manifest: Callable[[], None],
-        finish_manifest: Callable[[], None],
-        manifest_path: Callable[[], Path],
+        start_record: Callable[[], None],
+        finish_record: Callable[[], None],
+        record_path: Callable[[], Path],
         session_start_time: Callable[[], float],
     ) -> None:
         self.cfg = cfg
@@ -33,13 +33,13 @@ class DiskSpaceController:
         self.devices = devices
         self.monitor = monitor
         self.recording = recording
-        self.write_record = write_record
+        self.write_entry = write_entry
         self.warning = warning
         self.cfg_changed = cfg_changed
         self.receive_pending_updates = receive_pending_updates
-        self.start_manifest = start_manifest
-        self.finish_manifest = finish_manifest
-        self.manifest_path = manifest_path
+        self.start_record = start_record
+        self.finish_record = finish_record
+        self.record_path = record_path
         self.session_start_time = session_start_time
 
     def monitor_disk_space(self) -> None:
@@ -57,7 +57,7 @@ class DiskSpaceController:
                         )
                     return
             return
-        path = recording_paths.existing_parent(self.manifest_path())
+        path = recording_paths.existing_parent(self.record_path())
         current = self.monitor.recording_disk(path)
         if current is None:
             self.warning('Cannot read recording disk space')
@@ -91,8 +91,8 @@ class DiskSpaceController:
     def record_disk_event(
         self, event_type: str, disk: disk_space.Disk, threshold: str | None, rate: float
     ) -> None:
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 type=event_type,
                 timestamp=timestamp_to_json(times.timestamp()),
                 path=str(self.cfg.directory.output_directory),
@@ -135,8 +135,8 @@ class DiskSpaceController:
             output.mkdir(parents=True, exist_ok=True)
         except OSError as error:
             self.warning(f'Cannot switch recording disk to {disk.path}: {error}')
-            self.write_record(
-                ManifestEvent(
+            self.write_entry(
+                EventEntry(
                     type='disk_switch_failed',
                     timestamp=timestamp_to_json(times.timestamp()),
                     from_path=previous,
@@ -145,14 +145,14 @@ class DiskSpaceController:
                 )
             )
             return False
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 type='disk_switch_started',
                 timestamp=timestamp_to_json(times.timestamp()),
                 from_path=previous,
                 to_path=str(output),
                 from_free_bytes=shutil.disk_usage(
-                    recording_paths.existing_parent(self.manifest_path())
+                    recording_paths.existing_parent(self.record_path())
                 ).free,
                 to_free_bytes=disk.free_bytes,
                 reason=reason,
@@ -162,7 +162,7 @@ class DiskSpaceController:
             source.stop()
             source.join()
         self.receive_pending_updates()
-        self.finish_manifest()
+        self.finish_record()
         self.session.reset(self.session_start_time())
         directory = self.cfg.directory.model_copy(
             update={'output_directory': str(output)}
@@ -172,9 +172,9 @@ class DiskSpaceController:
         for source in self.devices.sources.values():
             source.set_cfg(cfg)
         self.cfg_changed(cfg)
-        self.start_manifest()
-        self.write_record(
-            ManifestEvent(
+        self.start_record()
+        self.write_entry(
+            EventEntry(
                 type='disk_switch_finished',
                 timestamp=timestamp_to_json(times.timestamp()),
                 from_path=previous,

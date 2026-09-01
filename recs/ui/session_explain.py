@@ -7,7 +7,7 @@ from reccy import rpc
 
 from recs.daemon import paths
 
-from . import session_manifest
+from . import session_record
 
 
 class Explanation(BaseModel):
@@ -36,21 +36,21 @@ def main(argv: list[str]) -> int:
 
 def explain(path: Path) -> ExplanationReport:
     try:
-        manifest = session_manifest.read(path)
+        record = session_record.read(path)
     except OSError as e:
         return ExplanationReport(
             target=path.as_posix(),
-            explanations=[Explanation(reason='manifest unreadable', evidence=str(e))],
+            explanations=[Explanation(reason='record unreadable', evidence=str(e))],
         )
     explanations: list[Explanation] = []
-    if not manifest.started_at:
+    if not record.started_at:
         explanations.append(
-            Explanation(reason='manifest header is missing', evidence=path.as_posix())
+            Explanation(reason='record header is missing', evidence=path.as_posix())
         )
-    if not any(f.type == 'file_finished' for f in manifest.files):
-        explanations.extend(_no_file_explanations(manifest))
-    explanations.extend(_warning_explanations(manifest))
-    explanations.extend(_event_explanations(manifest))
+    if not any(f.type == 'file_finished' for f in record.files):
+        explanations.extend(_no_file_explanations(record))
+    explanations.extend(_warning_explanations(record))
+    explanations.extend(_event_explanations(record))
     if not explanations:
         explanations.append(
             Explanation(
@@ -112,29 +112,29 @@ def explain_daemon() -> ExplanationReport:
 
 
 def _no_file_explanations(
-    manifest: session_manifest.SessionManifest,
+    record: session_record.SessionRecord,
 ) -> list[Explanation]:
-    if any(f.type == 'file_started' for f in manifest.files):
+    if any(f.type == 'file_started' for f in record.files):
         return [
             Explanation(
                 reason='files started but did not finish',
                 evidence=(
-                    'manifest has file_started records without ' 'file_finished records'
+                    'record has file_started records without ' 'file_finished records'
                 ),
             )
         ]
-    if not manifest.ended_at:
+    if not record.ended_at:
         return [
             Explanation(
                 reason='session did not finish cleanly',
-                evidence='manifest footer is missing',
+                evidence='record footer is missing',
             )
         ]
     return [
         Explanation(
             reason='no files were recorded',
             evidence=(
-                'manifest has no file_finished records; audio may have stayed below '
+                'record has no file_finished records; audio may have stayed below '
                 'noise floor or files may have been shorter than shortest_file_time'
             ),
         )
@@ -142,10 +142,10 @@ def _no_file_explanations(
 
 
 def _warning_explanations(
-    manifest: session_manifest.SessionManifest,
+    record: session_record.SessionRecord,
 ) -> list[Explanation]:
     explanations: list[Explanation] = []
-    for message in manifest.warnings + manifest.errors:
+    for message in record.warnings + record.errors:
         if 'No input devices detected' in message:
             reason = 'no matching input devices'
         elif 'offline' in message:
@@ -155,16 +155,16 @@ def _warning_explanations(
         elif 'lagging behind' in message:
             reason = 'source process lagged'
         else:
-            reason = 'manifest warning'
+            reason = 'record warning'
         explanations.append(Explanation(reason=reason, evidence=message))
     return explanations
 
 
 def _event_explanations(
-    manifest: session_manifest.SessionManifest,
+    record: session_record.SessionRecord,
 ) -> list[Explanation]:
     explanations: list[Explanation] = []
-    for event in manifest.events:
+    for event in record.events:
         if event.type == 'recording_paused':
             explanations.append(
                 Explanation(

@@ -8,14 +8,14 @@ daemon mode easier to trust.
 
 ## Recording session browser
 
-Add a GUI panel or CLI command to list recent sessions from manifests, with
+Add a GUI panel or CLI command to list recent sessions from records, with
 duration, warnings, files, and key markers. This becomes more useful once `recs`
 runs constantly.
 
 ## Marker keys with labels
 
 Let users define key labels, for example `g=guitar too soft` or `d=drums too
-soft`, and save those labels into the session manifest alongside press/release
+soft`, and save those labels into the session record alongside press/release
 timestamps.
 
 ## Disk-space guard
@@ -52,7 +52,7 @@ Add `recs test-input --include Mic --seconds 5` that records a short diagnostic
 WAV and reports peak/RMS levels, detected channels, sample rate, and
 permissions/device errors.
 
-## Session manifest validation command
+## Session record validation command
 
-Add `recs manifest check PATH` to validate manifests and report missing files,
+Add `recs record check PATH` to validate records and report missing files,
 inconsistent durations, bad paths, or unknown schema fields.

@@ -11,7 +11,7 @@ Important collaborators:
 
 - `DeviceLifecycle`: source discovery, source child processes, source updates,
   device presence, frame clocks, failures, and buffer status.
-- `RecordingSession`: active manifest, files written, file lifecycle records,
+- `RecordingSession`: active record, files written, file lifecycle entries,
   session id, and disk-switch continuity.
 - `RecordingControl`: GUI and external control requests, recording state,
   mutable configuration, track layout changes, status snapshots, and settings
@@ -19,7 +19,7 @@ Important collaborators:
 - `DiskMonitor`: disk-space policy, alert state, emergency thresholds, write
   rate, and removable-disk candidates.
 - `DiskControl`: applies disk decisions by stopping sources, draining pending
-  updates, closing and opening manifests, changing output directories, and
+  updates, closing and opening records, changing output directories, and
   resuming recording when possible.
 - `Calibration`: selects tracks for calibration, waits for source results, and
   applies measured noise floors.
@@ -99,7 +99,7 @@ through `ChannelWriter` instances, and publishes `SourceUpdate` or
 
 The parent can send `SourceControl` messages to update child configuration,
 track names, calibration requests, or track layouts. Those control messages are
-asynchronous. A manifest event can record that the parent accepted a change
+asynchronous. An event entry can show that the parent accepted a change
 before every child has applied it.
 
 ## Disk switch lifecycle
@@ -107,18 +107,18 @@ before every child has applied it.
 Disk switching is a high-risk lifecycle operation:
 
 1. Choose an output directory on the target disk.
-2. Record `disk_switch_started` in the current manifest.
+2. Record `disk_switch_started` in the current record.
 3. Stop and join live hardware source processes.
 4. Drain pending source updates.
-5. Record continuity information in the old manifest.
-6. Finish the old manifest.
+5. Record continuity information in the old record.
+6. Finish the old record.
 7. Reset session state for the new output directory.
 8. Update source configuration.
-9. Start the new manifest.
-10. Record completion in the new manifest.
+9. Start the new record.
+10. Record completion in the new record.
 
-The stop, drain, and manifest steps must stay in a strict order so final file
-records are not lost when the current disk is close to full.
+The stop, drain, and record steps must stay in a strict order so final file
+entries are not lost when the current disk is close to full.
 
 ## GUI and external IPC flow
 
@@ -132,17 +132,17 @@ Control request handlers should not mutate recorder state directly from IPC
 threads. They queue requests for the recorder loop and wait for the recorder loop
 to produce responses.
 
-## Manifest ownership
+## Record ownership
 
-`RecordingSession` owns the active manifest writer and session file bookkeeping.
+`RecordingSession` owns the active record writer and session file bookkeeping.
 Other collaborators report events through recorder callbacks, but they should not
-write manifest files directly.
+write session record files directly.
 
-The manifest is the recovery and audit source for:
+The record is the recovery and audit source for:
 
 - source lifecycle;
 - track activity;
-- file start and finish records;
+- file start and finish entries;
 - warnings and errors;
 - disk alerts and disk switches;
 - markers;

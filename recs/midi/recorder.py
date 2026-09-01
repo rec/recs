@@ -9,7 +9,7 @@ from threa import Runnable
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
-from recs.ui.session_manifest import ManifestEvent, ManifestRecord, timestamp_to_json
+from recs.ui.session_record import EventEntry, RecordEntry, timestamp_to_json
 
 from . import device
 from .writer import MidiMessage, MidiWriter
@@ -31,7 +31,7 @@ class MidiRecorder(Runnable):
         cfg: Cfg,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_record: Callable[[ManifestRecord], None],
+        write_entry: Callable[[RecordEntry], None],
         *,
         write_error: Callable[[str, str], None] | None = None,
         input_names: Callable[[], list[str]] = device.input_names,
@@ -42,7 +42,7 @@ class MidiRecorder(Runnable):
         self.cfg = cfg
         self.session_directory = session_directory
         self.warning = warning
-        self.write_record = write_record
+        self.write_entry = write_entry
         self.write_error = write_error
         self.input_names = input_names
         self.open_input = open_input or _open_input
@@ -73,7 +73,7 @@ class MidiRecorder(Runnable):
     def close_session(self) -> None:
         for name, writer in list(self.writers.items()):
             try:
-                self.write_record(writer.finish())
+                self.write_entry(writer.finish())
             except OSError as error:
                 self._record_write_error(name, error)
                 self._record_failure(name, self._selector(name), str(error))
@@ -224,8 +224,8 @@ class MidiRecorder(Runnable):
         self.port_selectors[name] = selector
         self.failures.pop(selector, None)
         if writer is not None:
-            self.write_record(
-                ManifestEvent(
+            self.write_entry(
+                EventEntry(
                     timestamp=timestamp_to_json(started_at),
                     type='midi_source_started',
                     source=name,
@@ -241,8 +241,8 @@ class MidiRecorder(Runnable):
             cast(MidiTiming, self.cfg.midi.midi_timing),
             started_at,
         )
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 timestamp=timestamp_to_json(started_at),
                 type='midi_source_started',
                 source=name,
@@ -267,7 +267,7 @@ class MidiRecorder(Runnable):
                 errors.append(str(error))
         if (writer := self.writers.pop(name, None)) is not None:
             try:
-                self.write_record(writer.finish())
+                self.write_entry(writer.finish())
             except OSError as error:
                 self._record_write_error(name, error)
                 errors.append(str(error))
@@ -275,8 +275,8 @@ class MidiRecorder(Runnable):
         if errors:
             self._record_failure(name, selector, ': '.join(errors))
         elif stopped:
-            self.write_record(
-                ManifestEvent(
+            self.write_entry(
+                EventEntry(
                     timestamp=timestamp_to_json(self.timestamp()),
                     type='midi_source_stopped',
                     source=name,
@@ -289,8 +289,8 @@ class MidiRecorder(Runnable):
         failure_time = self.timestamp()
         self.failures[selector] = (message, failure_time)
         self.warning(f'MIDI input {name} failed: {message}')
-        self.write_record(
-            ManifestEvent(
+        self.write_entry(
+            EventEntry(
                 timestamp=timestamp_to_json(failure_time),
                 type='midi_source_failed',
                 source=name,

@@ -180,7 +180,7 @@ Do not install or start native OS services in tests.
 3. Attached GUI startup does not start a second recorder.
 4. The daemon keeps recording if the GUI exits.
 5. Multiple GUI windows can attach at once.
-6. Key events from a remote GUI are recorded in the daemon session manifest.
+6. Key events from a remote GUI are recorded in the daemon session record.
 7. GUI IPC failure cannot crash the recorder.
 8. Tests do not install or start native services.
 

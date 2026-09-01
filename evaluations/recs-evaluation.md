@@ -27,7 +27,7 @@ recording instead of closing the file at the gap.
 than `shortest_file_time` (`recs/audio/channel_writer.py:129-138`), but it does
 not remove those paths from `files_written`.
 
-That can make file counts, file-size state, source updates, or manifests refer
+That can make file counts, file-size state, source updates, or records refer
 to files that were subsequently deleted.
 
 ### Medium: source process constructor performs the recording loop
@@ -59,9 +59,9 @@ If the LaunchAgent is already bootstrapped but stopped, `bootstrap` can fail
 instead of starting it. A separate `kickstart` or enable/start path may be
 needed for reliable restarts.
 
-### Low: manifest track records use the first source channel as `track`
+### Low: record track records use the first source channel as `track`
 
 `SourceRecorder._new_files()` records `track=writer.track.channels[0]`
 (`recs/ui/source_recorder.py:111-128`). For multi-channel tracks, this stores
 only the first channel number rather than the configured track name or all
-channels. That may make downstream manifests ambiguous.
+channels. That may make downstream records ambiguous.

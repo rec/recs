@@ -273,7 +273,7 @@ The long-running recorder should:
 
 1. Handle `SIGTERM` and platform shutdown signals cleanly.
 2. Flush open audio files before exit.
-3. Write the session manifest before exit.
+3. Write the session record before exit.
 4. Avoid curses or GUI output.
 5. Avoid prompting for input.
 6. Recover when devices disappear and reappear.

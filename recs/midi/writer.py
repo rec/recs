@@ -5,7 +5,7 @@ from typing import Protocol
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.misc import legal_filename
-from recs.ui.session_manifest import ManifestFile, timestamp_to_json
+from recs.ui.session_record import FileEntry, timestamp_to_json
 
 TICKS_PER_BEAT = 960
 TEMPO = 500_000
@@ -47,10 +47,10 @@ class MidiWriter:
         self.track.append(message.copy(time=round(delta * TICKS_PER_SECOND)))
         self.message_count += 1
 
-    def finish(self) -> ManifestFile:
+    def finish(self) -> FileEntry:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.file.save(self.path)
-        return ManifestFile(
+        return FileEntry(
             type='file_finished',
             kind='midi',
             timestamp=timestamp_to_json(times.timestamp()),

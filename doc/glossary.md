@@ -3,8 +3,8 @@
 ## Purpose
 
 This glossary defines common `recs` terms that appear across configuration,
-audio processing, UI state, daemon protocol messages, and session manifests.
-Use these meanings when naming code, writing docs, and interpreting manifests.
+audio processing, UI state, daemon protocol messages, and session records.
+Use these meanings when naming code, writing docs, and interpreting records.
 
 ## Terms
 
@@ -103,16 +103,18 @@ A frame is one sample instant across all channels for a source. Frame counts are
 used for timeline positions, file start and end positions, and source clock
 checks.
 
-### Manifest
+### Session record
 
-A manifest is the JSONL session record. It links output files, source events,
-track activity, disk events, control changes, warnings, markers, and session
-continuity across disk switches.
+A session record is the canonical JSONL account of one media session. It links
+output files, source events, track activity, disk events, control changes,
+warnings, markers, and session continuity across disk switches. Each JSON
+object within it is a record entry.
 
 ### Session
 
-A session is one logical recording run. A session may span multiple output
-directories and manifests when automatic disk switching is used.
+A session is one logical recording run. It normally has one session record per
+enabled medium and may have continuation records in multiple output directories
+when automatic disk switching is used.
 
 ### Control client
 

@@ -7,7 +7,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, validate_track_names
 from recs.daemon import gui_protocol
 
-from .session_manifest import ManifestEvent, ManifestWarning, timestamp_to_json
+from .session_record import EventEntry, WarningEntry, timestamp_to_json
 from .source_process import SourceProcess
 
 if TYPE_CHECKING:
@@ -58,8 +58,8 @@ def set_track_names(
     }
     control.devices.set_track_names(control.track_names)
     control.state.set_track_names(control.track_names)
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='track_names_set',
             value=control.track_names,
@@ -85,8 +85,8 @@ def set_tracks(
     control.saved_tracks[source.name] = [
         settings.TrackSettings(channels=list(track.channels)) for track in tracks
     ]
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='tracks_set',
             source=request.source,
@@ -202,8 +202,8 @@ def get_cfg(
         value = control.cfg.get_attr(request.address)
     except ValueError as e:
         raise RecsError(str(e)) from None
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='cfg_get',
             address=request.address,
@@ -232,8 +232,8 @@ def set_cfg_value(
     revision = control.cfg_revision
     control.devices.set_cfg(control.cfg, revision=revision)
     control.cfg_changed(control.cfg)
-    control.write_record(
-        ManifestEvent(
+    control.write_entry(
+        EventEntry(
             timestamp=timestamp_to_json(times.timestamp()),
             type='cfg_set',
             address=address,
@@ -251,8 +251,8 @@ def save_settings(control: 'RecordingControl') -> None:
         try:
             settings.save(control.cfg, control.track_names, control.saved_tracks)
         except RecsError as e:
-            control.write_record(
-                ManifestWarning(
+            control.write_entry(
+                WarningEntry(
                     timestamp=timestamp_to_json(times.timestamp()),
                     message=str(e),
                 )

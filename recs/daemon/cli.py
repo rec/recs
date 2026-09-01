@@ -105,8 +105,8 @@ def _print_status(status: dict[str, object]) -> None:
         print(f"recording: {'paused' if recording.get('paused') else 'active'}")
     if path := recorder.get('session_directory'):
         print(f'session directory: {path}')
-    if path := recorder.get('manifest_path'):
-        print(f'manifest: {path}')
+    if path := recorder.get('record_path'):
+        print(f'record: {path}')
     if (disk := recorder.get('disk')) and isinstance(disk, dict):
         _print_disk_status(cast(dict[str, object], disk))
     if rows := recorder.get('rows'):

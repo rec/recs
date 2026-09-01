@@ -93,7 +93,7 @@ closing sockets or pipes while `accept()` is blocked.
 If a `SourceRecorder` child dies because of file I/O, sounddevice, or soundfile
 errors, the parent usually sees only that the process exited. For hardware
 sources it marks the device failed, but error details are not propagated into the
-manifest or user-visible daemon state.
+record or user-visible daemon state.
 
 ### Device config JSON is all-or-nothing
 

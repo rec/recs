@@ -139,7 +139,7 @@ class PathPattern:
         ts = datetime.fromtimestamp(timestamp)
         try:
             return legal_filename.legal_path(
-                Path(ts.strftime(self.raw_path).format(**manifest_times(ts)))
+                Path(ts.strftime(self.raw_path).format(**path_times(ts)))
             )
         except KeyError:
             prefix = self.raw_path.split('{', 1)[0].rstrip('/\\')
@@ -219,5 +219,5 @@ FIELD_TO_PSTRING: dict[str, str] = {
 }
 
 
-def manifest_times(ts: datetime) -> dict[str, str]:
+def path_times(ts: datetime) -> dict[str, str]:
     return {k: ts.strftime(v) for k, v in FIELD_TO_PSTRING.items()}

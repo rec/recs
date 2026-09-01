@@ -10,7 +10,7 @@ from recs.ui import (
     disk_space_controller,
     recorder,
     recording_paths,
-    session_manifest,
+    session_record,
 )
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
@@ -63,21 +63,23 @@ def test_disk_alert_switches_to_larger_removable_disk(
             silent=True,
         )
     )
-    rec._start_manifest()
-    old_manifest = (
-        rec.session.manifest.path if rec.session.manifest is not None else None
+    rec._start_record()
+    old_record = (
+        rec.session.record_writer.path
+        if rec.session.record_writer is not None
+        else None
     )
 
     rec._disk_space_controller.monitor_disk_space()
 
     assert Path(rec.cfg.directory.output_directory).is_relative_to(removable)
-    assert rec.session.manifest is not None
-    assert old_manifest is not None
-    assert rec.session.manifest is not None
-    assert session_manifest.read(rec.session.manifest.path).continued_from is None
+    assert rec.session.record_writer is not None
+    assert old_record is not None
+    assert rec.session.record_writer is not None
+    assert session_record.read(rec.session.record_writer.path).continued_from is None
     assert not any(
         event.type == 'disk_switch_continued_at'
-        for event in session_manifest.read(old_manifest).events
+        for event in session_record.read(old_record).events
     )
     assert rec.error_messages()[-1] == (
         f'Switched recording from {tmp_path} to {removable / "recs"}: '
@@ -85,7 +87,7 @@ def test_disk_alert_switches_to_larger_removable_disk(
     )
 
 
-def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
+def test_disk_switch_records_pending_source_updates_before_closing_old_record(
     monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
 ) -> None:
     removable = tmp_path / 'removable'
@@ -112,13 +114,15 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
     recorded = rec.session_directory / 'audio/late.wav'
     recorded.write_bytes(b'audio')
-    old_manifest = (
-        rec.session.manifest.path if rec.session.manifest is not None else None
+    old_record = (
+        rec.session.record_writer.path
+        if rec.session.record_writer is not None
+        else None
     )
-    assert old_manifest is not None
+    assert old_record is not None
     rec._devices.hardware['Mic'].pending_updates.append(
         SourceUpdate(
             channels={'1': ChannelState()},
@@ -146,8 +150,8 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_manifest(
 
     rec._disk_space_controller.monitor_disk_space()
 
-    manifest = session_manifest.read(old_manifest)
-    assert any(file.path == 'late.wav' for file in manifest.files)
+    record = session_record.read(old_record)
+    assert any(file.path == 'late.wav' for file in record.files)
 
 
 def test_disk_emergency_pauses_recording(
@@ -168,7 +172,7 @@ def test_disk_emergency_pauses_recording(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
 
     rec._disk_space_controller.monitor_disk_space()
 
@@ -202,7 +206,7 @@ def test_disk_emergency_pauses_when_removable_switch_fails(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
     attempts: list[Path] = []
 
     def failed_switch(disk: disk_space.Disk, reason: str) -> bool:
@@ -242,7 +246,7 @@ def test_disk_pause_resumes_on_removable_disk(
             silent=True,
         )
     )
-    rec._start_manifest()
+    rec._start_record()
     rec._disk_space_controller.monitor_disk_space()
     assert rec._disk_space_policy.paused
 
