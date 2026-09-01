@@ -197,7 +197,7 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
     transport.stop()
 
 
-def test_source_recorder_applies_control_updates_without_audio(
+def test_source_recorder_runs_control_updates_without_audio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = InputDevice(
@@ -228,6 +228,10 @@ def test_source_recorder_applies_control_updates_without_audio(
         [Track(source, '1')],
         SourceUpdateTransport(BlockingConnection()),
     )
+
+    assert recorder.cfg.recording.record_everything is False
+
+    recorder.run()
 
     assert recorder.cfg.recording.record_everything is True
     assert recorder.buffer.cfg.recording.record_everything is True

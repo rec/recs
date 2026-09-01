@@ -319,7 +319,7 @@ def _run_source_recorder(
     transport = source_recorder.SourceUpdateTransport(update_connection)
     transport.start()
     try:
-        source_recorder.SourceRecorder(
+        recorder = source_recorder.SourceRecorder(
             cfg=cfg,
             control_connection=control_connection,
             session_directory=session_directory,
@@ -331,6 +331,7 @@ def _run_source_recorder(
             waveform_generation=waveform_generation,
             writing_enabled=writing_enabled,
         )
+        recorder.run()
     except Exception as e:
         source_name = tracks[0].source.key
         transport.publish(

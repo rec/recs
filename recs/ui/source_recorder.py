@@ -612,6 +612,7 @@ class SourceRecorder(Runnables):
             np.dtype((self.cfg.audio.sdtype or SDTYPE).value).itemsize * 8
         )
 
+    def run(self) -> None:
         with (
             raise_keyboard_interrupt_on_signal(),
             contextlib.suppress(KeyboardInterrupt),
