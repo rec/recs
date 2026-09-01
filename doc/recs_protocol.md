@@ -121,7 +121,7 @@ client:
   "devices": [],
   "disk": {
     "free_bytes": 700000000000,
-    "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
+    "path": "/mnt/openloop/recs/2026-08-28 12-00-00/session-record.jsonl",
     "total_bytes": 1000000000000,
     "used_bytes": 300000000000,
     "estimated_seconds_remaining": 86400.0,
@@ -132,7 +132,7 @@ client:
     "resume_disk": null
   },
   "errors": [],
-  "record_path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
+  "record_path": "/mnt/openloop/recs/2026-08-28 12-00-00/session-record.jsonl",
   "midi": [],
   "osc": [],
   "recording": {"paused": false},
@@ -162,7 +162,7 @@ nearest existing ancestor when the record does not exist yet:
 {
   "type": "disk_status_result",
   "free_bytes": 700000000000,
-  "path": "/mnt/openloop/recs/2026-08-28 12-00-00/audio/audio-record.jsonl",
+  "path": "/mnt/openloop/recs/2026-08-28 12-00-00/session-record.jsonl",
   "total_bytes": 1000000000000,
   "used_bytes": 300000000000,
   "estimated_seconds_remaining": 86400.0,

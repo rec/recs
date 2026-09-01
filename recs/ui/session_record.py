@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -11,10 +12,12 @@ class HeaderEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'header'
-    version: int = 2
+    version: Literal[3] = 3
     started_at: str
     session_id: str | None = None
     continued_from: str | None = None
+    application: dict[str, str] | None = None
+    metadata: dict[str, object] | None = None
 
 
 class EventEntry(BaseModel):
@@ -54,14 +57,17 @@ class EventEntry(BaseModel):
     timing_source: str | None = None
     midi_port: str | None = None
     osc_node: str | None = None
+    metadata: dict[str, object] | None = None
 
 
 class FileEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
-    kind: str = 'audio'
+    media_type: str
     timestamp: str
+    stream_id: str
+    format: str
     frame_count: int | None = None
     path: str
     track: int | None = None
@@ -69,13 +75,14 @@ class FileEntry(BaseModel):
     sample_rate: int | None = None
     bit_depth: int | None = None
     source: str | None = None
-    message_count: int | None = None
+    quantity_count: int | None = Field(default=None, ge=0)
     timing_source: str | None = None
     midi_port: str | None = None
     osc_node: str | None = None
     inbound_count: int | None = None
     outbound_count: int | None = None
     decode_error_count: int | None = None
+    metadata: dict[str, object] | None = None
 
 
 class WarningEntry(BaseModel):
@@ -91,7 +98,7 @@ class FooterEntry(BaseModel):
 
     type: str = 'footer'
     ended_at: str
-    duration: float
+    duration_seconds: float
 
 
 class SessionRecord(BaseModel):
@@ -100,8 +107,10 @@ class SessionRecord(BaseModel):
     started_at: str
     session_id: str | None = None
     continued_from: str | None = None
+    application: dict[str, str] | None = None
+    metadata: dict[str, object] | None = None
     ended_at: str | None = None
-    duration: float | None = None
+    duration_seconds: float | None = None
     events: list[EventEntry] = Field(default_factory=list)
     files: list[FileEntry] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -171,8 +180,10 @@ def read(path: Path) -> SessionRecord:
         started_at=header.started_at if header else '',
         session_id=header.session_id if header else None,
         continued_from=header.continued_from if header else None,
+        application=header.application if header else None,
+        metadata=header.metadata if header else None,
         ended_at=footer.ended_at if footer else None,
-        duration=footer.duration if footer else None,
+        duration_seconds=footer.duration_seconds if footer else None,
         events=[e for e in entries if isinstance(e, EventEntry)],
         files=[e for e in entries if isinstance(e, FileEntry)],
         warnings=[e.message for e in entries if isinstance(e, WarningEntry)],

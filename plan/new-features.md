@@ -183,7 +183,7 @@ Add a command that copies a session record and all referenced files into a
 portable folder:
 
 ```sh
-recs session export PATH/to/audio/audio-record.jsonl DEST
+recs session export PATH/to/session-record.jsonl DEST
 ```
 
 Useful behavior:

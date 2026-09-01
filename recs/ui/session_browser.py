@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from . import session_record
 
-RECORD_GLOB = '*-record.jsonl'
+RECORD_GLOB = 'session-record.jsonl'
 
 
 class SessionSummary(BaseModel):
@@ -48,34 +48,29 @@ def main(argv: list[str]) -> int:
 
 def scan(root: Path) -> list[SessionSummary]:
     if root.match(RECORD_GLOB):
-        directories = [root.parent.parent]
+        directories = [root.parent]
     elif any(root.glob(RECORD_GLOB)):
         directories = [root]
     else:
-        directories = sorted(
-            {path.parent.parent for path in root.glob(f'**/{RECORD_GLOB}')}
-        )
+        directories = sorted({path.parent for path in root.glob(f'**/{RECORD_GLOB}')})
     return [summary for path in directories if (summary := summarize(path))]
 
 
 def summarize(path: Path) -> SessionSummary | None:
     if path.match(RECORD_GLOB):
-        path = path.parent.parent
+        path = path.parent
     records = _records(path)
     if not records:
         return None
-    primary = next(
-        (record for record in records if record[0].parent.name == 'audio'),
-        records[0],
-    )
+    primary = records[0]
     finished = [
         file
         for record_path, record in records
         for file in record.files
         if file.type == 'file_finished'
     ]
-    audio = [f for f in finished if f.kind == 'audio']
-    midi = [f for f in finished if f.kind == 'midi']
+    audio = [f for f in finished if f.media_type == 'audio']
+    midi = [f for f in finished if f.media_type == 'midi']
     paths = [
         _file_path(record_path, file.path)
         for record_path, record in records
@@ -86,7 +81,7 @@ def summarize(path: Path) -> SessionSummary | None:
         path=path.as_posix(),
         started_at=primary[1].started_at,
         ended_at=primary[1].ended_at,
-        duration=primary[1].duration,
+        duration=primary[1].duration_seconds,
         output_directories=sorted({p.parent.as_posix() for p in paths}),
         devices=sorted({f.source for f in audio if f.source}),
         tracks=sorted(
@@ -96,7 +91,7 @@ def summarize(path: Path) -> SessionSummary | None:
         files=len(finished),
         audio_files=len(audio),
         midi_files=len(midi),
-        midi_messages=sum(f.message_count or 0 for f in midi),
+        midi_messages=sum(f.quantity_count or 0 for f in midi),
         total_bytes=sum(p.stat().st_size for p in paths if p.exists()),
         warnings=primary[1].warnings + primary[1].errors,
         disk_events=sum(1 for e in primary[1].events if e.type.startswith('disk_')),
@@ -115,7 +110,7 @@ def summarize(path: Path) -> SessionSummary | None:
 
 def _records(path: Path) -> list[tuple[Path, session_record.SessionRecord]]:
     records: list[tuple[Path, session_record.SessionRecord]] = []
-    for record_path in sorted(path.glob(f'*/{RECORD_GLOB}')):
+    for record_path in sorted(path.glob(RECORD_GLOB)):
         try:
             record = session_record.read(record_path)
         except OSError:

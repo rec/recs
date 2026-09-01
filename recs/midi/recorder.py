@@ -233,6 +233,7 @@ class MidiRecorder(Runnable):
                     midi_port=name,
                 )
             )
+            self.write_entry(writer.start_entry())
 
     def _new_writer(self, name: str, started_at: float) -> None:
         self.writers[name] = MidiWriter(
@@ -250,6 +251,7 @@ class MidiRecorder(Runnable):
                 midi_port=name,
             )
         )
+        self.write_entry(self.writers[name].start_entry())
 
     def _remove(
         self,

@@ -60,11 +60,12 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
     assert port.closed
     assert records[0].type == 'midi_source_started'
     assert records[0].source == 'Launchkey'
-    assert records[1].type == 'file_finished'
-    assert records[1].kind == 'midi'
-    assert records[1].message_count == 1
-    assert records[1].midi_port == 'Launchkey'
-    saved = mido.MidiFile(records[1].path)
+    assert records[1].type == 'file_started'
+    assert records[2].type == 'file_finished'
+    assert records[2].media_type == 'midi'
+    assert records[2].quantity_count == 1
+    assert records[2].midi_port == 'Launchkey'
+    saved = mido.MidiFile(records[2].path)
     assert saved.tracks[0][2].type == 'note_on'
 
 
@@ -167,10 +168,11 @@ def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
 
     assert warnings == ['MIDI input Launchkey failed: lost input']
     assert records[0].type == 'midi_source_started'
-    assert records[1].type == 'file_finished'
-    assert records[2].type == 'midi_source_failed'
-    assert records[2].source == 'Launchkey'
-    assert records[2].value == 'lost input'
+    assert records[1].type == 'file_started'
+    assert records[2].type == 'file_finished'
+    assert records[3].type == 'midi_source_failed'
+    assert records[3].source == 'Launchkey'
+    assert records[3].value == 'lost input'
 
 
 def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
@@ -208,9 +210,11 @@ def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
     assert warnings == ['MIDI input Launchkey failed: disconnected']
     assert [record.type for record in records] == [
         'midi_source_started',
+        'file_started',
         'file_finished',
         'midi_source_failed',
         'midi_source_started',
+        'file_started',
         'file_finished',
     ]
     paths = [path.name for path in tmp_path.glob('*.mid')]
@@ -241,6 +245,7 @@ def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> No
     assert port.closed
     assert [record.type for record in records] == [
         'midi_source_started',
+        'file_started',
         'file_finished',
         'midi_source_stopped',
     ]
@@ -276,7 +281,10 @@ def test_midi_recorder_discovers_inputs_at_a_bounded_interval(tmp_path: Path) ->
     recorder.poll()
 
     assert calls == 2
-    assert [record.type for record in records] == ['midi_source_started']
+    assert [record.type for record in records] == [
+        'midi_source_started',
+        'file_started',
+    ]
 
 
 def test_midi_recorder_rate_limits_unavailable_backend_warnings(tmp_path: Path) -> None:

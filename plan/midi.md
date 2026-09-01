@@ -11,17 +11,16 @@ session directory to separating recorded media by kind:
 
 ```text
 /mnt/openloop/recs/
+  session-record.jsonl
   audio/
-    audio-record.jsonl
     X18-1-2.wav
   midi/
-    midi-record.jsonl
     Launchkey.mid
 ```
 
-For a patterned output directory, each record remains in its media directory
-under the session directory chosen by the existing pattern. Audio paths move
-under `audio/`, and MIDI paths go under `midi/`.
+For a patterned output directory, the record remains at the root of the session
+directory chosen by the existing pattern. Audio paths move under `audio/`, and
+MIDI paths go under `midi/`.
 
 ## Goals
 
@@ -132,8 +131,7 @@ Then update audio path generation so recorded audio goes under `audio/`.
 Examples:
 
 - session directory: `/mnt/openloop/recs`
-- audio record: `/mnt/openloop/recs/audio/audio-record.jsonl`
-- MIDI record: `/mnt/openloop/recs/midi/midi-record.jsonl`
+- session record: `/mnt/openloop/recs/session-record.jsonl`
 - audio: `/mnt/openloop/recs/audio/X18-1-2.wav`
 - MIDI: `/mnt/openloop/recs/midi/Launchkey.mid`
 
@@ -149,10 +147,10 @@ directories, with record continuation links unchanged.
 Extend file entries in the session record so MIDI files can be represented without pretending
 they are audio:
 
-- Add a `kind` field to file records: `audio` or `midi`.
+- Add a `media_type` field to file records: `audio` or `midi`.
 - Keep existing audio fields for audio files.
 - Add MIDI-specific optional fields:
-  - `message_count`
+  - `quantity_count`
   - `timing_source`
   - `midi_port`
 
@@ -164,7 +162,7 @@ Add MIDI lifecycle events:
   MIDI input could not open, died, or raised while polling.
 - `midi_file_finished`
   MIDI file was written at session shutdown. This can also be represented as a
-  `file_finished` record with `kind='midi'` if that keeps scanners simpler.
+  `file_finished` record with `media_type='midi'` if that keeps scanners simpler.
 
 The session browser, record validator, and explain command should distinguish
 audio and MIDI files in their summaries.
@@ -195,7 +193,7 @@ Expose MIDI state in existing status surfaces:
   Show MIDI device names and message counts.
 - `recs record check`
   Check referenced MIDI files exist and have a plausible nonzero size when
-  message_count is nonzero.
+  `quantity_count` is nonzero.
 - `recs explain`
   Report selected MIDI input failures separately from audio failures.
 
@@ -207,8 +205,8 @@ needed for tests.
 1. Add `mido` as a dependency in a dedicated commit.
 2. Add path helpers and move audio output into `audio/`, updating record and
    session-browser tests.
-3. Add record support for `kind='audio'` and `kind='midi'` file records while
-   keeping old records readable.
+3. Add record support for `media_type='audio'` and `media_type='midi'` file
+   records.
 4. Add MIDI config fields and MIDI input selection tests.
 5. Add `MidiWriter` unit tests for converting timed mido messages to a `.mid`
    file.
@@ -235,7 +233,7 @@ needed for tests.
 
 ## Migration Notes
 
-Old records and sessions without `kind` should be treated as audio sessions.
+The session record identifies every file's medium explicitly.
 This keeps `recs sessions`, `recs session show`, `recs record check`, and
 `recs explain` useful for already-recorded material.
 

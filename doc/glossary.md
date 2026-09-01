@@ -105,15 +105,15 @@ checks.
 
 ### Session record
 
-A session record is the canonical JSONL account of one media session. It links
-output files, source events, track activity, disk events, control changes,
-warnings, markers, and session continuity across disk switches. Each JSON
-object within it is a record entry.
+A session record is the canonical JSONL account of one recording session. Its
+single timeline links every recorded medium, source events, track activity,
+disk events, control changes, warnings, markers, and session continuity across
+disk switches. Each JSON object within it is a record entry.
 
 ### Session
 
-A session is one logical recording run. It normally has one session record per
-enabled medium and may have continuation records in multiple output directories
+A session is one logical recording run. It has one session record containing all
+enabled media and may have continuation records in multiple output directories
 when automatic disk switching is used.
 
 ### Control client

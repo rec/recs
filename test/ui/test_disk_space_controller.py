@@ -116,6 +116,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_record(
     )
     rec._start_record()
     recorded = rec.session_directory / 'audio/late.wav'
+    recorded.parent.mkdir()
     recorded.write_bytes(b'audio')
     old_record = (
         rec.session.record_writer.path
@@ -151,7 +152,7 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_record(
     rec._disk_space_controller.monitor_disk_space()
 
     record = session_record.read(old_record)
-    assert any(file.path == 'late.wav' for file in record.files)
+    assert any(file.path == 'audio/late.wav' for file in record.files)
 
 
 def test_disk_emergency_pauses_recording(

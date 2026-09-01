@@ -17,7 +17,7 @@ class SourceReport(BaseModel, frozen=True):
 
 
 class TrackReport(BaseModel, frozen=True):
-    kind: str
+    media_type: str
     source: str | None = None
     track: int | None = None
     midi_port: str | None = None
@@ -53,13 +53,7 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
     if not root.exists():
         return []
     reports: list[Path] = []
-    record_paths = (
-        path
-        for medium in ('audio', 'midi', 'osc')
-        for path in root.rglob(f'{medium}-record*.jsonl')
-        if path.parent.name == medium
-    )
-    for record_path in sorted(record_paths):
+    for record_path in sorted(root.rglob('session-record*.jsonl')):
         try:
             report = recovery_report(record_path)
         except OSError as e:
@@ -142,11 +136,11 @@ def _track_reports(
 ) -> list[TrackReport]:
     reports: dict[tuple[str, str | None, int | None, str | None], TrackReport] = {}
     for file in files:
-        key = file.kind, file.source, file.track, file.midi_port
+        key = file.media_type, file.source, file.track, file.midi_port
         current = reports.get(
             key,
             TrackReport(
-                kind=file.kind,
+                media_type=file.media_type,
                 source=file.source,
                 track=file.track,
                 midi_port=file.midi_port,
@@ -170,7 +164,7 @@ def _track_reports(
         for report in sorted(
             reports.values(),
             key=lambda report: (
-                report.kind,
+                report.media_type,
                 report.source or '',
                 report.track or 0,
                 report.midi_port or '',

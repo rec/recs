@@ -1,4 +1,4 @@
-duration: <duration>
+duration_seconds: <duration>
 ended_at: <timestamp>
 events:
 - frame_count: 4096
@@ -14,19 +14,25 @@ events:
 files:
 - bit_depth: 32
   channels: 1
+  format: wav
   frame_count: 48000
-  kind: audio
+  media_type: audio
   path: files/<session>/audio/mono-1.wav
+  quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/mono.wav
+  stream_id: audio:test/testdata/file_inputs/mono.wav:1
   track: 1
 - bit_depth: 32
   channels: 2
+  format: wav
   frame_count: 48000
-  kind: audio
+  media_type: audio
   path: files/<session>/audio/stereo-1.wav
+  quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/stereo.wav
+  stream_id: audio:test/testdata/file_inputs/stereo.wav:1
   track: 1
 started_at: <timestamp>
 warnings: []

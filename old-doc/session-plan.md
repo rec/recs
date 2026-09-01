@@ -12,7 +12,7 @@ the whole recording session, including files, devices, channels, timestamps,
 configuration, and warnings. The natural format is JSON because `recs --info`
 already emits JSON and many downstream tools can read it.
 
-For each run, `recs` could write something like `audio-record.jsonl` in the
+For each run, `recs` could write something like `session-record.jsonl` in the
 output directory. If several sessions write to the same directory, the record
 could use the same timestamp or collision-avoidance naming rules as audio files.
 The file should be written incrementally or finalized safely during shutdown,

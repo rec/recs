@@ -57,7 +57,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def record_path(rec: Recorder) -> Path:
-    return rec.session_directory / 'audio/audio-record.jsonl'
+    return rec.session_directory / 'session-record.jsonl'
 
 
 class FakeConnection:
@@ -1032,8 +1032,10 @@ def test_live_input_record_omits_source(
     assert records[1:3] == [
         {
             'type': 'file_started',
-            'kind': 'audio',
-            'path': 'mic.wav',
+            'media_type': 'audio',
+            'stream_id': 'audio:unknown:1',
+            'format': 'wav',
+            'path': 'audio/mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -1041,8 +1043,10 @@ def test_live_input_record_omits_source(
         },
         {
             'type': 'file_finished',
-            'kind': 'audio',
-            'path': 'mic.wav',
+            'media_type': 'audio',
+            'stream_id': 'audio:unknown:1',
+            'format': 'wav',
+            'path': 'audio/mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -1051,7 +1055,7 @@ def test_live_input_record_omits_source(
     ]
 
 
-def test_recorder_writes_one_local_record_per_medium(
+def test_recorder_writes_one_record_for_all_media(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1070,33 +1074,33 @@ def test_recorder_writes_one_local_record_per_medium(
     )
     rec._start_record()
 
-    for session, medium, name in (
-        (rec.session, 'audio', 'take.wav'),
-        (rec.midi_session, 'midi', 'keys.mid'),
-        (rec.osc_session, 'osc', 'x18.jsonl'),
+    for medium, name, format in (
+        ('audio', 'take.wav', 'wav'),
+        ('midi', 'keys.mid', 'smf'),
+        ('osc', 'x18.jsonl', 'jsonl'),
     ):
         path = rec.session_directory / medium / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
-        session.write(
+        rec.session.write(
             session_record.FileEntry(
                 type='file_finished',
-                kind=medium,
+                media_type=medium,
                 timestamp='now',
+                stream_id=f'{medium}:test',
+                format=format,
                 path=path.as_posix(),
             )
         )
     rec._finish_record()
 
-    for medium, name in (
-        ('audio', 'audio-record.jsonl'),
-        ('midi', 'midi-record.jsonl'),
-        ('osc', 'osc-record.jsonl'),
-    ):
-        record = rec.session_directory / medium / name
-        records = read_jsonl(record)
-        assert [record['path'] for record in records if 'path' in record] == [
-            {'audio': 'take.wav', 'midi': 'keys.mid', 'osc': 'x18.jsonl'}[medium]
-        ]
+    records = read_jsonl(record_path(rec))
+    assert [record['path'] for record in records if 'path' in record] == [
+        'audio/take.wav',
+        'midi/keys.mid',
+        'osc/x18.jsonl',
+    ]
+    assert not list(rec.session_directory.glob('*/*-record.jsonl'))
 
 
 def test_record_records_source_frame_counts(
@@ -1141,9 +1145,11 @@ def test_record_records_source_frame_counts(
     assert records[1:4] == [
         {
             'type': 'file_started',
-            'kind': 'audio',
+            'media_type': 'audio',
+            'stream_id': 'audio:unknown:1',
+            'format': 'wav',
             'frame_count': 256,
-            'path': 'mic.wav',
+            'path': 'audio/mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
@@ -1157,13 +1163,16 @@ def test_record_records_source_frame_counts(
         },
         {
             'type': 'file_finished',
-            'kind': 'audio',
+            'media_type': 'audio',
+            'stream_id': 'audio:unknown:1',
+            'format': 'wav',
             'frame_count': 768,
-            'path': 'mic.wav',
+            'path': 'audio/mic.wav',
             'track': 1,
             'channels': 1,
             'sample_rate': 48_000,
             'bit_depth': 64,
+            'quantity_count': 512,
         },
     ]
 
@@ -1866,9 +1875,7 @@ def test_empty_template_output_directory_record_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_record()
 
-    assert Path(
-        'sessions/2026-06-23/2026-06-23 20-34-10/audio/audio-record.jsonl'
-    ).exists()
+    assert Path('sessions/2026-06-23/2026-06-23 20-34-10/session-record.jsonl').exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -1910,7 +1917,7 @@ def test_default_output_directory_uses_session_timestamp(
 
     assert rec.cfg.directory.output_directory == ''
     assert rec.session_directory == Path(expected)
-    assert (path.parent / 'audio-record.jsonl').exists()
+    assert (rec.session_directory / 'session-record.jsonl').exists()
 
 
 def test_default_output_directory_uses_collision_suffix(

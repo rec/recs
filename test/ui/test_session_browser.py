@@ -48,15 +48,15 @@ def test_session_browser_lists_session_records_as_json(
             'disk_events': 1,
             'markers': 2,
             'continued_from': None,
-            'continued_at': ['next/audio-record.jsonl'],
+            'continued_at': ['next/session-record.jsonl'],
         }
     ]
 
 
 def test_session_browser_ignores_invalid_records(tmp_path: Path) -> None:
-    directory = tmp_path / 'session/audio'
+    directory = tmp_path / 'session'
     directory.mkdir(parents=True)
-    record = directory / 'audio-record.jsonl'
+    record = directory / 'session-record.jsonl'
     record.write_text('{')
 
     assert session_browser.scan(tmp_path) == []
@@ -85,23 +85,19 @@ def _record(tmp_path: Path) -> Path:
     midi.mkdir()
     (audio / 'take.wav').write_bytes(b'data')
     (midi / 'keys.mid').write_bytes(b'midi')
-    (audio / 'audio-record.jsonl').write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
+    (session / 'session-record.jsonl').write_text(
+        '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"key_pressed","timestamp":"mark","key":"g"}\n'
         '{"type":"mark","timestamp":"mark","label":"solo"}\n'
         '{"type":"disk_switch_continued_at","timestamp":"switch",'
-        '"continued_at":"next/audio-record.jsonl"}\n'
-        '{"type":"file_finished","timestamp":"done","path":"take.wav",'
+        '"continued_at":"next/session-record.jsonl"}\n'
+        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"done","path":"audio/take.wav",'
         '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
         '"bit_depth":32}\n'
-        '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
-        '{"type":"footer","ended_at":"end","duration":1.5}\n'
-    )
-    (midi / 'midi-record.jsonl').write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
-        '{"type":"file_finished","kind":"midi","timestamp":"done",'
-        '"path":"keys.mid","source":"Launchkey","message_count":3,'
+        '{"type":"file_finished","media_type":"midi","stream_id":"midi:test","format":"smf","timestamp":"done",'
+        '"path":"midi/keys.mid","source":"Launchkey","quantity_count":3,'
         '"midi_port":"Launchkey","timing_source":"mido"}\n'
-        '{"type":"footer","ended_at":"end","duration":1.5}\n'
+        '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1.5}\n'
     )
     return session

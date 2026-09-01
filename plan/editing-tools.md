@@ -3,7 +3,7 @@
 ## Scope
 
 Implement a built-in `recs edit` command family for editing audio described by a
-Recs audio record:
+Recs session record:
 
 ```text
 recs edit split [RECORD] ...
@@ -13,11 +13,11 @@ recs edit NAME [RECORD] ...
 recs edit PATH.toml [RECORD] ...
 ```
 
-Every command accepts an optional positional audio record. When omitted,
-Recs selects the most recently modified `audio-record.jsonl` below the current
-directory. It rejects MIDI and OSC records, unreadable records, records
-without finished audio files, and ambiguous relative paths. It never edits the
-source record or source recordings.
+Every command accepts an optional positional session record. When omitted,
+Recs selects the most recently modified `session-record.jsonl` below the current
+directory. It selects audio entries from that record and rejects unreadable
+records, records without finished audio files, and ambiguous relative paths. It
+never edits the source record or source recordings.
 
 `~/code/fmix` is superseded, not imported or treated as a compatibility target.
 Its ordered `[[edit_points]]` are too narrow to represent general editing:
@@ -55,7 +55,7 @@ seconds, musical tempo, filesystem timestamps, or floating-point time.
 
 ## Record Input Model
 
-A source refers to one `audio-record.jsonl` and selects one logical channel or
+A source refers to one `session-record.jsonl` and selects one logical channel or
 one configured multichannel track from it. A finished record file record
 provides its relative path, source, track number, channel count, sample rate,
 bit depth, and source-frame start/end positions. The editor resolves segmented
@@ -104,13 +104,13 @@ sample_rate = 48000
 
 [[sources]]
 id = "ben"
-record = "../audio/audio-record.jsonl"
+record = "../session-record.jsonl"
 channel = "X18:3"
 input_format = "flac"
 
 [[sources]]
 id = "room"
-record = "../audio/audio-record.jsonl"
+record = "../session-record.jsonl"
 channel = "X18:5"
 
 [[tracks]]

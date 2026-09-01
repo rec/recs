@@ -32,6 +32,7 @@ class RecordingSession:
             return
         for path, file in sorted(self.files.items()):
             if path.exists():
+                end_frame = self.file_end_frames.get(path)
                 self.write(
                     file.model_copy(
                         update={
@@ -41,14 +42,20 @@ class RecordingSession:
                                     self.file_end_timestamps.get(path)
                                 )
                             ),
-                            'frame_count': self.file_end_frames.get(path),
+                            'frame_count': end_frame,
+                            'quantity_count': (
+                                end_frame - file.frame_count
+                                if end_frame is not None
+                                and file.frame_count is not None
+                                else None
+                            ),
                         }
                     )
                 )
         self.write(
             session_record.FooterEntry(
                 ended_at=session_record.timestamp_to_json(timestamp),
-                duration=timestamp - self.started_at,
+                duration_seconds=timestamp - self.started_at,
             )
         )
         self.record_writer.close()
@@ -75,9 +82,12 @@ class RecordingSession:
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
         entry = session_record.FileEntry(
             type='file_started',
+            media_type='audio',
             timestamp=session_record.timestamp_to_json(
                 recording_paths.timestamp_or_now(file.start_timestamp)
             ),
+            stream_id=f'audio:{source or "unknown"}:{file.track}',
+            format=file.path.suffix.removeprefix('.').lower(),
             frame_count=file.start_frame,
             path=file.path.as_posix(),
             source=source,

@@ -22,9 +22,9 @@ def check(path: Path) -> list[str]:
     errors = list(record.errors)
     if not record.started_at:
         errors.append(f'{path}: missing header')
-    if record.duration is None:
+    if record.duration_seconds is None:
         errors.append(f'{path}: missing footer')
-    elif record.duration < 0:
+    elif record.duration_seconds < 0:
         errors.append(f'{path}: duration must be non-negative')
     started = _file_paths(
         path, [f.path for f in record.files if f.type == 'file_started']
@@ -43,6 +43,9 @@ def check(path: Path) -> list[str]:
             errors.append(f'{path}: file path must be relative: {file.path}')
             continue
         file_path = _file_path(path, file.path)
+        if not file_path.resolve().is_relative_to(path.parent.resolve()):
+            errors.append(f'{path}: file path escapes session: {file.path}')
+            continue
         if not file_path.exists():
             errors.append(f'{path}: missing file {file.path}')
             continue
@@ -110,7 +113,7 @@ def _midi_file_errors(
 ) -> list[str]:
     if file.type != 'file_finished':
         return []
-    if file.kind != 'midi' or not file.message_count:
+    if file.media_type != 'midi' or not file.quantity_count:
         return []
     if file_path.stat().st_size:
         return []

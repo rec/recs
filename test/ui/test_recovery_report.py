@@ -9,17 +9,18 @@ from recs.ui import recovery_report
 def test_writes_recovery_report_beside_unfinished_record(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:
-    session = tmp_path / 'session/audio'
-    session.mkdir(parents=True)
-    (session / 'open.wav').write_bytes(b'audio')
-    record = session / 'audio-record.jsonl'
+    session = tmp_path / 'session'
+    audio = session / 'audio'
+    audio.mkdir(parents=True)
+    (audio / 'open.wav').write_bytes(b'audio')
+    record = session / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
-        '{"type":"file_started","timestamp":"file-start",'
-        '"path":"open.wav","track":1,"channels":1,'
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"file-start",'
+        '"path":"audio/open.wav","track":1,"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"file_started","timestamp":"missing-start",'
-        '"path":"missing.wav","track":1,"channels":1,'
+        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"missing-start",'
+        '"path":"audio/missing.wav","track":1,"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"source_update","timestamp":"source-update",'
         '"source":"Mic"}\n'
@@ -43,8 +44,8 @@ def test_writes_recovery_report_beside_unfinished_record(
     report = tomlkit.parse(report_path.read_text())
     assert report['record'] == str(record.resolve())
     assert report['last_record_type'] == 'disk_emergency'
-    assert report['open_files'] == ['missing.wav', 'open.wav']
-    assert report['missing_files'] == ['missing.wav']
+    assert report['open_files'] == ['audio/missing.wav', 'audio/open.wav']
+    assert report['missing_files'] == ['audio/missing.wav']
     assert report['sources'] == [
         {
             'source': 'Mic',
@@ -60,7 +61,7 @@ def test_writes_recovery_report_beside_unfinished_record(
     }
     assert report['tracks'] == [
         {
-            'kind': 'audio',
+            'media_type': 'audio',
             'track': 1,
             'started_files': 2,
             'finished_files': 0,
@@ -72,12 +73,12 @@ def test_writes_recovery_report_beside_unfinished_record(
 
 
 def test_skips_finished_record(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
-    directory = tmp_path / 'session/audio'
+    directory = tmp_path / 'session'
     directory.mkdir(parents=True)
-    record = directory / 'audio-record.jsonl'
+    record = directory / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
     messages: list[str] = []
     monkeypatch.setattr(

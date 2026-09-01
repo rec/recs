@@ -32,6 +32,7 @@ class MidiWriter:
         self.session_directory = session_directory
         self.port_name = port_name
         self.timing_source = timing_source
+        self.started_at = started_at
         self.message_count = 0
         self.last_timestamp: float | None = None
         self.last_tick = 0
@@ -41,6 +42,19 @@ class MidiWriter:
         self.file.tracks.append(self.track)
         self.track.append(mido.MetaMessage('set_tempo', tempo=TEMPO, time=0))
         self.track.append(mido.MetaMessage('track_name', name=port_name, time=0))
+
+    def start_entry(self) -> FileEntry:
+        return FileEntry(
+            type='file_started',
+            media_type='midi',
+            timestamp=timestamp_to_json(self.started_at),
+            stream_id=f'midi:{self.port_name}',
+            format='smf',
+            path=self.path.as_posix(),
+            source=self.port_name,
+            timing_source=str(self.timing_source),
+            midi_port=self.port_name,
+        )
 
     def record(self, message: MidiMessage, timestamp: float | None = None) -> None:
         delta = self._delta_seconds(message, timestamp)
@@ -52,11 +66,13 @@ class MidiWriter:
         self.file.save(self.path)
         return FileEntry(
             type='file_finished',
-            kind='midi',
+            media_type='midi',
             timestamp=timestamp_to_json(times.timestamp()),
+            stream_id=f'midi:{self.port_name}',
+            format='smf',
             path=self.path.as_posix(),
             source=self.port_name,
-            message_count=self.message_count,
+            quantity_count=self.message_count,
             timing_source=str(self.timing_source),
             midi_port=self.port_name,
         )

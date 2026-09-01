@@ -5,10 +5,10 @@ from recs.ui import session_explain
 
 
 def test_explain_reports_no_finished_files(tmp_path: Path) -> None:
-    record = tmp_path / 'audio-record.jsonl'
+    record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     report = session_explain.explain(record)
@@ -17,13 +17,13 @@ def test_explain_reports_no_finished_files(tmp_path: Path) -> None:
 
 
 def test_explain_reports_record_warnings_and_pause(tmp_path: Path) -> None:
-    record = tmp_path / 'audio-record.jsonl'
+    record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"recording_paused","timestamp":"pause","reason":"disk space"}\n'
         '{"type":"warning","timestamp":"warn",'
         '"message":"Device Mic went offline"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     report = session_explain.explain(record)
@@ -36,12 +36,12 @@ def test_explain_reports_record_warnings_and_pause(tmp_path: Path) -> None:
 
 
 def test_explain_reports_midi_source_failures(tmp_path: Path) -> None:
-    record = tmp_path / 'audio-record.jsonl'
+    record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"midi_source_failed","timestamp":"fail",'
         '"midi_port":"Launchkey","value":"lost input"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     report = session_explain.explain(record)
@@ -52,12 +52,12 @@ def test_explain_reports_midi_source_failures(tmp_path: Path) -> None:
 
 
 def test_explain_reports_midi_disconnection(tmp_path: Path) -> None:
-    record = tmp_path / 'audio-record.jsonl'
+    record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"midi_source_stopped","timestamp":"stopped",'
         '"midi_port":"Launchkey","reason":"disconnected"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     report = session_explain.explain(record)
@@ -71,10 +71,10 @@ def test_explain_prints_json(
     capsys,
     tmp_path: Path,
 ) -> None:
-    record = tmp_path / 'audio-record.jsonl'
+    record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":2,"started_at":"start"}\n'
-        '{"type":"footer","ended_at":"end","duration":1}\n'
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     assert session_explain.main(['--json', str(record)]) == 0

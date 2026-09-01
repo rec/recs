@@ -90,7 +90,7 @@ def test_file_inputs(
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
     session_directory = outputs[0].parent.parent
-    record = session_record.read(session_directory / 'audio/audio-record.jsonl')
+    record = session_record.read(session_directory / 'session-record.jsonl')
     data_regression.check(
         _stable_record(record),
         basename='file_inputs_record',
@@ -230,7 +230,7 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
     result = record.model_dump(mode='json', exclude_none=True) | {
         'started_at': '<timestamp>',
         'ended_at': '<timestamp>',
-        'duration': '<duration>',
+        'duration_seconds': '<duration>',
     }
     result.pop('continued_from', None)
     result.pop('errors', None)
@@ -246,6 +246,7 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
             path = Path('files', '<session>', *parts[2:]).as_posix()
         file['path'] = path
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
+        file['stream_id'] = f"audio:{file['source']}:{file['track']}"
     for event in result.get('events', []):
         assert isinstance(event, dict)
         event.pop('dropped_blocks', None)

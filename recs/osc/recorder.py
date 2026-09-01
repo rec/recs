@@ -113,6 +113,9 @@ class OscNodeRecorder:
         self.inbound_count = 0
         self.outbound_count = 0
         self.decode_error_count = 0
+        self.file_inbound_count = 0
+        self.file_outbound_count = 0
+        self.file_decode_error_count = 0
         self.last_packet_time: float | None = None
         self.last_error: str | None = None
         self.next_polls: list[float] = []
@@ -207,12 +210,17 @@ class OscNodeRecorder:
         self.path = _next_path(self.directory, self.node.name)
         self.output = self.path.open('ab')
         self.bytes_written = 0
+        self.file_inbound_count = 0
+        self.file_outbound_count = 0
+        self.file_decode_error_count = 0
         self.write_entry(
             FileEntry(
                 type='file_started',
-                kind='osc',
+                media_type='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
-                path=self.path.name,
+                stream_id=f'osc:{self.node.name}',
+                format='jsonl',
+                path=self.path.as_posix(),
                 source=self.node.name,
                 osc_node=self.node.name,
             )
@@ -226,14 +234,17 @@ class OscNodeRecorder:
         self.write_entry(
             FileEntry(
                 type='file_finished',
-                kind='osc',
+                media_type='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
-                path=self.path.name,
+                stream_id=f'osc:{self.node.name}',
+                format='jsonl',
+                path=self.path.as_posix(),
                 source=self.node.name,
                 osc_node=self.node.name,
-                inbound_count=self.inbound_count,
-                outbound_count=self.outbound_count,
-                decode_error_count=self.decode_error_count,
+                quantity_count=self.file_inbound_count + self.file_outbound_count,
+                inbound_count=self.file_inbound_count,
+                outbound_count=self.file_outbound_count,
+                decode_error_count=self.file_decode_error_count,
             )
         )
 
@@ -295,6 +306,14 @@ class OscNodeRecorder:
             return
         if self.output is None:
             return
+        kind = record.get('kind')
+        direction = record.get('direction')
+        decoded = record.get('decoded')
+        decode_errors = (
+            sum(isinstance(message, dict) and 'error' in message for message in decoded)
+            if isinstance(decoded, list)
+            else 0
+        )
         if self.compressor is not None:
             record = next(self.compressor([record]))
         data = json.dumps(record, separators=(',', ':')).encode() + b'\n'
@@ -306,6 +325,11 @@ class OscNodeRecorder:
             self.output.write(data)
             self.output.flush()
             self.bytes_written += len(data)
+            if kind == 'osc' and direction == 'in':
+                self.file_inbound_count += 1
+                self.file_decode_error_count += decode_errors
+            elif kind == 'osc' and direction == 'out':
+                self.file_outbound_count += 1
         except OSError as error:
             if self.write_error is not None:
                 self.write_error(self.node.name, str(error))

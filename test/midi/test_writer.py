@@ -16,8 +16,8 @@ def test_midi_writer_uses_960_ticks_per_beat(tmp_path: Path) -> None:
     saved = mido.MidiFile(record.path)
     assert saved.ticks_per_beat == TICKS_PER_BEAT
     assert saved.tracks[0][2].time == 960
-    assert record.kind == 'midi'
-    assert record.message_count == 1
+    assert record.media_type == 'midi'
+    assert record.quantity_count == 1
     assert record.timing_source == 'mido'
     assert re.fullmatch(r'Launchkey-\d{8}-\d{6}\.mid', Path(record.path).name)
 
@@ -32,4 +32,4 @@ def test_midi_writer_can_use_system_timing(tmp_path: Path) -> None:
     saved = mido.MidiFile(record.path)
     assert saved.tracks[0][2].time == 0
     assert saved.tracks[0][3].time == 480
-    assert record.message_count == 2
+    assert record.quantity_count == 2

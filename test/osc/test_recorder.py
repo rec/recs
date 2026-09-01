@@ -89,6 +89,10 @@ resubscribe_period = 10
         'osc_node_started',
         'file_finished',
     ]
+    finished = records[-1]
+    assert finished.quantity_count == 2
+    assert finished.inbound_count == 2
+    assert finished.outbound_count == 0
 
 
 def test_jsonl_compression_can_be_disabled(tmp_path: Path, monkeypatch) -> None:

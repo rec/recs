@@ -107,24 +107,18 @@ class Recorder(Runnables):
         self.session = recording_session.RecordingSession(
             session_id, self.session_start_time
         )
-        self.midi_session = recording_session.RecordingSession(
-            session_id, self.session_start_time
-        )
-        self.osc_session = recording_session.RecordingSession(
-            session_id, self.session_start_time
-        )
         self._midi = MidiRecorder(
             self.cfg,
             recording_paths.media_session_directory(self.session_directory, 'midi'),
-            lambda warning: self._record_warning(warning, self.midi_session),
-            self.midi_session.write,
+            self._record_warning,
+            self.session.write,
             write_error=self._record_write_error,
         )
         self._osc = OscRecorder(
             self.cfg,
             recording_paths.media_session_directory(self.session_directory, 'osc'),
-            lambda warning: self._record_warning(warning, self.osc_session),
-            self.osc_session.write,
+            self._record_warning,
+            self.session.write,
             self._record_write_error,
         )
         self.key_recorder = make_key_recorder(cfg)
@@ -508,8 +502,6 @@ class Recorder(Runnables):
         timestamp = times.timestamp()
         self.session_start_time = timestamp
         self.session.reset(timestamp)
-        self.midi_session.reset(timestamp)
-        self.osc_session.reset(timestamp)
         self._set_session_directory(
             recording_paths.session_directory(
                 str(destination.output_directory), timestamp
@@ -644,27 +636,13 @@ class Recorder(Runnables):
                 recording_paths.recovery_root(self.cfg.directory.output_directory)
             )
         self.session.start(
-            recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-record.jsonl',
+            self.session_directory / 'session-record.jsonl',
             dry_run=self.cfg.general.dry_run,
             silence_preview=self.cfg.general.silence_preview,
         )
         if self.cfg.midi.record_midi:
-            self.midi_session.start(
-                recording_paths.media_session_directory(self.session_directory, 'midi')
-                / 'midi-record.jsonl',
-                dry_run=self.cfg.general.dry_run,
-                silence_preview=self.cfg.general.silence_preview,
-            )
             self._midi.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
-            )
-        if self.cfg.osc.osc_nodes.name:
-            self.osc_session.start(
-                recording_paths.media_session_directory(self.session_directory, 'osc')
-                / 'osc-record.jsonl',
-                dry_run=self.cfg.general.dry_run,
-                silence_preview=self.cfg.general.silence_preview,
             )
         if self.cfg.osc.osc_nodes.name:
             self._osc.open_session(
@@ -676,8 +654,6 @@ class Recorder(Runnables):
         self._osc.close_session()
         timestamp = times.timestamp()
         self.session.finish(timestamp)
-        self.midi_session.finish(timestamp)
-        self.osc_session.finish(timestamp)
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (
@@ -706,14 +682,12 @@ class Recorder(Runnables):
             session_directory, 'osc'
         )
 
-    def _record_warning(
-        self, warning: str, session: recording_session.RecordingSession | None = None
-    ) -> None:
+    def _record_warning(self, warning: str) -> None:
         timestamp = session_record.timestamp_to_json(times.timestamp())
         LOGGER.error('%s', warning)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         if not self._output_unmounted:
-            (session or self.session).write(
+            self.session.write(
                 session_record.WarningEntry(
                     timestamp=timestamp,
                     message=warning,
@@ -737,8 +711,6 @@ class Recorder(Runnables):
         if self._output_unmounted:
             return
         self.session.write(record)
-        self.midi_session.write(record)
-        self.osc_session.write(record)
 
     def _silence_preview_report(self) -> dict[str, object]:
         measurements = self.state.db_ranges()
@@ -757,10 +729,7 @@ class Recorder(Runnables):
         }
 
     def _record_path(self) -> Path:
-        return (
-            recording_paths.media_session_directory(self.session_directory, 'audio')
-            / 'audio-record.jsonl'
-        )
+        return self.session_directory / 'session-record.jsonl'
 
     def _output_folder(self) -> Path:
         paths = sorted(path for path in self.session.files_written if path.exists())
