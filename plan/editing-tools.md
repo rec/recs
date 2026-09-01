@@ -2,8 +2,8 @@
 
 ## Scope
 
-Implement a built-in `recs edit` command family for editing audio described by a
-Recs session record:
+Implement a built-in `recs edit` command family for transforming media described
+by a Recs session record into a new Recs session:
 
 ```text
 recs edit split [RECORD] ...
@@ -15,9 +15,22 @@ recs edit PATH.toml [RECORD] ...
 
 Every command accepts an optional positional session record. When omitted,
 Recs selects the most recently modified `session-record.jsonl` below the current
-directory. It selects audio entries from that record and rejects unreadable
-records, records without finished audio files, and ambiguous relative paths. It
-never edits the source record or source recordings.
+directory. It never edits the source record or source recordings.
+
+Every successful invocation emits exactly one new session directory, regardless
+of how many files it generates. That directory contains a new
+`session-record.jsonl`, the generated files in their media subdirectories, and
+the fully resolved edit TOML. An edit is therefore a session-to-session
+transformation, not a file-producing command with a separate provenance format.
+
+```text
+concert-edit/
+  session-record.jsonl
+  edit.toml
+  audio/
+    concert-mix.flac
+    voice-stem.flac
+```
 
 `~/code/fmix` is superseded, not imported or treated as a compatibility target.
 Its ordered `[[edit_points]]` are too narrow to represent general editing:
@@ -46,6 +59,8 @@ record must produce the same timeline and routing decisions.
 - Tracks and buses define channel widths and explicit routing.
 - Automation controls parameters over time without special edit-point syntax.
 - Outputs select tracks or buses and choose encoding separately from editing.
+- One edit invocation produces one new session directory and session record.
+- Each edit declares the media types it understands; other media is omitted.
 - The complete schema and partial command recipes are the same data model.
 - Validation, bounded rendering, and encoding remain separate concerns.
 
@@ -53,14 +68,37 @@ Human-readable durations remain available on the CLI. Recs converts them to
 frames before writing canonical TOML. The durable file never depends on decimal
 seconds, musical tempo, filesystem timestamps, or floating-point time.
 
-## Record Input Model
+## Session Transformation Model
+
+An edit implementation declares the `media_type` values it handles. The initial
+`clip`, `stitch`, `split`, and `mix` implementations handle only `audio`. They
+select audio entries from each input session record and omit MIDI, OSC, and all
+other media from the output session. They do not copy unsupported files, create
+placeholder entries for them, or carry their lifecycle events into the new
+record.
+
+Omission is intentional, not an error. An input session may contain any mixture
+of media. The session record itself must be structurally readable, but an audio
+edit neither opens nor validates referenced MIDI, OSC, or user-defined media
+files. A future MIDI or OSC edit follows the same rule for its own declared
+media types. An edit that combines or passes through several media types must
+declare and implement that behavior explicitly.
+
+Each invocation creates a new session identity. Its record is not a continuation
+of any input record: `continued_from` is reserved for one recording session
+moving between disks. Instead, the output record contains an edit lifecycle
+entry naming the canonical `edit.toml`, input session records and session IDs,
+selected media types, and source selectors. Its `file_started` and
+`file_finished` entries describe only files generated in the output session.
+
+## Audio Input Model
 
 A source refers to one `session-record.jsonl` and selects one logical channel or
-one configured multichannel track from it. A finished record file record
-provides its relative path, source, track name, ordered source channels, file
-channel count, sample rate, bit depth, and source-frame start/end positions. The
-editor resolves segmented files, reconnects, and known gaps behind each source
-ID.
+one configured multichannel track from it. Matching audio `file_started` and
+`file_finished` entries provide the relative path, stream ID, source, track
+name, ordered source channels, file channel count, sample rate, bit depth,
+starting and ending `frame_count`, and `quantity_count`. The editor resolves
+segmented files, reconnects, and known gaps behind each source ID.
 
 Record selectors use this stable identity:
 
@@ -91,9 +129,9 @@ records listed. Multiple encodings never duplicate the same recorded audio in
 the arrangement.
 
 All selected sources must initially have the edit's sample rate. Mixed rates
-fail before any output file is created. Streaming resampling is a possible
-later primitive, but it must be explicit in the edit rather than silently
-treating frames from different rates as interchangeable.
+fail before the output session directory is created. Streaming resampling is a
+possible later primitive, but it must be explicit in the edit rather than
+silently treating frames from different rates as interchangeable.
 
 ## General Edit TOML Format
 
@@ -173,18 +211,16 @@ points = [
 [[outputs]]
 id = "mix"
 source = "master"
-path = "concert-mix.flac"
+path = "audio/concert-mix.flac"
 format = "flac"
 subtype = "pcm_24"
-overwrite = false
 
 [[outputs]]
 id = "voice-stem"
 source = "voice"
-path = "voice.flac"
+path = "audio/voice.flac"
 format = "flac"
 subtype = "pcm_24"
-overwrite = false
 ```
 
 `schema_version` and `sample_rate` are required in a complete edit. Unknown
@@ -267,9 +303,17 @@ the complete fade or recording.
 ### Outputs
 
 Each `[[outputs]]` entry selects one track or bus and specifies a path, format,
-optional subtype, and overwrite policy. Multiple outputs can render a master,
-submixes, and stems from one validated arrangement. Encoding options do not
-change timeline or routing semantics.
+and optional subtype. The path is relative to the new session directory and
+must remain inside the subdirectory for its media type, initially `audio/`.
+Multiple outputs render a master, submixes, and stems as separate files in the
+same output session. Encoding options do not change timeline or routing
+semantics.
+
+The output session directory is an invocation-level destination, not one
+`[[outputs]]` entry per top-level result. It is supplied or derived by the CLI
+before rendering and must not already exist. Recs never merges an edit into an
+existing session, so per-file overwrite settings are unnecessary. Duplicate or
+colliding output paths fail during validation before the directory is created.
 
 An output starts at frame zero and ends at the final non-silent extent of its
 selected graph unless an explicit `start` or `end` frame is present. These
@@ -386,22 +430,26 @@ into explicit sources, tracks, clips, routes, automation, and outputs. It must
 not override an explicit complete edit silently.
 
 Before writing audio, commands print a concise plan: command and command-file
-path, source records, selected channels, sample rate, timeline bounds, tracks,
-buses, output formats, and output paths.
+path, source records, selected media types and channels, sample rate, timeline
+bounds, tracks, buses, output session directory, output formats, and output
+paths.
 
-Every successful run writes a canonical, fully resolved TOML beside its output,
-named `<output-stem>.edit.toml` for one file or `edit.toml` for a directory of
-outputs. It includes `schema_version` and all effective values, omits `extends`
-and `_command`, converts all time values to frames, and rewrites paths relative
-to its own directory when possible. It therefore keeps the same meaning if an
-installed command recipe later changes or disappears.
+Every successful run writes a canonical, fully resolved `edit.toml` at the root
+of its new session directory. It includes `schema_version` and all effective
+values, omits `extends` and `_command`, converts all time values to frames, and
+rewrites input record paths relative to the output directory when possible. It
+therefore keeps the same meaning if an installed command recipe later changes
+or disappears.
 
-Each invocation also writes an adjacent `edit-record.jsonl`. It records the
-canonical edit path, input records and selectors, resolved source files,
-track and bus widths, clip source-to-timeline mappings, automation, output paths
-relative to the edit record, sample rate, format, gaps rendered as silence,
-and warnings. It describes what was actually read and written; it does not
-modify any recording session record.
+The adjacent `session-record.jsonl` is the sole record of what was produced.
+Its header has a new session ID and identifies Recs edit as the application. An
+`edit_started` lifecycle entry records the canonical edit path, input records
+and session IDs, selectors, resolved source files, track and bus widths, clip
+mappings, automation, sample rate, gaps rendered as silence, and warnings. Each
+generated file receives matching `file_started` and `file_finished` entries
+with a path relative to the new session record. A clean run appends a footer.
+No separate `edit-record.jsonl` is created, and no input session record is
+modified.
 
 ## Output Channel Limits
 
@@ -437,7 +485,8 @@ recs/edit/
   graph.py        validate IDs, channel widths, routing, and timeline extents
   automation.py   typed targets and bounded curve evaluation
   render.py       bounded source placement, summing, routing, and analysis
-  output.py       encoding, output naming, canonical TOML, and provenance
+  output.py       encoding and contained media-file naming
+  session.py      output directory, canonical TOML, and session record lifecycle
 ```
 
 `schema.py` owns `EditSpec`, the durable TOML data, and `EditCli`, the uniform
@@ -445,10 +494,12 @@ command-line overlay. `commands.py` reads TOML with `tomlkit`, validates the
 reserved `_command` table separately, resolves `extends`, and generates a fully
 explicit `EditSpec`. Command files contain data only.
 
-`record.py` resolves each recorded path relative to its record and requires
-it to remain under that record directory. It validates matching
-started/finished records, source-frame ordering, file existence, and recorded
-audio metadata before rendering.
+`record.py` parses each input record structurally, then exposes entries selected
+by the edit's declared media types. For selected audio, it resolves each path
+relative to its record and requires it to remain under that record directory.
+It validates matching started/finished entries, source-frame ordering, file
+existence, and audio metadata before rendering. It does not open or validate
+files belonging only to omitted media types.
 
 `graph.py` is format-independent. It validates source, track, clip, route, bus,
 automation, and output references; rejects routing cycles and width mismatches;
@@ -459,8 +510,10 @@ automation, and routes tracks through buses in bounded blocks. It never creates
 one NumPy array covering an entire recording. It opens output files only after
 all validation succeeds and closes all outputs on an ordinary error.
 
-`output.py` owns collision checks, format validation, encoding, canonical edit
-TOML, and the edit record. Arrangement logic does not belong in the encoder.
+`output.py` owns output-path collision checks, format validation, and encoding.
+`session.py` creates the destination only after validation, writes the new
+session record and canonical edit TOML, and records generated-file lifecycle
+and edit provenance. Arrangement logic does not belong in either module.
 
 Wire `recs edit` in `recs/__main__.py` beside the existing `record`,
 `session`, and `explain` command families. It must not start the recorder or
@@ -472,51 +525,67 @@ contact the daemon.
   inheritance cycles, duplicate command names, and invalid partial-value merges
   fail before record or audio I/O.
 - A command file cannot name a Python module, executable, or shell command.
-- Missing, unreadable, incomplete, or non-audio session records fail before
-  output creation.
+- Missing, unreadable, or structurally invalid session records fail before
+  output creation. An audio edit with no finished audio entries also fails.
+- Files and lifecycle entries for media types unsupported by the selected edit
+  are omitted without being copied, opened, or validated.
 - Missing input files fail with the source ID and frame range. Silence is used
   only for known record gaps and empty arrangement regions.
 - Different sample rates, ambiguous variants, overlapping files within one
   record source, routing cycles, channel-width mismatches, and incompatible
   output formats or subtypes fail explicitly.
-- Existing output paths fail unless that output has `overwrite = true`.
-- A write failure removes no source data and leaves completed output paths named
-  in the error and edit record when one can be written safely.
-- No command modifies source audio, source records, configuration, or
+- An existing output session directory and duplicate or escaping output paths
+  fail before any output is created.
+- After output creation, a write failure leaves the new session record without a
+  footer. It contains `file_finished` entries only for completed files and a
+  warning when that can be appended safely. Completed and partial files remain
+  available for inspection or recovery.
+- No command modifies source media, source records, configuration, or
   `~/code/fmix`.
 
 ## Tests
 
 Use 48 kHz WAV fixtures of at least one second for all digital-audio regression
-tests. Test generated audio and provenance files, not private renderer methods.
+tests. Test generated audio, canonical edits, and session records, not private
+renderer methods.
 
 1. Parse complete and partial edit TOML; reject unknown versions and fields.
 2. Discover packaged, project, user, and explicit-path commands; reject name
    collisions, extension cycles, and executable/plugin fields.
 3. Verify scalar, table, and whole-list merge rules and CLI precedence, then
    compare emitted canonical TOML with the fully resolved edit.
-4. Resolve multiple records and selectors, including mono offsets, stereo
+4. Resolve a mixed-media session for an audio edit; verify that audio is
+   selected while MIDI, OSC, user-defined files, and their lifecycle events are
+   neither opened nor copied into the output session.
+5. Resolve multiple records and selectors, including mono offsets, stereo
    tracks, segmented files, known gaps, and parallel output variants.
-5. Reject ambiguous variants, mixed sample rates, overlapping source files,
+6. Reject ambiguous variants, mixed sample rates, overlapping source files,
    missing files, and selectors with no unique match.
-6. Validate IDs, clip intervals, channel widths, routing cycles, automation
+7. Validate IDs, clip intervals, channel widths, routing cycles, automation
    targets, strictly ordered points, and output bounds.
-7. Render a clip with discontinuous source fragments and verify sample-exact
+8. Render a clip with discontinuous source fragments and verify sample-exact
    silence in gaps and exact source-to-timeline placement.
-8. Render consecutive, reordered, reused, and overlapping clips and verify
+9. Render consecutive, reordered, reused, and overlapping clips and verify
    summing and frame-exact arrangement extents.
-9. Route tracks through one or more buses and produce a master plus aligned
+10. Route tracks through one or more buses and produce a master plus aligned
    stems from one edit.
-10. Render hold, linear, and equal-power gain automation, including a crossfade
+11. Render hold, linear, and equal-power gain automation, including a crossfade
     made from overlapping clips and complementary curves.
-11. Verify bounded two-pass limiting and normalization for individual outputs.
-12. Reject unsupported channel counts, incompatible subtypes, bad output bounds,
-    and accidental overwrite before creating audio.
-13. Verify bounded rendering with a long fixture or instrumented block reader;
+12. Verify bounded two-pass limiting and normalization for individual outputs.
+13. Reject unsupported channel counts, incompatible subtypes, bad output bounds,
+    an existing destination session, and duplicate or escaping paths before
+    creating the output directory.
+14. Verify every successful command creates one session directory containing a
+    new session ID, `edit.toml`, one `session-record.jsonl`, matching lifecycle
+    entries for every generated file, and a footer. Verify multiple split or
+    stem files remain members of that one session.
+15. Interrupt rendering and verify the incomplete output record accurately
+    names completed and started files and has no footer.
+16. Verify bounded rendering with a long fixture or instrumented block reader;
     the implementation must not read a complete file into one array.
-14. Verify `clip`, `stitch`, `split`, and `mix` generate canonical arrangements
+17. Verify `clip`, `stitch`, `split`, and `mix` generate canonical arrangements
     and use the same renderer as an explicit edit TOML.
-15. Run manual checks with actual Recs sessions containing silence-induced gaps,
+18. Run manual checks with actual Recs sessions containing silence-induced gaps,
     stereo tracks, an 18-channel arrangement, overlapping clips, stems, and a
     crossfade. Import results into the target DAW and confirm channel order,
     alignment, and audible transitions.
@@ -527,15 +596,17 @@ tests. Test generated audio and provenance files, not private renderer methods.
    buses, clips, routes, automation, and outputs, including canonical TOML.
 2. Add exact merge and inheritance rules, packaged command recipes, safe command
    discovery, and the uniform Pydantic/Tyro dispatcher.
-3. Implement record and selector resolution, source-file variant selection,
-   gap descriptions, and sample-rate validation.
+3. Implement structural session-record input parsing, declared media-type
+   selection, audio selectors, source-file variant selection, gap descriptions,
+   and sample-rate validation.
 4. Implement graph validation for IDs, intervals, widths, routing cycles,
    automation targets, and output extents.
-5. Implement bounded clip placement and overlapping-track summing for 48 kHz WAV
-   output, then expose this path through generated `clip` and `stitch` edits.
+5. Implement creation of a new output session directory, canonical `edit.toml`,
+   and session-record lifecycle around one bounded 48 kHz WAV output. Expose
+   this path through generated `clip` and `stitch` edits.
 6. Add buses, routes, block-wise gain automation, and generated `mix` edits.
-7. Add multiple outputs and generated `split` edits, then write canonical TOML
-   and edit-record provenance beside them.
+7. Add multiple files within one output session and generated `split` edits,
+   recording every file and edit provenance in the unified session record.
 8. Add bounded output gain, limiting, normalization, and equal-power curves.
 9. Add remaining supported Recs formats, validating channel capacity and subtype
    through the active `soundfile` backend.
