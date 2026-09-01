@@ -80,18 +80,20 @@ class RecordingSession:
         self.file_end_timestamps.update(end_timestamps)
 
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
+        stream_channels = '-'.join(str(c) for c in file.source_channels)
         entry = session_record.FileEntry(
             type='file_started',
             media_type='audio',
             timestamp=session_record.timestamp_to_json(
                 recording_paths.timestamp_or_now(file.start_timestamp)
             ),
-            stream_id=f'audio:{source or "unknown"}:{file.track}',
+            stream_id=f'audio:{file.source_name}:{stream_channels}',
             format=file.path.suffix.removeprefix('.').lower(),
             frame_count=file.start_frame,
             path=file.path.as_posix(),
             source=source,
-            track=file.track,
+            track_name=file.track_name,
+            source_channels=file.source_channels,
             channels=file.channels,
             sample_rate=file.sample_rate,
             bit_depth=file.bit_depth,

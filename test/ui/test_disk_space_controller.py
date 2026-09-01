@@ -134,7 +134,8 @@ def test_disk_switch_records_pending_source_updates_before_closing_old_record(
                 SourceFile(
                     path=recorded,
                     source_name='Mic',
-                    track=1,
+                    track_name='1',
+                    source_channels=[1],
                     channels=1,
                     sample_rate=48_000,
                     bit_depth=32,

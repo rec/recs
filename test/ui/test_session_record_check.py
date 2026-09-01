@@ -10,9 +10,11 @@ def test_record_check_accepts_existing_finished_files(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
@@ -24,7 +26,8 @@ def test_record_check_reports_missing_files(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"missing.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
@@ -95,7 +98,8 @@ def test_record_check_reports_unfinished_files(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
     )
 
     assert session_record_check.check(record) == [
@@ -113,10 +117,12 @@ def test_record_check_reports_file_that_finishes_before_it_starts(
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32,'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32,'
         '"frame_count":100}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32,'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32,'
         '"frame_count":50}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
@@ -135,16 +141,18 @@ def test_record_check_reports_nonmonotonic_track_frames(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"a","path":"first.wav",'
-        '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
+        '"source":"Mic","track_name":"1","source_channels":[1],'
+        '"channels":1,"sample_rate":48000,'
         '"bit_depth":32,"frame_count":200}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"b","path":"second.wav",'
-        '"source":"Mic","track":1,"channels":1,"sample_rate":48000,'
+        '"source":"Mic","track_name":"1","source_channels":[1],'
+        '"channels":1,"sample_rate":48000,'
         '"bit_depth":32,"frame_count":100}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
     assert session_record_check.check(record) == [
-        f'{record}: frame count moved backwards for Mic track 1'
+        f'{record}: frame count moved backwards for audio:test:1'
     ]
 
 
@@ -155,10 +163,12 @@ def test_record_check_reports_implausibly_small_file(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track":1,"channels":2,"sample_rate":48000,"bit_depth":32,'
+        '"track_name":"1-2","source_channels":[1,2],"channels":2,'
+        '"sample_rate":48000,"bit_depth":32,'
         '"frame_count":0}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track":1,"channels":2,"sample_rate":48000,"bit_depth":32,'
+        '"track_name":"1-2","source_channels":[1,2],"channels":2,'
+        '"sample_rate":48000,"bit_depth":32,'
         '"frame_count":48000}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )

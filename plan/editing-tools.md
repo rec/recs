@@ -57,9 +57,10 @@ seconds, musical tempo, filesystem timestamps, or floating-point time.
 
 A source refers to one `session-record.jsonl` and selects one logical channel or
 one configured multichannel track from it. A finished record file record
-provides its relative path, source, track number, channel count, sample rate,
-bit depth, and source-frame start/end positions. The editor resolves segmented
-files, reconnects, and known gaps behind each source ID.
+provides its relative path, source, track name, ordered source channels, file
+channel count, sample rate, bit depth, and source-frame start/end positions. The
+editor resolves segmented files, reconnects, and known gaps behind each source
+ID.
 
 Record selectors use this stable identity:
 

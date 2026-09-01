@@ -70,7 +70,8 @@ class FileEntry(BaseModel):
     format: str
     frame_count: int | None = None
     path: str
-    track: int | None = None
+    track_name: str | None = None
+    source_channels: list[int] | None = None
     channels: int | None = None
     sample_rate: int | None = None
     bit_depth: int | None = None

@@ -276,7 +276,8 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
             source_recorder.SourceFile(
                 path=p,
                 source_name='Mic',
-                track=1,
+                track_name='1',
+                source_channels=[1],
                 channels=1,
                 sample_rate=48_000,
                 bit_depth=32,
@@ -292,7 +293,8 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
             source_recorder.SourceFile(
                 path=p,
                 source_name='Mic',
-                track=1,
+                track_name='1',
+                source_channels=[1],
                 channels=1,
                 sample_rate=48_000,
                 bit_depth=32,
@@ -414,9 +416,42 @@ def test_source_file_events_handles_discarded_candidate_files() -> None:
     assert events.new_files([writer], bit_depth=32)[0] == [second]
 
 
+def test_source_file_events_records_track_name_and_source_channels() -> None:
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 3,
+            'name': 'Mic',
+        }
+    )
+    writer = EventWriter(Track(source, '2-3'))
+    writer.track_names = {source.key: {'Room': 2}}
+    events = source_recorder.SourceFileEvents([writer])
+    path = Path('room.wav')
+    writer.add_file(path)
+
+    files, records = events.new_files([writer], bit_depth=32)
+
+    assert files == [path]
+    assert records == [
+        source_recorder.SourceFile(
+            path=path,
+            source_name='Mic',
+            track_name='Room',
+            source_channels=[2, 3],
+            channels=2,
+            sample_rate=48_000,
+            bit_depth=32,
+            start_frame=1,
+            start_timestamp=1.0,
+        )
+    ]
+
+
 class EventWriter:
     def __init__(self, track: Track) -> None:
         self.track = track
+        self.track_names: dict[str, dict[str, int]] = {}
         self.files_written: list[Path] = []
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}

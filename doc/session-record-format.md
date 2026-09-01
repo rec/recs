@@ -100,7 +100,7 @@ Every data file has one `file_started` entry and, when it closes normally, one
 `file_finished` entry. Both identify the same `stream_id` and `path`.
 
 ```json
-{"type":"file_started","timestamp":"2026-09-01T18:15:15.123Z","stream_id":"audio:x18:1-2","media_type":"audio","path":"audio/X18-1-2.flac","format":"flac","source":"X18","metadata":{"channels":2,"sample_rate":48000,"sample_format":"pcm_s16le"}}
+{"type":"file_started","timestamp":"2026-09-01T18:15:15.123Z","stream_id":"audio:x18:1-2","media_type":"audio","path":"audio/X18-1-2.flac","format":"flac","source":"X18","track_name":"room","source_channels":[1,2],"channels":2,"sample_rate":48000,"bit_depth":16}
 ```
 
 ```json
@@ -123,6 +123,8 @@ Optional fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `source` | string | Human-readable source or device identity |
+| `track_name` | string | Configured or canonical logical track name |
+| `source_channels` | array of integers | Exact source channels represented, in file order |
 | `quantity_count` | integer | Samples, messages, packets, or frames represented |
 | `timing_source` | string | Clock used within the data file |
 | `metadata` | object | Media-specific declarative metadata |
@@ -138,10 +140,12 @@ logical outputs uses a distinct stream ID for each output.
 
 ### Audio
 
-`media_type` is `audio`. `quantity_count` counts sample frames. Metadata SHOULD
-include `channels`, `sample_rate`, and `sample_format`; it MAY include channel
-names, speaker positions, source channel numbers, and codec settings. Exact
-sample timing and samples remain in the audio file.
+`media_type` is `audio`. `quantity_count` counts sample frames. Audio entries
+use `track_name` for the configured or canonical logical track and
+`source_channels` for its exact ordered hardware channels. `channels` is the
+number of channels in the file; `sample_rate` and `bit_depth` describe its PCM
+representation. Metadata MAY include speaker positions and codec settings.
+Exact sample timing and samples remain in the audio file.
 
 ### MIDI
 

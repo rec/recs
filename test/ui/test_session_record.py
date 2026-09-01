@@ -81,9 +81,11 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track":1,"channels":1,"sample_rate":48000,"bit_depth":32}\n'
+        '"track_name":"1","source_channels":[1],"channels":1,'
+        '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
 
@@ -97,7 +99,8 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
             stream_id='audio:test:1',
             format='wav',
             path='take.wav',
-            track=1,
+            track_name='1',
+            source_channels=[1],
             channels=1,
             sample_rate=48_000,
             bit_depth=32,
@@ -109,7 +112,8 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
             stream_id='audio:test:1',
             format='wav',
             path='take.wav',
-            track=1,
+            track_name='1',
+            source_channels=[1],
             channels=1,
             sample_rate=48_000,
             bit_depth=32,

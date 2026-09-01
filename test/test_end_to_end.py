@@ -246,7 +246,8 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
             path = Path('files', '<session>', *parts[2:]).as_posix()
         file['path'] = path
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
-        file['stream_id'] = f"audio:{file['source']}:{file['track']}"
+        source_channels = '-'.join(str(c) for c in file['source_channels'])
+        file['stream_id'] = f"audio:{file['source']}:{source_channels}"
     for event in result.get('events', []):
         assert isinstance(event, dict)
         event.pop('dropped_blocks', None)

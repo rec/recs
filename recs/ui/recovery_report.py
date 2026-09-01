@@ -19,7 +19,8 @@ class SourceReport(BaseModel, frozen=True):
 class TrackReport(BaseModel, frozen=True):
     media_type: str
     source: str | None = None
-    track: int | None = None
+    track_name: str | None = None
+    source_channels: list[int] | None = None
     midi_port: str | None = None
     started_files: int = 0
     finished_files: int = 0
@@ -134,15 +135,21 @@ def _track_reports(
     open_files: list[str],
     missing_files: list[str],
 ) -> list[TrackReport]:
-    reports: dict[tuple[str, str | None, int | None, str | None], TrackReport] = {}
+    reports: dict[tuple[str, str | None, tuple[int, ...], str | None], TrackReport] = {}
     for file in files:
-        key = file.media_type, file.source, file.track, file.midi_port
+        key = (
+            file.media_type,
+            file.source,
+            tuple(file.source_channels or []),
+            file.midi_port,
+        )
         current = reports.get(
             key,
             TrackReport(
                 media_type=file.media_type,
                 source=file.source,
-                track=file.track,
+                track_name=file.track_name,
+                source_channels=file.source_channels,
                 midi_port=file.midi_port,
             ),
         )
@@ -166,7 +173,7 @@ def _track_reports(
             key=lambda report: (
                 report.media_type,
                 report.source or '',
-                report.track or 0,
+                report.source_channels or [],
                 report.midi_port or '',
             ),
         )

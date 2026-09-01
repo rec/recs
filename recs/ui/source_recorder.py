@@ -224,7 +224,8 @@ class SourceUpdateTransport:
 class SourceFile(NamedTuple):
     path: Path
     source_name: str
-    track: int
+    track_name: str
+    source_channels: list[int]
     channels: int
     sample_rate: int
     bit_depth: int
@@ -305,7 +306,11 @@ class SourceFileEvents:
                 SourceFile(
                     path=path,
                     source_name=writer.track.source.name,
-                    track=writer.track.channels[0],
+                    track_name=(
+                        track_name(writer.track_names, writer.track)
+                        or writer.track.name
+                    ),
+                    source_channels=list(writer.track.channels),
                     channels=len(writer.track.channels),
                     sample_rate=writer.track.source.samplerate,
                     bit_depth=bit_depth,

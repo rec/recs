@@ -17,10 +17,12 @@ def test_writes_recovery_report_beside_unfinished_record(
     record.write_text(
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"file-start",'
-        '"path":"audio/open.wav","track":1,"channels":1,'
+        '"path":"audio/open.wav","track_name":"1","source_channels":[1],'
+        '"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"missing-start",'
-        '"path":"audio/missing.wav","track":1,"channels":1,'
+        '"path":"audio/missing.wav","track_name":"1",'
+        '"source_channels":[1],"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"source_update","timestamp":"source-update",'
         '"source":"Mic"}\n'
@@ -62,7 +64,8 @@ def test_writes_recovery_report_beside_unfinished_record(
     assert report['tracks'] == [
         {
             'media_type': 'audio',
-            'track': 1,
+            'track_name': '1',
+            'source_channels': [1],
             'started_files': 2,
             'finished_files': 0,
             'open_files': 2,

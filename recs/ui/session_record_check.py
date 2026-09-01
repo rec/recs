@@ -85,9 +85,9 @@ def _frame_errors(
 ) -> list[str]:
     errors: list[str] = []
     started = {f.path: f for f in files if f.type == 'file_started'}
-    last_frame: dict[tuple[str | None, int], int] = {}
+    last_frame: dict[str, int] = {}
     for file in files:
-        if file.frame_count is None or file.track is None:
+        if file.frame_count is None:
             continue
         if (
             file.type == 'file_finished'
@@ -97,14 +97,12 @@ def _frame_errors(
         ):
             errors.append(f'{record_path}: {file.path} finishes before it starts')
             continue
-        key = file.source, file.track
-        previous = last_frame.get(key)
+        previous = last_frame.get(file.stream_id)
         if previous is not None and file.frame_count < previous:
             errors.append(
-                f'{record_path}: frame count moved backwards for '
-                f'{file.source or "unknown source"} track {file.track}'
+                f'{record_path}: frame count moved backwards for {file.stream_id}'
             )
-        last_frame[key] = file.frame_count
+        last_frame[file.stream_id] = file.frame_count
     return errors
 
 

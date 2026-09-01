@@ -85,7 +85,11 @@ def summarize(path: Path) -> SessionSummary | None:
         output_directories=sorted({p.parent.as_posix() for p in paths}),
         devices=sorted({f.source for f in audio if f.source}),
         tracks=sorted(
-            {f'{f.source or "unknown"}:{f.track}' for f in audio if f.track is not None}
+            {
+                f'{f.source or "unknown"}:{f.track_name}'
+                for f in audio
+                if f.track_name is not None
+            }
         ),
         midi_ports=_midi_ports(midi),
         files=len(finished),

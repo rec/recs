@@ -21,8 +21,10 @@ files:
   quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/mono.wav
+  source_channels:
+  - 1
   stream_id: audio:test/testdata/file_inputs/mono.wav:1
-  track: 1
+  track_name: '1'
 - bit_depth: 32
   channels: 2
   format: wav
@@ -32,7 +34,10 @@ files:
   quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/stereo.wav
-  stream_id: audio:test/testdata/file_inputs/stereo.wav:1
-  track: 1
+  source_channels:
+  - 1
+  - 2
+  stream_id: audio:test/testdata/file_inputs/stereo.wav:1-2
+  track_name: 1-2
 started_at: <timestamp>
 warnings: []
