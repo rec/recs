@@ -1,14 +1,9 @@
-from pathlib import Path
-
-import tomli
-
-PYPROJECT = Path(__file__).parents[2] / 'pyproject.toml'
-assert PYPROJECT.exists()
+from importlib.metadata import metadata
 
 
 def message() -> str:
-    p = tomli.loads(PYPROJECT.read_text())['project']
-    desc, name = p['description'], p['name']
+    project = metadata('recs')
+    desc, name = project['Summary'], project['Name']
 
     icon, *d, icon2 = desc.split()
     assert icon == icon2 and d
