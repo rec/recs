@@ -3,12 +3,12 @@
 ## Status And Scope
 
 This is an implementation proposal, not an implemented sampler or approval to
-implement every candidate feature. It places sample-bank creation and playback
+implement every candidate feature. It places instrument creation and playback
 within the current Recs architecture.
 
 Related documents:
 
-- [Sample Bank Format](../doc/sample-format.md): proposed TOML representation.
+- [Recsam Instrument Format](../doc/sample-format.md): proposed TOML representation.
 - [Sample Format Additions](sample-format.md): candidate features awaiting review.
 - [Editing Tools](editing-tools.md): planned session-to-session editing framework.
 
@@ -22,7 +22,7 @@ only this document, not code, dependencies, or changes to the recording daemon.
 
 ## Separate Creation From Playback
 
-### Bank Creation
+### Instrument Creation
 
 An audio edit creates a playable instrument definition:
 
@@ -30,22 +30,22 @@ An audio edit creates a playable instrument definition:
 2. Extract sample material or define slices, assign note and velocity ranges,
    and attach playback settings and tags.
 3. Write a new session directory containing generated audio,
-   `sample-bank.toml`, the session record, and the resolved edit definition
+   `sample-instrument.toml`, the session record, and the resolved edit definition
    required by the editing plan.
 
-Bank references point to audio inside the new directory. Slices may share one
-generated audio file rather than duplicate it. The resulting bank does not
+Instrument references point to audio inside the new directory. Slices may share one
+generated audio file rather than duplicate it. The resulting instrument does not
 require the original recording session for playback.
 
 Loops, articulations, and controller behavior remain instructions for the
 player. They are not permanently baked into the sample files. Unsupported
 input media is omitted according to the editing plan's media-selection rules.
 
-### Bank Playback
+### Instrument Playback
 
-A player combines a bank with timed performance events to produce audio.
+A player combines an instrument with timed performance events to produce audio.
 Start with offline rendering of recorded MIDI. Live playback can subsequently
-host the same engine without changing bank semantics.
+host the same engine without changing instrument semantics.
 
 ## Proposed Sampler Subsystem
 
@@ -54,13 +54,13 @@ are proposed class boundaries, not existing classes:
 
 | Class | Responsibility |
 | --- | --- |
-| `SampleBank`, `SampleSlot` | Pydantic models matching the TOML specification |
-| `PreparedBank` | Validated assets, resolved settings, and efficient note/velocity lookup |
+| `SampleInstrument`, `SampleSlot` | Pydantic models matching the TOML specification |
+| `PreparedInstrument` | Validated assets, resolved settings, and efficient note/velocity lookup |
 | `PerformanceState` | Controllers, pedals, articulation selection, alternate-take counters, and random state |
 | `Voice` | Playback position, direction, loop state, envelope, and filter state |
 | `Sampler` | Consume timed events, manage voices, and render audio blocks |
 
-Separate immutable bank definitions from mutable performance and voice state.
+Separate immutable instrument definitions from mutable performance and voice state.
 Resolve TOML, validation, and inherited settings before rendering rather than
 repeating that work inside the audio loop.
 
@@ -84,7 +84,7 @@ the file-output policy. Asset loading is handled outside its rendering loop.
 
 ### Offline Host First
 
-The offline host reads recorded MIDI and the bank, schedules events, drives the
+The offline host reads recorded MIDI and the instrument, schedules events, drives the
 engine, and writes the resulting audio as a new Recs output session.
 
 Convert MIDI timing, including tempo changes, into output-frame positions
@@ -146,7 +146,7 @@ does not select or add a dependency.
 
 Share decoded sample data between voices. Each voice owns its playback and DSP
 state, not a private copy of the sample. Bound rendering buffers and define a
-cache budget for large banks. Do not assume that loading every recording into
+cache budget for large instruments. Do not assume that loading every recording into
 memory is acceptable.
 
 Avoid Python loops over individual samples for expensive DSP. Measure CPU,
@@ -157,7 +157,7 @@ claiming live suitability.
 
 1. Review and trim the candidate feature list, then resolve the retained format
    semantics and cross-feature interactions.
-2. Implement bank parsing, validation, asset resolution, and bank creation in
+2. Implement instrument parsing, validation, asset resolution, and instrument creation in
    coordination with the editing framework.
 3. Evaluate the DSP backend and establish the event-driven block-rendering API.
 4. Implement deterministic offline MIDI rendering for the base format, producing

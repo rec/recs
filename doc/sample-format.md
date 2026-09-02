@@ -1,19 +1,19 @@
-# Recsam Sample Bank Format
+# Recsam Instrument Format
 
 ## Status And Scope
 
 Recsam is a proposed format, not an implemented Recs feature or an existing
-industry standard. It describes one playable sample bank: the sample files,
+industry standard. It describes one playable instrument: the sample files,
 which notes and velocities select them, and how each selected sample plays.
 
-A UTF-8 TOML file named `sample-bank.toml` holds the definition. Audio stays in
-separate referenced files. One bank can contain any number of sample slots,
-including several slots referencing different parts of the same file.
+A UTF-8 TOML file named `sample-instrument.toml` holds the definition. Audio
+stays in separate referenced files. One instrument can contain any number of
+sample slots, including several slots referencing different parts of the same file.
 
 Version 1 defines audio sampling. It does not assume that reversing MIDI
 messages or applying EQ to OSC packets has the same meaning as processing
 audio. Recs' session record remains the common container for all time-based
-media; this document defines the audio sample-bank behavior within that larger
+media; this document defines audio instrument behavior within that larger
 system. Future media-specific playback semantics require a format revision,
 not silently reinterpreting these audio fields.
 
@@ -26,7 +26,7 @@ SFZ opcode names or syntax.
 
 | Term | Meaning |
 | --- | --- |
-| Bank | One instrument or patch containing slots and bank-wide settings |
+| Instrument | One playable definition containing sample slots and shared settings |
 | Slot | A sample reference, note/velocity mapping, and local playback settings |
 | Voice | One active playback instance of a slot, created by a trigger |
 | Frame | One simultaneous sample value per channel in an audio file |
@@ -41,39 +41,39 @@ replace existing ones.
 
 ## Complete Example
 
-This bank has a quiet and a loud velocity layer. Its bank volume decreases
-toward the top of the keyboard. One slot additionally reduces its own high-note
+This instrument has a quiet and a loud velocity layer. Its overall volume
+decreases toward the top of the keyboard. One slot additionally reduces its own high-note
 volume and raises the frequency of its local EQ band. The other uses `mirror`.
 
 ```toml
 format_version = 1
 
-[bank]
+[instrument]
 name = "Glass keys"
 description = "Two velocity layers from a recorded glass instrument"
 tags = ["glass", "pitched", "studio session"]
 
-[bank.playback]
+[instrument.playback]
 direction = "forward"
 mode = "while_held"
 
-[bank.envelope]
+[instrument.envelope]
 attack_seconds = 0.005
 decay_seconds = 0.0
 sustain_level = 1.0
 release_seconds = 0.1
 
-[bank.processing]
+[instrument.processing]
 volume_db = -3.0
 tuning_cents = 0.0
 
-[[bank.processing.equalizer]]
+[[instrument.processing.equalizer]]
 id = "body"
 frequency_hz = 700.0
 gain_db = 1.5
 resonance = 0.8
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "volume_db"
 input = "note"
 operation = "add"
@@ -84,7 +84,7 @@ points = [
   { input = 127, amount = -6.0 },
 ]
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "equalizer.body.gain_db"
 input = "note"
 operation = "add"
@@ -165,61 +165,61 @@ volume_db = -5.0
 
 ## Structure And Defaults
 
-The root contains exactly `format_version`, `bank`, and `slots`. Version 1
-requires `format_version = 1`, a nonempty `bank.name`, and at least one slot.
+The root contains exactly `format_version`, `instrument`, and `slots`. Version 1
+requires `format_version = 1`, a nonempty `instrument.name`, and at least one slot.
 Every slot requires a unique `id`, `sample`, and a `mapping` table containing
 `lowest_note`, `highest_note`, and `root_note`.
 
 IDs use ASCII letters, digits, hyphens, and underscores. Names, descriptions,
 and tags are Unicode text. An omitted slot `name` displays its ID. Descriptions
-are optional on the bank and on individual slots.
+are optional on the instrument and on individual slots.
 
 | Setting | Default |
 | --- | --- |
 | `tags` | `[]` at either scope |
 | `mapping.minimum_velocity` / `maximum_velocity` | `1` / `127` |
 | `mapping.pitch_tracking` | `true` |
-| Bank `playback.direction` | `"forward"` |
-| Bank `playback.mode` | `"while_held"` |
+| Instrument `playback.direction` | `"forward"` |
+| Instrument `playback.mode` | `"while_held"` |
 | Slot `playback.start_frame` | `0` |
 | Slot `playback.end_frame` | Decoded file's frame count, exclusive |
 | Slot `playback.loop` | Absent: no repetition |
-| Bank `selections` / slot `selection` | `[]` / absent: ordinary layering |
+| Instrument `selections` / slot `selection` | `[]` / absent: ordinary layering |
 | Slot `choke_group` / `chokes` | Absent / `[]`: no choking |
 | Slot `crossfades` | `[]`: unity layer weight |
 | Slot `trigger` | `"note_on"` |
-| Bank `sustain.enabled` / `controller` / `threshold` | `true` / `64` / `64` |
-| Bank `articulations` / slot `articulations` | Absent / `[]`: no restriction |
-| Bank `controller_defaults` | `{}`: unspecified controllers start at zero |
-| Bank `pitch_bend.range_semitones` / `smoothing_seconds` | `2.0` / `0.005` |
+| Instrument `sustain.enabled` / `controller` / `threshold` | `true` / `64` / `64` |
+| Instrument `articulations` / slot `articulations` | Absent / `[]`: no restriction |
+| Instrument `controller_defaults` | `{}`: unspecified controllers start at zero |
+| Instrument `pitch_bend.range_semitones` / `smoothing_seconds` | `2.0` / `0.005` |
 | `processing.volume_db` / `tuning_cents` | `0.0` independently at each scope |
 | `processing.pan` / `stereo_balance` | `0.0` independently at each scope |
 | `processing.equalizer` | `[]` independently at each scope |
 | `modulation` | `[]` independently at each scope |
 | `envelopes` / `lfos` | `[]` independently at each scope |
-| Bank `envelope.delay_seconds` / `hold_seconds` | `0.0` / `0.0` |
-| Bank `envelope.attack_seconds` / `decay_seconds` | `0.0` / `0.0` |
-| Bank `envelope.sustain_level` / `release_seconds` | `1.0` / `0.0` |
-| Bank `envelope.attack_shape` / `decay_shape` / `release_shape` | `"linear"` each |
+| Instrument `envelope.delay_seconds` / `hold_seconds` | `0.0` / `0.0` |
+| Instrument `envelope.attack_seconds` / `decay_seconds` | `0.0` / `0.0` |
+| Instrument `envelope.sustain_level` / `release_seconds` | `1.0` / `0.0` |
+| Instrument `envelope.attack_shape` / `decay_shape` / `release_shape` | `"linear"` each |
 
 Only playback direction, playback mode, amplitude-envelope fields, and
-pitch-bend fields inherit from the bank. An absent slot override uses the
-effective bank value. The bank cannot set trim boundaries because those refer
+pitch-bend fields inherit from the instrument. An absent slot override uses the
+effective instrument value. The instrument cannot set trim boundaries because those refer
 to particular files. Named envelopes and LFOs are independent declarations,
 not inherited lists.
 
 Processing and modulation are separate stages, not inherited defaults: missing
-slot processing means an identity slot stage, followed by the bank stage. It
-does not mean copying the bank stage and applying it twice. Spatial controls
+slot processing means an identity slot stage, followed by the instrument stage. It
+does not mean copying the instrument stage and applying it twice. Spatial controls
 combine into one final operation; amplitude-envelope duration curves apply
 once to the inherited envelope, as specified in their respective sections.
 
 ## Sample References And Time
 
-`sample` names one audio file, relative to `sample-bank.toml`. References must
-remain inside the bank directory after path resolution, including symlink
+`sample` names one audio file, relative to `sample-instrument.toml`. References must
+remain inside the instrument directory after path resolution, including symlink
 resolution. Absolute paths, URLs, and paths escaping with `..` are invalid.
-The bank directory can be copied without changing its internal references.
+The instrument directory can be copied without changing its internal references.
 
 The decoder provides channel count, native sample rate, and decoded frame
 count. These are not duplicated as authoritative TOML fields. A player must
@@ -231,7 +231,7 @@ sample rate: `[start_frame, end_frame)`. They are non-negative integers, with
 boundaries and keep their file order. Compressed-file byte offsets have no
 meaning here: these are decoded audio-frame positions.
 
-Files with different native sample rates can share a bank. Sampler playback
+Files with different native sample rates can share an instrument. Sampler playback
 converts them to the output rate; that conversion does not alter the stored
 trim positions. Timing never depends on filenames or filesystem timestamps.
 
@@ -250,10 +250,10 @@ note and velocity context, as defined under Release And Pedal Samples.
 With `pitch_tracking = true`, playback speed is multiplied by
 `2 ** ((note - root_note) / 12)`. With it set to `false`, the mapped note does
 not change playback speed. This is useful for percussion mapped across several
-keys. Bank and slot tuning still apply in either case.
+keys. Instrument and slot tuning still apply in either case.
 
 There is no hidden velocity-to-volume curve. Velocity chooses layers and can
-modulate volume explicitly. A bank that needs quiet low-velocity notes adds a
+modulate volume explicitly. An instrument that needs quiet low-velocity notes adds a
 `volume_db` modulation with `input = "velocity"`.
 
 Voices triggered by one note-on share an output-time origin. Selected overlapping
@@ -262,11 +262,11 @@ implicit voice stealing; alternate selection is explicit as described below.
 
 ## Alternate Sample Selection
 
-Declare named selection sets on the bank and associate each alternative slot
+Declare named selection sets on the instrument and associate each alternative slot
 with one set. A selection set is not a shared processing group:
 
 ```toml
-[[bank.selections]]
+[[instrument.selections]]
 id = "snare-takes"
 mode = "cycle"
 
@@ -313,8 +313,8 @@ ordered tuple of eligible slot IDs. Velocity layers therefore have independent
 sequences when their eligible IDs differ; changing velocity without changing
 that tuple advances the same sequence. State advances once per selected set
 per triggering event, not per audio block or active voice. Returning to a
-previous eligible tuple resumes its state. Loading or explicitly resetting a
-bank clears all sequence state; ordinary note-offs do not reset it.
+previous eligible tuple resumes its state. Loading or explicitly resetting an
+instrument clears all sequence state; ordinary note-offs do not reset it.
 
 Cycle is fully deterministic. Random and shuffle define selection probabilities
 but not cross-player seeded reproducibility; the separate reproducible-variation
@@ -358,7 +358,7 @@ mode = "fade"
 fade_seconds = 0.005
 ```
 
-Choke groups are bank-local IDs declared by membership, not processing groups
+Choke groups are instrument-local IDs declared by membership, not processing groups
 or selection sets. A slot belongs to at most one choke group and may choke
 several groups. Every target must name a group used by at least one slot.
 Membership alone does not cause mutual choking.
@@ -433,13 +433,13 @@ off its nonzero transition. Live inputs do not widen or constrain key/velocity
 mappings.
 
 This example needs overlapping velocity mappings, unlike the disjoint layers
-in the complete bank example. Crossfades neither widen mapping ranges nor
+in the complete instrument example. Crossfades neither widen mapping ranges nor
 cause nonmatching slots to play. Matched slots with zero weight still create
 voices and take part in selection and choking; silence is not a trigger filter.
 
 Multiply all weights within a slot, then apply the result as a separate layer
 gain alongside its envelope and volume before its EQ. Exact zero is silence,
-not a fabricated finite dB value. Existing bank and slot volume curves still
+not a fabricated finite dB value. Existing instrument and slot volume curves still
 apply; neither replaces the crossfade. Note/velocity weights are captured at
 trigger time; live-input weights follow the smoothing rules below.
 
@@ -460,23 +460,23 @@ Declare articulation IDs, an initial selection, and explicit switch bindings.
 Slots list the articulations in which they are eligible:
 
 ```toml
-[bank.articulations]
+[instrument.articulations]
 ids = ["sustain", "plucked"]
 default = "sustain"
 
-[[bank.articulations.keys]]
+[[instrument.articulations.keys]]
 note = 24
 articulation = "sustain"
 behavior = "latched"
 consume = true
 
-[[bank.articulations.keys]]
+[[instrument.articulations.keys]]
 note = 25
 articulation = "plucked"
 behavior = "momentary"
 consume = true
 
-[[bank.articulations.controllers]]
+[[instrument.articulations.controllers]]
 controller = 1
 minimum_value = 64
 maximum_value = 127
@@ -492,7 +492,7 @@ highest_note = 84
 root_note = 60
 ```
 
-When present, the bank table requires a nonempty, duplicate-free `ids` list
+When present, the instrument table requires a nonempty, duplicate-free `ids` list
 and a `default` naming one of them. IDs follow the usual ID syntax. Key and
 controller binding lists default to empty. Slot articulation lists are
 duplicate-free, must reference declared IDs, and default to `[]`, meaning
@@ -528,7 +528,7 @@ even if the player switches while holding the note. Pedal samples use the
 current articulation at the pedal transition.
 
 Switching does not reset alternate-selection counters. An eligible set that
-becomes active again resumes its previous state. Bank load/reset clears held
+becomes active again resumes its previous state. Instrument load/reset clears held
 switches and restores the declared default on every channel without generating
 musical events. Controller initialization alone does not fire switch bindings.
 
@@ -563,14 +563,14 @@ frame order, not channel order or sample polarity.
 Mirror alone does not mean indefinite ping-pong looping. Without an explicit
 loop, every direction eventually exhausts its selected material.
 
-The bank supplies the default direction. A slot's explicit direction replaces
-that default, so a backward bank plus a backward slot still plays backward,
+The instrument supplies the default direction. A slot's explicit direction replaces
+that default, so a backward instrument plus a backward slot still plays backward,
 not forward. Direction is not a numeric modulation target.
 
 ## Sustain Loops
 
 A slot may add a loop inside its trimmed interval. Loop boundaries never inherit
-from the bank because they address one particular file. This fragment belongs
+from the instrument because they address one particular file. This fragment belongs
 to an existing slot:
 
 ```toml
@@ -625,10 +625,10 @@ unchanged.
 Each slot's `trigger` is one of `"note_on"` (default), `"key_release"`,
 `"note_release"`, `"pedal_press"`, or `"pedal_release"`. Key release means
 physical key-up; note release means the logical release after sustain-pedal
-deferral. A bank may use both deliberately; neither is an alias for the other.
+deferral. An instrument may use both deliberately; neither is an alias for the other.
 
 ```toml
-[bank.sustain]
+[instrument.sustain]
 enabled = true
 controller = 64
 threshold = 64
@@ -657,7 +657,7 @@ pitch_tracking = false
 mode = "one_shot"
 ```
 
-`bank.sustain` defaults to the values shown. `controller` is an integer in
+`instrument.sustain` defaults to the values shown. `controller` is an integer in
 `[0, 127]`; `threshold` is in `[1, 127]`. Sustain is independent on each MIDI
 channel, initially using the configured controller default (zero if omitted).
 Values at or above the threshold mean pressed. Only transitions trigger pedal
@@ -697,7 +697,7 @@ and generate pedal-release samples. Derive all slot selections before applying
 chokes: all voices generated by one incoming MIDI event belong to one atomic
 batch and cannot choke one another. Note-release triggers retain their original
 note context and use the selection-state keys defined above. Subsequent MIDI
-events at the same frame retain their input order. Loading/resetting a bank
+events at the same frame retain their input order. Loading/resetting an instrument
 clears held notes and restores initial pedal state without generating release
 or pedal samples.
 
@@ -746,7 +746,7 @@ captures the envelope's value at that instant. Repeated releases do not restart
 or prolong a release. Completing amplitude release ends the voice even if a
 modulation envelope still has time remaining.
 
-Bank envelope fields supply defaults. Slot fields override individual defaults
+Instrument envelope fields supply defaults. Slot fields override individual defaults
 before voice creation. There is one effective amplitude envelope per voice,
 not two multiplied amplitude envelopes. Its duration may outlast the available traversal;
 the voice still ends at exhaustion.
@@ -758,49 +758,49 @@ Static note/velocity curves can multiply `envelope.delay_seconds`,
 and `envelope.release_seconds`. For example, higher notes can decay faster:
 
 ```toml
-[bank.envelope]
+[instrument.envelope]
 decay_seconds = 1.0
 sustain_level = 0.4
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "envelope.decay_seconds"
 input = "note"
 operation = "multiply"
 points = [{ input = 48, amount = 2.0 }, { input = 84, amount = 0.5 }]
 ```
 
-Resolve bank defaults and slot overrides first, then multiply by all applicable
-bank and slot timing-curve amounts once. A slot override changes the base
-duration, not whether the bank curve applies. Capture durations at voice
+Resolve instrument defaults and slot overrides first, then multiply by all applicable
+instrument and slot timing-curve amounts once. A slot override changes the base
+duration, not whether the instrument curve applies. Capture durations at voice
 creation, including release duration. Zero remains zero; ratios must be
 positive. Live or generated inputs cannot target envelope settings, so a
 moving controller cannot retroactively change a stage boundary.
 
 ## Modulation Envelopes And LFOs
 
-Declare named sources with `[[bank.envelopes]]`, `[[slots.envelopes]]`,
-`[[bank.lfos]]`, or `[[slots.lfos]]`. Each requires an `id`, unique across
-envelopes and LFOs in that declaring scope. Bank and slot IDs are independent.
+Declare named sources with `[[instrument.envelopes]]`, `[[slots.envelopes]]`,
+`[[instrument.lfos]]`, or `[[slots.lfos]]`. Each requires an `id`, unique across
+envelopes and LFOs in that declaring scope. Instrument and slot IDs are independent.
 Routes reference a source in their own declaring scope, never an arbitrary
-path into another slot. A bank declaration applies to every selected voice;
+path into another slot. An instrument declaration applies to every selected voice;
 it does not replace a slot declaration with the same ID.
 
 ```toml
-[[bank.envelopes]]
+[[instrument.envelopes]]
 id = "pitch-fall"
 attack_seconds = 0.0
 decay_seconds = 0.2
 sustain_level = 0.0
 release_seconds = 0.05
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "tuning_cents"
 input = "envelope"
 source = "pitch-fall"
 operation = "add"
 points = [{ input = 0.0, amount = 0.0 }, { input = 1.0, amount = 120.0 }]
 
-[[bank.lfos]]
+[[instrument.lfos]]
 id = "vibrato"
 scope = "voice"
 waveform = "sine"
@@ -808,7 +808,7 @@ frequency_hz = 5.0
 delay_seconds = 0.15
 phase_cycles = 0.0
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "tuning_cents"
 input = "lfo"
 source = "vibrato"
@@ -819,7 +819,7 @@ points = [{ input = -1.0, amount = -15.0 }, { input = 1.0, amount = 15.0 }]
 ### Envelope Sources
 
 Named envelopes reuse the amplitude envelope's fields, defaults, stage shapes,
-and frame timing, but do not inherit the bank amplitude-envelope values.
+and frame timing, but do not inherit the instrument amplitude-envelope values.
 Their output lies in `[0, 1]`. Each voice owns a fresh instance, including
 voices triggered by release or pedal samples. They follow that voice's logical
 release or release choke, not a second independent note-off policy. One-shot
@@ -828,7 +828,7 @@ voices ignore ordinary note-offs for all their envelopes.
 Finishing a modulation envelope leaves its output at zero; it does not end the
 voice. Conversely, a voice's end discards all its per-voice sources. An envelope
 is still evaluated while its voice has zero amplitude or crossfade weight.
-There are no bank-clock envelopes: a bank-declared envelope is per voice.
+There are no instrument-clock envelopes: an instrument-declared envelope is per voice.
 
 Static timing curves may target `envelopes.ID.FIELD`, where `FIELD` is one of
 the five duration fields allowed on the amplitude envelope. The ID must name
@@ -839,7 +839,7 @@ amplitude envelope or other sources with the same ID.
 ### LFO Sources
 
 An LFO requires finite positive `frequency_hz`. Optional fields are `scope`
-(`"voice"` by default, or `"bank"`), `waveform` (`"sine"` by default or
+(`"voice"` by default, or `"instrument"`), `waveform` (`"sine"` by default or
 `"triangle"`), non-negative `delay_seconds` (default zero), and
 `phase_cycles` in `[0, 1)` (default zero). Slot LFOs require voice scope.
 Frequency must be below half the output sample rate.
@@ -854,12 +854,12 @@ at a fabricated LFO value. The oscillator starts at its configured phase at
 `D`; there is no implicit fade-in.
 
 A voice LFO's frame zero is voice creation. Every retrigger, including a
-release/pedal voice, starts a fresh oscillator. A bank LFO's frame zero is
-bank activation or explicit reset on the host output timeline; it advances
+release/pedal voice, starts a fresh oscillator. An instrument LFO's frame zero is
+instrument activation or explicit reset on the host output timeline; it advances
 even with no voices and is shared across MIDI channels. A new voice joins its
 current phase and delay state, never resets it. A voice LFO runs through
-amplitude release until its voice ends; a bank LFO runs until bank deactivation
-or reset. No tempo synchronization or note-driven reset of a bank LFO is implied.
+amplitude release until its voice ends; an instrument LFO runs until instrument deactivation
+or reset. No tempo synchronization or note-driven reset of an instrument LFO is implied.
 
 ### Routing And Composition
 
@@ -880,27 +880,27 @@ contributions are included in load-time validation.
 
 Conformance cases cover all envelope stages and zero-duration boundaries,
 release during each stage, pedal-deferred release, exponential endpoints,
-bank-default/slot-override timing curves, named-source isolation, per-voice
+instrument-default/slot-override timing curves, named-source isolation, per-voice
 retriggering, shared phase across channels and silent intervals, delayed LFO
 neutral amounts, and identical trajectories for different render block sizes.
 
-## Bank And Slot Processing
+## Instrument And Slot Processing
 
-Both scopes have the same `processing` table and `modulation` array. Bank
+Both scopes have the same `processing` table and `modulation` array. Instrument
 settings apply to every triggered voice, including voices whose slots contain
-their own processing. Slots cannot bypass the bank processing stage.
+their own processing. Slots cannot bypass the instrument processing stage.
 
 `volume_db` is amplitude gain in decibels. Zero is unity; negative values
-attenuate. The multiplier is `10 ** (volume_db / 20)`. Bank and slot volume add
-in dB, so bank `-3.0` and slot `-2.0` produce `-5.0` before any modulation.
+attenuate. The multiplier is `10 ** (volume_db / 20)`. Instrument and slot volume add
+in dB, so instrument `-3.0` and slot `-2.0` produce `-5.0` before any modulation.
 
 `tuning_cents` is an additional pitch adjustment. One hundred cents is one
-semitone. Effective bank and slot tuning add, and the total playback multiplier
+semitone. Effective instrument and slot tuning add, and the total playback multiplier
 is:
 
 ```text
 note_semitones = note - root_note if pitch_tracking else 0
-pitch_ratio = 2 ** ((100 * note_semitones + bank_cents + slot_cents) / 1200)
+pitch_ratio = 2 ** ((100 * note_semitones + instrument_cents + slot_cents) / 1200)
 ```
 
 Pitch bend adds its effective cents to the numerator of this pitch calculation
@@ -921,11 +921,11 @@ These are separate operations, not two names for the same effect.
 pan = -0.5
 ```
 
-Both default to zero. Their modulation operation is `add`. Add the bank and
+Both default to zero. Their modulation operation is `add`. Add the instrument and
 slot values, including their respective modulation contributions, to obtain
 one effective pan or balance per voice. Validate the combined range within
 `[-1, 1]`; do not silently clamp. Apply the spatial operation exactly once,
-after both EQ stages and before summing voices. Unlike volume and EQ, bank
+after both EQ stages and before summing voices. Unlike volume and EQ, instrument
 and slot spatial settings are not two successive processors.
 
 For mono value `x` and effective pan `p`, emit
@@ -940,8 +940,8 @@ opposite channel; it does not fold it into the remaining channel.
 
 Pan applies only to mono samples; balance only to stereo samples. A nonzero
 base value or any route to an inapplicable control is invalid. For example,
-bank-wide pan modulation requires all slots to be mono; mixed mono/stereo
-banks place such routes on the appropriate slots. Multichannel samples beyond
+instrument-wide pan modulation requires all slots to be mono; mixed mono/stereo
+instruments place such routes on the appropriate slots. Multichannel samples beyond
 stereo cannot use either control. A nonzero spatial base value or any spatial
 route requires stereo host output. Otherwise existing host channel-layout
 rules apply; there is no implicit downmix. In a stereo host, mono voices use
@@ -950,12 +950,12 @@ voice without spatial settings passes through without the center-pan gain
 reduction. Explicit zero values behave the same as omitted defaults.
 
 Conformance cases cover mono center and extremes, unchanged stereo center,
-one-sided balance without fold-down, combined bank/slot offsets, live/LFO
+one-sided balance without fold-down, combined instrument/slot offsets, live/LFO
 motion, wrong sample layouts, and rejection on non-stereo hosts.
 
 ### Equalizer
 
-Each `[[bank.processing.equalizer]]` or `[[slots.processing.equalizer]]` entry
+Each `[[instrument.processing.equalizer]]` or `[[slots.processing.equalizer]]` entry
 defines one bell-shaped parametric EQ band:
 
 | Field | Meaning |
@@ -984,9 +984,9 @@ Normalize all coefficients by `a0`, then use the transfer function
 be strictly below half the output rate. Bands process each channel separately
 with independent filter state, initialized to zero for each voice.
 
-Bands run in listed order. Slot bands run before bank bands; lists concatenate
+Bands run in listed order. Slot bands run before instrument bands; lists concatenate
 in the signal path rather than replacing each other. A band ID is local to its
-scope: a slot band named `body` does not override a bank band named `body`.
+scope: a slot band named `body` does not override an instrument band named `body`.
 
 ### Signal Order
 
@@ -998,31 +998,31 @@ For each incoming MIDI event:
    to existing voices before creating the selected voices.
 2. Resolve playback, envelope, and pitch-bend defaults, capture static curves,
    and initialize live modulation/crossfade state from current controls.
-   Create per-voice envelopes/LFOs and attach routes to shared bank LFOs.
+   Create per-voice envelopes/LFOs and attach routes to shared instrument LFOs.
    Before rendering each frame, evaluate sources and compose their amounts
    with static curves and smoothed live contributions.
 3. Traverse the trimmed frames and optional loop in the effective direction,
    then resample for pitch.
 4. Apply the effective amplitude envelope, crossfade weight, and slot volume,
    then slot EQ bands.
-5. Apply bank volume, then bank EQ bands, independently to each voice.
+5. Apply instrument volume, then instrument EQ bands, independently to each voice.
 6. Apply the combined pan or stereo balance once, then sum voices in the host's
    output channel layout without implicit downmixing.
 
-Bank processing is conceptually per voice, not a single post-mix effect. This
-is necessary because two simultaneously held notes may require different bank
+Instrument processing is conceptually per voice, not a single post-mix effect. This
+is necessary because two simultaneously held notes may require different instrument
 EQ settings. A player may optimize equivalent calculations without changing
 the result.
 
 Processing uses floating-point headroom without implicit clipping or
 normalization between stages. Final device limiting or file-encoding clipping
-is a host/output policy, not a hidden bank operation. Interpolation and numeric
+is a host/output policy, not a hidden instrument operation. Interpolation and numeric
 precision may differ between players; version 1 does not promise bit-identical
 audio from every implementation.
 
 ## Scaling Across Notes And Velocities
 
-`[[bank.modulation]]` affects the entire bank. `[[slots.modulation]]` affects
+`[[instrument.modulation]]` affects the entire instrument. `[[slots.modulation]]` affects
 only its containing slot. Both use the same fields:
 
 | Field | Meaning |
@@ -1041,7 +1041,7 @@ Supported processing targets are `volume_db`, `tuning_cents`, `pan`,
 `stereo_balance`, and
 `equalizer.BAND_ID.frequency_hz`, `equalizer.BAND_ID.gain_db`, or
 `equalizer.BAND_ID.resonance`. Band IDs must name an existing band in the
-same scope. A slot curve cannot reach into the bank to disable its processing.
+same scope. A slot curve cannot reach into the instrument to disable its processing.
 
 Modulation for `volume_db`, `tuning_cents`, `pan`, `stereo_balance`, and EQ
 `gain_db` uses `add`; its amount is in the target's units. Frequency and resonance use
@@ -1061,7 +1061,7 @@ exact point, use that point's amount. Outside the listed range, hold the nearest
 endpoint; do not extrapolate.
 
 MIDI coordinates are absolute values, not a percentage of occupied keys or of
-the slot's mapped range. Adding or removing a slot cannot change a bank curve's
+the slot's mapped range. Adding or removing a slot cannot change an instrument curve's
 meaning. Curves apply to supported sample layouts, subject to the spatial
 controls' mono/stereo restrictions.
 
@@ -1071,7 +1071,7 @@ Static inputs have no scope/controller/source; generated inputs have only
 source. If several inputs affect one target, add their amounts to its base
 value, or multiply their ratios by its base value, according to the target's
 permitted operation.
-Array order has no effect on that combination. Bank and slot scopes are then
+Array order has no effect on that combination. Instrument and slot scopes are then
 combined using the processing rules above.
 
 Note and velocity curves are evaluated from the trigger context and held for
@@ -1079,24 +1079,24 @@ the voice's lifetime. Controller and pressure curves can change throughout
 playback as described below. Generated sources evolve at output-frame precision;
 envelope timing curves remain fixed for each voice's lifetime.
 
-For example, at note 60 the example's bank volume is `-3 + -1 = -4 dB`.
+For example, at note 60 the example's instrument volume is `-3 + -1 = -4 dB`.
 The soft slot's note curve is `-2/3 dB` there, so its slot volume is
 `-2 - 2/3 dB`. Its combined volume is `-6 2/3 dB`, before envelope and EQ.
-The bank's EQ gain curve and that slot's EQ frequency curve are both applied;
+The instrument's EQ gain curve and that slot's EQ frequency curve are both applied;
 neither replaces the other.
 
 ## Live Modulation
 
 Live curves use the same typed targets, point interpolation, and additive or
-multiplicative composition as static curves. Bank curves still process each
-voice independently; placing a curve on the bank does not imply that incoming
+multiplicative composition as static curves. Instrument curves still process each
+voice independently; placing a curve on the instrument does not imply that incoming
 events on one channel affect every other channel.
 
 ```toml
-[bank.controller_defaults]
+[instrument.controller_defaults]
 "11" = 127
 
-[[bank.modulation]]
+[[instrument.modulation]]
 target = "volume_db"
 input = "controller"
 controller = 11
@@ -1112,7 +1112,7 @@ points = [
 This initial volume is unchanged until controller 11 moves. `controller_defaults`
 is a table of canonical decimal keys `"0"` through `"127"` and integer values
 in `[0, 127]`. Unlisted values start at zero. Defaults initialize each channel
-and the bank-wide controller state without generating switch or pedal-sample
+and the instrument-wide controller state without generating switch or pedal-sample
 events. Sustain's initial pressed state follows its configured default and
 threshold. Pressure starts at zero.
 
@@ -1120,13 +1120,13 @@ Input scopes are:
 
 | Input | Allowed scopes | Affected voices |
 | --- | --- | --- |
-| `controller` | `channel` (default), `bank` | Same-channel voices, or all bank voices |
-| `channel_pressure` | `channel` (default), `bank` | Same-channel voices, or all bank voices |
+| `controller` | `channel` (default), `instrument` | Same-channel voices, or all instrument voices |
+| `channel_pressure` | `channel` (default), `instrument` | Same-channel voices, or all instrument voices |
 | `note_pressure` | `note` (default and only value) | Active voices owned by matching channel/note instances |
 
 `controller` is required only for controller input and is an integer in
 `[0, 127]`. It is forbidden on other input types. Scope and smoothing fields
-are forbidden on static note/velocity curves. A bank-scoped controller or
+are forbidden on static note/velocity curves. An instrument-scoped controller or
 channel-pressure input uses the most recent matching event from any channel,
 in event-stream order. Channel-scoped inputs use the voice's originating MIDI
 channel.
@@ -1146,14 +1146,14 @@ sustained/releasing voices and release/pedal samples. It never changes slot
 selection, the captured trigger note, articulation, or envelope timing.
 
 ```toml
-[bank.pitch_bend]
+[instrument.pitch_bend]
 range_semitones = 2.0
 smoothing_seconds = 0.005
 ```
 
 Both fields are optional with the defaults shown. Each must be finite and
 non-negative; fractional semitone ranges are allowed. Slot `pitch_bend` fields
-override individual bank defaults. A zero range disables bending for that
+override individual instrument defaults. A zero range disables bending for that
 slot, useful for percussion; `pitch_tracking = false` alone does not disable
 pitch bend. This setting is the bend sensitivity. Version 1 does not interpret
 MIDI RPN/NRPN messages as changes to it.
@@ -1162,7 +1162,7 @@ The MIDI 1 wheel's unsigned value is in `[0, 16383]`, centered at `8192`.
 For signed input such as Mido's `pitch`, use `v` in `[-8192, 8191]`.
 Normalize to `w = v/8192` for `v < 0`, otherwise `w = v/8191`, so both
 endpoints reach their full range and center is exactly zero. The target bend
-is `100 * range_semitones * w` cents. Add it once to combined bank/slot tuning
+is `100 * range_semitones * w` cents. Add it once to combined instrument/slot tuning
 and all tuning-modulation amounts before computing playback speed. There is
 no second implicit wheel-to-tuning modulation route.
 
@@ -1231,11 +1231,11 @@ selectors, not live crossfades.
 
 ### Reset And Validation
 
-Explicit bank reset stops voices, clears note/selection/switch state and ramps,
+Explicit instrument reset stops voices, clears note/selection/switch state and ramps,
 restores controller defaults, zero pressure, centered pitch wheels, and default
-articulations, and restarts bank LFO clocks at frame zero. It generates no
+articulations, and restarts instrument LFO clocks at frame zero. It generates no
 release samples. New voices thereafter use that initial state. Do not equate
-arbitrary incoming controller messages with a bank reset unless their behavior
+arbitrary incoming controller messages with an instrument reset unless their behavior
 is explicitly specified.
 
 Validate effective parameters across all applicable static, live, and generated
@@ -1245,7 +1245,7 @@ remain below Nyquist. A player must reject unsafe combinations at load time,
 not silently clamp modulation during playback. Conservative interval analysis
 is acceptable if it reports the rejected parameter and range clearly.
 
-Conformance cases cover configured initial values, channel/bank/note scopes,
+Conformance cases cover configured initial values, channel/instrument/note scopes,
 pressure on repeated notes, overlapping ramps, mid-block updates, state-preserving
 EQ changes, paired live fades, exhausted layers, and reset without spurious
 triggers. Replaying identical events with different block sizes must produce
@@ -1253,29 +1253,29 @@ the same parameter trajectories.
 
 ## Tags
 
-`bank.tags` and each slot's `tags` are independent lists of zero or more
+`instrument.tags` and each slot's `tags` are independent lists of zero or more
 nonempty text strings. Spaces and Unicode are allowed. Tags are case-sensitive;
 readers must not split a tag on spaces, normalize its spelling, or interpret
 punctuation as hierarchy. An omitted list is the same as `[]`.
 
-Duplicates within one list are invalid. A bank and a slot may share the same
+Duplicates within one list are invalid. An instrument and a slot may share the same
 tag. Written order is preserved for display but has no semantic meaning.
 
-Bank tags describe the instrument as a whole; slot tags describe individual
-samples or mappings. Bank tags are not copied into slot lists. A UI may offer
+Instrument tags describe the instrument as a whole; slot tags describe individual
+samples or mappings. Instrument tags are not copied into slot lists. A UI may offer
 combined searching, but must retain their distinct scopes. Tags never select
 notes, change volume, or secretly enable articulations.
 
 ## Relationship To Recs Sessions And Edits
 
-A standalone bank needs only `sample-bank.toml` and its referenced audio files.
-A bank generated by a Recs edit lives in the edit's new output session:
+A standalone instrument needs only `sample-instrument.toml` and its referenced audio files.
+An instrument generated by a Recs edit lives in the edit's new output session:
 
 ```text
-glass-bank/
+glass-instrument/
   session-record.jsonl
   edit.toml
-  sample-bank.toml
+  sample-instrument.toml
   audio/
     glass-soft.wav
     glass-hard.wav
@@ -1287,22 +1287,22 @@ These are three different metadata artifacts, not three copies of one schema:
   provenance, following [Session Record Format](session-record-format.md).
 - `edit.toml` preserves the resolved transformation that produced the result,
   as specified in the existing editing plan.
-- `sample-bank.toml` describes how the result responds to future performance
+- `sample-instrument.toml` describes how the result responds to future performance
   events. It does not duplicate edit history or source-session selectors.
 
-The bank references the generated audio files directly, not an input session's
+The instrument references the generated audio files directly, not an input session's
 files. Its playback requires neither input sessions nor the edit recipe. A
-player does not execute `edit.toml` when loading a bank.
+player does not execute `edit.toml` when loading an instrument.
 
-The output session records the generated audio normally. The bank definition's
+The output session records the generated audio normally. The instrument definition's
 relative path may be identified in lifecycle metadata; it is not disguised as
-an audio file or embedded as sample quantity data. Producing a bank from a
+an audio file or embedded as sample quantity data. Producing an instrument from a
 mixed-media session does not implicitly copy MIDI, OSC, or other unsupported
 media into the output.
 
 ## Validation And Portability
 
-A reader validates the complete bank before accepting it for playback:
+A reader validates the complete instrument before accepting it for playback:
 
 - Recognized format version, field names, and enum values; no unknown values
   silently ignored and no evaluation of embedded code.
@@ -1330,18 +1330,18 @@ A reader validates the complete bank before accepting it for playback:
   and positive multiplicative amounts.
 - Valid live input scopes, controller defaults and numbers, and smoothing times.
 - Valid effective parameters over every static/live/generated input combination
-  that can affect each slot, including bank and slot curves. Validation uses
+  that can affect each slot, including instrument and slot curves. Validation uses
   the host output rate for EQ/LFO frequency limits and is repeated if that rate
   changes.
 
 Errors identify the slot, band, or curve and the offending field. A player that
-cannot support a declared feature must reject the bank with an explanation,
+cannot support a declared feature must reject the instrument with an explanation,
 not silently skip the feature and claim to have loaded it faithfully.
 
-Useful conformance cases include layered velocity mappings; independent bank
-and slot volume curves; bank and slot EQ with identical local band IDs; all
+Useful conformance cases include layered velocity mappings; independent instrument
+and slot volume curves; instrument and slot EQ with identical local band IDs; all
 three directions for one-, two-, and four-frame traversal definitions; note-off
-in each mode; empty and Unicode tags; and moving the complete bank directory.
+in each mode; empty and Unicode tags; and moving the complete instrument directory.
 Audio regression fixtures should follow Recs' existing 48 kHz, at-least-one-
 second WAV convention; tiny direction examples above specify index order, not
 replacement audio fixtures.

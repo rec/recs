@@ -2,15 +2,15 @@
 
 ## Scope
 
-Additions to [Recsam Sample Bank Format](../doc/sample-format.md). Each section records
-whether it has been incorporated into the specification. Unmarked suggestions
+Additions to [Recsam Instrument Format](../doc/sample-format.md). Each section
+records whether it has been incorporated into the specification. Unmarked suggestions
 remain candidates for review; inclusion is not a commitment to implement them.
 
 Specification work does not implement a sampler.
 Microtonality is covered by a separate specification and is out of scope.
 
 Keep the format declarative, use clear names and explicit units, and build on
-the existing bank/slot processing and modulation rules. Reuse those mechanisms
+the existing instrument/slot processing and modulation rules. Reuse those mechanisms
 where possible instead of adding a separate syntax for every feature.
 
 ## Highest-Value Candidates
@@ -129,7 +129,7 @@ Allow controllers and pressure to change parameters while a note is sounding.
 - Extend the existing modulation model beyond values sampled only at note-on.
 - Support expressive volume, EQ, and layer-balance changes. New filter types
   require separate consideration.
-- Specify bank, channel, and individual-voice scope where applicable.
+- Specify instrument, channel, and individual-voice scope where applicable.
 - Define smoothing, initial controller values, and reset behavior to prevent
   abrupt parameter jumps and ambiguous playback.
 
@@ -146,7 +146,7 @@ or time-dependent parameter changes.
 
 - Reuse typed modulation targets for additional envelopes and oscillators.
 - Define rates, depths, curve shapes, phase, and retrigger behavior explicitly.
-- Distinguish per-voice modulators from bank-wide modulators.
+- Distinguish per-voice modulators from instrument-wide modulators.
 - Specify how these contributions combine with note, velocity, and controller
   modulation without depending on declaration order.
 
@@ -157,7 +157,7 @@ Reference: [Decent Sampler modulators](https://www.decentsamples.com/2022/08/19/
 Make polyphony and repeated-note behavior predictable while controlling CPU
 and memory use.
 
-- Define bank-wide and, if groups are retained, per-group voice limits.
+- Define instrument-wide and, if groups are retained, per-group voice limits.
 - Specify how repeated notes interact with existing voices.
 - Make voice retirement explicit, including which voice is chosen and whether
   it fades or stops immediately.
@@ -174,9 +174,9 @@ Share settings across a drum, articulation, or microphone position without
 repeating them in every slot.
 
 - Start with one grouping level rather than arbitrary nested inheritance.
-- Define precedence and signal order across bank, group, and slot settings.
+- Define precedence and signal order across instrument, group, and slot settings.
 - Distinguish inherited defaults from additional processing stages, as the
-  current bank/slot model already does.
+  current instrument/slot model already does.
 - Keep grouping, alternate selection, and choking conceptually distinct even
   when they refer to the same set of slots.
 
@@ -219,7 +219,7 @@ or randomized parameter values.
   differs between players.
 - Ensure processing block size and unrelated voices do not accidentally change
   a slot's selection sequence.
-- Reproduce results for the same bank, event stream, and declared initial state.
+- Reproduce results for the same instrument, event stream, and declared initial state.
   This does not require bit-identical audio from different rendering engines.
 
 ## Suggested Order
@@ -239,9 +239,9 @@ unapproved candidates. Playback implementation follows the separate
 ## Additional Approved Controls
 
 - Panning and stereo balance: separate mono placement and stereo-channel
-  attenuation, explicit gain laws, combined bank/slot offsets, typed modulation,
+  attenuation, explicit gain laws, combined instrument/slot offsets, typed modulation,
   and channel-layout validation are specified.
-- Pitch bend: channel wheel state, configured bank/slot sensitivity, endpoint
+- Pitch bend: channel wheel state, configured instrument/slot sensitivity, endpoint
   mapping, smoothing, reset, and interaction with existing tuning are specified
   in [Pitch Bend](../doc/sample-format.md#pitch-bend). This does not add
   microtonality or MIDI RPN/NRPN sensitivity changes.
