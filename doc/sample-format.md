@@ -30,13 +30,14 @@ SFZ opcode names or syntax.
 | Slot | A sample reference, note/velocity mapping, and local playback settings |
 | Voice | One active playback instance of a slot, created by a trigger |
 | Frame | One simultaneous sample value per channel in an audio file |
-| Mapping | Conditions under which a MIDI note-on selects a slot |
-| Modulation | A numeric parameter adjustment based on the triggering note or velocity |
+| Mapping | Conditions under which a trigger selects a slot |
+| Modulation | A numeric adjustment driven by trigger values or live controllers/pressure |
 | Tag | An arbitrary text label with no playback effect |
 
-Overlapping mappings layer: every matching slot creates a voice. TOML order
-does not establish priority, and the last matching slot does not win. A repeated
-note-on creates new voices; it does not implicitly replace existing ones.
+Overlapping mappings layer unless their slots explicitly belong to an alternate
+selection set. TOML order does not establish priority, and the last matching
+slot does not win. A repeated note-on creates new voices; it does not implicitly
+replace existing ones.
 
 ## Complete Example
 
@@ -182,6 +183,14 @@ are optional on the bank and on individual slots.
 | Bank `playback.mode` | `"while_held"` |
 | Slot `playback.start_frame` | `0` |
 | Slot `playback.end_frame` | Decoded file's frame count, exclusive |
+| Slot `playback.loop` | Absent: no repetition |
+| Bank `selections` / slot `selection` | `[]` / absent: ordinary layering |
+| Slot `choke_group` / `chokes` | Absent / `[]`: no choking |
+| Slot `crossfades` | `[]`: unity layer weight |
+| Slot `trigger` | `"note_on"` |
+| Bank `sustain.enabled` / `controller` / `threshold` | `true` / `64` / `64` |
+| Bank `articulations` / slot `articulations` | Absent / `[]`: no restriction |
+| Bank `controller_defaults` | `{}`: unspecified controllers start at zero |
 | `processing.volume_db` / `tuning_cents` | `0.0` independently at each scope |
 | `processing.equalizer` | `[]` independently at each scope |
 | `modulation` | `[]` independently at each scope |
@@ -225,8 +234,9 @@ order. `root_note` is the note at which the sample has its original pitch before
 tuning. It may lie outside the trigger range.
 
 Velocity bounds are inclusive integers from `1` through `127`, also in order.
-A note-on with velocity zero is a note-off, not a sample trigger. A slot matches
-only when both the note and velocity are within its bounds.
+A note-on with velocity zero is a note-off, not a note-on sample trigger. A slot
+matches only when its trigger kind and both mapping ranges match the event's
+note and velocity context, as defined under Release And Pedal Samples.
 
 With `pitch_tracking = true`, playback speed is multiplied by
 `2 ** ((note - root_note) / 12)`. With it set to `false`, the mapped note does
@@ -237,9 +247,285 @@ There is no hidden velocity-to-volume curve. Velocity chooses layers and can
 modulate volume explicitly. A bank that needs quiet low-velocity notes adds a
 `volume_db` modulation with `input = "velocity"`.
 
-Voices triggered by one note-on share an output-time origin. Overlapping slots
-are summed without automatic normalization. Version 1 specifies no implicit
-voice-stealing or random selection policy.
+Voices triggered by one note-on share an output-time origin. Selected overlapping
+slots are summed without automatic normalization. Version 1 specifies no
+implicit voice stealing; alternate selection is explicit as described below.
+
+## Alternate Sample Selection
+
+Declare named selection sets on the bank and associate each alternative slot
+with one set. A selection set is not a shared processing group:
+
+```toml
+[[bank.selections]]
+id = "snare-takes"
+mode = "cycle"
+
+[[slots]]
+id = "snare-a"
+sample = "audio/snare-a.wav"
+selection = "snare-takes"
+[slots.mapping]
+lowest_note = 38
+highest_note = 38
+root_note = 38
+
+[[slots]]
+id = "snare-b"
+sample = "audio/snare-b.wav"
+selection = "snare-takes"
+[slots.mapping]
+lowest_note = 38
+highest_note = 38
+root_note = 38
+```
+
+Set IDs are unique. Each requires `mode = "cycle"`, `"random"`, or `"shuffle"`;
+there is no implicit choice. A slot may reference only one existing set. Slots
+without `selection` continue to layer normally.
+
+First evaluate mapping conditions. Partition eligible slots by selection set,
+then choose exactly one eligible slot from each nonempty set. Empty sets make
+no choice and do not advance state. Filter before selecting: differing velocity
+layers or key ranges must not create silent holes in a sequence. Zero gain is
+not a mapping exclusion.
+
+- `cycle`: visit eligible slot IDs in ascending ASCII order, wrapping at the
+  end. The initial choice is the first ID.
+- `random`: choose uniformly among eligible slots on every trigger; immediate
+  repetitions are allowed.
+- `shuffle`: choose a uniform random permutation, consume it once, then refill.
+  With at least two candidates, refills are uniformly chosen from permutations
+  whose first slot differs from the previous choice. A single candidate always
+  plays.
+
+State is independent per set, MIDI channel, trigger kind, trigger note, and
+ordered tuple of eligible slot IDs. Velocity layers therefore have independent
+sequences when their eligible IDs differ; changing velocity without changing
+that tuple advances the same sequence. State advances once per selected set
+per triggering event, not per audio block or active voice. Returning to a
+previous eligible tuple resumes its state. Loading or explicitly resetting a
+bank clears all sequence state; ordinary note-offs do not reset it.
+
+Cycle is fully deterministic. Random and shuffle define selection probabilities
+but not cross-player seeded reproducibility; the separate reproducible-variation
+proposal remains unimplemented. Do not claim that a seed alone guarantees
+identical selection across engines.
+
+Conformance cases cover layering outside sets, several independent sets,
+candidate filtering before selection, one/zero eligible candidates, shuffle
+refill boundaries, and invariance under audio block-size changes.
+
+## Choke Groups
+
+`slots.choke_group` labels voices created by that slot. Each `[[slots.chokes]]`
+entry describes existing voices to stop when that slot is actually selected:
+
+```toml
+[[slots]]
+id = "open-hat"
+sample = "audio/open-hat.wav"
+choke_group = "hats"
+[slots.mapping]
+lowest_note = 46
+highest_note = 46
+root_note = 46
+[slots.playback]
+mode = "one_shot"
+
+[[slots]]
+id = "closed-hat"
+sample = "audio/closed-hat.wav"
+choke_group = "hats"
+[slots.mapping]
+lowest_note = 42
+highest_note = 42
+root_note = 42
+[slots.playback]
+mode = "one_shot"
+[[slots.chokes]]
+group = "hats"
+mode = "fade"
+fade_seconds = 0.005
+```
+
+Choke groups are bank-local IDs declared by membership, not processing groups
+or selection sets. A slot belongs to at most one choke group and may choke
+several groups. Every target must name a group used by at least one slot.
+Membership alone does not cause mutual choking.
+
+Each rule requires `group` and `mode`. Modes are `"immediate"` (stop before the
+next output sample), `"fade"` (multiply the current output by a linear ramp
+from one to zero), and `"release"` (enter the voice's release envelope).
+`fade_seconds` is required, finite, and positive for fade, and forbidden for
+the other modes. Release also applies to one-shot voices when explicitly
+choked; it follows the loop's release policy. Fades and immediate stops create
+no sample tail beyond the voice's existing material.
+
+After all slots for one event have been selected, take a snapshot of existing
+voices on that event's MIDI channel. Apply selected slots' choke rules to that
+snapshot, then create all new voices. Voices created by the same event never
+choke one another. Later events at the same frame are processed in event-stream
+order and can choke voices from earlier events.
+
+The example's closed hat stops earlier open and closed hats, including older
+instances of itself. Open-hat membership alone stops nothing. An unselected
+alternate slot has no choke effect; a selected zero-gain slot still does.
+
+Reject duplicate targets within one slot. If several selected slots target the
+same voice, combine their termination gains by taking their minimum rather
+than restarting or multiplying fades. An already-releasing envelope continues
+from its current state; another choke never extends a voice's lifetime.
+Choking is not a synthetic MIDI note-off and must not trigger release samples.
+
+Conformance cases cover self-choking, layered event atomicity, channel isolation,
+unselected alternatives, already-releasing voices, and simultaneous rules.
+
+## Layer Crossfades
+
+Crossfades give overlapping layers complementary amplitude weights. They use
+the same bounded curve evaluation as modulation, with a normalized position
+instead of a separate arbitrary gain-automation language. These fragments go
+in the respective existing slots:
+
+```toml
+# Soft slot: fades out as velocity increases.
+[[slots.crossfades]]
+input = "velocity"
+direction = "out"
+start = 60
+end = 90
+curve = "equal_power"
+```
+
+```toml
+# Loud slot: complementary fade-in over the same interval.
+[[slots.crossfades]]
+input = "velocity"
+direction = "in"
+start = 60
+end = 90
+curve = "equal_power"
+```
+
+Each entry requires `input` (note/velocity or a live input defined below),
+`direction` (`"in"` or `"out"`), and integer `start < end` in that input's valid
+range. `curve` is `"linear"` (default) or `"equal_power"`. A slot may have one entry per
+`(input, scope, controller, direction)`, allowing a fade-in and fade-out on each
+axis. Static note/velocity inputs have no scope or controller field.
+
+Clamp `t = (input_value - start) / (end - start)` to `[0, 1]`. Linear weights
+are `t` for fade-in and `1 - t` for fade-out. Equal-power weights are
+`sin(pi * t / 2)` and `cos(pi * t / 2)` respectively, with exact zero and one
+at the endpoints. The opposing slots must use the same interval and curve to
+be complementary. Their mapping ranges must both include the entire fade
+interval for note/velocity inputs; a reader rejects a slot whose mapping cuts
+off its nonzero transition. Live inputs do not widen or constrain key/velocity
+mappings.
+
+This example needs overlapping velocity mappings, unlike the disjoint layers
+in the complete bank example. Crossfades neither widen mapping ranges nor
+cause nonmatching slots to play. Matched slots with zero weight still create
+voices and take part in selection and choking; silence is not a trigger filter.
+
+Multiply all weights within a slot, then apply the result as a separate layer
+gain alongside its envelope and volume before its EQ. Exact zero is silence,
+not a fabricated finite dB value. Existing bank and slot volume curves still
+apply; neither replaces the crossfade. Note/velocity weights are captured at
+trigger time; live-input weights follow the smoothing rules below.
+
+Pairing is explicit through matching parameters, not inferred from neighboring
+slots. With three or more overlapping layers, all their weighted signals sum
+without normalization. Equal-power weights preserve the sum of squared gains
+for a complementary pair, not constant peak level for correlated recordings.
+Authors remain responsible for headroom.
+
+Conformance cases cover exact endpoints, midpoint gain laws, simultaneous key
+and velocity fades, zero-weight voices, clipped mapping ranges, and three-layer
+overlaps. Alternate selection still chooses takes; it does not crossfade them
+unless separate selected layers have crossfade settings.
+
+## Named Articulations
+
+Declare articulation IDs, an initial selection, and explicit switch bindings.
+Slots list the articulations in which they are eligible:
+
+```toml
+[bank.articulations]
+ids = ["sustain", "plucked"]
+default = "sustain"
+
+[[bank.articulations.keys]]
+note = 24
+articulation = "sustain"
+behavior = "latched"
+consume = true
+
+[[bank.articulations.keys]]
+note = 25
+articulation = "plucked"
+behavior = "momentary"
+consume = true
+
+[[bank.articulations.controllers]]
+controller = 1
+minimum_value = 64
+maximum_value = 127
+articulation = "plucked"
+
+[[slots]]
+id = "pluck-middle"
+sample = "audio/pluck.wav"
+articulations = ["plucked"]
+[slots.mapping]
+lowest_note = 48
+highest_note = 84
+root_note = 60
+```
+
+When present, the bank table requires a nonempty, duplicate-free `ids` list
+and a `default` naming one of them. IDs follow the usual ID syntax. Key and
+controller binding lists default to empty. Slot articulation lists are
+duplicate-free, must reference declared IDs, and default to `[]`, meaning
+eligible in any articulation, not eligible in none. Tags remain descriptive.
+
+Selection is independent per MIDI channel. A key binding requires a unique
+note in `[0, 127]` and an articulation. `behavior` is `"latched"` (default) or
+`"momentary"`; `consume` defaults to true. Latched note-on updates the persistent
+selection. Momentary note-on temporarily overrides it until the matching key-up.
+With several momentary switches held, the most recently pressed still-held
+switch wins. Latched updates continue underneath that override; releasing the
+last momentary switch exposes the latest persistent selection.
+
+Repeated switch-note presses have FIFO key-up ownership, as ordinary notes do.
+Switches are physical controls: sustain does not defer their key-ups. Consumed
+key events update articulation state but create no musical note instances or
+sample triggers. With `consume = false`, process the switch first, then process
+the same event as an ordinary musical event. Its eventual musical release uses
+its captured note-instance context.
+
+A controller binding requires its controller number and inclusive integer
+`minimum_value <= maximum_value`, all in `[0, 127]`, plus an articulation.
+Ranges on the same controller must not overlap. A matching event updates the
+persistent selection; an unmatched value leaves it unchanged. Controller
+bindings are latched only and do not consume controller messages. A controller
+may also affect sustain or modulation; articulation updates occur first.
+
+Articulation filtering precedes alternate selection. A change affects future
+note-on and pedal triggers only, never cancels or remaps an existing voice.
+Each musical note instance captures its articulation at note-on; both physical
+key-release samples and deferred note-release samples use that captured value,
+even if the player switches while holding the note. Pedal samples use the
+current articulation at the pedal transition.
+
+Switching does not reset alternate-selection counters. An eligible set that
+becomes active again resumes its previous state. Bank load/reset clears held
+switches and restores the declared default on every channel without generating
+musical events. Controller initialization alone does not fire switch bindings.
+
+Conformance cases cover default selection, consumed/playable switch notes,
+nested momentary switches, latched changes under a momentary switch, channel
+isolation, controller gaps, and original-articulation release tails.
 
 ## Playback Direction
 
@@ -265,28 +551,168 @@ The turning frame is not duplicated. For `N` selected frames, mirror traverses
 pitch or output rates, resampling follows that traversal. Reversal affects
 frame order, not channel order or sample polarity.
 
-Mirror does not mean indefinite ping-pong looping. Version 1 has no looping
-fields. Every direction eventually exhausts its selected material.
+Mirror alone does not mean indefinite ping-pong looping. Without an explicit
+loop, every direction eventually exhausts its selected material.
 
 The bank supplies the default direction. A slot's explicit direction replaces
 that default, so a backward bank plus a backward slot still plays backward,
 not forward. Direction is not a numeric modulation target.
 
+## Sustain Loops
+
+A slot may add a loop inside its trimmed interval. Loop boundaries never inherit
+from the bank because they address one particular file. This fragment belongs
+to an existing slot:
+
+```toml
+[slots.playback.loop]
+start_frame = 24000
+end_frame = 72000
+mode = "until_release"
+crossfade_frames = 256
+```
+
+Both boundaries are required native-frame integers. They define a half-open
+interval inside the trimmed sample containing at least two frames. `mode` is
+`"until_release"` (default) or `"through_release"`; `crossfade_frames` defaults
+to zero. Loops require effective playback mode `while_held`, so a one-shot voice
+cannot loop forever without a release event.
+
+Forward playback enters from the trimmed start, then repeats the loop toward
+increasing frames. Backward playback enters from the trimmed end, then repeats
+it toward decreasing frames. Mirror enters from the trimmed start and reflects
+between loop boundaries without repeating either turning frame. For loop
+material `B C D`, its steady mirror sequence is `B C D C B C D ...`.
+
+On release, `until_release` disables future wrapping and reflection immediately.
+Playback continues in its current direction toward that trimmed sample boundary
+while the release envelope runs. It does not jump to the tail. If a boundary
+and release coincide, process release before the boundary transition.
+`through_release` keeps repeating until the release envelope reaches zero;
+it does not subsequently play a tail. Exhaustion or envelope completion,
+whichever comes first, ends the voice. If release occurs before loop entry,
+`until_release` never enters repetition.
+
+For forward or backward wrapping, a positive crossfade overlaps the final `M`
+frames of the traversal with the first `M` frames of its next traversal. Require
+`M >= 2` and `2 * M < loop_length`. At overlap position `j`, use incoming weight
+`j / (M - 1)` and outgoing weight `1 - j / (M - 1)`. After the overlap, resume
+at frame `M` of the next traversal, not at its already-consumed first frame.
+Thus the repeat period is `loop_length - M` native frames. All channels use the
+same weights; fractional playback positions interpolate this traversal.
+
+If release disables repetition during an overlap, finish that overlap and then
+continue from the incoming head without further wrapping. Mirror requires
+`crossfade_frames = 0`: its reflection already joins adjacent frames, and this
+version does not define a separate turn-smoothing algorithm.
+
+Conformance cases cover forward/backward wrapping, mirror endpoint order,
+crossfade duration and head consumption, release before entry, release during
+an overlap, and both release modes. The no-loop direction examples remain
+unchanged.
+
+## Release And Pedal Samples
+
+Each slot's `trigger` is one of `"note_on"` (default), `"key_release"`,
+`"note_release"`, `"pedal_press"`, or `"pedal_release"`. Key release means
+physical key-up; note release means the logical release after sustain-pedal
+deferral. A bank may use both deliberately; neither is an alias for the other.
+
+```toml
+[bank.sustain]
+enabled = true
+controller = 64
+threshold = 64
+
+[[slots]]
+id = "key-tail"
+sample = "audio/key-tail.wav"
+trigger = "note_release"
+[slots.mapping]
+lowest_note = 48
+highest_note = 84
+root_note = 60
+[slots.playback]
+mode = "one_shot"
+
+[[slots]]
+id = "pedal-up"
+sample = "audio/pedal-up.wav"
+trigger = "pedal_release"
+[slots.mapping]
+lowest_note = 60
+highest_note = 60
+root_note = 60
+pitch_tracking = false
+[slots.playback]
+mode = "one_shot"
+```
+
+`bank.sustain` defaults to the values shown. `controller` is an integer in
+`[0, 127]`; `threshold` is in `[1, 127]`. Sustain is independent on each MIDI
+channel, initially using the configured controller default (zero if omitted).
+Values at or above the threshold mean pressed. Only transitions trigger pedal
+samples; repeated values on the same side do not. If `enabled = false`, note-offs are immediate
+and pedal-trigger slots are invalid rather than silently inert.
+
+Every ordinary note-on creates a note instance owning its newly created voices
+and original note/velocity context. MIDI 1 note-offs match the oldest still-
+key-down instance on that channel and note. Keep this ownership even if its
+audio exhausts before key-up, so its eventual note-off cannot release a newer
+instance. Unmatched note-offs do nothing.
+
+At matched key-up, generate `key_release` once if at least one owned note-on
+voice is still active and has not already been released or choked. If sustain
+is off, generate `note_release` under the same condition, then enter release
+for owned while-held voices. If sustain is on, defer that logical release
+until pedal-up. Recheck voice eligibility then: an instance whose original
+voices all exhausted or were choked produces no release sample. New pedal
+presses never resurrect or defer a release that already began.
+
+Key/note-release slots use the original note-on note and velocity, not release
+velocity. They are selected once per note instance, not once per original
+layer, and cannot recursively generate further release samples. Chokes and
+voice retirement are not key-up events. Release and pedal slots must explicitly
+resolve to `one_shot` and cannot loop.
+
+Pedal slots use their own `root_note` as a synthetic mapping/modulation note,
+and `max(1, controller_value)` as velocity. Thus pedal-up value zero remains a
+valid trigger context without being interpreted as another note-off. Their
+mapping must contain their root note. These slots retain independent velocity
+ranges, but create no held-note instance and require no physical key-down.
+Pedal alternatives within one selection set and trigger kind must share a root
+note, so selection and live-modulation initialization use one trigger context.
+
+On pedal-up, update sustain state, release pending instances in note-on order,
+and generate pedal-release samples. Derive all slot selections before applying
+chokes: all voices generated by one incoming MIDI event belong to one atomic
+batch and cannot choke one another. Note-release triggers retain their original
+note context and use the selection-state keys defined above. Subsequent MIDI
+events at the same frame retain their input order. Loading/resetting a bank
+clears held notes and restores initial pedal state without generating release
+or pedal samples.
+
+Conformance cases include held-pedal key-up, pedal-up with several held notes,
+one-shot exhaustion before release, repeated notes with FIFO ownership,
+unmatched note-offs, threshold repeats, and absence of recursive tails.
+
 ## Note-Off And Envelope
 
 Playback `mode` is `"while_held"` or `"one_shot"`:
 
-- `while_held`: note-off starts the release stage of the matching voices.
+- `while_held`: logical note release starts the matching voices' release stage;
+  enabled sustain can defer it after physical key-up.
 - `one_shot`: note-off does not shorten playback; the traversal runs to its end.
 
-In either mode, a voice ends when its traversal is exhausted. Exhaustion does
-not introduce a loop or manufacture an additional audio tail. In one-shot mode
-`release_seconds` has no effect. Repeated notes need distinct voice ownership;
-this file format does not replace the host's MIDI note-event handling.
+In either mode, a voice ends when its traversal is exhausted. Only an explicit
+sustain loop repeats material; exhaustion manufactures no additional tail.
+In one-shot mode, ordinary note-offs do not apply `release_seconds`; an explicit
+release choke may do so. Note-instance ownership follows the release rules
+above.
 
 The envelope starts at zero, rises linearly to one during `attack_seconds`,
-falls linearly to `sustain_level` during `decay_seconds`, and holds there. In
-while-held mode, release starts at the current level and reaches zero linearly
+falls linearly to `sustain_level` during `decay_seconds`, and holds there.
+When release starts, it proceeds from the current level and reaches zero linearly
 over `release_seconds`. Zero-duration stages take effect immediately. Times are
 finite non-negative seconds measured in output time, independent of pitch and
 direction. `sustain_level` is in `[0, 1]`.
@@ -356,12 +782,18 @@ scope: a slot band named `body` does not override a bank band named `body`.
 
 ### Signal Order
 
-For each note-on:
+For each incoming MIDI event:
 
-1. Select matching slots using their note and velocity ranges.
-2. Resolve playback and envelope defaults, and evaluate bank and slot modulation.
-3. Read the trimmed frames in the effective direction and resample for pitch.
-4. Apply the effective amplitude envelope and slot volume, then slot EQ bands.
+1. Update controller/pressure, articulation, pedal, and note-instance state and
+   derive trigger contexts. Filter slots by trigger kind, articulation, and mapping, then
+   select alternatives while retaining ordinary layers. Apply their choke rules
+   to existing voices before creating the selected voices.
+2. Resolve playback and envelope defaults, capture static curves, and initialize
+   live modulation/crossfade state from current controller and pressure values.
+3. Traverse the trimmed frames and optional loop in the effective direction,
+   then resample for pitch.
+4. Apply the effective amplitude envelope, crossfade weight, and slot volume,
+   then slot EQ bands.
 5. Apply bank volume, then bank EQ bands, independently to each voice.
 6. Sum voices in the host's output channel layout without implicit downmixing.
 
@@ -384,7 +816,10 @@ only its containing slot. Both use the same fields:
 | Field | Meaning |
 | --- | --- |
 | `target` | Numeric processing parameter in the same scope |
-| `input` | `"note"` or `"velocity"` from the triggering note-on |
+| `input` | `"note"`, `"velocity"`, `"controller"`, `"channel_pressure"`, or `"note_pressure"` |
+| `scope` | Live input scope; see Live Modulation; absent on note/velocity curves |
+| `controller` | Required MIDI controller number for controller input only |
+| `smoothing_seconds` | Live-input transition time, default `0.005`; absent on static curves |
 | `operation` | `"add"` or `"multiply"` |
 | `interpolation` | `"linear"` or `"step"`; default `"linear"` |
 | `points` | Nonempty list of `{ input = integer, amount = number }` points |
@@ -400,8 +835,9 @@ positive dimensionless ratios. Other target/operation combinations are invalid.
 This prevents, for example, accidentally multiplying a negative dB value when
 the intention was to double the amplitude.
 
-Points have strictly increasing inputs: note inputs are in `[0, 127]` and
-velocity inputs in `[1, 127]`. A single point defines a constant adjustment.
+Points have strictly increasing inputs: velocity inputs are in `[1, 127]`;
+note, controller, and pressure inputs are in `[0, 127]`.
+A single point defines a constant adjustment.
 Linear interpolation operates on the numeric amounts between adjacent points.
 Step interpolation holds the left point until the next point's input. At an
 exact point, use that point's amount. Outside the listed range, hold the nearest
@@ -412,22 +848,145 @@ the slot's mapped range. Adding or removing a slot cannot change a bank curve's
 meaning. Curves apply equally to mono, stereo, and supported multichannel
 samples.
 
-At most one curve may exist per `(target, input)` in a scope. If both note and
-velocity affect one target, add their amounts to its base value, or multiply
-their ratios by its base value, according to the target's permitted operation.
+At most one curve may exist per `(target, input, scope, controller)` in each
+processing stage. Static inputs have no scope/controller. If several inputs
+affect one target, add their amounts to its base value, or multiply their
+ratios by its base value, according to the target's permitted operation.
 Array order has no effect on that combination. Bank and slot scopes are then
 combined using the processing rules above.
 
-Curves are evaluated at note-on and held for the voice's lifetime. They scale
-parameters across a bank's trigger range, not across elapsed sample time.
-Envelope timing is separate. Live controller changes and general time-based
-automation are not part of version 1.
+Note and velocity curves are evaluated from the trigger context and held for
+the voice's lifetime. Controller and pressure curves can change throughout
+playback as described below. Envelope timing remains separate; additional
+envelopes and LFOs are still candidates rather than part of this specification.
 
 For example, at note 60 the example's bank volume is `-3 + -1 = -4 dB`.
 The soft slot's note curve is `-2/3 dB` there, so its slot volume is
 `-2 - 2/3 dB`. Its combined volume is `-6 2/3 dB`, before envelope and EQ.
 The bank's EQ gain curve and that slot's EQ frequency curve are both applied;
 neither replaces the other.
+
+## Live Modulation
+
+Live curves use the same typed targets, point interpolation, and additive or
+multiplicative composition as static curves. Bank curves still process each
+voice independently; placing a curve on the bank does not imply that incoming
+events on one channel affect every other channel.
+
+```toml
+[bank.controller_defaults]
+"11" = 127
+
+[[bank.modulation]]
+target = "volume_db"
+input = "controller"
+controller = 11
+scope = "channel"
+operation = "add"
+smoothing_seconds = 0.01
+points = [
+  { input = 0, amount = -60.0 },
+  { input = 127, amount = 0.0 },
+]
+```
+
+This initial volume is unchanged until controller 11 moves. `controller_defaults`
+is a table of canonical decimal keys `"0"` through `"127"` and integer values
+in `[0, 127]`. Unlisted values start at zero. Defaults initialize each channel
+and the bank-wide controller state without generating switch or pedal-sample
+events. Sustain's initial pressed state follows its configured default and
+threshold. Pressure starts at zero.
+
+Input scopes are:
+
+| Input | Allowed scopes | Affected voices |
+| --- | --- | --- |
+| `controller` | `channel` (default), `bank` | Same-channel voices, or all bank voices |
+| `channel_pressure` | `channel` (default), `bank` | Same-channel voices, or all bank voices |
+| `note_pressure` | `note` (default and only value) | Active voices owned by matching channel/note instances |
+
+`controller` is required only for controller input and is an integer in
+`[0, 127]`. It is forbidden on other input types. Scope and smoothing fields
+are forbidden on static note/velocity curves. A bank-scoped controller or
+channel-pressure input uses the most recent matching event from any channel,
+in event-stream order. Channel-scoped inputs use the voice's originating MIDI
+channel.
+
+MIDI 1 polyphonic key pressure applies to all active musical note instances of
+that channel and note, including their associated release voices. New note
+instances start with zero note pressure until a subsequent matching event;
+they do not inherit stale pressure from a previous strike. Associated release
+voices inherit their instance's latest value. Pedal voices have no note owner,
+so note pressure is zero for them. This is not an MPE or microtonal specification.
+
+For each existing voice, an event supplies a new curve amount. Ramp linearly
+from its current amount to that new amount over
+`N = ceil(smoothing_seconds * output_rate)` output frames. On frame `j`, counting
+the event frame as `j = 1`, use `old + (new - old) * j / N`, reaching the target
+on the final frame. Zero seconds applies
+immediately. A new event during a ramp starts from the current interpolated
+amount rather than restarting from the old target. The time must be finite and
+non-negative. Each contribution is smoothed before composing it with other
+contributions. Newly created voices initialize directly from current input
+values; they do not sweep from reset values.
+
+Apply parameter changes at their scheduled output frames, not merely at block
+boundaries. For changing EQ parameters, recompute the specified coefficients
+from effective parameters while preserving the voice's filter state. Do not
+reset filters or interpolate arbitrarily between coefficient sets. Changing
+tuning changes traversal speed without resetting playback position, direction,
+loop phase, or envelope time. No normalization is introduced.
+
+### Live Layer Balance
+
+Crossfades accept the same live inputs, scopes, controller numbers, and smoothing
+times. Two overlapping slots can use these complementary fragments:
+
+```toml
+[[slots.crossfades]]
+input = "controller"
+controller = 1
+scope = "channel"
+direction = "out"
+start = 0
+end = 127
+curve = "equal_power"
+smoothing_seconds = 0.01
+```
+
+The other slot uses the same values with `direction = "in"`. For crossfades,
+smooth the normalized position `t`, then compute the gain law. Matching times
+and intervals therefore keep complementary pairs complementary throughout a
+transition. Do not smooth their sine/cosine gains independently. Initialize new
+voices at the current unsmoothed target position, as with ordinary live curves;
+only equally initialized paired voices have that complementarity guarantee.
+
+Controller updates change existing voices' gains but do not create or reselect
+slots. Both layers must be selected at trigger time, including a layer whose
+initial weight is zero. A layer that has exhausted its sample cannot be
+resurrected by moving a controller. Articulation switches remain future-trigger
+selectors, not live crossfades.
+
+### Reset And Validation
+
+Explicit bank reset stops voices, clears note/selection/switch state and ramps,
+restores controller defaults and zero pressure, and restores default
+articulations. It generates no release samples. New voices thereafter use that
+initial state. Do not equate arbitrary incoming controller messages with a bank
+reset unless their behavior is explicitly specified.
+
+Validate effective parameters across all applicable static and live inputs,
+including simultaneous contributions and smoothing trajectories. Positive
+frequency/Q multipliers must remain positive; effective EQ frequencies must
+remain below Nyquist. A player must reject unsafe combinations at load time,
+not silently clamp modulation during playback. Conservative interval analysis
+is acceptable if it reports the rejected parameter and range clearly.
+
+Conformance cases cover configured initial values, channel/bank/note scopes,
+pressure on repeated notes, overlapping ramps, mid-block updates, state-preserving
+EQ changes, paired live fades, exhausted layers, and reset without spurious
+triggers. Replaying identical events with different block sizes must produce
+the same parameter trajectories.
 
 ## Tags
 
@@ -485,14 +1044,26 @@ A reader validates the complete bank before accepting it for playback:
 - Recognized format version, field names, and enum values; no unknown values
   silently ignored and no evaluation of embedded code.
 - Required fields, unique slot IDs, local EQ IDs, and nonempty names/tags.
+- Unique selection-set IDs, valid selection modes, and existing set references.
+- Existing choke-group targets, unique per-slot targets, and valid choke modes
+  and fade times.
+- Crossfade input ranges, unique input/scope/controller/direction keys, gain
+  curves, and mappings covering each static crossfade transition.
+- Trigger kinds, sustain settings, one-shot release/pedal playback, and pedal
+  mappings containing their synthetic root note.
+- Declared articulation references and default, unique keyswitch notes, and
+  nonoverlapping controller-selector ranges.
 - Note/velocity bounds, trim intervals, existing contained audio files, and
   supported decoding and output channel layouts.
+- Contained loop intervals, valid loop/playback-mode combinations, and permitted
+  crossfade lengths and directions.
 - Finite numeric values, positive frequencies and Q, non-negative envelope
   times, and valid sustain levels.
 - Existing modulation targets, permitted operations, ordered point inputs,
   and positive multiplicative amounts.
-- Valid effective parameters over every note/velocity combination that can
-  trigger each slot, including bank and slot curves. Validation uses the host
+- Valid live input scopes, controller defaults and numbers, and smoothing times.
+- Valid effective parameters over every static/live input combination that can
+  affect each slot, including bank and slot curves. Validation uses the host
   output rate for the EQ frequency limit and is repeated if that rate changes.
 
 Errors identify the slot, band, or curve and the offending field. A player that

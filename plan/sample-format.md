@@ -2,12 +2,11 @@
 
 ## Scope
 
-Candidate additions to [Sample Bank Format](../doc/sample-format.md). All 13
-suggestions are retained here for review; inclusion is not a commitment to
-implement them. Remove unwanted sections before incorporating the remaining
-features into the specification.
+Additions to [Sample Bank Format](../doc/sample-format.md). Each section records
+whether it has been incorporated into the specification. Unmarked suggestions
+remain candidates for review; inclusion is not a commitment to implement them.
 
-This plan does not change the existing specification or implement a sampler.
+Specification work does not implement a sampler.
 Microtonality is covered by a separate specification and is out of scope.
 
 Keep the format declarative, use clear names and explicit units, and build on
@@ -17,6 +16,9 @@ where possible instead of adding a separate syntax for every feature.
 ## Highest-Value Candidates
 
 ### 1. Sustain Loops
+
+Status: specified in [Sustain Loops](../doc/sample-format.md#sustain-loops).
+Playback implementation remains pending.
 
 Allow sustained instruments to keep sounding without requiring arbitrarily
 long recordings.
@@ -34,6 +36,9 @@ Reference: [SFZ looping](https://sfzformat.com/opcodes/loopmode/).
 
 ### 2. Alternate Sample Selection
 
+Status: specified in [Alternate Sample Selection](../doc/sample-format.md#alternate-sample-selection).
+Playback implementation remains pending.
+
 Allow several takes of the same sound to vary repeated notes naturally.
 
 - Cycle through takes in order, choose randomly, or shuffle without immediate
@@ -49,6 +54,9 @@ Reference: [SFZ round robins](https://sfzformat.com/tutorials/drum_basics/).
 
 ### 3. Choke Groups
 
+Status: specified in [Choke Groups](../doc/sample-format.md#choke-groups).
+Playback implementation remains pending.
+
 Let one sound terminate another, such as a closed hi-hat stopping an open
 hi-hat or a new phrase replacing a previous phrase.
 
@@ -62,6 +70,9 @@ Reference: [SFZ exclusive groups](https://sfzformat.com/legacy/).
 
 ### 4. Layer Crossfades
 
+Status: specified in [Layer Crossfades](../doc/sample-format.md#layer-crossfades).
+Playback implementation remains pending.
+
 Replace abrupt key-range and velocity-layer transitions with smooth blends.
 
 - Define fade-in and fade-out ranges over notes or velocities.
@@ -73,6 +84,9 @@ Replace abrupt key-range and velocity-layer transitions with smooth blends.
 Reference: [SFZ crossfades](https://sfzformat.com/tutorials/sustained_note_basics/).
 
 ### 5. Release And Pedal Samples
+
+Status: specified in [Release And Pedal Samples](../doc/sample-format.md#release-and-pedal-samples).
+Playback implementation remains pending.
 
 Represent piano mechanics, guitar release noises, and separately recorded
 instrument tails.
@@ -87,6 +101,9 @@ instrument tails.
 Reference: [SFZ triggers](https://sfzformat.com/legacy/).
 
 ### 6. Named Articulations
+
+Status: specified in [Named Articulations](../doc/sample-format.md#named-articulations).
+Playback implementation remains pending.
 
 Select explicit playing styles such as bowed/plucked, muted/open, or
 sustained/staccato.
@@ -103,6 +120,9 @@ Reference: [SFZ keyswitches](https://sfzformat.com/tutorials/sustained_note_basi
 ## Expressive Controls
 
 ### 7. Live Modulation
+
+Status: specified in [Live Modulation](../doc/sample-format.md#live-modulation).
+Playback implementation remains pending.
 
 Allow controllers and pressure to change parameters while a note is sounding.
 
@@ -194,20 +214,16 @@ or randomized parameter values.
 
 ## Suggested Order
 
-First resolve the format semantics for sustain loops, alternate selection,
-choke groups, layer crossfades, and release/pedal behavior. These provide the
-largest immediate improvement in sample playability.
+Items 1 through 7 are now incorporated into the proposed format with TOML
+examples, defaults, composition rules, and conformance cases. They are not
+implemented in a playback engine.
 
-Next consider articulations, live modulation, and voice lifecycle policies.
-Review named groups before finalizing any other feature's group-scoped fields.
-Specify reproducibility alongside random selection rather than adding it after
-sequence behavior is already established.
-
-After the candidate list is trimmed, revise `doc/sample-format.md` with concrete
-TOML examples, defaults, composition rules, and conformance cases for each
-retained feature. Resolve conflicts with its current version-1 exclusions,
-especially looping, live modulation, and voice retirement. Implementation is
-a separate task.
+Review the remaining candidates before expanding the specification further.
+Review named groups before finalizing additional group-scoped behavior, and
+resolve reproducible randomness before promising cross-player seeded renders.
+General voice limits, additional envelopes/LFOs, and items 10 through 13 remain
+unapproved candidates. Playback implementation follows the separate
+[Sample Playback](sample-playback.md) plan.
 
 ## Deferred
 
