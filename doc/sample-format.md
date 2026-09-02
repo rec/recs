@@ -2,7 +2,7 @@
 
 ## Status And Scope
 
-Recsam is a proposed format, not an implemented Recs feature or an existing
+Recsam is a proposed format, not an implemented playback feature or an existing
 industry standard. It describes one playable instrument: the sample files,
 which notes and velocities select them, and how each selected sample plays.
 
@@ -1346,8 +1346,29 @@ Audio regression fixtures should follow Recs' existing 48 kHz, at-least-one-
 second WAV convention; tiny direction examples above specify index order, not
 replacement audio fixtures.
 
-No sampler implementation, command-line interface, format converter, loop
-engine, or session-record schema change is included in this document-only task.
+## Python Models
+
+`recs.recsam.instrument.SampleInstrument` represents the root document, with
+`Instrument` for shared settings and `SampleSlot` for each slot. The other
+models are grouped into `playback`, `selection`, `processing`, and `modulation`;
+serialized enum values are defined in `enums`. Import classes from their
+defining modules, not from the package initializer.
+
+Pass a parsed TOML mapping to `SampleInstrument.model_validate()`. These frozen
+Pydantic models validate fields, local and instrument-wide references, inherited
+playback constraints, and conservative combined spatial ranges without opening
+audio files. Their list/dict members are ordinary mutable containers; treat a
+validated definition as read-only or revalidate after modifying its contents.
+
+Slot settings are declarations, not resolved playback values. Use
+`model_dump(mode="json", exclude_unset=True)` when serializing them, preserving
+the distinction between an omitted setting and an explicit override equal to
+its default. `model_fields_set` identifies supplied fields in each nested model.
+
+A future loader must still check symlink containment, file existence and decoded
+lengths, supported channel layouts, output-rate limits, and effective DSP
+parameters. The models do not implement source evaluation, a sampler, a CLI,
+or changes to the session-record schema.
 
 ## Additional Work Beyond The Prompt
 

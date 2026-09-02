@@ -49,12 +49,13 @@ host the same engine without changing instrument semantics.
 
 ## Proposed Sampler Subsystem
 
-Introduce `recs/sampler/`, separate from the recording machinery. The following
-are proposed class boundaries, not existing classes:
+The format models now live in `recs/recsam/`. Introduce `recs/sampler/` for
+playback, separate from both those models and the recording machinery. The
+runtime classes below remain proposals:
 
 | Class | Responsibility |
 | --- | --- |
-| `SampleInstrument`, `SampleSlot` | Pydantic models matching the TOML specification |
+| `SampleInstrument`, `Instrument`, `SampleSlot` | Existing recsam Pydantic models for the document, shared settings, and slots |
 | `PreparedInstrument` | Validated assets, resolved settings, and efficient note/velocity lookup |
 | `PerformanceState` | Controllers, pedals, articulation selection, alternate-take counters, and random state |
 | `Voice` | Playback position, direction, loop state, envelope, and filter state |
@@ -157,8 +158,8 @@ claiming live suitability.
 
 1. Review and trim the candidate feature list, then resolve the retained format
    semantics and cross-feature interactions.
-2. Implement instrument parsing, validation, asset resolution, and instrument creation in
-   coordination with the editing framework.
+2. Build file loading and asset validation around the existing recsam models,
+   then implement instrument creation in coordination with the editing framework.
 3. Evaluate the DSP backend and establish the event-driven block-rendering API.
 4. Implement deterministic offline MIDI rendering for the base format, producing
    a new session record and generated audio.

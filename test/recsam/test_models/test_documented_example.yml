@@ -1,0 +1,106 @@
+format_version: 1
+instrument:
+  description: Two velocity layers from a recorded glass instrument
+  envelope:
+    attack_seconds: 0.005
+    decay_seconds: 0.0
+    release_seconds: 0.1
+    sustain_level: 1.0
+  modulation:
+  - input: note
+    interpolation: linear
+    operation: add
+    points:
+    - amount: 0.0
+      input: 0
+    - amount: -1.0
+      input: 60
+    - amount: -6.0
+      input: 127
+    target: volume_db
+  - input: note
+    interpolation: linear
+    operation: add
+    points:
+    - amount: 0.0
+      input: 0
+    - amount: -3.0
+      input: 127
+    target: equalizer.body.gain_db
+  name: Glass keys
+  playback:
+    direction: forward
+    mode: while_held
+  processing:
+    equalizer:
+    - frequency_hz: 700.0
+      gain_db: 1.5
+      id: body
+      resonance: 0.8
+    tuning_cents: 0.0
+    volume_db: -3.0
+  tags:
+  - glass
+  - pitched
+  - studio session
+slots:
+- id: glass-soft
+  mapping:
+    highest_note: 84
+    lowest_note: 48
+    maximum_velocity: 79
+    minimum_velocity: 1
+    pitch_tracking: true
+    root_note: 60
+  modulation:
+  - input: note
+    interpolation: linear
+    operation: add
+    points:
+    - amount: 0.0
+      input: 48
+    - amount: -2.0
+      input: 84
+    target: volume_db
+  - input: note
+    interpolation: linear
+    operation: multiply
+    points:
+    - amount: 0.5
+      input: 48
+    - amount: 2.0
+      input: 84
+    target: equalizer.ring.frequency_hz
+  name: Soft strike
+  playback:
+    end_frame: 96000
+    start_frame: 0
+  processing:
+    equalizer:
+    - frequency_hz: 2400.0
+      gain_db: -4.0
+      id: ring
+      resonance: 2.0
+    tuning_cents: 3.0
+    volume_db: -2.0
+  sample: audio/glass-soft.wav
+  tags:
+  - soft
+  - clean attack
+- id: glass-hard
+  mapping:
+    highest_note: 84
+    lowest_note: 48
+    maximum_velocity: 127
+    minimum_velocity: 80
+    pitch_tracking: true
+    root_note: 60
+  name: Hard strike, mirrored
+  playback:
+    direction: mirror
+  processing:
+    volume_db: -5.0
+  sample: audio/glass-hard.wav
+  tags:
+  - hard
+  - bright
