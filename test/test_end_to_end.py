@@ -79,6 +79,7 @@ def test_file_inputs(
         Cfg(
             files=files,
             output_directory='files',
+            record_midi=False,
             quiet_after_end=0,
             quiet_before_start=0,
             shortest_file_time=0,
