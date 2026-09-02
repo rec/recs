@@ -1,8 +1,8 @@
-# Sample Bank Format
+# Recsam Sample Bank Format
 
 ## Status And Scope
 
-This is a proposed format, not an implemented Recs feature or an existing
+Recsam is a proposed format, not an implemented Recs feature or an existing
 industry standard. It describes one playable sample bank: the sample files,
 which notes and velocities select them, and how each selected sample plays.
 
@@ -31,7 +31,7 @@ SFZ opcode names or syntax.
 | Voice | One active playback instance of a slot, created by a trigger |
 | Frame | One simultaneous sample value per channel in an audio file |
 | Mapping | Conditions under which a trigger selects a slot |
-| Modulation | A numeric adjustment driven by trigger values or live controllers/pressure |
+| Modulation | A numeric adjustment driven by trigger values, live controls, envelopes, or LFOs |
 | Tag | An arbitrary text label with no playback effect |
 
 Overlapping mappings layer unless their slots explicitly belong to an alternate
@@ -71,7 +71,7 @@ tuning_cents = 0.0
 id = "body"
 frequency_hz = 700.0
 gain_db = 1.5
-quality_factor = 0.8
+resonance = 0.8
 
 [[bank.modulation]]
 target = "volume_db"
@@ -120,7 +120,7 @@ tuning_cents = 3.0
 id = "ring"
 frequency_hz = 2400.0
 gain_db = -4.0
-quality_factor = 2.0
+resonance = 2.0
 
 [[slots.modulation]]
 target = "volume_db"
@@ -191,19 +191,28 @@ are optional on the bank and on individual slots.
 | Bank `sustain.enabled` / `controller` / `threshold` | `true` / `64` / `64` |
 | Bank `articulations` / slot `articulations` | Absent / `[]`: no restriction |
 | Bank `controller_defaults` | `{}`: unspecified controllers start at zero |
+| Bank `pitch_bend.range_semitones` / `smoothing_seconds` | `2.0` / `0.005` |
 | `processing.volume_db` / `tuning_cents` | `0.0` independently at each scope |
+| `processing.pan` / `stereo_balance` | `0.0` independently at each scope |
 | `processing.equalizer` | `[]` independently at each scope |
 | `modulation` | `[]` independently at each scope |
+| `envelopes` / `lfos` | `[]` independently at each scope |
+| Bank `envelope.delay_seconds` / `hold_seconds` | `0.0` / `0.0` |
 | Bank `envelope.attack_seconds` / `decay_seconds` | `0.0` / `0.0` |
 | Bank `envelope.sustain_level` / `release_seconds` | `1.0` / `0.0` |
+| Bank `envelope.attack_shape` / `decay_shape` / `release_shape` | `"linear"` each |
 
-Only playback direction, playback mode, and envelope fields inherit from the
-bank. An absent slot override uses the effective bank value. The bank cannot
-set trim boundaries because those refer to particular files.
+Only playback direction, playback mode, amplitude-envelope fields, and
+pitch-bend fields inherit from the bank. An absent slot override uses the
+effective bank value. The bank cannot set trim boundaries because those refer
+to particular files. Named envelopes and LFOs are independent declarations,
+not inherited lists.
 
 Processing and modulation are separate stages, not inherited defaults: missing
 slot processing means an identity slot stage, followed by the bank stage. It
-does not mean copying the bank stage and applying it twice.
+does not mean copying the bank stage and applying it twice. Spatial controls
+combine into one final operation; amplitude-envelope duration curves apply
+once to the inherited envelope, as specified in their respective sections.
 
 ## Sample References And Time
 
@@ -710,17 +719,170 @@ In one-shot mode, ordinary note-offs do not apply `release_seconds`; an explicit
 release choke may do so. Note-instance ownership follows the release rules
 above.
 
-The envelope starts at zero, rises linearly to one during `attack_seconds`,
-falls linearly to `sustain_level` during `decay_seconds`, and holds there.
-When release starts, it proceeds from the current level and reaches zero linearly
-over `release_seconds`. Zero-duration stages take effect immediately. Times are
-finite non-negative seconds measured in output time, independent of pitch and
-direction. `sustain_level` is in `[0, 1]`.
+The amplitude envelope has delay, attack, hold, decay, sustain, and release
+stages. It stays at zero for `delay_seconds`, rises to one during
+`attack_seconds`, stays at one for `hold_seconds`, falls to `sustain_level`
+during `decay_seconds`, then holds that level until release. The sample
+traversal continues during delay; this is not a delayed sample start.
+
+When release starts, skip any remaining delay/attack/hold/decay and proceed
+from the current level to zero over `release_seconds`. Sustain-pedal deferral
+and explicit release chokes apply as above. Times are finite non-negative
+seconds measured in output time, independent of pitch and direction.
+`sustain_level` is in `[0, 1]`.
+
+`attack_shape`, `decay_shape`, and `release_shape` each accept `"linear"`
+(default) or `"exponential"`. For stage progress `t` in `[0, 1]`, define
+`f(t) = t` for linear or `f(t) = (exp(5*t) - 1) / (exp(5) - 1)` for
+exponential. Attack produces `f(t)`; decay produces
+`sustain_level + (1 - sustain_level) * f(1-t)`; release produces
+`release_start_level * f(1-t)`. Endpoints are exact, including zero.
+
+Each timed stage lasts `ceil(seconds * output_rate)` frames. Its start is
+progress zero; its end is progress one and also the next stage's start.
+Zero-duration stages transition immediately, including at voice creation.
+An event at a stage boundary takes effect before rendering that frame; release
+captures the envelope's value at that instant. Repeated releases do not restart
+or prolong a release. Completing amplitude release ends the voice even if a
+modulation envelope still has time remaining.
 
 Bank envelope fields supply defaults. Slot fields override individual defaults
-before voice creation. There is one effective envelope per voice, not two
-multiplied envelopes. Envelope duration may outlast the available traversal;
+before voice creation. There is one effective amplitude envelope per voice,
+not two multiplied amplitude envelopes. Its duration may outlast the available traversal;
 the voice still ends at exhaustion.
+
+### Note-Dependent Envelope Timing
+
+Static note/velocity curves can multiply `envelope.delay_seconds`,
+`envelope.attack_seconds`, `envelope.hold_seconds`, `envelope.decay_seconds`,
+and `envelope.release_seconds`. For example, higher notes can decay faster:
+
+```toml
+[bank.envelope]
+decay_seconds = 1.0
+sustain_level = 0.4
+
+[[bank.modulation]]
+target = "envelope.decay_seconds"
+input = "note"
+operation = "multiply"
+points = [{ input = 48, amount = 2.0 }, { input = 84, amount = 0.5 }]
+```
+
+Resolve bank defaults and slot overrides first, then multiply by all applicable
+bank and slot timing-curve amounts once. A slot override changes the base
+duration, not whether the bank curve applies. Capture durations at voice
+creation, including release duration. Zero remains zero; ratios must be
+positive. Live or generated inputs cannot target envelope settings, so a
+moving controller cannot retroactively change a stage boundary.
+
+## Modulation Envelopes And LFOs
+
+Declare named sources with `[[bank.envelopes]]`, `[[slots.envelopes]]`,
+`[[bank.lfos]]`, or `[[slots.lfos]]`. Each requires an `id`, unique across
+envelopes and LFOs in that declaring scope. Bank and slot IDs are independent.
+Routes reference a source in their own declaring scope, never an arbitrary
+path into another slot. A bank declaration applies to every selected voice;
+it does not replace a slot declaration with the same ID.
+
+```toml
+[[bank.envelopes]]
+id = "pitch-fall"
+attack_seconds = 0.0
+decay_seconds = 0.2
+sustain_level = 0.0
+release_seconds = 0.05
+
+[[bank.modulation]]
+target = "tuning_cents"
+input = "envelope"
+source = "pitch-fall"
+operation = "add"
+points = [{ input = 0.0, amount = 0.0 }, { input = 1.0, amount = 120.0 }]
+
+[[bank.lfos]]
+id = "vibrato"
+scope = "voice"
+waveform = "sine"
+frequency_hz = 5.0
+delay_seconds = 0.15
+phase_cycles = 0.0
+
+[[bank.modulation]]
+target = "tuning_cents"
+input = "lfo"
+source = "vibrato"
+operation = "add"
+points = [{ input = -1.0, amount = -15.0 }, { input = 1.0, amount = 15.0 }]
+```
+
+### Envelope Sources
+
+Named envelopes reuse the amplitude envelope's fields, defaults, stage shapes,
+and frame timing, but do not inherit the bank amplitude-envelope values.
+Their output lies in `[0, 1]`. Each voice owns a fresh instance, including
+voices triggered by release or pedal samples. They follow that voice's logical
+release or release choke, not a second independent note-off policy. One-shot
+voices ignore ordinary note-offs for all their envelopes.
+
+Finishing a modulation envelope leaves its output at zero; it does not end the
+voice. Conversely, a voice's end discards all its per-voice sources. An envelope
+is still evaluated while its voice has zero amplitude or crossfade weight.
+There are no bank-clock envelopes: a bank-declared envelope is per voice.
+
+Static timing curves may target `envelopes.ID.FIELD`, where `FIELD` is one of
+the five duration fields allowed on the amplitude envelope. The ID must name
+an envelope in the curve's own scope. These curves affect only that source's
+duration, captured from each voice's trigger context; they do not target the
+amplitude envelope or other sources with the same ID.
+
+### LFO Sources
+
+An LFO requires finite positive `frequency_hz`. Optional fields are `scope`
+(`"voice"` by default, or `"bank"`), `waveform` (`"sine"` by default or
+`"triangle"`), non-negative `delay_seconds` (default zero), and
+`phase_cycles` in `[0, 1)` (default zero). Slot LFOs require voice scope.
+Frequency must be below half the output sample rate.
+
+For output rate `R`, set `D = ceil(delay_seconds * R)`. At elapsed frame
+`n >= D`, phase is `p = (phase_cycles + (n-D)*frequency_hz/R) modulo 1`.
+Sine produces `sin(2*pi*p)`. Triangle produces `1 - 4*abs(p - 0.5)`.
+Both have range `[-1, 1]`; phase and waveform therefore fully determine the
+initial value. Before frame `D`, routes from this LFO contribute the neutral
+amount (zero for add, one for multiply), rather than evaluating a point curve
+at a fabricated LFO value. The oscillator starts at its configured phase at
+`D`; there is no implicit fade-in.
+
+A voice LFO's frame zero is voice creation. Every retrigger, including a
+release/pedal voice, starts a fresh oscillator. A bank LFO's frame zero is
+bank activation or explicit reset on the host output timeline; it advances
+even with no voices and is shared across MIDI channels. A new voice joins its
+current phase and delay state, never resets it. A voice LFO runs through
+amplitude release until its voice ends; a bank LFO runs until bank deactivation
+or reset. No tempo synchronization or note-driven reset of a bank LFO is implied.
+
+### Routing And Composition
+
+Use the existing modulation array with `input = "envelope"` or `"lfo"` and
+required `source`. `source` is forbidden on other inputs. Source kind must
+match `input`. Generated routes have no `scope`, `controller`, or
+`smoothing_seconds`: scope belongs to the source and values are evaluated at
+every output frame. Their point inputs may be fractional, in `[0, 1]` for
+envelopes or `[-1, 1]` for LFOs. Existing interpolation and endpoint rules apply.
+
+Point amounts supply modulation depth in the target's units. Generated routes
+use the same processing targets and composition as other curves, including
+EQ and spatial controls, but cannot target envelope settings, LFO parameters,
+or another route's depth. This is not a recursive modulation graph. Multiple
+sources targeting one parameter add their amounts or multiply their ratios
+without declaration-order priority. All source ranges and simultaneous
+contributions are included in load-time validation.
+
+Conformance cases cover all envelope stages and zero-duration boundaries,
+release during each stage, pedal-deferred release, exponential endpoints,
+bank-default/slot-override timing curves, named-source isolation, per-voice
+retriggering, shared phase across channels and silent intervals, delayed LFO
+neutral amounts, and identical trajectories for different render block sizes.
 
 ## Bank And Slot Processing
 
@@ -741,9 +903,55 @@ note_semitones = note - root_note if pitch_tracking else 0
 pitch_ratio = 2 ** ((100 * note_semitones + bank_cents + slot_cents) / 1200)
 ```
 
-Higher pitch shortens a traversal; this is sampling by playback-rate change,
-not time stretching. Sample-rate conversion additionally uses the native rate
-relative to the host's output rate.
+Pitch bend adds its effective cents to the numerator of this pitch calculation
+once per voice, as specified below. Higher pitch shortens a traversal; this is
+sampling by playback-rate change, not time stretching. Sample-rate conversion
+additionally uses the native rate relative to the host's output rate.
+
+### Panning And Stereo Balance
+
+`processing.pan` positions a mono sample in stereo: `-1` is left, `0` center,
+and `1` right. `processing.stereo_balance` balances an already-stereo sample
+over the same range, without collapsing or swapping its recorded channels.
+These are separate operations, not two names for the same effect.
+
+```toml
+# In a mono slot:
+[slots.processing]
+pan = -0.5
+```
+
+Both default to zero. Their modulation operation is `add`. Add the bank and
+slot values, including their respective modulation contributions, to obtain
+one effective pan or balance per voice. Validate the combined range within
+`[-1, 1]`; do not silently clamp. Apply the spatial operation exactly once,
+after both EQ stages and before summing voices. Unlike volume and EQ, bank
+and slot spatial settings are not two successive processors.
+
+For mono value `x` and effective pan `p`, emit
+`left = x*cos(pi*(p+1)/4)` and `right = x*sin(pi*(p+1)/4)`.
+Use exact zero/one at the extremes. Center sends `x/sqrt(2)` to each side;
+this is equal-power panning, not unity gain in both channels.
+
+For stereo balance `b >= 0`, multiply left by `cos(pi*b/2)` and leave right
+unchanged. For `b <= 0`, leave left unchanged and multiply right by
+`cos(pi*(-b)/2)`. Center is the unchanged stereo sample. An extreme mutes the
+opposite channel; it does not fold it into the remaining channel.
+
+Pan applies only to mono samples; balance only to stereo samples. A nonzero
+base value or any route to an inapplicable control is invalid. For example,
+bank-wide pan modulation requires all slots to be mono; mixed mono/stereo
+banks place such routes on the appropriate slots. Multichannel samples beyond
+stereo cannot use either control. A nonzero spatial base value or any spatial
+route requires stereo host output. Otherwise existing host channel-layout
+rules apply; there is no implicit downmix. In a stereo host, mono voices use
+the center pan law even when no pan field is written. On a mono host, a mono
+voice without spatial settings passes through without the center-pan gain
+reduction. Explicit zero values behave the same as omitted defaults.
+
+Conformance cases cover mono center and extremes, unchanged stereo center,
+one-sided balance without fold-down, combined bank/slot offsets, live/LFO
+motion, wrong sample layouts, and rejection on non-stereo hosts.
 
 ### Equalizer
 
@@ -755,11 +963,11 @@ defines one bell-shaped parametric EQ band:
 | `id` | Required unique band ID within that processing scope |
 | `frequency_hz` | Required center frequency, greater than zero |
 | `gain_db` | Required center-frequency boost or cut; zero is neutral |
-| `quality_factor` | Required positive Q; larger values give narrower bands |
+| `resonance` | Required positive, dimensionless Q value; larger values give narrower bands |
 
 Version 1 specifies a digital peaking biquad using the coefficient convention
 in the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/).
-For effective frequency `f`, gain `g`, quality factor `Q`, and host output
+For effective frequency `f`, gain `g`, resonance `Q`, and host output
 sample rate `R`, define:
 
 ```text
@@ -788,14 +996,18 @@ For each incoming MIDI event:
    derive trigger contexts. Filter slots by trigger kind, articulation, and mapping, then
    select alternatives while retaining ordinary layers. Apply their choke rules
    to existing voices before creating the selected voices.
-2. Resolve playback and envelope defaults, capture static curves, and initialize
-   live modulation/crossfade state from current controller and pressure values.
+2. Resolve playback, envelope, and pitch-bend defaults, capture static curves,
+   and initialize live modulation/crossfade state from current controls.
+   Create per-voice envelopes/LFOs and attach routes to shared bank LFOs.
+   Before rendering each frame, evaluate sources and compose their amounts
+   with static curves and smoothed live contributions.
 3. Traverse the trimmed frames and optional loop in the effective direction,
    then resample for pitch.
 4. Apply the effective amplitude envelope, crossfade weight, and slot volume,
    then slot EQ bands.
 5. Apply bank volume, then bank EQ bands, independently to each voice.
-6. Sum voices in the host's output channel layout without implicit downmixing.
+6. Apply the combined pan or stereo balance once, then sum voices in the host's
+   output channel layout without implicit downmixing.
 
 Bank processing is conceptually per voice, not a single post-mix effect. This
 is necessary because two simultaneously held notes may require different bank
@@ -815,50 +1027,57 @@ only its containing slot. Both use the same fields:
 
 | Field | Meaning |
 | --- | --- |
-| `target` | Numeric processing parameter in the same scope |
-| `input` | `"note"`, `"velocity"`, `"controller"`, `"channel_pressure"`, or `"note_pressure"` |
-| `scope` | Live input scope; see Live Modulation; absent on note/velocity curves |
+| `target` | Numeric processing parameter or permitted envelope duration |
+| `input` | `"note"`, `"velocity"`, `"controller"`, `"channel_pressure"`, `"note_pressure"`, `"envelope"`, or `"lfo"` |
+| `source` | Required local source ID for envelope/LFO input only |
+| `scope` | Live input scope; see Live Modulation; absent on static/generated curves |
 | `controller` | Required MIDI controller number for controller input only |
-| `smoothing_seconds` | Live-input transition time, default `0.005`; absent on static curves |
+| `smoothing_seconds` | Live-input transition time, default `0.005`; absent on static/generated curves |
 | `operation` | `"add"` or `"multiply"` |
 | `interpolation` | `"linear"` or `"step"`; default `"linear"` |
-| `points` | Nonempty list of `{ input = integer, amount = number }` points |
+| `points` | Nonempty list of `{ input = number, amount = number }` points; MIDI inputs require integers |
 
-Supported targets are `volume_db`, `tuning_cents`, and
+Supported processing targets are `volume_db`, `tuning_cents`, `pan`,
+`stereo_balance`, and
 `equalizer.BAND_ID.frequency_hz`, `equalizer.BAND_ID.gain_db`, or
-`equalizer.BAND_ID.quality_factor`. Band IDs must name an existing band in the
+`equalizer.BAND_ID.resonance`. Band IDs must name an existing band in the
 same scope. A slot curve cannot reach into the bank to disable its processing.
 
-Modulation for `volume_db`, `tuning_cents`, and EQ `gain_db` uses `add`; its
-amount is in the target's units. Frequency and Q use `multiply`; amounts are
-positive dimensionless ratios. Other target/operation combinations are invalid.
+Modulation for `volume_db`, `tuning_cents`, `pan`, `stereo_balance`, and EQ
+`gain_db` uses `add`; its amount is in the target's units. Frequency and resonance use
+`multiply`; amounts are positive dimensionless ratios. Static note/velocity
+curves may also multiply the envelope duration targets defined above. Other
+target/operation combinations are invalid.
 This prevents, for example, accidentally multiplying a negative dB value when
 the intention was to double the amplitude.
 
 Points have strictly increasing inputs: velocity inputs are in `[1, 127]`;
-note, controller, and pressure inputs are in `[0, 127]`.
+note, controller, and pressure inputs are in `[0, 127]`. Generated inputs use
+their source's numeric range as specified above.
 A single point defines a constant adjustment.
 Linear interpolation operates on the numeric amounts between adjacent points.
 Step interpolation holds the left point until the next point's input. At an
 exact point, use that point's amount. Outside the listed range, hold the nearest
 endpoint; do not extrapolate.
 
-Coordinates are absolute MIDI values, not a percentage of occupied keys or of
+MIDI coordinates are absolute values, not a percentage of occupied keys or of
 the slot's mapped range. Adding or removing a slot cannot change a bank curve's
-meaning. Curves apply equally to mono, stereo, and supported multichannel
-samples.
+meaning. Curves apply to supported sample layouts, subject to the spatial
+controls' mono/stereo restrictions.
 
-At most one curve may exist per `(target, input, scope, controller)` in each
-processing stage. Static inputs have no scope/controller. If several inputs
-affect one target, add their amounts to its base value, or multiply their
-ratios by its base value, according to the target's permitted operation.
+At most one curve may exist per `(target, input, scope, controller, source)`
+in each processing stage, treating absent fields as absent in this key.
+Static inputs have no scope/controller/source; generated inputs have only
+source. If several inputs affect one target, add their amounts to its base
+value, or multiply their ratios by its base value, according to the target's
+permitted operation.
 Array order has no effect on that combination. Bank and slot scopes are then
 combined using the processing rules above.
 
 Note and velocity curves are evaluated from the trigger context and held for
 the voice's lifetime. Controller and pressure curves can change throughout
-playback as described below. Envelope timing remains separate; additional
-envelopes and LFOs are still candidates rather than part of this specification.
+playback as described below. Generated sources evolve at output-frame precision;
+envelope timing curves remain fixed for each voice's lifetime.
 
 For example, at note 60 the example's bank volume is `-3 + -1 = -4 dB`.
 The soft slot's note curve is `-2/3 dB` there, so its slot volume is
@@ -919,6 +1138,49 @@ they do not inherit stale pressure from a previous strike. Associated release
 voices inherit their instance's latest value. Pedal voices have no note owner,
 so note pressure is zero for them. This is not an MPE or microtonal specification.
 
+### Pitch Bend
+
+Pitch bend is a channel performance control, separate from note mapping and
+microtonal tuning. It applies to all voices on that MIDI channel, including
+sustained/releasing voices and release/pedal samples. It never changes slot
+selection, the captured trigger note, articulation, or envelope timing.
+
+```toml
+[bank.pitch_bend]
+range_semitones = 2.0
+smoothing_seconds = 0.005
+```
+
+Both fields are optional with the defaults shown. Each must be finite and
+non-negative; fractional semitone ranges are allowed. Slot `pitch_bend` fields
+override individual bank defaults. A zero range disables bending for that
+slot, useful for percussion; `pitch_tracking = false` alone does not disable
+pitch bend. This setting is the bend sensitivity. Version 1 does not interpret
+MIDI RPN/NRPN messages as changes to it.
+
+The MIDI 1 wheel's unsigned value is in `[0, 16383]`, centered at `8192`.
+For signed input such as Mido's `pitch`, use `v` in `[-8192, 8191]`.
+Normalize to `w = v/8192` for `v < 0`, otherwise `w = v/8191`, so both
+endpoints reach their full range and center is exactly zero. The target bend
+is `100 * range_semitones * w` cents. Add it once to combined bank/slot tuning
+and all tuning-modulation amounts before computing playback speed. There is
+no second implicit wheel-to-tuning modulation route.
+
+Wheel state is independent per channel and starts centered. Smooth the bend
+contribution in cents using the same event-frame ramp rule as live curves,
+with that voice's effective `smoothing_seconds`. New voices initialize from
+the channel's current wheel position without a ramp. A subsequent wheel event
+retargets existing ramps from their current amounts. Bending changes speed
+without resetting playback position, direction, loops, or source phases.
+Reset centers every channel's wheel as well as clearing voices.
+
+Conformance cases cover center and both full-range endpoints, fractional and
+zero ranges, slot overrides, independent channels, repeated and pedal-held
+notes, release/pedal voices, mid-ramp changes, composition with tuning/LFOs,
+and identical results across render block boundaries.
+
+### Live Curve Timing
+
 For each existing voice, an event supplies a new curve amount. Ramp linearly
 from its current amount to that new amount over
 `N = ceil(smoothing_seconds * output_rate)` output frames. On frame `j`, counting
@@ -970,14 +1232,15 @@ selectors, not live crossfades.
 ### Reset And Validation
 
 Explicit bank reset stops voices, clears note/selection/switch state and ramps,
-restores controller defaults and zero pressure, and restores default
-articulations. It generates no release samples. New voices thereafter use that
-initial state. Do not equate arbitrary incoming controller messages with a bank
-reset unless their behavior is explicitly specified.
+restores controller defaults, zero pressure, centered pitch wheels, and default
+articulations, and restarts bank LFO clocks at frame zero. It generates no
+release samples. New voices thereafter use that initial state. Do not equate
+arbitrary incoming controller messages with a bank reset unless their behavior
+is explicitly specified.
 
-Validate effective parameters across all applicable static and live inputs,
-including simultaneous contributions and smoothing trajectories. Positive
-frequency/Q multipliers must remain positive; effective EQ frequencies must
+Validate effective parameters across all applicable static, live, and generated
+inputs, including simultaneous contributions and smoothing trajectories. Positive
+frequency/resonance multipliers must remain positive; effective EQ frequencies must
 remain below Nyquist. A player must reject unsafe combinations at load time,
 not silently clamp modulation during playback. Conservative interval analysis
 is acceptable if it reports the rejected parameter and range clearly.
@@ -1057,14 +1320,19 @@ A reader validates the complete bank before accepting it for playback:
   supported decoding and output channel layouts.
 - Contained loop intervals, valid loop/playback-mode combinations, and permitted
   crossfade lengths and directions.
-- Finite numeric values, positive frequencies and Q, non-negative envelope
-  times, and valid sustain levels.
+- Finite numeric values, positive frequencies and resonance, non-negative envelope
+  times, valid envelope shapes and sustain levels, and pitch-bend ranges/times.
+- Unique local envelope/LFO IDs, matching source references, valid source
+  scopes, waveform/phase/frequency ranges, and permitted static duration targets.
+- Pan/balance sample-layout and stereo-output requirements, and combined
+  spatial ranges within `[-1, 1]`.
 - Existing modulation targets, permitted operations, ordered point inputs,
   and positive multiplicative amounts.
 - Valid live input scopes, controller defaults and numbers, and smoothing times.
-- Valid effective parameters over every static/live input combination that can
-  affect each slot, including bank and slot curves. Validation uses the host
-  output rate for the EQ frequency limit and is repeated if that rate changes.
+- Valid effective parameters over every static/live/generated input combination
+  that can affect each slot, including bank and slot curves. Validation uses
+  the host output rate for EQ/LFO frequency limits and is repeated if that rate
+  changes.
 
 Errors identify the slot, band, or curve and the offending field. A player that
 cannot support a declared feature must reject the bank with an explanation,

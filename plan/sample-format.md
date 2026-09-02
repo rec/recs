@@ -2,7 +2,7 @@
 
 ## Scope
 
-Additions to [Sample Bank Format](../doc/sample-format.md). Each section records
+Additions to [Recsam Sample Bank Format](../doc/sample-format.md). Each section records
 whether it has been incorporated into the specification. Unmarked suggestions
 remain candidates for review; inclusion is not a commitment to implement them.
 
@@ -127,7 +127,8 @@ Playback implementation remains pending.
 Allow controllers and pressure to change parameters while a note is sounding.
 
 - Extend the existing modulation model beyond values sampled only at note-on.
-- Support expressive volume, filter, and layer-balance changes.
+- Support expressive volume, EQ, and layer-balance changes. New filter types
+  require separate consideration.
 - Specify bank, channel, and individual-voice scope where applicable.
 - Define smoothing, initial controller values, and reset behavior to prevent
   abrupt parameter jumps and ambiguous playback.
@@ -136,7 +137,11 @@ Reference: [SFZ modulation capabilities](https://sfzformat.com/).
 
 ### 8. Additional Envelopes And LFOs
 
-Support evolving sounds through filter envelopes, tremolo, and other periodic
+Status: specified in [Note-Off And Envelope](../doc/sample-format.md#note-off-and-envelope)
+and [Modulation Envelopes And LFOs](../doc/sample-format.md#modulation-envelopes-and-lfos).
+Playback implementation remains pending. Filter design is excluded.
+
+Support evolving sounds through pitch envelopes, tremolo, and other periodic
 or time-dependent parameter changes.
 
 - Reuse typed modulation targets for additional envelopes and oscillators.
@@ -177,6 +182,11 @@ repeating them in every slot.
 
 ### 11. Synchronized Microphone Layers And Output Routing
 
+Partial status: mono panning and stereo balance are specified in
+[Panning And Stereo Balance](../doc/sample-format.md#panning-and-stereo-balance).
+Microphone linking, channel selection, and named routing remain candidates;
+no playback implementation is included.
+
 Keep close, room, and ambient recordings aligned while allowing independent
 levels and named outputs.
 
@@ -214,18 +224,34 @@ or randomized parameter values.
 
 ## Suggested Order
 
-Items 1 through 7 are now incorporated into the proposed format with TOML
+Items 1 through 8, mono panning/stereo balance, and pitch bend are now
+incorporated into the proposed format with TOML
 examples, defaults, composition rules, and conformance cases. They are not
 implemented in a playback engine.
 
 Review the remaining candidates before expanding the specification further.
 Review named groups before finalizing additional group-scoped behavior, and
 resolve reproducible randomness before promising cross-player seeded renders.
-General voice limits, additional envelopes/LFOs, and items 10 through 13 remain
+General voice limits and the remaining parts of items 10 through 13 remain
 unapproved candidates. Playback implementation follows the separate
 [Sample Playback](sample-playback.md) plan.
 
+## Additional Approved Controls
+
+- Panning and stereo balance: separate mono placement and stereo-channel
+  attenuation, explicit gain laws, combined bank/slot offsets, typed modulation,
+  and channel-layout validation are specified.
+- Pitch bend: channel wheel state, configured bank/slot sensitivity, endpoint
+  mapping, smoothing, reset, and interaction with existing tuning are specified
+  in [Pitch Bend](../doc/sample-format.md#pitch-bend). This does not add
+  microtonality or MIDI RPN/NRPN sensitivity changes.
+
+Both remain specification work, not implemented playback features.
+
 ## Deferred
+
+Resonant filters need separate consideration and are not added by the envelope,
+LFO, panning, or pitch-bend changes. Existing peaking EQ is unchanged.
 
 Granular playback, time stretching, and arbitrary effect chains are not proposed
 for the first expansion. Their implementation complexity and portability costs
