@@ -210,6 +210,13 @@ addresses returned by `mutable_attributes`. Recs validates and coerces the new
 value, applies it to active source processes, records the change in the
 record, and saves it when `save_settings` is enabled.
 
+Physical configuration fields also accept unit strings. For example,
+`set_cfg(address="recording.longest_file_time", value="1h")` stores and returns
+`3600.0` seconds. Bare numbers retain their existing units. Disk threshold lists
+normalize to byte-count or second strings. See
+[Configuration Units](configuration-units.md) for supported fields and validation.
+This does not change timestamps, status payloads, or waveform frame counts.
+
 ### Tracks and names
 
 A track is one mono channel or two adjacent channels. Stereo pairs may start

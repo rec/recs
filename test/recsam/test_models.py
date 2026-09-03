@@ -202,7 +202,7 @@ def test_invalid_crossfades_are_rejected(changes: dict[str, object]) -> None:
         (playback.Envelope, {'attack_seconds': -0.1}),
         (playback.Envelope, {'sustain_level': 1.1}),
         (playback.Envelope, {'hold_seconds': True}),
-        (playback.Envelope, {'release_seconds': '0.5'}),
+        (playback.Envelope, {'release_seconds': '0.5Hz'}),
         (playback.LFO, {'id': 'vibrato', 'frequency_hz': 0}),
         (playback.LFO, {'id': 'vibrato', 'frequency_hz': 5, 'phase_cycles': 1}),
         (Control, {'default': -0.1}),

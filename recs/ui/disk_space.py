@@ -47,22 +47,10 @@ class WriteRate:
 
 
 def parse_threshold(value: str) -> Threshold:
-    normalized = value.strip().lower()
-    for suffix, multiplier in (
-        ('gb', 1_000_000_000),
-        ('mb', 1_000_000),
-        ('kb', 1_000),
-    ):
-        if normalized.endswith(suffix):
-            return Threshold(
-                bytes=round(float(normalized.removesuffix(suffix)) * multiplier)
-            )
-    for suffix, multiplier in (('h', 3600), ('m', 60), ('s', 1)):
-        if normalized.endswith(suffix):
-            return Threshold(
-                seconds=float(normalized.removesuffix(suffix)) * multiplier
-            )
-    return Threshold(bytes=int(normalized))
+    """Read canonical config values without parsing units in the recording loop."""
+    if value.endswith('s'):
+        return Threshold(seconds=float(value[:-1]))
+    return Threshold(bytes=int(value))
 
 
 def threshold_bytes(values: Iterable[str], write_rate: float) -> int:

@@ -11,7 +11,7 @@ from . import base, enums
 class Mapping(base.Model):
     lowest_key: base.Key
     highest_key: base.Key
-    reference_pitch_hz: base.Positive | None = None
+    reference_pitch_hz: base.Frequency | None = None
     event_key: base.Key | None = None
     minimum_velocity: base.UnitInterval = 0.0
     maximum_velocity: base.UnitInterval = 1.0
@@ -102,7 +102,7 @@ class ModulationEnvelope(Envelope):
 
 class LFO(base.Model):
     id: base.Identifier
-    frequency_hz: base.Positive
+    frequency_hz: base.Frequency
     scope: Literal[enums.Scope.voice, enums.Scope.instrument] = enums.Scope.voice
     waveform: enums.Waveform = enums.Waveform.sine
     delay_seconds: base.Seconds = 0.0

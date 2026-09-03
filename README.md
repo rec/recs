@@ -95,6 +95,10 @@ automatically when the channel receives a signal.
 Some care is taken to preserve the quiet before the start or after the end of a
 recording to prevent abrupt transitions.
 
+Configuration accepts explicit units, for example `--quiet-before-start 250ms`,
+`--longest-file-time '2 h'`, and `--minimum-free-space 1GiB`. Bare numbers keep
+their existing units. See [Configuration Units](doc/configuration-units.md).
+
 ### Per-device noise floors
 
 `--noise-floor` sets the global threshold for starting and stopping recordings.

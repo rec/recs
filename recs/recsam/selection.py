@@ -4,7 +4,7 @@ from pydantic import Field, StrictBool, model_validator
 from typing_extensions import Self
 
 from . import enums
-from .base import Bipolar, Identifier, Key, Model, Positive, UnitInterval, unique
+from .base import Bipolar, Identifier, Key, Model, PositiveSeconds, UnitInterval, unique
 
 
 class Selection(Model):
@@ -15,7 +15,7 @@ class Selection(Model):
 class Choke(Model):
     group: Identifier
     mode: enums.ChokeMode
-    fade_seconds: Positive | None = None
+    fade_seconds: PositiveSeconds | None = None
 
     @model_validator(mode='after')
     def fade_time_matches_mode(self) -> Self:

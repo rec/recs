@@ -1,5 +1,6 @@
 import pytest
 
+from recs.cfg.cfg import Recording
 from recs.ui import disk_space
 
 
@@ -14,11 +15,15 @@ from recs.ui import disk_space
 def test_parse_disk_threshold(
     value: str, bytes: int | None, seconds: float | None
 ) -> None:
-    assert disk_space.parse_threshold(value) == disk_space.Threshold(bytes, seconds)
+    cfg = Recording(disk_alert_thresholds=[value])
+    assert disk_space.parse_threshold(
+        cfg.disk_alert_thresholds[0]
+    ) == disk_space.Threshold(bytes, seconds)
 
 
 def test_time_threshold_uses_recent_write_rate() -> None:
-    assert disk_space.threshold_bytes(['100MB', '10m'], 200_000) == 120_000_000
+    cfg = Recording(disk_alert_thresholds=['100MB', '10m'])
+    assert disk_space.threshold_bytes(cfg.disk_alert_thresholds, 200_000) == 120_000_000
 
 
 @pytest.mark.parametrize(

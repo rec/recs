@@ -4,14 +4,14 @@ from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from . import enums
-from .base import Identifier, Model, Number, Positive, unique
+from .base import Frequency, Identifier, Model, Number, Positive, unique
 from .modulation import GeneratedModulation, ModulationCurve
 from .playback import LFO, Envelope, ModulationEnvelope
 
 
 class EqualizerBand(Model):
     id: Identifier
-    frequency_hz: Positive
+    frequency_hz: Frequency
     gain_db: Number
     resonance: Positive
 

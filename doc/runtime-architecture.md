@@ -34,6 +34,10 @@ discovery, ports, queries, or feedback. A node may have startup commands,
 periodic polls, periodic subscriptions, or no outbound messages for continuous
 telemetry. `resubscribe_period = 10` renews an X18 `/xremote` feedback lease.
 
+OSC `period` and `resubscribe_period` also accept unit strings, for example
+`"250ms"` and `"10s"`; they normalize to numeric seconds when the TOML is loaded.
+See [Configuration Units](configuration-units.md).
+
 ```toml
 [[nodes]]
 name = "x18"

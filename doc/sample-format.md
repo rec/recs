@@ -22,6 +22,12 @@ plugins, or depend on an installed sampler's opaque preset state. Clear names,
 explicit units, and defined composition rules take precedence over matching
 SFZ opcode names or syntax.
 
+Duration and frequency declarations also accept explicit unit strings, such as
+`attack_seconds = "10ms"` and `frequency_hz = "2.4kHz"`. Validation converts them
+to the numeric seconds or hertz used throughout this specification; serialization
+emits those canonical numbers. See [Configuration Units](configuration-units.md).
+Performance-event fields and dimensionless or musical values remain numeric.
+
 ## Concepts
 
 | Term | Meaning |

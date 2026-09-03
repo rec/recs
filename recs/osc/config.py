@@ -10,6 +10,8 @@ from pydantic import (
     model_validator,
 )
 
+from ..base.units import Seconds
+
 OscArgument = str | int | float | bool
 
 
@@ -30,7 +32,7 @@ class Command(BaseModel):
 
 
 class Poll(Command):
-    period: float
+    period: Seconds
 
     @field_validator('period')
     @classmethod
@@ -41,7 +43,7 @@ class Poll(Command):
 
 
 class Subscription(Command):
-    resubscribe_period: float
+    resubscribe_period: Seconds
     record_success: bool = False
 
     @field_validator('resubscribe_period')

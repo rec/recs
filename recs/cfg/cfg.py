@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import warnings
 from functools import cached_property
 from importlib.util import find_spec
@@ -13,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from reccy import logging
 from typing_extensions import Self
 
+from recs.base import units
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import (
@@ -296,22 +296,26 @@ class Console(BaseModel):
     ] = False
 
     sleep_time_device: Annotated[
-        float,
+        units.Seconds,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How long to sleep between checking device'),
     ] = 0.1
 
     ui_refresh_rate: Annotated[
-        float, tyro.conf.arg(help='How many UI refreshes per second')
+        units.Hertz,
+        cli_metadata.HERTZ_SPEC,
+        tyro.conf.arg(help='How many UI refreshes per second'),
     ] = 10.0
 
     waveform_bucket_milliseconds: Annotated[
-        int,
+        units.Milliseconds,
+        cli_metadata.MILLISECONDS_SPEC,
         tyro.conf.arg(help='Milliseconds represented by each live waveform bucket'),
     ] = 20
 
     waveform_batch_milliseconds: Annotated[
-        int,
+        units.Milliseconds,
+        cli_metadata.MILLISECONDS_SPEC,
         tyro.conf.arg(help='Milliseconds represented by each live waveform batch'),
     ] = 100
 
@@ -384,7 +388,7 @@ class Recording(BaseModel):
     # Settings relating to times
     #
     audio_buffer_seconds: Annotated[
-        float,
+        units.Seconds,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(
             help='Seconds of audio to buffer before dropping delayed callbacks'
@@ -392,12 +396,13 @@ class Recording(BaseModel):
     ] = 10.0
 
     memory_reserve_megabytes: Annotated[
-        int,
+        units.Megabytes,
+        cli_metadata.MEGABYTES_SPEC,
         tyro.conf.arg(help='Free system memory to reserve while buffering audio'),
     ] = 200
 
     memory_check_period: Annotated[
-        float,
+        units.Seconds,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to check available system memory'),
     ] = 2.0
@@ -421,14 +426,15 @@ class Recording(BaseModel):
     ] = False
 
     longest_file_time: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='Longest amount of time per file: 0 means infinite'),
     ] = 0.0
 
     minimum_free_space: Annotated[
-        int,
+        units.Bytes,
+        cli_metadata.BYTES_SPEC,
         Mutable,
         tyro.conf.arg(
             help='Absolute disk-space reserve used with the emergency threshold'
@@ -439,48 +445,48 @@ class Recording(BaseModel):
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Free-space alerts, such as 30m or 500MB'),
-    ] = Field(default_factory=lambda: ['30m', '10m', '2m'])
+    ] = Field(default_factory=lambda: ['30m', '10m', '2m'], validate_default=True)
 
     disk_removable_emergency: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Emergency reserve on removable disks'),
-    ] = Field(default_factory=lambda: ['200MB', '30s'])
+    ] = Field(default_factory=lambda: ['200MB', '30s'], validate_default=True)
 
     disk_system_emergency: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Emergency reserve on the system disk'),
-    ] = Field(default_factory=lambda: ['2GB', '2m'])
+    ] = Field(default_factory=lambda: ['2GB', '2m'], validate_default=True)
 
     disk_removable_pause: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Pause reserve on removable disks'),
-    ] = Field(default_factory=lambda: ['200MB', '30s'])
+    ] = Field(default_factory=lambda: ['200MB', '30s'], validate_default=True)
 
     disk_system_pause: Annotated[
         tyro.conf.UseAppendAction[list[str]],
         Mutable,
         tyro.conf.arg(help='Pause reserve on the system disk'),
-    ] = Field(default_factory=lambda: ['2GB', '2m'])
+    ] = Field(default_factory=lambda: ['2GB', '2m'], validate_default=True)
 
     disk_poll_seconds: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to check recording disk space'),
     ] = 1.0
 
     card_replace_poll_seconds: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to poll for a replacement recording card'),
     ] = 1.0
 
     card_replace_timeout_seconds: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How long to wait for a replacement recording card'),
@@ -495,7 +501,7 @@ class Recording(BaseModel):
     ] = True
 
     moving_average_time: Annotated[
-        float,
+        units.Seconds,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How long to average the volume display over'),
     ] = 1.0
@@ -523,35 +529,35 @@ class Recording(BaseModel):
     ] = False
 
     shortest_file_time: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='Files shorter than this duration get deleted'),
     ] = 1.0
 
     quiet_after_end: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-c',), help='How much quiet after the end'),
     ] = 2.0
 
     quiet_before_start: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-b',), help='How much quiet before a recording'),
     ] = 1.0
 
     stop_after_quiet: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How much quiet before stopping a recording'),
     ] = 20.0
 
     total_run_time: Annotated[
-        float,
+        units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(
@@ -590,10 +596,7 @@ class Recording(BaseModel):
     def validate_disk_thresholds(cls, values: list[str]) -> list[str]:
         if not values:
             raise ValueError('must not be empty')
-        for value in values:
-            if not re.fullmatch(r'\d+(?:\.\d+)?(?:KB|MB|GB|s|m|h)?', value):
-                raise ValueError(f'invalid disk threshold: {value}')
-        return values
+        return [units.disk_threshold(v) for v in values]
 
 
 CFG_PARTS = (

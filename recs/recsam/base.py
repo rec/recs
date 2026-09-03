@@ -5,6 +5,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..base import units
+
 
 class Model(BaseModel, frozen=True):
     """Reject unknown fields and nonfinite numbers throughout an instrument."""
@@ -28,6 +30,8 @@ Key = Annotated[int, Field(strict=True)]
 Bipolar = Annotated[float, Field(strict=True, ge=-1, le=1)]
 Frame = Annotated[int, Field(strict=True, ge=0)]
 Number = Annotated[float, Field(strict=True)]
-Seconds = Annotated[float, Field(strict=True, ge=0)]
+Seconds = Annotated[units.Seconds, Field(strict=True, ge=0)]
+Frequency = Annotated[units.Hertz, Field(strict=True, gt=0)]
+PositiveSeconds = Annotated[units.Seconds, Field(strict=True, gt=0)]
 Positive = Annotated[float, Field(strict=True, gt=0)]
 UnitInterval = Annotated[float, Field(strict=True, ge=0, le=1)]
