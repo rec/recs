@@ -689,8 +689,10 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.1.0"
-source = { git = "https://github.com/rec/reccy.git?rev=1cef72d1cd30ad4b674f24dec061754c77afde93#1cef72d1cd30ad4b674f24dec061754c77afde93" }
+source = { git = "https://github.com/rec/reccy.git?rev=24b3d16aa1b3e966b8a8b918d1f7599bd4369590#24b3d16aa1b3e966b8a8b918d1f7599bd4369590" }
 dependencies = [
+    { name = "pint", version = "0.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pint", version = "0.25.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic" },
     { name = "strenum" },
     { name = "tomli" },
@@ -706,8 +708,6 @@ dependencies = [
     { name = "mido", extra = ["ports-rtmidi"] },
     { name = "numpy" },
     { name = "overrides" },
-    { name = "pint", version = "0.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "pint", version = "0.25.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic" },
     { name = "pyside6" },
     { name = "reccy" },
@@ -739,10 +739,9 @@ requires-dist = [
     { name = "mido", extras = ["ports-rtmidi"], specifier = ">=1.3.3" },
     { name = "numpy" },
     { name = "overrides" },
-    { name = "pint", specifier = ">=0.24.4" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyside6", specifier = ">=6.11.1" },
-    { name = "reccy", git = "https://github.com/rec/reccy.git?rev=1cef72d1cd30ad4b674f24dec061754c77afde93" },
+    { name = "reccy", git = "https://github.com/rec/reccy.git?rev=24b3d16aa1b3e966b8a8b918d1f7599bd4369590" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
