@@ -7,6 +7,7 @@ symlink resolution, decoded lengths/layouts, and sample-rate-dependent checks
 belong to a future prepared-instrument loader.
 """
 
+from collections.abc import Iterable
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Literal
 from urllib.parse import urlsplit
@@ -15,8 +16,10 @@ from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
 from . import enums
-from .base import Identifier, MidiValue, Model, Text, unique
-from .modulation import LayerCrossfade
+from .base import Identifier, Model, Text, unique
+from .controls import Control
+from .events import ControlChange, PerformanceEvent, Trigger
+from .modulation import ControlCrossfade, ControlModulation, LayerCrossfade
 from .playback import Mapping, Playback, SlotPlayback
 from .processing import SoundSettings, spatial_bounds
 from .selection import Articulations, Choke, Selection, Sustain
@@ -28,23 +31,29 @@ class Instrument(SoundSettings):
     tags: list[Text] = Field(default_factory=list)
     playback: Playback = Playback()
     selections: list[Selection] = Field(default_factory=list)
-    sustain: Sustain = Sustain()
+    sustain: Sustain | None = None
     articulations: Articulations | None = None
-    controller_defaults: dict[str, MidiValue] = Field(default_factory=dict)
+    controls: dict[Identifier, Control] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def instrument_values(self) -> Self:
         unique(self.tags, 'tag')
         unique((s.id for s in self.selections), 'selection ID')
-        for controller in self.controller_defaults:
-            if (
-                not controller.isascii()
-                or not controller.isdecimal()
-                or not 0 <= int(controller) <= 127
-                or str(int(controller)) != controller
-            ):
-                raise ValueError(f'Invalid controller-default key: {controller}')
+        if self.sustain is not None:
+            control = self.require_control(self.sustain.control)
+            if control.polarity != enums.Polarity.unipolar:
+                raise ValueError('Sustain requires a unipolar control')
+        if self.articulations is not None:
+            for switch in self.articulations.controls:
+                control = self.require_control(switch.control)
+                control.validate_value(switch.minimum_value)
+                control.validate_value(switch.maximum_value)
         return self
+
+    def require_control(self, name: str) -> Control:
+        if name not in self.controls:
+            raise ValueError(f'Unknown control: {name}')
+        return self.controls[name]
 
 
 class SampleSlot(SoundSettings):
@@ -59,7 +68,7 @@ class SampleSlot(SoundSettings):
     choke_group: Identifier | None = None
     chokes: list[Choke] = Field(default_factory=list)
     crossfades: list[LayerCrossfade] = Field(default_factory=list)
-    trigger: enums.Trigger = enums.Trigger.note_on
+    trigger: enums.TriggerKind = enums.TriggerKind.start
     articulations: list[Identifier] = Field(default_factory=list)
 
     @field_validator('sample')
@@ -95,7 +104,7 @@ class SampleSlot(SoundSettings):
                 (
                     c.input,
                     getattr(c, 'scope', None),
-                    getattr(c, 'controller', None),
+                    getattr(c, 'control', None),
                     c.direction,
                 )
                 for c in self.crossfades
@@ -107,8 +116,8 @@ class SampleSlot(SoundSettings):
                 raise ValueError(f'Slot LFO {lfo.id} must have voice scope')
         for fade in self.crossfades:
             bounds = None
-            if fade.input == enums.Input.note:
-                bounds = self.mapping.lowest_note, self.mapping.highest_note
+            if fade.input == enums.Input.key:
+                bounds = self.mapping.lowest_key, self.mapping.highest_key
             elif fade.input == enums.Input.velocity:
                 bounds = self.mapping.minimum_velocity, self.mapping.maximum_velocity
             if (
@@ -118,13 +127,21 @@ class SampleSlot(SoundSettings):
                 raise ValueError(
                     f'Mapping must cover the {fade.input} crossfade interval'
                 )
-        if (
-            self.trigger in (enums.Trigger.pedal_press, enums.Trigger.pedal_release)
-            and not self.mapping.lowest_note
-            <= self.mapping.root_note
-            <= self.mapping.highest_note
+        if self.trigger in (
+            enums.TriggerKind.sustain_press,
+            enums.TriggerKind.sustain_release,
         ):
-            raise ValueError('Pedal slot mapping must contain root_note')
+            if (
+                self.mapping.event_key is None
+                or not self.mapping.lowest_key
+                <= self.mapping.event_key
+                <= self.mapping.highest_key
+            ):
+                raise ValueError('Sustain slot mapping must contain event_key')
+            if self.mapping.pitch_tracking:
+                raise ValueError('Sustain samples require pitch_tracking=false')
+        elif self.mapping.event_key is not None:
+            raise ValueError('event_key is only allowed for sustain samples')
         return self
 
 
@@ -152,8 +169,10 @@ class SampleInstrument(Model):
             if self.instrument.articulations
             else set()
         )
-        pedal_roots: dict[tuple[str, enums.Trigger], int] = {}
+        sustain_keys: dict[tuple[str, enums.TriggerKind], int] = {}
+        self.validate_controls(self.instrument.modulation)
         for slot in self.slots:
+            self.validate_controls([*slot.modulation, *slot.crossfades])
             for target in ('pan', 'stereo_balance'):
                 instrument_bounds = spatial_bounds(self.instrument, target)
                 slot_bounds = spatial_bounds(slot, target)
@@ -186,11 +205,11 @@ class SampleInstrument(Model):
                 else self.instrument.playback.direction
             )
             if (
-                slot.trigger != enums.Trigger.note_on
+                slot.trigger != enums.TriggerKind.start
                 and mode != enums.PlaybackMode.one_shot
             ):
                 raise ValueError(
-                    f'Slot {slot.id}: release/pedal triggers require one_shot'
+                    f'Slot {slot.id}: release/sustain triggers require one_shot'
                 )
             if slot.playback.loop is not None:
                 if mode != enums.PlaybackMode.while_held:
@@ -200,20 +219,43 @@ class SampleInstrument(Model):
                     and slot.playback.loop.crossfade_frames
                 ):
                     raise ValueError(f'Slot {slot.id}: mirror loops cannot crossfade')
-            if slot.trigger in (enums.Trigger.pedal_press, enums.Trigger.pedal_release):
-                if not self.instrument.sustain.enabled:
+            if slot.trigger in (
+                enums.TriggerKind.sustain_press,
+                enums.TriggerKind.sustain_release,
+            ):
+                if self.instrument.sustain is None:
                     raise ValueError(
-                        f'Slot {slot.id}: pedal triggers require sustain enabled'
+                        f'Slot {slot.id}: sustain triggers require a sustain control'
                     )
                 if slot.selection is not None:
                     key = slot.selection, slot.trigger
                     if (
-                        key in pedal_roots
-                        and pedal_roots[key] != slot.mapping.root_note
+                        key in sustain_keys
+                        and sustain_keys[key] != slot.mapping.event_key
                     ):
                         raise ValueError(
                             f'Selection {slot.selection}: '
-                            'pedal alternatives must share root_note'
+                            'sustain alternatives must share event_key'
                         )
-                    pedal_roots[key] = slot.mapping.root_note
+                    if slot.mapping.event_key is not None:
+                        sustain_keys[key] = slot.mapping.event_key
         return self
+
+    def validate_controls(self, curves: Iterable[object]) -> None:
+        for curve in curves:
+            if isinstance(curve, ControlModulation):
+                control = self.instrument.require_control(curve.control)
+                for point in curve.points:
+                    control.validate_value(point.input)
+            elif isinstance(curve, ControlCrossfade):
+                control = self.instrument.require_control(curve.control)
+                control.validate_value(curve.start)
+                control.validate_value(curve.end)
+
+    def validate_event(self, event: PerformanceEvent) -> None:
+        """Check declared control domains; lifecycle ownership belongs to the player."""
+        if isinstance(event, Trigger):
+            for name, value in event.controls.items():
+                self.instrument.require_control(name).validate_value(value)
+        elif isinstance(event, ControlChange):
+            self.instrument.require_control(event.control).validate_value(event.value)

@@ -9,17 +9,20 @@ from . import base, enums
 
 
 class Mapping(base.Model):
-    lowest_note: base.MidiValue
-    highest_note: base.MidiValue
-    root_note: base.MidiValue
-    minimum_velocity: base.Velocity = 1
-    maximum_velocity: base.Velocity = 127
+    lowest_key: base.Key
+    highest_key: base.Key
+    reference_pitch_hz: base.Positive | None = None
+    event_key: base.Key | None = None
+    minimum_velocity: base.UnitInterval = 0.0
+    maximum_velocity: base.UnitInterval = 1.0
     pitch_tracking: StrictBool = True
 
     @model_validator(mode='after')
     def ordered_ranges(self) -> Self:
-        if self.lowest_note > self.highest_note:
-            raise ValueError('lowest_note must not exceed highest_note')
+        if self.lowest_key > self.highest_key:
+            raise ValueError('lowest_key must not exceed highest_key')
+        if self.pitch_tracking and self.reference_pitch_hz is None:
+            raise ValueError('pitch_tracking requires reference_pitch_hz')
         if self.minimum_velocity > self.maximum_velocity:
             raise ValueError('minimum_velocity must not exceed maximum_velocity')
         return self
@@ -104,8 +107,3 @@ class LFO(base.Model):
     waveform: enums.Waveform = enums.Waveform.sine
     delay_seconds: base.Seconds = 0.0
     phase_cycles: Annotated[float, Field(strict=True, ge=0, lt=1)] = 0.0
-
-
-class PitchBend(base.Model):
-    range_semitones: Annotated[float, Field(strict=True, ge=0)] = 2.0
-    smoothing_seconds: base.Seconds = 0.005

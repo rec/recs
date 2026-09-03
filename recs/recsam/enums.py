@@ -21,12 +21,12 @@ class LoopMode(StrEnum):
     through_release = auto()
 
 
-class Trigger(StrEnum):
-    note_on = auto()
-    key_release = auto()
-    note_release = auto()
-    pedal_press = auto()
-    pedal_release = auto()
+class TriggerKind(StrEnum):
+    start = auto()
+    release = auto()
+    logical_release = auto()
+    sustain_press = auto()
+    sustain_release = auto()
 
 
 class SelectionMode(StrEnum):
@@ -58,19 +58,22 @@ class Waveform(StrEnum):
 
 class Scope(StrEnum):
     instrument = auto()
-    channel = auto()
-    note = auto()
+    part = auto()
+    trigger = auto()
     voice = auto()
 
 
 class Input(StrEnum):
-    note = auto()
+    key = auto()
     velocity = auto()
-    controller = auto()
-    channel_pressure = auto()
-    note_pressure = auto()
+    control = auto()
     envelope = auto()
     lfo = auto()
+
+
+class Polarity(StrEnum):
+    unipolar = auto()
+    bipolar = auto()
 
 
 class Operation(StrEnum):

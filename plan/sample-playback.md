@@ -17,8 +17,8 @@ The `recs/edit/` framework is still a plan. Sample playback needs a new stateful
 audio engine; it is not simply another recording source or a collection of
 independent edit commands.
 
-Microtonality remains covered by its separate specification. This task creates
-only this document, not code, dependencies, or changes to the recording daemon.
+Microtonality remains covered by its separate specification. Format and event
+models exist; playback, transport adapters, and recording-daemon changes do not.
 
 ## Separate Creation From Playback
 
@@ -27,7 +27,7 @@ only this document, not code, dependencies, or changes to the recording daemon.
 An audio edit creates a playable instrument definition:
 
 1. Read selected recordings from an input session record.
-2. Extract sample material or define slices, assign note and velocity ranges,
+2. Extract sample material or define slices, assign key and normalized velocity ranges,
    and attach playback settings and tags.
 3. Write a new session directory containing generated audio,
    `sample-instrument.toml`, the session record, and the resolved edit definition
@@ -37,15 +37,16 @@ Instrument references point to audio inside the new directory. Slices may share 
 generated audio file rather than duplicate it. The resulting instrument does not
 require the original recording session for playback.
 
-Loops, articulations, and controller behavior remain instructions for the
+Loops, articulations, and named-control behavior remain instructions for the
 player. They are not permanently baked into the sample files. Unsupported
 input media is omitted according to the editing plan's media-selection rules.
 
 ### Instrument Playback
 
 A player combines an instrument with timed performance events to produce audio.
-Start with offline rendering of recorded MIDI. Live playback can subsequently
-host the same engine without changing instrument semantics.
+Start with offline rendering of recorded MIDI through an adapter. The engine
+consumes recsam Trigger, Release, and ControlChange events, not MIDI messages.
+OSC, direct sequencer events, and live hosts use the same representation.
 
 ## Proposed Sampler Subsystem
 
@@ -56,8 +57,9 @@ runtime classes below remain proposals:
 | Class | Responsibility |
 | --- | --- |
 | `SampleInstrument`, `Instrument`, `SampleSlot` | Existing recsam Pydantic models for the document, shared settings, and slots |
-| `PreparedInstrument` | Validated assets, resolved settings, and efficient note/velocity lookup |
-| `PerformanceState` | Controllers, pedals, articulation selection, alternate-take counters, and random state |
+| `Trigger`, `Release`, `ControlChange` | Existing frame-timed recsam event models with logical parts and trigger IDs |
+| `PreparedInstrument` | Validated assets, resolved settings, and efficient key/velocity lookup |
+| `PerformanceState` | Named controls per scope, trigger ownership, sustain, articulations, alternate-take counters, and random state |
 | `Voice` | Playback position, direction, loop state, envelope, and filter state |
 | `Sampler` | Consume timed events, manage voices, and render audio blocks |
 
@@ -83,14 +85,27 @@ The core consumes events at integer output-frame positions and renders bounded
 audio blocks. It has no dependency on audio devices, session-record writing, or
 the file-output policy. Asset loading is handled outside its rendering loop.
 
+Use `recs.recsam.events.PerformanceEvent` rather than defining another event
+hierarchy. Validate control names and values against the loaded instrument;
+the engine additionally owns trigger-ID lifetime and release matching. Selection
+keys do not imply pitch. Hosts supply target frequencies for pitch-tracked
+samples, whose mappings declare reference frequencies.
+
+Transport adapters normalize input into unipolar or bipolar floating-point
+controls without reducing precision to seven bits. MIDI-specific channel and
+controller numbers, zero-velocity note-on conversion, repeated-note matching,
+and MPE assignments remain in the MIDI adapter. OSC addresses remain in its
+adapter. The engine treats zero-velocity Trigger events as genuine triggers.
+
 ### Offline Host First
 
-The offline host reads recorded MIDI and the instrument, schedules events, drives the
-engine, and writes the resulting audio as a new Recs output session.
+The offline host reads recorded MIDI and the instrument, converts messages
+through its adapter, schedules performance events, drives the engine, and writes
+the resulting audio as a new Recs output session.
 
 Convert MIDI timing, including tempo changes, into output-frame positions
-before scheduling. Split render blocks at event boundaries so notes and
-controller changes are not quantized to the beginning of a block. Preserve a
+before scheduling. Split render blocks at event boundaries so triggers and
+control changes are not quantized to the beginning of a block. Preserve a
 defined order for events at the same frame.
 
 The host owns session creation, output encoding, provenance, and file lifecycle
@@ -100,8 +115,9 @@ taking on live latency.
 
 ### Live Host Later
 
-The live host timestamps incoming MIDI, schedules it against the output audio
-clock, and drives the same sampler through an audio output stream.
+The live host adapts and timestamps incoming performance input, schedules it
+against the output audio clock, and drives the same sampler through an audio
+output stream. MIDI is one adapter, not a required engine input.
 
 Do not put file access, decoding, blocking operations, or configuration parsing
 in the audio callback. Prepare assets and buffers outside that callback. See
@@ -160,7 +176,8 @@ claiming live suitability.
    semantics and cross-feature interactions.
 2. Build file loading and asset validation around the existing recsam models,
    then implement instrument creation in coordination with the editing framework.
-3. Evaluate the DSP backend and establish the event-driven block-rendering API.
+3. Evaluate the DSP backend and build the block-rendering API around the existing
+   recsam events, preserving trigger identity, pitch separation, and control precision.
 4. Implement deterministic offline MIDI rendering for the base format, producing
    a new session record and generated audio.
 5. Add retained features incrementally, with focused behavior and audio

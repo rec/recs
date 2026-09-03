@@ -24,8 +24,8 @@ def unique(values: Iterable[Hashable], label: str) -> None:
 
 Identifier = Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]+$')]
 Text = Annotated[str, Field(min_length=1)]
-MidiValue = Annotated[int, Field(strict=True, ge=0, le=127)]
-Velocity = Annotated[int, Field(strict=True, ge=1, le=127)]
+Key = Annotated[int, Field(strict=True)]
+Bipolar = Annotated[float, Field(strict=True, ge=-1, le=1)]
 Frame = Annotated[int, Field(strict=True, ge=0)]
 Number = Annotated[float, Field(strict=True)]
 Seconds = Annotated[float, Field(strict=True, ge=0)]

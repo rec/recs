@@ -6,7 +6,7 @@ from pydantic import Field, StrictInt, model_validator
 from typing_extensions import Self
 
 from . import enums
-from .base import Identifier, MidiValue, Model, Number, Seconds
+from .base import Identifier, Model, Number, Seconds
 
 
 class Point(Model):
@@ -26,10 +26,10 @@ class Modulation(Model):
         if self.operation != target_operation(self.target):
             raise ValueError(f'{self.target} requires {target_operation(self.target)}')
         if self.target.startswith(('envelope.', 'envelopes.')) and self.input not in (
-            enums.Input.note,
+            enums.Input.key,
             enums.Input.velocity,
         ):
-            raise ValueError('Envelope duration targets require note or velocity input')
+            raise ValueError('Envelope duration targets require key or velocity input')
         previous: float | None = None
         for point in self.points:
             validate_input_value(self.input, point.input)
@@ -41,26 +41,18 @@ class Modulation(Model):
         return self
 
 
-class NoteModulation(Modulation):
-    input: Literal[enums.Input.note, enums.Input.velocity]
+class KeyModulation(Modulation):
+    input: Literal[enums.Input.key, enums.Input.velocity]
 
 
-class ControllerModulation(Modulation):
-    input: Literal[enums.Input.controller]
-    controller: MidiValue
-    scope: Literal[enums.Scope.channel, enums.Scope.instrument] = enums.Scope.channel
-    smoothing_seconds: Seconds = 0.005
+class ControlModulation(Modulation):
+    input: Literal[enums.Input.control]
+    control: Identifier
 
+    scope: Literal[
+        enums.Scope.part, enums.Scope.instrument, enums.Scope.trigger
+    ] = enums.Scope.part
 
-class ChannelPressureModulation(Modulation):
-    input: Literal[enums.Input.channel_pressure]
-    scope: Literal[enums.Scope.channel, enums.Scope.instrument] = enums.Scope.channel
-    smoothing_seconds: Seconds = 0.005
-
-
-class NotePressureModulation(Modulation):
-    input: Literal[enums.Input.note_pressure]
-    scope: Literal[enums.Scope.note] = enums.Scope.note
     smoothing_seconds: Seconds = 0.005
 
 
@@ -72,16 +64,14 @@ class GeneratedModulation(Modulation):
 class Crossfade(Model):
     input: enums.Input
     direction: enums.FadeDirection
-    start: MidiValue
-    end: MidiValue
+    start: StrictInt | Number
+    end: StrictInt | Number
     curve: enums.FadeCurve = enums.FadeCurve.linear
 
     @model_validator(mode='after')
     def valid_interval(self) -> Self:
         if self.input in (enums.Input.envelope, enums.Input.lfo):
-            raise ValueError(
-                'Crossfades require note, velocity, controller, or pressure input'
-            )
+            raise ValueError('Crossfades require key, velocity, or control input')
         validate_input_value(self.input, self.start)
         validate_input_value(self.input, self.end)
         if self.start >= self.end:
@@ -89,26 +79,18 @@ class Crossfade(Model):
         return self
 
 
-class NoteCrossfade(Crossfade):
-    input: Literal[enums.Input.note, enums.Input.velocity]
+class KeyCrossfade(Crossfade):
+    input: Literal[enums.Input.key, enums.Input.velocity]
 
 
-class ControllerCrossfade(Crossfade):
-    input: Literal[enums.Input.controller]
-    controller: MidiValue
-    scope: Literal[enums.Scope.channel, enums.Scope.instrument] = enums.Scope.channel
-    smoothing_seconds: Seconds = 0.005
+class ControlCrossfade(Crossfade):
+    input: Literal[enums.Input.control]
+    control: Identifier
 
+    scope: Literal[
+        enums.Scope.part, enums.Scope.instrument, enums.Scope.trigger
+    ] = enums.Scope.part
 
-class ChannelPressureCrossfade(Crossfade):
-    input: Literal[enums.Input.channel_pressure]
-    scope: Literal[enums.Scope.channel, enums.Scope.instrument] = enums.Scope.channel
-    smoothing_seconds: Seconds = 0.005
-
-
-class NotePressureCrossfade(Crossfade):
-    input: Literal[enums.Input.note_pressure]
-    scope: Literal[enums.Scope.note] = enums.Scope.note
     smoothing_seconds: Seconds = 0.005
 
 
@@ -131,30 +113,22 @@ def target_operation(target: str) -> enums.Operation:
 
 
 def validate_input_value(source: enums.Input, value: int | float) -> None:
-    if source in (enums.Input.envelope, enums.Input.lfo):
-        low, high = (-1, 1) if source == enums.Input.lfo else (0, 1)
-    else:
+    if source == enums.Input.key:
         if not isinstance(value, int) or isinstance(value, bool):
-            raise ValueError('MIDI input points must be integers')
-        low, high = (1, 127) if source == enums.Input.velocity else (0, 127)
+            raise ValueError('Key input points must be integers')
+        return
+    low, high = (-1, 1) if source in (enums.Input.lfo, enums.Input.control) else (0, 1)
     if not low <= value <= high:
         raise ValueError(f'{source} input must be in [{low}, {high}]')
 
 
 ModulationCurve = Annotated[
-    NoteModulation
-    | ControllerModulation
-    | ChannelPressureModulation
-    | NotePressureModulation
-    | GeneratedModulation,
+    KeyModulation | ControlModulation | GeneratedModulation,
     Field(discriminator='input'),
 ]
 
 LayerCrossfade = Annotated[
-    NoteCrossfade
-    | ControllerCrossfade
-    | ChannelPressureCrossfade
-    | NotePressureCrossfade,
+    KeyCrossfade | ControlCrossfade,
     Field(discriminator='input'),
 ]
 

@@ -4,7 +4,7 @@ from pydantic import Field, StrictBool, model_validator
 from typing_extensions import Self
 
 from . import enums
-from .base import Identifier, MidiValue, Model, Positive, Velocity, unique
+from .base import Bipolar, Identifier, Key, Model, Positive, UnitInterval, unique
 
 
 class Selection(Model):
@@ -28,22 +28,21 @@ class Choke(Model):
 
 
 class Sustain(Model):
-    enabled: StrictBool = True
-    controller: MidiValue = 64
-    threshold: Velocity = 64
+    control: Identifier
+    threshold: UnitInterval = Field(default=0.5, gt=0)
 
 
 class KeySwitch(Model):
-    note: MidiValue
+    key: Key
     articulation: Identifier
     behavior: enums.KeyBehavior = enums.KeyBehavior.latched
     consume: StrictBool = True
 
 
-class ControllerSwitch(Model):
-    controller: MidiValue
-    minimum_value: MidiValue
-    maximum_value: MidiValue
+class ControlSwitch(Model):
+    control: Identifier
+    minimum_value: Bipolar
+    maximum_value: Bipolar
     articulation: Identifier
 
     @model_validator(mode='after')
@@ -57,31 +56,28 @@ class Articulations(Model):
     ids: list[Identifier] = Field(min_length=1)
     default: Identifier
     keys: list[KeySwitch] = Field(default_factory=list)
-    controllers: list[ControllerSwitch] = Field(default_factory=list)
+    controls: list[ControlSwitch] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def valid_switches(self) -> Self:
         unique(self.ids, 'articulation ID')
-        unique((k.note for k in self.keys), 'keyswitch note')
+        unique((k.key for k in self.keys), 'keyswitch key')
         references = [
             self.default,
             *(k.articulation for k in self.keys),
-            *(c.articulation for c in self.controllers),
+            *(c.articulation for c in self.controls),
         ]
         if missing := set(references).difference(self.ids):
             raise ValueError(f'Unknown articulations: {sorted(missing)}')
-        previous: ControllerSwitch | None = None
-        for switch in sorted(
-            self.controllers, key=lambda c: (c.controller, c.minimum_value)
-        ):
+        previous: ControlSwitch | None = None
+        for switch in sorted(self.controls, key=lambda c: (c.control, c.minimum_value)):
             if (
                 previous is not None
-                and switch.controller == previous.controller
+                and switch.control == previous.control
                 and switch.minimum_value <= previous.maximum_value
             ):
                 raise ValueError(
-                    'Overlapping articulation ranges for controller '
-                    f'{switch.controller}'
+                    f'Overlapping articulation ranges for control {switch.control}'
                 )
             previous = switch
         return self

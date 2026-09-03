@@ -7,7 +7,7 @@ instrument:
     release_seconds: 0.1
     sustain_level: 1.0
   modulation:
-  - input: note
+  - input: key
     interpolation: linear
     operation: add
     points:
@@ -16,16 +16,16 @@ instrument:
     - amount: -1.0
       input: 60
     - amount: -6.0
-      input: 127
+      input: 120
     target: volume_db
-  - input: note
+  - input: key
     interpolation: linear
     operation: add
     points:
     - amount: 0.0
       input: 0
     - amount: -3.0
-      input: 127
+      input: 120
     target: equalizer.body.gain_db
   name: Glass keys
   playback:
@@ -46,14 +46,14 @@ instrument:
 slots:
 - id: glass-soft
   mapping:
-    highest_note: 84
-    lowest_note: 48
-    maximum_velocity: 79
-    minimum_velocity: 1
+    highest_key: 84
+    lowest_key: 48
+    maximum_velocity: 0.625
+    minimum_velocity: 0.0
     pitch_tracking: true
-    root_note: 60
+    reference_pitch_hz: 261.6255653005986
   modulation:
-  - input: note
+  - input: key
     interpolation: linear
     operation: add
     points:
@@ -62,7 +62,7 @@ slots:
     - amount: -2.0
       input: 84
     target: volume_db
-  - input: note
+  - input: key
     interpolation: linear
     operation: multiply
     points:
@@ -89,12 +89,12 @@ slots:
   - clean attack
 - id: glass-hard
   mapping:
-    highest_note: 84
-    lowest_note: 48
-    maximum_velocity: 127
-    minimum_velocity: 80
+    highest_key: 84
+    lowest_key: 48
+    maximum_velocity: 1.0
+    minimum_velocity: 0.625
     pitch_tracking: true
-    root_note: 60
+    reference_pitch_hz: 261.6255653005986
   name: Hard strike, mirrored
   playback:
     direction: mirror

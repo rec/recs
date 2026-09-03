@@ -6,7 +6,7 @@ from typing_extensions import Self
 from . import enums
 from .base import Identifier, Model, Number, Positive, unique
 from .modulation import GeneratedModulation, ModulationCurve
-from .playback import LFO, Envelope, ModulationEnvelope, PitchBend
+from .playback import LFO, Envelope, ModulationEnvelope
 
 
 class EqualizerBand(Model):
@@ -34,7 +34,6 @@ class SoundSettings(Model):
 
     processing: Processing = Processing()
     envelope: Envelope = Envelope()
-    pitch_bend: PitchBend = PitchBend()
     modulation: list[ModulationCurve] = Field(default_factory=list)
     envelopes: list[ModulationEnvelope] = Field(default_factory=list)
     lfos: list[LFO] = Field(default_factory=list)
@@ -51,7 +50,7 @@ class SoundSettings(Model):
                     c.target,
                     c.input,
                     getattr(c, 'scope', None),
-                    getattr(c, 'controller', None),
+                    getattr(c, 'control', None),
                     getattr(c, 'source', None),
                 )
                 for c in self.modulation

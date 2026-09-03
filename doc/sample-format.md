@@ -4,7 +4,7 @@
 
 Recsam is a proposed format, not an implemented playback feature or an existing
 industry standard. It describes one playable instrument: the sample files,
-which notes and velocities select them, and how each selected sample plays.
+which keys and velocities select them, and how each selected sample plays.
 
 A UTF-8 TOML file named `sample-instrument.toml` holds the definition. Audio
 stays in separate referenced files. One instrument can contain any number of
@@ -27,8 +27,11 @@ SFZ opcode names or syntax.
 | Term | Meaning |
 | --- | --- |
 | Instrument | One playable definition containing sample slots and shared settings |
-| Slot | A sample reference, note/velocity mapping, and local playback settings |
+| Slot | A sample reference, key/velocity mapping, and local playback settings |
 | Voice | One active playback instance of a slot, created by a trigger |
+| Trigger | One performance onset with an explicit identity, selection key, and optional pitch |
+| Part | A logical performance group, independent of transport channels |
+| Control | A declared, named expression value in a normalized numeric domain |
 | Frame | One simultaneous sample value per channel in an audio file |
 | Mapping | Conditions under which a trigger selects a slot |
 | Modulation | A numeric adjustment driven by trigger values, live controls, envelopes, or LFOs |
@@ -36,13 +39,13 @@ SFZ opcode names or syntax.
 
 Overlapping mappings layer unless their slots explicitly belong to an alternate
 selection set. TOML order does not establish priority, and the last matching
-slot does not win. A repeated note-on creates new voices; it does not implicitly
+slot does not win. A new Trigger creates new voices; it does not implicitly
 replace existing ones.
 
 ## Complete Example
 
 This instrument has a quiet and a loud velocity layer. Its overall volume
-decreases toward the top of the keyboard. One slot additionally reduces its own high-note
+decreases toward the top of the keyboard. One slot additionally reduces its own high-key
 volume and raises the frequency of its local EQ band. The other uses `mirror`.
 
 ```toml
@@ -75,23 +78,23 @@ resonance = 0.8
 
 [[instrument.modulation]]
 target = "volume_db"
-input = "note"
+input = "key"
 operation = "add"
 interpolation = "linear"
 points = [
   { input = 0, amount = 0.0 },
   { input = 60, amount = -1.0 },
-  { input = 127, amount = -6.0 },
+  { input = 120, amount = -6.0 },
 ]
 
 [[instrument.modulation]]
 target = "equalizer.body.gain_db"
-input = "note"
+input = "key"
 operation = "add"
 interpolation = "linear"
 points = [
   { input = 0, amount = 0.0 },
-  { input = 127, amount = -3.0 },
+  { input = 120, amount = -3.0 },
 ]
 
 [[slots]]
@@ -101,11 +104,11 @@ sample = "audio/glass-soft.wav"
 tags = ["soft", "clean attack"]
 
 [slots.mapping]
-lowest_note = 48
-highest_note = 84
-root_note = 60
-minimum_velocity = 1
-maximum_velocity = 79
+lowest_key = 48
+highest_key = 84
+reference_pitch_hz = 261.6255653005986
+minimum_velocity = 0.0
+maximum_velocity = 0.625
 pitch_tracking = true
 
 [slots.playback]
@@ -124,7 +127,7 @@ resonance = 2.0
 
 [[slots.modulation]]
 target = "volume_db"
-input = "note"
+input = "key"
 operation = "add"
 interpolation = "linear"
 points = [
@@ -134,7 +137,7 @@ points = [
 
 [[slots.modulation]]
 target = "equalizer.ring.frequency_hz"
-input = "note"
+input = "key"
 operation = "multiply"
 interpolation = "linear"
 points = [
@@ -149,11 +152,11 @@ sample = "audio/glass-hard.wav"
 tags = ["hard", "bright"]
 
 [slots.mapping]
-lowest_note = 48
-highest_note = 84
-root_note = 60
-minimum_velocity = 80
-maximum_velocity = 127
+lowest_key = 48
+highest_key = 84
+reference_pitch_hz = 261.6255653005986
+minimum_velocity = 0.625
+maximum_velocity = 1.0
 pitch_tracking = true
 
 [slots.playback]
@@ -163,12 +166,63 @@ direction = "mirror"
 volume_db = -5.0
 ```
 
+## Performance Events And Input Bindings
+
+A player consumes protocol-neutral events, not MIDI messages. Hosts translate
+MIDI 1.0, MIDI 2.0, MPE, OSC, UI gestures, or sequencer actions into this common
+representation. These are adapter responsibilities, not alternative instrument
+schemas. Adapter configuration belongs to the host; no second instrument file
+or embedded transport binding table is required.
+
+Every event has a non-negative integer `frame` on the host's output-frame
+timeline. Hosts convert external timestamps once and preserve supplied order
+among events at the same frame. A logical `part` is an identifier, not a
+restricted channel number.
+
+| Event kind | Fields beyond `frame` |
+| --- | --- |
+| `trigger` | Required `part`, `trigger_id`, integer `key`; `velocity` defaults to 1.0; optional positive `pitch_hz`; optional `controls` mapping |
+| `release` | Required `part` and `trigger_id` |
+| `control_change` | Required `control`, `value`, and `scope`; target fields depend on scope |
+
+`(part, trigger_id)` identifies one trigger instance. Several simultaneous
+triggers can use the same key, with independent release and expression.
+IDs must be unique while held or still owning live voices; a player rejects
+reuse during that lifetime. A Release addresses that identity, never a FIFO
+queue inferred from key numbers. It carries no new velocity: release samples
+use the original trigger's velocity.
+
+A Trigger's `controls` initializes only its trigger-scoped controls, using
+declared defaults for omitted names. Velocity and controls retain floating-point
+precision. Zero velocity is a valid Trigger, never an implicit Release.
+The selection key does not determine pitch: the host supplies `pitch_hz`
+when selecting pitch-tracked slots. Untracked triggers need no pitch.
+
+A ControlChange's scope determines its target:
+
+- `instrument`: no part or trigger ID.
+- `part`: a part, but no trigger ID.
+- `trigger`: both a part and a trigger ID.
+
+Unknown control names or out-of-domain values are errors, including initial
+Trigger controls. Polarity and defaults come from instrument declarations.
+The player owns lifecycle state; declarations alone cannot determine whether
+a trigger ID exists or whether a selected sample requires a target pitch.
+
+MIDI-specific note-on-zero handling, channel/controller numbers, pitch-wheel
+decoding, repeated-note matching, and MPE channel assignment belong in MIDI
+adapters. OSC address/argument mappings belong in an OSC adapter. For example,
+a host can map MIDI expression or an OSC path to the same named control;
+neither transport's encoding becomes part of recsam's numeric domain.
+Adapters must not reduce high-resolution inputs to seven-bit values.
+No MIDI or OSC adapter, playback engine, or tuning system is implemented here.
+
 ## Structure And Defaults
 
 The root contains exactly `format_version`, `instrument`, and `slots`. Version 1
 requires `format_version = 1`, a nonempty `instrument.name`, and at least one slot.
 Every slot requires a unique `id`, `sample`, and a `mapping` table containing
-`lowest_note`, `highest_note`, and `root_note`.
+`lowest_key` and `highest_key`. Tracked slots also require `reference_pitch_hz`.
 
 IDs use ASCII letters, digits, hyphens, and underscores. Names, descriptions,
 and tags are Unicode text. An omitted slot `name` displays its ID. Descriptions
@@ -177,7 +231,7 @@ are optional on the instrument and on individual slots.
 | Setting | Default |
 | --- | --- |
 | `tags` | `[]` at either scope |
-| `mapping.minimum_velocity` / `maximum_velocity` | `1` / `127` |
+| `mapping.minimum_velocity` / `maximum_velocity` | `0.0` / `1.0` |
 | `mapping.pitch_tracking` | `true` |
 | Instrument `playback.direction` | `"forward"` |
 | Instrument `playback.mode` | `"while_held"` |
@@ -187,11 +241,10 @@ are optional on the instrument and on individual slots.
 | Instrument `selections` / slot `selection` | `[]` / absent: ordinary layering |
 | Slot `choke_group` / `chokes` | Absent / `[]`: no choking |
 | Slot `crossfades` | `[]`: unity layer weight |
-| Slot `trigger` | `"note_on"` |
-| Instrument `sustain.enabled` / `controller` / `threshold` | `true` / `64` / `64` |
+| Slot `trigger` | `"start"` |
+| Instrument `sustain` | Absent: no sustain control |
 | Instrument `articulations` / slot `articulations` | Absent / `[]`: no restriction |
-| Instrument `controller_defaults` | `{}`: unspecified controllers start at zero |
-| Instrument `pitch_bend.range_semitones` / `smoothing_seconds` | `2.0` / `0.005` |
+| Instrument `controls` | `{}`: no declared controls |
 | `processing.volume_db` / `tuning_cents` | `0.0` independently at each scope |
 | `processing.pan` / `stereo_balance` | `0.0` independently at each scope |
 | `processing.equalizer` | `[]` independently at each scope |
@@ -202,8 +255,8 @@ are optional on the instrument and on individual slots.
 | Instrument `envelope.sustain_level` / `release_seconds` | `1.0` / `0.0` |
 | Instrument `envelope.attack_shape` / `decay_shape` / `release_shape` | `"linear"` each |
 
-Only playback direction, playback mode, amplitude-envelope fields, and
-pitch-bend fields inherit from the instrument. An absent slot override uses the
+Only playback direction, playback mode, and amplitude-envelope fields
+inherit from the instrument. An absent slot override uses the
 effective instrument value. The instrument cannot set trim boundaries because those refer
 to particular files. Named envelopes and LFOs are independent declarations,
 not inherited lists.
@@ -235,30 +288,41 @@ Files with different native sample rates can share an instrument. Sampler playba
 converts them to the output rate; that conversion does not alter the stored
 trim positions. Timing never depends on filenames or filesystem timestamps.
 
-## Note And Velocity Mapping
+## Key And Velocity Mapping
 
-Notes are integer MIDI note numbers from `0` through `127`; no ambiguous octave
-names are stored. `lowest_note` and `highest_note` are inclusive and must be in
-order. `root_note` is the note at which the sample has its original pitch before
-tuning. It may lie outside the trigger range.
+Keys are integer selection coordinates, with no MIDI-specific limits. Negative
+keys and keys above 127 are valid. `lowest_key` and `highest_key` are inclusive
+and ordered. A key identifies the region to play; it is not an encoded pitch
+or a prescribed keyboard octave. Bindings may map pads, keyboard keys, OSC
+messages, or algorithmic selectors onto these coordinates.
 
-Velocity bounds are inclusive integers from `1` through `127`, also in order.
-A note-on with velocity zero is a note-off, not a note-on sample trigger. A slot
-matches only when its trigger kind and both mapping ranges match the event's
-note and velocity context, as defined under Release And Pedal Samples.
+Velocity is a finite floating-point value in `[0, 1]`. Mapping bounds are
+inclusive, default to zero and one, and must be ordered. Zero velocity is a
+valid trigger, never a release command, and does not implicitly silence it.
+Adjacent inclusive layers may both match their shared endpoint. The complete
+example deliberately layers both samples at velocity 0.625; crossfades can
+provide a smooth overlapping transition instead.
 
-With `pitch_tracking = true`, playback speed is multiplied by
-`2 ** ((note - root_note) / 12)`. With it set to `false`, the mapped note does
-not change playback speed. This is useful for percussion mapped across several
-keys. Instrument and slot tuning still apply in either case.
+`pitch_tracking` defaults to true. A tracked slot requires positive finite
+`mapping.reference_pitch_hz`, the sample's reference pitch, and a matching
+performance trigger must supply positive finite `pitch_hz`. The base playback
+ratio is `pitch_hz / reference_pitch_hz`. A missing target pitch is an error,
+not permission to infer a twelve-tone pitch from the selection key.
 
-There is no hidden velocity-to-volume curve. Velocity chooses layers and can
-modulate volume explicitly. An instrument that needs quiet low-velocity notes adds a
-`volume_db` modulation with `input = "velocity"`.
+With `pitch_tracking = false`, the base ratio is one and target pitch is ignored.
+Instrument and slot tuning still apply. A reference pitch may remain as metadata
+on an untracked sample. A host or tuning resolver supplies target frequencies;
+scale definitions and microtonal mapping remain in the separate tuning spec.
 
-Voices triggered by one note-on share an output-time origin. Selected overlapping
-slots are summed without automatic normalization. Version 1 specifies no
-implicit voice stealing; alternate selection is explicit as described below.
+`mapping.event_key` is required only on sustain-transition slots. It supplies
+their selection coordinate because a control change has no key. Such slots
+must be untracked and their key range must contain `event_key`. Other slots
+must omit it. No fabricated pitch is attached to a sustain transition.
+
+There is no hidden velocity-to-volume curve. Velocity selects layers and may
+explicitly modulate volume. Selected overlapping slots sum without automatic
+normalization. All voices from one trigger share an output-frame origin.
+Version 1 specifies no implicit voice stealing.
 
 ## Alternate Sample Selection
 
@@ -275,18 +339,18 @@ id = "snare-a"
 sample = "audio/snare-a.wav"
 selection = "snare-takes"
 [slots.mapping]
-lowest_note = 38
-highest_note = 38
-root_note = 38
+lowest_key = 38
+highest_key = 38
+pitch_tracking = false
 
 [[slots]]
 id = "snare-b"
 sample = "audio/snare-b.wav"
 selection = "snare-takes"
 [slots.mapping]
-lowest_note = 38
-highest_note = 38
-root_note = 38
+lowest_key = 38
+highest_key = 38
+pitch_tracking = false
 ```
 
 Set IDs are unique. Each requires `mode = "cycle"`, `"random"`, or `"shuffle"`;
@@ -308,13 +372,13 @@ not a mapping exclusion.
   whose first slot differs from the previous choice. A single candidate always
   plays.
 
-State is independent per set, MIDI channel, trigger kind, trigger note, and
+State is independent per set, part, trigger kind, trigger key, and
 ordered tuple of eligible slot IDs. Velocity layers therefore have independent
 sequences when their eligible IDs differ; changing velocity without changing
 that tuple advances the same sequence. State advances once per selected set
 per triggering event, not per audio block or active voice. Returning to a
 previous eligible tuple resumes its state. Loading or explicitly resetting an
-instrument clears all sequence state; ordinary note-offs do not reset it.
+instrument clears all sequence state; ordinary release events do not reset it.
 
 Cycle is fully deterministic. Random and shuffle define selection probabilities
 but not cross-player seeded reproducibility; the separate reproducible-variation
@@ -336,9 +400,9 @@ id = "open-hat"
 sample = "audio/open-hat.wav"
 choke_group = "hats"
 [slots.mapping]
-lowest_note = 46
-highest_note = 46
-root_note = 46
+lowest_key = 46
+highest_key = 46
+pitch_tracking = false
 [slots.playback]
 mode = "one_shot"
 
@@ -347,9 +411,9 @@ id = "closed-hat"
 sample = "audio/closed-hat.wav"
 choke_group = "hats"
 [slots.mapping]
-lowest_note = 42
-highest_note = 42
-root_note = 42
+lowest_key = 42
+highest_key = 42
+pitch_tracking = false
 [slots.playback]
 mode = "one_shot"
 [[slots.chokes]]
@@ -372,7 +436,7 @@ choked; it follows the loop's release policy. Fades and immediate stops create
 no sample tail beyond the voice's existing material.
 
 After all slots for one event have been selected, take a snapshot of existing
-voices on that event's MIDI channel. Apply selected slots' choke rules to that
+voices on that event's part. Apply selected slots' choke rules to that
 snapshot, then create all new voices. Voices created by the same event never
 choke one another. Later events at the same frame are processed in event-stream
 order and can choke voices from earlier events.
@@ -385,9 +449,9 @@ Reject duplicate targets within one slot. If several selected slots target the
 same voice, combine their termination gains by taking their minimum rather
 than restarting or multiplying fades. An already-releasing envelope continues
 from its current state; another choke never extends a voice's lifetime.
-Choking is not a synthetic MIDI note-off and must not trigger release samples.
+Choking is not a synthetic Release event and must not trigger release samples.
 
-Conformance cases cover self-choking, layered event atomicity, channel isolation,
+Conformance cases cover self-choking, layered event atomicity, part isolation,
 unselected alternatives, already-releasing voices, and simultaneous rules.
 
 ## Layer Crossfades
@@ -402,8 +466,8 @@ in the respective existing slots:
 [[slots.crossfades]]
 input = "velocity"
 direction = "out"
-start = 60
-end = 90
+start = 0.4
+end = 0.7
 curve = "equal_power"
 ```
 
@@ -412,35 +476,36 @@ curve = "equal_power"
 [[slots.crossfades]]
 input = "velocity"
 direction = "in"
-start = 60
-end = 90
+start = 0.4
+end = 0.7
 curve = "equal_power"
 ```
 
-Each entry requires `input` (note/velocity or a live input defined below),
-`direction` (`"in"` or `"out"`), and integer `start < end` in that input's valid
-range. `curve` is `"linear"` (default) or `"equal_power"`. A slot may have one entry per
-`(input, scope, controller, direction)`, allowing a fade-in and fade-out on each
-axis. Static note/velocity inputs have no scope or controller field.
+Each entry requires `input` (key/velocity or a live input defined below),
+`direction` (`"in"` or `"out"`), and `start < end` in that input's valid
+range. Key coordinates are integers; velocity and control coordinates are floats.
+`curve` is `"linear"` (default) or `"equal_power"`. A slot may have one entry per
+`(input, scope, control, direction)`, allowing a fade-in and fade-out on each
+axis. Static key/velocity inputs have no scope or control field.
 
 Clamp `t = (input_value - start) / (end - start)` to `[0, 1]`. Linear weights
 are `t` for fade-in and `1 - t` for fade-out. Equal-power weights are
 `sin(pi * t / 2)` and `cos(pi * t / 2)` respectively, with exact zero and one
 at the endpoints. The opposing slots must use the same interval and curve to
 be complementary. Their mapping ranges must both include the entire fade
-interval for note/velocity inputs; a reader rejects a slot whose mapping cuts
+interval for key/velocity inputs; a reader rejects a slot whose mapping cuts
 off its nonzero transition. Live inputs do not widen or constrain key/velocity
 mappings.
 
-This example needs overlapping velocity mappings, unlike the disjoint layers
-in the complete instrument example. Crossfades neither widen mapping ranges nor
+This example needs velocity mappings that overlap across the entire transition,
+not just the shared endpoint in the complete instrument example. Crossfades neither widen mapping ranges nor
 cause nonmatching slots to play. Matched slots with zero weight still create
 voices and take part in selection and choking; silence is not a trigger filter.
 
 Multiply all weights within a slot, then apply the result as a separate layer
 gain alongside its envelope and volume before its EQ. Exact zero is silence,
 not a fabricated finite dB value. Existing instrument and slot volume curves still
-apply; neither replaces the crossfade. Note/velocity weights are captured at
+apply; neither replaces the crossfade. Key/velocity weights are captured at
 trigger time; live-input weights follow the smoothing rules below.
 
 Pairing is explicit through matching parameters, not inferred from neighboring
@@ -456,30 +521,32 @@ unless separate selected layers have crossfade settings.
 
 ## Named Articulations
 
-Declare articulation IDs, an initial selection, and explicit switch bindings.
-Slots list the articulations in which they are eligible:
+Declare articulation IDs, a default, and optional key/control bindings:
 
 ```toml
+[instrument.controls.style]
+default = 0.0
+
 [instrument.articulations]
 ids = ["sustain", "plucked"]
 default = "sustain"
 
 [[instrument.articulations.keys]]
-note = 24
+key = 24
 articulation = "sustain"
 behavior = "latched"
 consume = true
 
 [[instrument.articulations.keys]]
-note = 25
+key = 25
 articulation = "plucked"
 behavior = "momentary"
 consume = true
 
-[[instrument.articulations.controllers]]
-controller = 1
-minimum_value = 64
-maximum_value = 127
+[[instrument.articulations.controls]]
+control = "style"
+minimum_value = 0.5
+maximum_value = 1.0
 articulation = "plucked"
 
 [[slots]]
@@ -487,54 +554,46 @@ id = "pluck-middle"
 sample = "audio/pluck.wav"
 articulations = ["plucked"]
 [slots.mapping]
-lowest_note = 48
-highest_note = 84
-root_note = 60
+lowest_key = 48
+highest_key = 84
+reference_pitch_hz = 261.6255653005986
 ```
 
-When present, the instrument table requires a nonempty, duplicate-free `ids` list
-and a `default` naming one of them. IDs follow the usual ID syntax. Key and
-controller binding lists default to empty. Slot articulation lists are
-duplicate-free, must reference declared IDs, and default to `[]`, meaning
-eligible in any articulation, not eligible in none. Tags remain descriptive.
+The articulation table requires a nonempty, duplicate-free `ids` list and a
+`default` naming one of them. Key and control binding arrays default to empty.
+Slot articulation lists are duplicate-free references; an empty list means
+eligible in every articulation. Tags remain descriptive.
 
-Selection is independent per MIDI channel. A key binding requires a unique
-note in `[0, 127]` and an articulation. `behavior` is `"latched"` (default) or
-`"momentary"`; `consume` defaults to true. Latched note-on updates the persistent
-selection. Momentary note-on temporarily overrides it until the matching key-up.
-With several momentary switches held, the most recently pressed still-held
-switch wins. Latched updates continue underneath that override; releasing the
-last momentary switch exposes the latest persistent selection.
+Selection is independent per part. Key bindings have unique unrestricted
+integer `key` values. `behavior` is `latched` (default) or `momentary`;
+`consume` defaults to true. A latched trigger changes the persistent selection.
+A momentary trigger overrides it until Release for that exact trigger ID.
+The most recently started still-held momentary switch wins; latched changes
+continue underneath it. Releasing the last momentary switch exposes the
+latest persistent selection. Repeated keys do not require FIFO matching.
 
-Repeated switch-note presses have FIFO key-up ownership, as ordinary notes do.
-Switches are physical controls: sustain does not defer their key-ups. Consumed
-key events update articulation state but create no musical note instances or
-sample triggers. With `consume = false`, process the switch first, then process
-the same event as an ordinary musical event. Its eventual musical release uses
-its captured note-instance context.
+Switch releases are immediate, not deferred by sustain. A consumed switch
+retains its trigger-ID ownership but creates no sample voices or release
+samples. With `consume = false`, update articulation before selecting samples
+for the same trigger; those voices retain their captured articulation.
 
-A controller binding requires its controller number and inclusive integer
-`minimum_value <= maximum_value`, all in `[0, 127]`, plus an articulation.
-Ranges on the same controller must not overlap. A matching event updates the
-persistent selection; an unmatched value leaves it unchanged. Controller
-bindings are latched only and do not consume controller messages. A controller
-may also affect sustain or modulation; articulation updates occur first.
+A control binding names a declared control and an inclusive, ordered
+`minimum_value`/`maximum_value` interval within its polarity's domain.
+Intervals for the same control cannot overlap. Only part-scoped ControlChange
+events drive these bindings. A match changes persistent selection; an
+unmatched value leaves it unchanged. Bindings are latched and do not consume
+the event: it may also affect sustain and modulation.
 
-Articulation filtering precedes alternate selection. A change affects future
-note-on and pedal triggers only, never cancels or remaps an existing voice.
-Each musical note instance captures its articulation at note-on; both physical
-key-release samples and deferred note-release samples use that captured value,
-even if the player switches while holding the note. Pedal samples use the
-current articulation at the pedal transition.
+Selection affects future start and sustain-transition triggers, never remaps
+existing voices. Release and logical-release samples use the original
+trigger's captured articulation. Sustain samples use the part's current one.
+Switching does not reset alternate-selection counters. Loading/resetting
+restores defaults and clears held switch IDs without generating samples.
+Control initialization does not execute bindings.
 
-Switching does not reset alternate-selection counters. An eligible set that
-becomes active again resumes its previous state. Instrument load/reset clears held
-switches and restores the declared default on every channel without generating
-musical events. Controller initialization alone does not fire switch bindings.
-
-Conformance cases cover default selection, consumed/playable switch notes,
-nested momentary switches, latched changes under a momentary switch, channel
-isolation, controller gaps, and original-articulation release tails.
+Conformance covers consumed/playable switches, exact-ID releases of repeated
+keys, nested momentary switches, latched changes underneath them, independent
+parts, control gaps, and captured articulation for release samples.
 
 ## Playback Direction
 
@@ -620,103 +679,101 @@ crossfade duration and head consumption, release before entry, release during
 an overlap, and both release modes. The no-loop direction examples remain
 unchanged.
 
-## Release And Pedal Samples
+## Release And Sustain Samples
 
-Each slot's `trigger` is one of `"note_on"` (default), `"key_release"`,
-`"note_release"`, `"pedal_press"`, or `"pedal_release"`. Key release means
-physical key-up; note release means the logical release after sustain-pedal
-deferral. An instrument may use both deliberately; neither is an alias for the other.
+Each slot's `trigger` is `start` (default), `release`, `logical_release`,
+`sustain_press`, or `sustain_release`. Release means the explicit input event;
+logical release means the eventual release after sustain deferral.
 
 ```toml
+[instrument.controls.sustain]
+default = 0.0
+
 [instrument.sustain]
-enabled = true
-controller = 64
-threshold = 64
+control = "sustain"
+threshold = 0.5
 
 [[slots]]
 id = "key-tail"
 sample = "audio/key-tail.wav"
-trigger = "note_release"
+trigger = "logical_release"
 [slots.mapping]
-lowest_note = 48
-highest_note = 84
-root_note = 60
+lowest_key = 48
+highest_key = 84
+reference_pitch_hz = 261.6255653005986
 [slots.playback]
 mode = "one_shot"
 
 [[slots]]
-id = "pedal-up"
-sample = "audio/pedal-up.wav"
-trigger = "pedal_release"
+id = "sustain-up"
+sample = "audio/sustain-up.wav"
+trigger = "sustain_release"
 [slots.mapping]
-lowest_note = 60
-highest_note = 60
-root_note = 60
+lowest_key = 60
+highest_key = 60
+event_key = 60
 pitch_tracking = false
 [slots.playback]
 mode = "one_shot"
 ```
 
-`instrument.sustain` defaults to the values shown. `controller` is an integer in
-`[0, 127]`; `threshold` is in `[1, 127]`. Sustain is independent on each MIDI
-channel, initially using the configured controller default (zero if omitted).
-Values at or above the threshold mean pressed. Only transitions trigger pedal
-samples; repeated values on the same side do not. If `enabled = false`, note-offs are immediate
-and pedal-trigger slots are invalid rather than silently inert.
+Sustain is absent by default. When present it requires a declared unipolar
+`control` and a finite threshold in `(0, 1]`, default 0.5. State is per part,
+initially derived from the control's default. Only part-scoped changes to that
+control affect sustain. Values at or above threshold mean pressed; only
+threshold crossings generate sustain-transition samples. Sustain slots are
+invalid without a sustain declaration. No control name has hidden semantics.
 
-Every ordinary note-on creates a note instance owning its newly created voices
-and original note/velocity context. MIDI 1 note-offs match the oldest still-
-key-down instance on that channel and note. Keep this ownership even if its
-audio exhausts before key-up, so its eventual note-off cannot release a newer
-instance. Unmatched note-offs do nothing.
+A Trigger creates an instance identified by `(part, trigger_id)`, owning its
+voices, original key, velocity, target pitch, articulation, and trigger-scoped
+controls. The host must not reuse this identity while it is held or owns live
+voices, including release voices. Repeated keys have distinct IDs and may be
+released in any order. Retain ownership of held triggers even after their
+audio exhausts. Ignore unknown or already-released Release events.
 
-At matched key-up, generate `key_release` once if at least one owned note-on
-voice is still active and has not already been released or choked. If sustain
-is off, generate `note_release` under the same condition, then enter release
-for owned while-held voices. If sustain is on, defer that logical release
-until pedal-up. Recheck voice eligibility then: an instance whose original
-voices all exhausted or were choked produces no release sample. New pedal
-presses never resurrect or defer a release that already began.
+On the first matched Release, generate `release` once if at least one original
+start voice is active and neither released nor choked. If sustain is off,
+generate `logical_release` under the same condition and release owned
+while-held voices. Otherwise defer logical release until sustain goes off.
+Recheck original-voice eligibility then: exhausted/choked triggers generate
+no release samples. Sustain never resurrects a voice or interrupts a release
+already underway.
 
-Key/note-release slots use the original note-on note and velocity, not release
-velocity. They are selected once per note instance, not once per original
-layer, and cannot recursively generate further release samples. Chokes and
-voice retirement are not key-up events. Release and pedal slots must explicitly
-resolve to `one_shot` and cannot loop.
+Release samples use the original key, velocity, target pitch, and articulation,
+not values inferred from the release event. They share their owning trigger's
+live controls. Selection happens once per trigger instance, not once per layer.
+Release and sustain samples require one-shot playback without loops; they
+cannot recursively generate releases. Chokes are not input Release events.
 
-Pedal slots use their own `root_note` as a synthetic mapping/modulation note,
-and `max(1, controller_value)` as velocity. Thus pedal-up value zero remains a
-valid trigger context without being interpreted as another note-off. Their
-mapping must contain their root note. These slots retain independent velocity
-ranges, but create no held-note instance and require no physical key-down.
-Pedal alternatives within one selection set and trigger kind must share a root
-note, so selection and live-modulation initialization use one trigger context.
+Sustain samples use their own `event_key` and the current control value as
+velocity, including zero on release. They have no owning performance trigger:
+trigger-scoped routes use control defaults and cannot be addressed later.
+Within one selection set and sustain-trigger kind, alternatives must share
+`event_key` so they participate in the same selection decision.
 
-On pedal-up, update sustain state, release pending instances in note-on order,
-and generate pedal-release samples. Derive all slot selections before applying
-chokes: all voices generated by one incoming MIDI event belong to one atomic
-batch and cannot choke one another. Note-release triggers retain their original
-note context and use the selection-state keys defined above. Subsequent MIDI
-events at the same frame retain their input order. Loading/resetting an instrument
-clears held notes and restores initial pedal state without generating release
-or pedal samples.
+On sustain release, update state, process pending triggers in their start
+order, and generate sustain-release samples. All voices derived from one
+input event form an atomic batch; select them before applying chokes to
+previous voices. Later events at the same frame retain input order.
+Reset clears held/deferred IDs and restores control-derived sustain state
+without generating release or sustain samples.
 
-Conformance cases include held-pedal key-up, pedal-up with several held notes,
-one-shot exhaustion before release, repeated notes with FIFO ownership,
-unmatched note-offs, threshold repeats, and absence of recursive tails.
+Conformance covers out-of-order releases of repeated keys, zero-velocity
+starts and sustain releases, independent parts, sustain deferral, exhausted
+voices, ignored duplicate releases, and nonrecursive tails.
 
-## Note-Off And Envelope
+## Release And Envelope
 
 Playback `mode` is `"while_held"` or `"one_shot"`:
 
-- `while_held`: logical note release starts the matching voices' release stage;
-  enabled sustain can defer it after physical key-up.
-- `one_shot`: note-off does not shorten playback; the traversal runs to its end.
+- `while_held`: logical release starts the matching voices' release stage;
+  a declared sustain control can defer it after an explicit Release event.
+- `one_shot`: release event does not shorten playback; the traversal runs to its end.
 
 In either mode, a voice ends when its traversal is exhausted. Only an explicit
 sustain loop repeats material; exhaustion manufactures no additional tail.
-In one-shot mode, ordinary note-offs do not apply `release_seconds`; an explicit
-release choke may do so. Note-instance ownership follows the release rules
+In one-shot mode, ordinary release events do not apply `release_seconds`; an explicit
+release choke may do so. Trigger-instance ownership follows the release rules
 above.
 
 The amplitude envelope has delay, attack, hold, decay, sustain, and release
@@ -726,7 +783,7 @@ during `decay_seconds`, then holds that level until release. The sample
 traversal continues during delay; this is not a delayed sample start.
 
 When release starts, skip any remaining delay/attack/hold/decay and proceed
-from the current level to zero over `release_seconds`. Sustain-pedal deferral
+from the current level to zero over `release_seconds`. Sustain-control deferral
 and explicit release chokes apply as above. Times are finite non-negative
 seconds measured in output time, independent of pitch and direction.
 `sustain_level` is in `[0, 1]`.
@@ -751,11 +808,11 @@ before voice creation. There is one effective amplitude envelope per voice,
 not two multiplied amplitude envelopes. Its duration may outlast the available traversal;
 the voice still ends at exhaustion.
 
-### Note-Dependent Envelope Timing
+### Key-Dependent Envelope Timing
 
-Static note/velocity curves can multiply `envelope.delay_seconds`,
+Static key/velocity curves can multiply `envelope.delay_seconds`,
 `envelope.attack_seconds`, `envelope.hold_seconds`, `envelope.decay_seconds`,
-and `envelope.release_seconds`. For example, higher notes can decay faster:
+and `envelope.release_seconds`. For example, higher keys can decay faster:
 
 ```toml
 [instrument.envelope]
@@ -764,7 +821,7 @@ sustain_level = 0.4
 
 [[instrument.modulation]]
 target = "envelope.decay_seconds"
-input = "note"
+input = "key"
 operation = "multiply"
 points = [{ input = 48, amount = 2.0 }, { input = 84, amount = 0.5 }]
 ```
@@ -774,7 +831,7 @@ instrument and slot timing-curve amounts once. A slot override changes the base
 duration, not whether the instrument curve applies. Capture durations at voice
 creation, including release duration. Zero remains zero; ratios must be
 positive. Live or generated inputs cannot target envelope settings, so a
-moving controller cannot retroactively change a stage boundary.
+changing control cannot retroactively change a stage boundary.
 
 ## Modulation Envelopes And LFOs
 
@@ -821,9 +878,9 @@ points = [{ input = -1.0, amount = -15.0 }, { input = 1.0, amount = 15.0 }]
 Named envelopes reuse the amplitude envelope's fields, defaults, stage shapes,
 and frame timing, but do not inherit the instrument amplitude-envelope values.
 Their output lies in `[0, 1]`. Each voice owns a fresh instance, including
-voices triggered by release or pedal samples. They follow that voice's logical
-release or release choke, not a second independent note-off policy. One-shot
-voices ignore ordinary note-offs for all their envelopes.
+voices triggered by release or sustain samples. They follow that voice's logical
+release or release choke, not a second independent release event policy. One-shot
+voices ignore ordinary release events for all their envelopes.
 
 Finishing a modulation envelope leaves its output at zero; it does not end the
 voice. Conversely, a voice's end discards all its per-voice sources. An envelope
@@ -854,18 +911,18 @@ at a fabricated LFO value. The oscillator starts at its configured phase at
 `D`; there is no implicit fade-in.
 
 A voice LFO's frame zero is voice creation. Every retrigger, including a
-release/pedal voice, starts a fresh oscillator. An instrument LFO's frame zero is
+release/sustain voice, starts a fresh oscillator. An instrument LFO's frame zero is
 instrument activation or explicit reset on the host output timeline; it advances
-even with no voices and is shared across MIDI channels. A new voice joins its
+even with no voices and is shared across parts. A new voice joins its
 current phase and delay state, never resets it. A voice LFO runs through
 amplitude release until its voice ends; an instrument LFO runs until instrument deactivation
-or reset. No tempo synchronization or note-driven reset of an instrument LFO is implied.
+or reset. No tempo synchronization or trigger-driven reset of an instrument LFO is implied.
 
 ### Routing And Composition
 
 Use the existing modulation array with `input = "envelope"` or `"lfo"` and
 required `source`. `source` is forbidden on other inputs. Source kind must
-match `input`. Generated routes have no `scope`, `controller`, or
+match `input`. Generated routes have no `scope`, `control`, or
 `smoothing_seconds`: scope belongs to the source and values are evaluated at
 every output frame. Their point inputs may be fractional, in `[0, 1]` for
 envelopes or `[-1, 1]` for LFOs. Existing interpolation and endpoint rules apply.
@@ -879,9 +936,9 @@ without declaration-order priority. All source ranges and simultaneous
 contributions are included in load-time validation.
 
 Conformance cases cover all envelope stages and zero-duration boundaries,
-release during each stage, pedal-deferred release, exponential endpoints,
+release during each stage, sustain-deferred release, exponential endpoints,
 instrument-default/slot-override timing curves, named-source isolation, per-voice
-retriggering, shared phase across channels and silent intervals, delayed LFO
+retriggering, shared phase across parts and silent intervals, delayed LFO
 neutral amounts, and identical trajectories for different render block sizes.
 
 ## Instrument And Slot Processing
@@ -899,12 +956,12 @@ semitone. Effective instrument and slot tuning add, and the total playback multi
 is:
 
 ```text
-note_semitones = note - root_note if pitch_tracking else 0
-pitch_ratio = 2 ** ((100 * note_semitones + instrument_cents + slot_cents) / 1200)
+base_ratio = pitch_hz / reference_pitch_hz if pitch_tracking else 1
+pitch_ratio = base_ratio * 2 ** ((instrument_cents + slot_cents) / 1200)
 ```
 
-Pitch bend adds its effective cents to the numerator of this pitch calculation
-once per voice, as specified below. Higher pitch shortens a traversal; this is
+Named pitch-bend routes contribute to instrument or slot tuning like any other
+modulation curve. Higher pitch shortens a traversal; this is
 sampling by playback-rate change, not time stretching. Sample-rate conversion
 additionally uses the native rate relative to the host's output rate.
 
@@ -990,13 +1047,13 @@ scope: a slot band named `body` does not override an instrument band named `body
 
 ### Signal Order
 
-For each incoming MIDI event:
+For each incoming performance event:
 
-1. Update controller/pressure, articulation, pedal, and note-instance state and
+1. Update named-control, articulation, sustain, and trigger-instance state and
    derive trigger contexts. Filter slots by trigger kind, articulation, and mapping, then
    select alternatives while retaining ordinary layers. Apply their choke rules
    to existing voices before creating the selected voices.
-2. Resolve playback, envelope, and pitch-bend defaults, capture static curves,
+2. Resolve playback and envelope defaults, capture static curves,
    and initialize live modulation/crossfade state from current controls.
    Create per-voice envelopes/LFOs and attach routes to shared instrument LFOs.
    Before rendering each frame, evaluate sources and compose their amounts
@@ -1020,7 +1077,7 @@ is a host/output policy, not a hidden instrument operation. Interpolation and nu
 precision may differ between players; version 1 does not promise bit-identical
 audio from every implementation.
 
-## Scaling Across Notes And Velocities
+## Scaling Across Keys And Velocities
 
 `[[instrument.modulation]]` affects the entire instrument. `[[slots.modulation]]` affects
 only its containing slot. Both use the same fields:
@@ -1028,14 +1085,14 @@ only its containing slot. Both use the same fields:
 | Field | Meaning |
 | --- | --- |
 | `target` | Numeric processing parameter or permitted envelope duration |
-| `input` | `"note"`, `"velocity"`, `"controller"`, `"channel_pressure"`, `"note_pressure"`, `"envelope"`, or `"lfo"` |
+| `input` | `"key"`, `"velocity"`, `"control"`, `"envelope"`, or `"lfo"` |
 | `source` | Required local source ID for envelope/LFO input only |
-| `scope` | Live input scope; see Live Modulation; absent on static/generated curves |
-| `controller` | Required MIDI controller number for controller input only |
+| `scope` | Live input scope; see Named Controls And Live Modulation; absent on static/generated curves |
+| `control` | Required declared control ID for control input only |
 | `smoothing_seconds` | Live-input transition time, default `0.005`; absent on static/generated curves |
 | `operation` | `"add"` or `"multiply"` |
 | `interpolation` | `"linear"` or `"step"`; default `"linear"` |
-| `points` | Nonempty list of `{ input = number, amount = number }` points; MIDI inputs require integers |
+| `points` | Nonempty list of `{ input = number, amount = number }` points; key inputs require integers |
 
 Supported processing targets are `volume_db`, `tuning_cents`, `pan`,
 `stereo_balance`, and
@@ -1045,139 +1102,127 @@ same scope. A slot curve cannot reach into the instrument to disable its process
 
 Modulation for `volume_db`, `tuning_cents`, `pan`, `stereo_balance`, and EQ
 `gain_db` uses `add`; its amount is in the target's units. Frequency and resonance use
-`multiply`; amounts are positive dimensionless ratios. Static note/velocity
+`multiply`; amounts are positive dimensionless ratios. Static key/velocity
 curves may also multiply the envelope duration targets defined above. Other
 target/operation combinations are invalid.
 This prevents, for example, accidentally multiplying a negative dB value when
 the intention was to double the amplitude.
 
-Points have strictly increasing inputs: velocity inputs are in `[1, 127]`;
-note, controller, and pressure inputs are in `[0, 127]`. Generated inputs use
-their source's numeric range as specified above.
+Points have strictly increasing inputs. Keys are unrestricted integers; velocity
+uses `[0, 1]`. Controls use their declared polarity's range. Generated inputs
+use their source's numeric range as specified above.
 A single point defines a constant adjustment.
 Linear interpolation operates on the numeric amounts between adjacent points.
 Step interpolation holds the left point until the next point's input. At an
 exact point, use that point's amount. Outside the listed range, hold the nearest
 endpoint; do not extrapolate.
 
-MIDI coordinates are absolute values, not a percentage of occupied keys or of
+Key coordinates are absolute values, not a percentage of occupied keys or of
 the slot's mapped range. Adding or removing a slot cannot change an instrument curve's
 meaning. Curves apply to supported sample layouts, subject to the spatial
 controls' mono/stereo restrictions.
 
-At most one curve may exist per `(target, input, scope, controller, source)`
+At most one curve may exist per `(target, input, scope, control, source)`
 in each processing stage, treating absent fields as absent in this key.
-Static inputs have no scope/controller/source; generated inputs have only
+Static inputs have no scope/control/source; generated inputs have only
 source. If several inputs affect one target, add their amounts to its base
 value, or multiply their ratios by its base value, according to the target's
 permitted operation.
 Array order has no effect on that combination. Instrument and slot scopes are then
 combined using the processing rules above.
 
-Note and velocity curves are evaluated from the trigger context and held for
-the voice's lifetime. Controller and pressure curves can change throughout
+Key and velocity curves are evaluated from the trigger context and held for
+the voice's lifetime. Named-control curves can change throughout
 playback as described below. Generated sources evolve at output-frame precision;
 envelope timing curves remain fixed for each voice's lifetime.
 
-For example, at note 60 the example's instrument volume is `-3 + -1 = -4 dB`.
-The soft slot's note curve is `-2/3 dB` there, so its slot volume is
+For example, at key 60 the example's instrument volume is `-3 + -1 = -4 dB`.
+The soft slot's key curve is `-2/3 dB` there, so its slot volume is
 `-2 - 2/3 dB`. Its combined volume is `-6 2/3 dB`, before envelope and EQ.
 The instrument's EQ gain curve and that slot's EQ frequency curve are both applied;
 neither replaces the other.
 
-## Live Modulation
+## Named Controls And Live Modulation
 
-Live curves use the same typed targets, point interpolation, and additive or
-multiplicative composition as static curves. Instrument curves still process each
-voice independently; placing a curve on the instrument does not imply that incoming
-events on one channel affect every other channel.
+Declare controls once on the instrument. IDs follow the normal identifier
+syntax; there are no controller numbers, implicit pressure controls, or
+built-in MIDI bindings. Each definition contains `polarity` (`unipolar` by
+default or `bipolar`) and `default` (zero by default). Unipolar values are
+finite floats in `[0, 1]`; bipolar values are in `[-1, 1]`. Defaults,
+events, selector intervals, and curve coordinates must fit that domain.
 
 ```toml
-[instrument.controller_defaults]
-"11" = 127
+[instrument.controls.expression]
+default = 1.0
 
 [[instrument.modulation]]
 target = "volume_db"
-input = "controller"
-controller = 11
-scope = "channel"
+input = "control"
+control = "expression"
+scope = "part"
 operation = "add"
 smoothing_seconds = 0.01
 points = [
-  { input = 0, amount = -60.0 },
-  { input = 127, amount = 0.0 },
+  { input = 0.0, amount = -60.0 },
+  { input = 1.0, amount = 0.0 },
 ]
 ```
 
-This initial volume is unchanged until controller 11 moves. `controller_defaults`
-is a table of canonical decimal keys `"0"` through `"127"` and integer values
-in `[0, 127]`. Unlisted values start at zero. Defaults initialize each channel
-and the instrument-wide controller state without generating switch or pedal-sample
-events. Sustain's initial pressed state follows its configured default and
-threshold. Pressure starts at zero.
+Live routes require `input = "control"` and a declared `control` ID.
+Their `scope` is `part` (default), `instrument`, or `trigger`, and
+`smoothing_seconds` defaults to 0.005. These fields are forbidden on static
+and generated routes. There are no separate controller or pressure variants:
+pressure is simply a declared unipolar control routed to the desired target.
 
-Input scopes are:
+Each scope owns independent state initialized from declared defaults:
 
-| Input | Allowed scopes | Affected voices |
-| --- | --- | --- |
-| `controller` | `channel` (default), `instrument` | Same-channel voices, or all instrument voices |
-| `channel_pressure` | `channel` (default), `instrument` | Same-channel voices, or all instrument voices |
-| `note_pressure` | `note` (default and only value) | Active voices owned by matching channel/note instances |
+- Instrument: one value shared by all parts and voices.
+- Part: one value for each logical performance part, shared by its voices.
+- Trigger: one value for each trigger instance and its owned start/release
+  voices, initialized by defaults plus that Trigger's `controls` values.
 
-`controller` is required only for controller input and is an integer in
-`[0, 127]`. It is forbidden on other input types. Scope and smoothing fields
-are forbidden on static note/velocity curves. An instrument-scoped controller or
-channel-pressure input uses the most recent matching event from any channel,
-in event-stream order. Channel-scoped inputs use the voice's originating MIDI
-channel.
+Scopes do not cascade. Updating an instrument control does not write part or
+trigger state. A route reads only its specified scope. Trigger-scoped values
+address exact IDs, not all voices with a matching key. An unknown trigger
+control update is ignored after validating the control name/value; it is not
+saved for a future trigger that happens to reuse that ID. Sustain samples
+without a trigger owner read trigger defaults. Instrument processing remains
+per voice even when its route reads part- or trigger-scoped input.
 
-MIDI 1 polyphonic key pressure applies to all active musical note instances of
-that channel and note, including their associated release voices. New note
-instances start with zero note pressure until a subsequent matching event;
-they do not inherit stale pressure from a previous strike. Associated release
-voices inherit their instance's latest value. Pedal voices have no note owner,
-so note pressure is zero for them. This is not an MPE or microtonal specification.
+### Pitch Bend And Pressure
 
-### Pitch Bend
-
-Pitch bend is a channel performance control, separate from note mapping and
-microtonal tuning. It applies to all voices on that MIDI channel, including
-sustained/releasing voices and release/pedal samples. It never changes slot
-selection, the captured trigger note, articulation, or envelope timing.
+Pitch bend is an ordinary named bipolar control routed to `tuning_cents`:
 
 ```toml
-[instrument.pitch_bend]
-range_semitones = 2.0
+[instrument.controls.bend]
+polarity = "bipolar"
+default = 0.0
+
+[[instrument.modulation]]
+input = "control"
+control = "bend"
+scope = "part"
+target = "tuning_cents"
+operation = "add"
 smoothing_seconds = 0.005
+points = [
+  { input = -1.0, amount = -200.0 },
+  { input = 1.0, amount = 200.0 },
+]
 ```
 
-Both fields are optional with the defaults shown. Each must be finite and
-non-negative; fractional semitone ranges are allowed. Slot `pitch_bend` fields
-override individual instrument defaults. A zero range disables bending for that
-slot, useful for percussion; `pitch_tracking = false` alone does not disable
-pitch bend. This setting is the bend sensitivity. Version 1 does not interpret
-MIDI RPN/NRPN messages as changes to it.
+This explicitly supplies a two-semitone range; other amounts provide different
+or asymmetric ranges. Trigger scope supplies independent per-trigger bend.
+Slot routes permit different ranges by slot. There is no `pitch_bend` settings
+table or implicit pitch adjustment in addition to these routes. Instrument
+and slot contributions still add. Untracked samples can be bent explicitly;
+omitting a route means no bend.
 
-The MIDI 1 wheel's unsigned value is in `[0, 16383]`, centered at `8192`.
-For signed input such as Mido's `pitch`, use `v` in `[-8192, 8191]`.
-Normalize to `w = v/8192` for `v < 0`, otherwise `w = v/8191`, so both
-endpoints reach their full range and center is exactly zero. The target bend
-is `100 * range_semitones * w` cents. Add it once to combined instrument/slot tuning
-and all tuning-modulation amounts before computing playback speed. There is
-no second implicit wheel-to-tuning modulation route.
-
-Wheel state is independent per channel and starts centered. Smooth the bend
-contribution in cents using the same event-frame ramp rule as live curves,
-with that voice's effective `smoothing_seconds`. New voices initialize from
-the channel's current wheel position without a ramp. A subsequent wheel event
-retargets existing ramps from their current amounts. Bending changes speed
-without resetting playback position, direction, loops, or source phases.
-Reset centers every channel's wheel as well as clearing voices.
-
-Conformance cases cover center and both full-range endpoints, fractional and
-zero ranges, slot overrides, independent channels, repeated and pedal-held
-notes, release/pedal voices, mid-ramp changes, composition with tuning/LFOs,
-and identical results across render block boundaries.
+Pressure uses the same syntax, for example `control = "pressure"`, declared
+unipolar with default zero. Part-wide and per-trigger pressure are scopes,
+not separate input types. Neither control changes sample selection, key,
+the captured target pitch, the sample's reference pitch, source phase, or
+envelope timing.
 
 ### Live Curve Timing
 
@@ -1201,17 +1246,20 @@ loop phase, or envelope time. No normalization is introduced.
 
 ### Live Layer Balance
 
-Crossfades accept the same live inputs, scopes, controller numbers, and smoothing
+Crossfades accept the same named controls, scopes, and smoothing
 times. Two overlapping slots can use these complementary fragments:
 
 ```toml
+[instrument.controls.layer_balance]
+default = 0.0
+
 [[slots.crossfades]]
-input = "controller"
-controller = 1
-scope = "channel"
+input = "control"
+control = "layer_balance"
+scope = "part"
 direction = "out"
-start = 0
-end = 127
+start = 0.0
+end = 1.0
 curve = "equal_power"
 smoothing_seconds = 0.01
 ```
@@ -1223,19 +1271,19 @@ transition. Do not smooth their sine/cosine gains independently. Initialize new
 voices at the current unsmoothed target position, as with ordinary live curves;
 only equally initialized paired voices have that complementarity guarantee.
 
-Controller updates change existing voices' gains but do not create or reselect
+Control updates change existing voices' gains but do not create or reselect
 slots. Both layers must be selected at trigger time, including a layer whose
 initial weight is zero. A layer that has exhausted its sample cannot be
-resurrected by moving a controller. Articulation switches remain future-trigger
+resurrected by changing a control. Articulation switches remain future-trigger
 selectors, not live crossfades.
 
 ### Reset And Validation
 
-Explicit instrument reset stops voices, clears note/selection/switch state and ramps,
-restores controller defaults, zero pressure, centered pitch wheels, and default
+Explicit instrument reset stops voices, clears trigger/selection/switch state and
+ramps, restores declared control defaults independently in each scope and default
 articulations, and restarts instrument LFO clocks at frame zero. It generates no
 release samples. New voices thereafter use that initial state. Do not equate
-arbitrary incoming controller messages with an instrument reset unless their behavior
+arbitrary incoming control changes with an instrument reset unless their behavior
 is explicitly specified.
 
 Validate effective parameters across all applicable static, live, and generated
@@ -1245,8 +1293,8 @@ remain below Nyquist. A player must reject unsafe combinations at load time,
 not silently clamp modulation during playback. Conservative interval analysis
 is acceptable if it reports the rejected parameter and range clearly.
 
-Conformance cases cover configured initial values, channel/instrument/note scopes,
-pressure on repeated notes, overlapping ramps, mid-block updates, state-preserving
+Conformance cases cover configured initial values, part/instrument/trigger scopes,
+independent expression on repeated keys, overlapping ramps, mid-block updates, state-preserving
 EQ changes, paired live fades, exhausted layers, and reset without spurious
 triggers. Replaying identical events with different block sizes must produce
 the same parameter trajectories.
@@ -1310,25 +1358,25 @@ A reader validates the complete instrument before accepting it for playback:
 - Unique selection-set IDs, valid selection modes, and existing set references.
 - Existing choke-group targets, unique per-slot targets, and valid choke modes
   and fade times.
-- Crossfade input ranges, unique input/scope/controller/direction keys, gain
+- Crossfade input ranges, unique input/scope/control/direction keys, gain
   curves, and mappings covering each static crossfade transition.
-- Trigger kinds, sustain settings, one-shot release/pedal playback, and pedal
-  mappings containing their synthetic root note.
-- Declared articulation references and default, unique keyswitch notes, and
-  nonoverlapping controller-selector ranges.
-- Note/velocity bounds, trim intervals, existing contained audio files, and
+- Trigger kinds, sustain settings, one-shot release/sustain playback, and untracked
+  sustain mappings containing their declared event key.
+- Declared articulation references and default, unique keyswitch keys, and
+  nonoverlapping named-control selector ranges.
+- Key/velocity bounds, trim intervals, existing contained audio files, and
   supported decoding and output channel layouts.
 - Contained loop intervals, valid loop/playback-mode combinations, and permitted
   crossfade lengths and directions.
 - Finite numeric values, positive frequencies and resonance, non-negative envelope
-  times, valid envelope shapes and sustain levels, and pitch-bend ranges/times.
+  times, valid envelope shapes and sustain levels.
 - Unique local envelope/LFO IDs, matching source references, valid source
   scopes, waveform/phase/frequency ranges, and permitted static duration targets.
 - Pan/balance sample-layout and stereo-output requirements, and combined
   spatial ranges within `[-1, 1]`.
 - Existing modulation targets, permitted operations, ordered point inputs,
   and positive multiplicative amounts.
-- Valid live input scopes, controller defaults and numbers, and smoothing times.
+- Declared control IDs, polarity domains, defaults, live scopes, and smoothing times.
 - Valid effective parameters over every static/live/generated input combination
   that can affect each slot, including instrument and slot curves. Validation uses
   the host output rate for EQ/LFO frequency limits and is repeated if that rate
@@ -1340,7 +1388,7 @@ not silently skip the feature and claim to have loaded it faithfully.
 
 Useful conformance cases include layered velocity mappings; independent instrument
 and slot volume curves; instrument and slot EQ with identical local band IDs; all
-three directions for one-, two-, and four-frame traversal definitions; note-off
+three directions for one-, two-, and four-frame traversal definitions; release event
 in each mode; empty and Unicode tags; and moving the complete instrument directory.
 Audio regression fixtures should follow Recs' existing 48 kHz, at-least-one-
 second WAV convention; tiny direction examples above specify index order, not
@@ -1350,8 +1398,9 @@ replacement audio fixtures.
 
 `recs.recsam.instrument.SampleInstrument` represents the root document, with
 `Instrument` for shared settings and `SampleSlot` for each slot. The other
-models are grouped into `playback`, `selection`, `processing`, and `modulation`;
-serialized enum values are defined in `enums`. Import classes from their
+models are grouped into `playback`, `selection`, `processing`, `modulation`,
+`controls`, and `events`; serialized enum values are defined in `enums`.
+Import classes from their
 defining modules, not from the package initializer.
 
 Pass a parsed TOML mapping to `SampleInstrument.model_validate()`. These frozen
@@ -1359,6 +1408,13 @@ Pydantic models validate fields, local and instrument-wide references, inherited
 playback constraints, and conservative combined spatial ranges without opening
 audio files. Their list/dict members are ordinary mutable containers; treat a
 validated definition as read-only or revalidate after modifying its contents.
+
+`events.Trigger`, `events.Release`, and `events.ControlChange` represent the
+performance events. `events.PerformanceEvent` is their discriminated union on
+`kind`. After parsing an event, `SampleInstrument.validate_event()` validates
+its control names and values against this instrument. Event models validate
+shape, numeric domains, and scope targets; a future player validates ownership,
+scheduling, and target pitch for selected tracked slots.
 
 Slot settings are declarations, not resolved playback values. Use
 `model_dump(mode="json", exclude_unset=True)` when serializing them, preserving

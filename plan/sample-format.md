@@ -9,6 +9,11 @@ remain candidates for review; inclusion is not a commitment to implement them.
 Specification work does not implement a sampler.
 Microtonality is covered by a separate specification and is out of scope.
 
+The spec and recsam models now use protocol-neutral performance events,
+unrestricted integer selection keys, separate target/reference frequencies,
+and normalized named controls. MIDI/OSC bindings belong to future host adapters;
+the retained features below must not introduce transport-specific state.
+
 Keep the format declarative, use clear names and explicit units, and build on
 the existing instrument/slot processing and modulation rules. Reuse those mechanisms
 where possible instead of adding a separate syntax for every feature.
@@ -47,7 +52,7 @@ Allow several takes of the same sound to vary repeated notes naturally.
   layering plays all matching slots.
 - Define the scope of a sequence counter, such as one instrument or articulation,
   and which events advance it.
-- Specify the order of note/velocity filtering and alternate selection so an
+- Specify the order of key/velocity filtering and alternate selection so an
   unavailable alternative does not silently create a missing note.
 
 Reference: [SFZ round robins](https://sfzformat.com/tutorials/drum_basics/).
@@ -75,7 +80,7 @@ Playback implementation remains pending.
 
 Replace abrupt key-range and velocity-layer transitions with smooth blends.
 
-- Define fade-in and fade-out ranges over notes or velocities.
+- Define fade-in and fade-out ranges over keys or normalized velocities.
 - Reuse the existing volume-curve machinery and provide explicit complementary
   crossfade rules rather than a second unrelated gain system.
 - Specify the gain law and behavior where more than two layers overlap.
@@ -83,19 +88,19 @@ Replace abrupt key-range and velocity-layer transitions with smooth blends.
 
 Reference: [SFZ crossfades](https://sfzformat.com/tutorials/sustained_note_basics/).
 
-### 5. Release And Pedal Samples
+### 5. Release And Sustain Samples
 
-Status: specified in [Release And Pedal Samples](../doc/sample-format.md#release-and-pedal-samples).
+Status: specified in [Release And Sustain Samples](../doc/sample-format.md#release-and-sustain-samples).
 Playback implementation remains pending.
 
 Represent piano mechanics, guitar release noises, and separately recorded
 instrument tails.
 
-- Permit sample triggers on note release, pedal press, and pedal release.
-- Define sustain-pedal behavior for existing voices and deferred note releases.
-- State whether a release sample follows physical key release or the eventual
-  end of pedal-held sustain.
-- Define release-sample ownership so unmatched note-offs or already-ended voices
+- Permit samples on explicit release, logical release, and sustain transitions.
+- Define a named sustain control for existing voices and deferred releases.
+- State whether a release sample follows the explicit Release event or the
+  eventual end of sustained playback.
+- Define release-sample ownership by trigger ID so unmatched releases or ended voices
   do not produce unintended sounds.
 
 Reference: [SFZ triggers](https://sfzformat.com/legacy/).
@@ -108,7 +113,7 @@ Playback implementation remains pending.
 Select explicit playing styles such as bowed/plucked, muted/open, or
 sustained/staccato.
 
-- Give articulations names and select them through keyswitches or controller
+- Give articulations names and select them through keyswitches or named-control
   values.
 - Define initial selection, persistent versus momentary selection, and whether
   switching affects only future triggers or also existing voices.
@@ -121,23 +126,23 @@ Reference: [SFZ keyswitches](https://sfzformat.com/tutorials/sustained_note_basi
 
 ### 7. Live Modulation
 
-Status: specified in [Live Modulation](../doc/sample-format.md#live-modulation).
+Status: specified in [Named Controls And Live Modulation](../doc/sample-format.md#named-controls-and-live-modulation).
 Playback implementation remains pending.
 
-Allow controllers and pressure to change parameters while a note is sounding.
+Allow named controls, including pressure, to change parameters while a voice sounds.
 
-- Extend the existing modulation model beyond values sampled only at note-on.
+- Extend the existing modulation model beyond values sampled only at trigger start.
 - Support expressive volume, EQ, and layer-balance changes. New filter types
   require separate consideration.
-- Specify instrument, channel, and individual-voice scope where applicable.
-- Define smoothing, initial controller values, and reset behavior to prevent
+- Specify independent instrument, logical-part, and trigger scopes.
+- Define smoothing, declared control defaults, and reset behavior to prevent
   abrupt parameter jumps and ambiguous playback.
 
 Reference: [SFZ modulation capabilities](https://sfzformat.com/).
 
 ### 8. Additional Envelopes And LFOs
 
-Status: specified in [Note-Off And Envelope](../doc/sample-format.md#note-off-and-envelope)
+Status: specified in [Release And Envelope](../doc/sample-format.md#release-and-envelope)
 and [Modulation Envelopes And LFOs](../doc/sample-format.md#modulation-envelopes-and-lfos).
 Playback implementation remains pending. Filter design is excluded.
 
@@ -147,7 +152,7 @@ or time-dependent parameter changes.
 - Reuse typed modulation targets for additional envelopes and oscillators.
 - Define rates, depths, curve shapes, phase, and retrigger behavior explicitly.
 - Distinguish per-voice modulators from instrument-wide modulators.
-- Specify how these contributions combine with note, velocity, and controller
+- Specify how these contributions combine with key, velocity, and named-control
   modulation without depending on declaration order.
 
 Reference: [Decent Sampler modulators](https://www.decentsamples.com/2022/08/19/how-to-add-lfos-and-extra-envelopes-to-your-decent-sampler-instruments/).
@@ -241,10 +246,11 @@ unapproved candidates. Playback implementation follows the separate
 - Panning and stereo balance: separate mono placement and stereo-channel
   attenuation, explicit gain laws, combined instrument/slot offsets, typed modulation,
   and channel-layout validation are specified.
-- Pitch bend: channel wheel state, configured instrument/slot sensitivity, endpoint
-  mapping, smoothing, reset, and interaction with existing tuning are specified
-  in [Pitch Bend](../doc/sample-format.md#pitch-bend). This does not add
-  microtonality or MIDI RPN/NRPN sensitivity changes.
+- Pitch bend: a declared bipolar control with instrument/slot routes to tuning,
+  explicit range in cents, smoothing, and part or trigger scope is specified in
+  [Pitch Bend And Pressure](../doc/sample-format.md#pitch-bend-and-pressure).
+  There is no implicit pitch-wheel state or separate pitch-bend settings table.
+  This does not add microtonality or MIDI RPN/NRPN handling.
 
 Both remain specification work, not implemented playback features.
 
