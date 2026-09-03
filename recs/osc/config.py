@@ -9,8 +9,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-from ..base.units import Seconds
+from reccy.units import Seconds
 
 OscArgument = str | int | float | bool
 

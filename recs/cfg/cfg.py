@@ -9,10 +9,9 @@ from typing import Annotated
 import soundfile
 import tyro
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from reccy import logging
+from reccy import logging, units
 from typing_extensions import Self
 
-from recs.base import units
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
 from recs.base.types import (
@@ -25,7 +24,7 @@ from recs.base.types import (
     Subtype,
 )
 
-from . import cli_metadata, metadata, path_pattern, time_settings
+from . import cli_metadata, disk_threshold, metadata, path_pattern, time_settings
 from .aliases import Aliases
 from .device import InputDevices, get_input_devices, input_devices
 from .track import source_track
@@ -308,13 +307,13 @@ class Console(BaseModel):
     ] = 10.0
 
     waveform_bucket_milliseconds: Annotated[
-        units.Milliseconds,
+        units.WholeMilliseconds,
         cli_metadata.MILLISECONDS_SPEC,
         tyro.conf.arg(help='Milliseconds represented by each live waveform bucket'),
     ] = 20
 
     waveform_batch_milliseconds: Annotated[
-        units.Milliseconds,
+        units.WholeMilliseconds,
         cli_metadata.MILLISECONDS_SPEC,
         tyro.conf.arg(help='Milliseconds represented by each live waveform batch'),
     ] = 100
@@ -596,7 +595,7 @@ class Recording(BaseModel):
     def validate_disk_thresholds(cls, values: list[str]) -> list[str]:
         if not values:
             raise ValueError('must not be empty')
-        return [units.disk_threshold(v) for v in values]
+        return [disk_threshold.normalize(v) for v in values]
 
 
 CFG_PARTS = (

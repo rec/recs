@@ -58,8 +58,9 @@ a fixed relationship between time and storage.
 
 ## Storage And Runtime
 
-Validation uses Pint and immediately extracts numeric magnitudes. Field names
-and canonical units do not change: `quiet_before_start = "250ms"` becomes
+Reccy supplies the shared unit types and Tyro conversion using Pint, then
+immediately extracts numeric magnitudes. Field names and canonical units do not
+change: `quiet_before_start = "250ms"` becomes
 `0.25`, while `waveform_bucket_milliseconds = "0.02s"` becomes `20`.
 Saved settings, API replies, and configuration events use those normalized
 values. Original spelling and unit choice are not preserved.

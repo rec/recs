@@ -2,65 +2,12 @@ from pathlib import Path
 
 import pytest
 import tyro
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 
-from recs.base import units
-from recs.cfg.cfg import Cfg, Recording
+from recs.cfg.cfg import Cfg, Console, Recording
 from recs.cfg.cli import CliCfg
 from recs.osc.config import Poll, Subscription
 from recs.recsam import playback, processing, selection
-
-
-@pytest.mark.parametrize(
-    ('annotation', 'value', 'expected'),
-    [
-        (units.Seconds, '10ms', 0.01),
-        (units.Seconds, '2 min', 120.0),
-        (units.Seconds, '1:30', 90.0),
-        (units.Seconds, '0.5', 0.5),
-        (units.Seconds, 0.5, 0.5),
-        (units.Milliseconds, '0.029s', 29),
-        (units.Hertz, '2.4kHz', 2400.0),
-        (units.Bytes, '2MB', 2_000_000),
-        (units.Bytes, '2MiB', 2_097_152),
-        (units.Bytes, '1KB', 1000),
-        (units.Megabytes, '1GB', 1000),
-    ],
-)
-def test_units_normalize_to_plain_numbers(
-    annotation: object, value: object, expected: int | float
-) -> None:
-    result = TypeAdapter(annotation).validate_python(value)
-    assert result == expected
-    assert type(result) is type(expected)
-
-
-@pytest.mark.parametrize(
-    ('annotation', 'value'),
-    [
-        (units.Seconds, '3Hz'),
-        (units.Hertz, '3ms'),
-        (units.Bytes, '2s'),
-        (units.Bytes, '90degree'),
-        (units.Bytes, '2radian'),
-        (units.Seconds, '3m'),
-        (units.Milliseconds, '0.5ms'),
-        (units.Bytes, '0.5byte'),
-        (units.Megabytes, '1MiB'),
-        (units.Seconds, 'junk'),
-        (units.Seconds, 'ms'),
-        (units.Seconds, '1 s/'),
-        (units.Seconds, 'nan'),
-        (units.Seconds, float('inf')),
-        (units.Hertz, float('nan')),
-        (units.Seconds, True),
-    ],
-)
-def test_invalid_or_inexact_units_are_rejected(
-    annotation: object, value: object
-) -> None:
-    with pytest.raises(ValidationError):
-        TypeAdapter(annotation).validate_python(value)
 
 
 def test_cli_and_api_use_the_same_numeric_config_values() -> None:
@@ -93,6 +40,11 @@ def test_cli_and_api_use_the_same_numeric_config_values() -> None:
         Cfg.model_validate_json(updated.model_dump_json()).recording.quiet_before_start
         == 0.25
     )
+
+
+def test_waveform_periods_require_whole_milliseconds() -> None:
+    with pytest.raises(ValidationError):
+        Console(waveform_bucket_milliseconds='0.5ms')
 
 
 def test_device_profiles_accept_units_and_keep_other_settings(tmp_path: Path) -> None:
