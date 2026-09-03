@@ -23,6 +23,7 @@ dependencies = [
     "reccy",
     "mido[ports-rtmidi]>=1.3.3",
     "tomlkit>=0.15.1",
+    "pint>=0.24.4",
 ]
 
 [project.scripts]
