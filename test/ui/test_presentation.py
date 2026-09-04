@@ -17,7 +17,12 @@ def test_view_model_formats_recording_rows() -> None:
                 'buffer': 0.25,
                 'dropped': 512,
             },
-            {'channel': '1', 'on': Active.inactive, 'volume': 0.5},
+            {
+                'channel': '1',
+                'channels': [1],
+                'on': Active.inactive,
+                'volume': 0.5,
+            },
             {'channel': '2', 'on': Active.offline, 'volume': 0.0},
             {'channel': '3', 'signal': 0.0},
             {'channel': '4', 'signal': 0.1},

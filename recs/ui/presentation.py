@@ -20,6 +20,7 @@ COLUMNS = [
     'file_count',
     'volume',
 ]
+HIDDEN_FIELDS = {'channels'}
 
 
 class Cell(BaseModel):
@@ -41,7 +42,7 @@ def view_model(rows: Iterable[Mapping[str, object]]) -> ViewModel:
 
 
 def _row(row: Mapping[str, object]) -> Row:
-    unknown = set(row) - set(COLUMNS)
+    unknown = set(row) - set(COLUMNS) - HIDDEN_FIELDS
     if unknown:  # pragma: no cover
         raise ValueError(f'{unknown=}')
     return Row(cells=[_cell(row.get(column), column) for column in COLUMNS])
