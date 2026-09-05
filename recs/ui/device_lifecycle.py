@@ -317,8 +317,10 @@ class DeviceLifecycle:
             update.source_name,
             previous,
             update.channels,
-            update.frame_count,
-            update.timestamp,
+            update.track_state_frames,
+            update.track_state_timestamps,
+            default_frame_count=update.frame_count,
+            default_timestamp=update.timestamp,
         )
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
@@ -438,8 +440,11 @@ class DeviceLifecycle:
         source: str,
         previous: dict[str, bool],
         updates: Mapping[str, object],
-        frame_count: int | None,
-        timestamp: float | None,
+        frame_counts: Mapping[str, int] | None,
+        timestamps: Mapping[str, float] | None,
+        *,
+        default_frame_count: int | None,
+        default_timestamp: float | None,
     ) -> None:
         for track_name in updates:
             active = self.state.state[source][track_name].is_active
@@ -448,8 +453,10 @@ class DeviceLifecycle:
                     'track_started' if active else 'track_stopped',
                     source=source,
                     track=track_name,
-                    frame_count=frame_count,
-                    timestamp=timestamp,
+                    frame_count=(frame_counts or {}).get(
+                        track_name, default_frame_count
+                    ),
+                    timestamp=(timestamps or {}).get(track_name, default_timestamp),
                 )
 
     def _source_cfg(self, cfg: Cfg) -> Cfg:

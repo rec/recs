@@ -55,6 +55,8 @@ class SourceUpdate(NamedTuple):
     frames: int
     source_name: str
     timestamp: float | None = None
+    track_state_frames: dict[str, int] | None = None
+    track_state_timestamps: dict[str, float] | None = None
     buffer_stats: BufferStats | None = None
     buffer_warnings: list[str] | None = None
     file_records: list['SourceFile'] | None = None
@@ -765,6 +767,8 @@ class SourceRecorder(Runnables):
                 file_end_frames=file_end_frames,
                 file_end_timestamps=file_end_timestamps,
                 frame_count=u.end_frame,
+                track_state_frames=dict.fromkeys(msgs, u.end_frame),
+                track_state_timestamps=dict.fromkeys(msgs, end_timestamp),
                 calibration=calibration,
                 track_layout=track_layout,
                 config_revisions_applied=config_revisions or None,
@@ -794,6 +798,22 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         frames=first.frames + second.frames,
         source_name=second.source_name,
         timestamp=second.timestamp,
+        track_state_frames=_merge_track_state_values(
+            first,
+            second,
+            first.track_state_frames,
+            second.track_state_frames,
+            first.frame_count,
+            second.frame_count,
+        ),
+        track_state_timestamps=_merge_track_state_values(
+            first,
+            second,
+            first.track_state_timestamps,
+            second.track_state_timestamps,
+            first.timestamp,
+            second.timestamp,
+        ),
         buffer_stats=second.buffer_stats,
         buffer_warnings=_merge_warnings(first.buffer_warnings, second.buffer_warnings),
         file_records=[r for r in file_records.values() if r.path in file_paths],
@@ -818,6 +838,28 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         ),
         write_error=second.write_error or first.write_error,
     )
+
+
+def _merge_track_state_values(
+    first: SourceUpdate,
+    second: SourceUpdate,
+    first_values: dict[str, _N] | None,
+    second_values: dict[str, _N] | None,
+    first_default: _N | None,
+    second_default: _N | None,
+) -> dict[str, _N] | None:
+    result = dict(first_values or {})
+    if first_default is not None:
+        for name in first.channels:
+            result.setdefault(name, first_default)
+    for name, state in second.channels.items():
+        previous = first.channels.get(name)
+        if previous is not None and previous.is_active == state.is_active:
+            continue
+        value = (second_values or {}).get(name, second_default)
+        if value is not None:
+            result[name] = value
+    return result or None
 
 
 def _merge_files(first: list[Path], second: list[Path]) -> list[Path]:

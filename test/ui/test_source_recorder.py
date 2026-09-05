@@ -263,6 +263,59 @@ def test_source_update_merge_summarizes_warning_backlog() -> None:
     assert result.buffer_warnings[-1] == 'warning 79'
 
 
+def test_source_update_merge_preserves_earliest_track_state_timing() -> None:
+    active = ChannelState(is_active=True)
+    first = SourceUpdate(
+        channels={'1': active},
+        files=[],
+        frames=4096,
+        source_name='Mic',
+        timestamp=1.0,
+        frame_count=4096,
+        track_state_frames={'1': 4096},
+        track_state_timestamps={'1': 1.0},
+    )
+    second = first._replace(
+        frames=4096,
+        timestamp=2.0,
+        frame_count=8192,
+        track_state_frames={'1': 8192},
+        track_state_timestamps={'1': 2.0},
+    )
+
+    result = source_recorder._merge_updates(first, second)
+
+    assert result.frame_count == 8192
+    assert result.timestamp == 2.0
+    assert result.track_state_frames == {'1': 4096}
+    assert result.track_state_timestamps == {'1': 1.0}
+
+
+def test_source_update_merge_uses_new_track_state_timing_after_transition() -> None:
+    first = SourceUpdate(
+        channels={'1': ChannelState(is_active=True)},
+        files=[],
+        frames=4096,
+        source_name='Mic',
+        timestamp=1.0,
+        frame_count=4096,
+        track_state_frames={'1': 4096},
+        track_state_timestamps={'1': 1.0},
+    )
+    second = first._replace(
+        channels={'1': ChannelState(is_active=False)},
+        timestamp=2.0,
+        frame_count=8192,
+        track_state_frames={'1': 8192},
+        track_state_timestamps={'1': 2.0},
+    )
+
+    result = source_recorder._merge_updates(first, second)
+
+    assert result.track_state_frames == {'1': 8192}
+    assert result.track_state_timestamps == {'1': 2.0}
+
+
 def test_source_update_merge_bounds_file_metadata_backlog() -> None:
     files = [Path(f'{i}.wav') for i in range(source_recorder.MAX_MERGED_FILES + 2)]
     first_files = files[:400]
