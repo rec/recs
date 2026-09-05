@@ -11,9 +11,9 @@ def gain_values(
 ) -> np.ndarray:
     positions = np.arange(start, start + frames)
     if automation is None:
-        return np.full(frames, declared)
+        return np.full(frames, declared, dtype=np.float32)
     points = automation.points
-    result = np.full(frames, declared)
+    result = np.full(frames, declared, dtype=np.float32)
     for index, point in enumerate(points):
         next_point = points[index + 1] if index + 1 < len(points) else None
         selected = positions >= point.frame

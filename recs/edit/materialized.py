@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import soundfile
+from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.edit.graph import FrameRange
@@ -50,9 +51,53 @@ class MaterializedAudio:
     def nbytes(self) -> int:
         return self.samples.nbytes
 
+    @property
+    def timeline_end(self) -> int:
+        return self.end_frame
+
+
+class MaterializedTrack(BaseModel, frozen=True):
+    source: str
+    track_name: str
+    stream_id: str
+    audio: MaterializedAudio
+
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
+
+
+class MaterializedSession(BaseModel, frozen=True):
+    session_id: str
+    duration_frames: int
+    tracks: list[MaterializedTrack]
+
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
+
+
+class SourceMaterializer:
+    def __init__(self) -> None:
+        self.audio: dict[str, MaterializedAudio] = {}
+
+    def materialize(self, source: ResolvedSource) -> MaterializedAudio:
+        key = source.model_dump_json(exclude={'id'})
+        if key not in self.audio:
+            self.audio[key] = materialize_source(source)
+        return self.audio[key]
+
+
+def allocate_audio(frames: int, channels: int, purpose: str) -> np.ndarray:
+    size = frames * channels * np.dtype(np.float32).itemsize
+    try:
+        return np.zeros((frames, channels), dtype=np.float32)
+    except MemoryError as e:
+        raise RecsError(
+            f'Cannot allocate {size} bytes for materialized audio: {purpose}'
+        ) from e
+
 
 def materialize_source(source: ResolvedSource) -> MaterializedAudio:
-    samples = np.zeros((source.timeline_end, source.channels), dtype=np.float32)
+    samples = allocate_audio(
+        source.timeline_end, source.channels, f'source {source.selector}'
+    )
     for fragment in source.fragments:
         _read_fragment(
             source,
@@ -82,6 +127,19 @@ def select_audio(value: MaterializedAudio, start: int, end: int) -> Materialized
         value.sample_rate,
         start,
         ranges,
+    )
+
+
+def select_channels(value: MaterializedAudio, channels: list[int]) -> MaterializedAudio:
+    if not channels or channels != list(range(channels[0], channels[-1] + 1)):
+        raise ValueError('Materialized channels must be consecutive')
+    if channels[0] < 1 or channels[-1] > value.channels:
+        raise ValueError(
+            f'Channel selection exceeds width {value.channels}: {channels}'
+        )
+    samples = value.samples[:, channels[0] - 1 : channels[-1]]
+    return MaterializedAudio(
+        samples, value.sample_rate, value.start_frame, value.observed_ranges
     )
 
 

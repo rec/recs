@@ -1,8 +1,15 @@
+from collections.abc import Mapping
+from typing import Protocol
+
 from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
-from recs.edit.record import ResolvedSource
 from recs.edit.schema import EditSpec
+
+
+class AudioDescription(Protocol):
+    channels: int
+    timeline_end: int
 
 
 class EditGraph(BaseModel, frozen=True):
@@ -20,7 +27,9 @@ class FrameRange(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-def validate_graph(edit: EditSpec, sources: dict[str, ResolvedSource]) -> EditGraph:
+def validate_graph(
+    edit: EditSpec, sources: Mapping[str, AudioDescription]
+) -> EditGraph:
     _unique('source', [s.id for s in edit.sources])
     _unique('track', [t.id for t in edit.tracks])
     _unique('bus', [b.id for b in edit.buses])

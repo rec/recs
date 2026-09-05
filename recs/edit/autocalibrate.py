@@ -2,7 +2,6 @@ import math
 import os
 import re
 import uuid
-from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,8 +18,10 @@ from typing_extensions import Self
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
+from recs.edit.graph import FrameRange as ObservedFrameRange
+from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
-from recs.edit.record import AudioFragment, ResolvedSource, resolve_sources
+from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.schema import EditSpec, SourceSpec
 from recs.ui import session_record
 
@@ -89,7 +90,7 @@ class SilenceSettings(BaseModel, frozen=True):
 
 
 class AutocalibrateOutput(BaseModel, frozen=True):
-    format: Format = Format.flac
+    format: Format | None = Format.flac
     subtype: Subtype | None = Subtype.pcm_24
 
     model_config = ConfigDict(extra='forbid')
@@ -117,13 +118,20 @@ class CalibratedThreshold(BaseModel, frozen=True):
 class AutocalibrateEdit(BaseModel, frozen=True):
     schema_version: Literal[1] = 1
     kind: Literal['autocalibrate'] = 'autocalibrate'
-    record: Path
+    record: Path | None = None
+    memory: str | None = None
     channels: list[str] = Field(default_factory=list)
     sample_rate: int | None = Field(default=None, gt=0)
     calibration: CalibrationSettings = CalibrationSettings()
     silence: SilenceSettings = SilenceSettings()
     output: AutocalibrateOutput = AutocalibrateOutput()
     thresholds: list[CalibratedThreshold] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_source(self) -> Self:
+        if (self.record is None) == (self.memory is None):
+            raise ValueError('autocalibration requires exactly one of record or memory')
+        return self
 
     model_config = ConfigDict(extra='forbid')
 
@@ -162,10 +170,11 @@ class FrameRange(BaseModel, frozen=True):
 class PreparedAutocalibrate(BaseModel, frozen=True):
     edit: AutocalibrateEdit
     sources: dict[str, ResolvedSource]
+    audio: dict[str, MaterializedAudio]
     track_ids: dict[str, str]
     intervals: dict[str, list[FrameRange]]
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
 
 def parse_autocalibrate(text: str) -> AutocalibrateEdit:
@@ -181,34 +190,18 @@ def autocalibrate_from_options(
 ) -> AutocalibrateEdit:
     record = record.resolve()
     _, _, sample_rate = _resolve_record_sources(record, options.channel)
-    output_format = options.format or Format.flac
-    subtype = options.subtype or (
-        Subtype.pcm_24 if output_format == Format.flac else None
+    return _autocalibrate_from_options(
+        record, None, options.channel, sample_rate, options
     )
-    return AutocalibrateEdit(
-        record=record,
-        channels=options.channel,
-        sample_rate=sample_rate,
-        calibration=CalibrationSettings(
-            window_frames=max(1, round(options.window_time * sample_rate)),
-            candidate_percentile=options.candidate_percentile,
-            candidate_tolerance_db=options.candidate_tolerance_db,
-            minimum_silence_frames=max(
-                1, round(options.minimum_silence_time * sample_rate)
-            ),
-            noise_percentile=options.noise_percentile,
-            signal_margin_db=options.signal_margin_db,
-            analysis_floor_dbfs=options.analysis_floor_dbfs,
-        ),
-        silence=SilenceSettings(
-            quiet_before_frames=round(options.quiet_before * sample_rate),
-            quiet_after_frames=round(options.quiet_after * sample_rate),
-            stop_after_quiet_frames=round(options.stop_after_quiet * sample_rate),
-            shortest_file_frames=round(options.shortest_file_time * sample_rate),
-            longest_file_frames=round(options.longest_file_time * sample_rate),
-        ),
-        output=AutocalibrateOutput(format=output_format, subtype=subtype),
-    )
+
+
+def autocalibrate_from_materialized(
+    memory: str,
+    channels: list[str],
+    sample_rate: int,
+    options: AutocalibrateOptions,
+) -> AutocalibrateEdit:
+    return _autocalibrate_from_options(None, memory, channels, sample_rate, options)
 
 
 def is_autocalibrate_file(path: Path) -> bool:
@@ -222,38 +215,34 @@ def prepare_autocalibrate(
 ) -> PreparedAutocalibrate:
     if destination.exists():
         raise RecsError(f'Output session directory already exists: {destination}')
+    if edit.record is None:
+        raise RecsError(
+            'Autocalibration memory input is valid only inside a composition'
+        )
     record_path = (edit_directory / edit.record).resolve()
     sources, track_ids, sample_rate = _resolve_record_sources(
         record_path, edit.channels
     )
-    if edit.sample_rate is not None and edit.sample_rate != sample_rate:
-        raise RecsError(
-            f'Edit sample rate is {edit.sample_rate}, but sources use {sample_rate}'
-        )
-    _validate_output(edit.output, sources)
-    thresholds = _thresholds(edit, sources)
-    intervals = {
-        selector: detect_intervals(
-            level_windows(sources[selector], edit.calibration),
-            thresholds[selector],
-            edit.silence,
-        )
-        for selector in sources
-    }
+    materializer = SourceMaterializer()
+    audio = {k: materializer.materialize(v) for k, v in sources.items()}
     canonical = edit.model_copy(
-        update={
-            'record': _relative_path(record_path, destination),
-            'channels': list(sources),
-            'sample_rate': sample_rate,
-            'thresholds': [thresholds[s] for s in sources],
-        }
+        update={'record': _relative_path(record_path, destination)}
     )
-    return PreparedAutocalibrate(
-        edit=canonical,
-        sources=sources,
-        track_ids=track_ids,
-        intervals=intervals,
-    )
+    return _prepare_materialized(canonical, sources, audio, track_ids, sample_rate)
+
+
+def prepare_materialized_autocalibrate(
+    edit: AutocalibrateEdit,
+    audio: dict[str, MaterializedAudio],
+    track_ids: dict[str, str],
+    destination: Path,
+) -> PreparedAutocalibrate:
+    if destination.exists():
+        raise RecsError(f'Output session directory already exists: {destination}')
+    sample_rates = {a.sample_rate for a in audio.values()}
+    if len(sample_rates) != 1:
+        raise RecsError(f'Selected tracks have mixed sample rates: {sample_rates}')
+    return _prepare_materialized(edit, {}, audio, track_ids, next(iter(sample_rates)))
 
 
 def autocalibrate_summary(prepared: PreparedAutocalibrate) -> str:
@@ -290,8 +279,58 @@ def execute_autocalibrate(
     edit: AutocalibrateEdit, edit_directory: Path, destination: Path
 ) -> Path:
     prepared = prepare_autocalibrate(edit, edit_directory, destination)
+    metadata = {
+        'sources': {
+            selector: {
+                'session_id': source.session_id,
+                'files': [f.path.as_posix() for f in source.fragments],
+            }
+            for selector, source in prepared.sources.items()
+        }
+    }
+    return write_autocalibrate_session(
+        prepared,
+        destination,
+        canonical_autocalibrate(prepared.edit),
+        metadata,
+    )
+
+
+def materialized_autocalibrate_outputs(
+    prepared: PreparedAutocalibrate,
+) -> dict[str, MaterializedAudio]:
+    return {
+        prepared.track_ids[selector]: MaterializedAudio(
+            source.samples,
+            source.sample_rate,
+            source.start_frame,
+            [
+                ObservedFrameRange(start=r.start, end=r.end)
+                for r in prepared.intervals[selector]
+            ],
+        )
+        for selector, source in prepared.audio.items()
+    }
+
+
+def autocalibrate_track_ids(selectors: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    used: list[str] = []
+    for selector in selectors:
+        identity = _unique_track_id(selector, used)
+        used.append(identity)
+        result[selector] = identity
+    return result
+
+
+def write_autocalibrate_session(
+    prepared: PreparedAutocalibrate,
+    destination: Path,
+    edit_text: str,
+    metadata: dict[str, object],
+) -> Path:
     destination.mkdir(parents=True)
-    (destination / 'edit.toml').write_text(canonical_autocalibrate(prepared.edit))
+    (destination / 'edit.toml').write_text(edit_text)
     now = datetime.now(timezone.utc)
     writer = session_record.SessionRecordWriter(
         destination / 'session-record.jsonl',
@@ -304,20 +343,12 @@ def execute_autocalibrate(
             type='edit_started',
             timestamp=_timestamp(now),
             path='edit.toml',
-            metadata={
-                'sources': {
-                    selector: {
-                        'session_id': source.session_id,
-                        'files': [f.path.as_posix() for f in source.fragments],
-                    }
-                    for selector, source in prepared.sources.items()
-                }
-            },
+            metadata=metadata,
         ),
         sync=True,
     )
     try:
-        for selector, source in prepared.sources.items():
+        for selector, source in prepared.audio.items():
             _write_track(
                 writer,
                 destination,
@@ -354,23 +385,27 @@ def execute_autocalibrate(
 def level_windows(
     source: ResolvedSource, settings: CalibrationSettings
 ) -> Iterator[LevelWindow]:
-    reader = _SourceReader(source)
-    try:
-        for coverage_start, coverage_end in _coverage_ranges(source.fragments):
-            start = _aligned_start(coverage_start, settings.window_frames)
-            while start + settings.window_frames <= coverage_end:
-                end = start + settings.window_frames
-                block = reader.read(start, end)
-                yield LevelWindow(
-                    start=start,
-                    end=end,
-                    level_dbfs=_level_dbfs(block, settings.analysis_floor_dbfs),
-                    coverage_start=coverage_start,
-                    coverage_end=coverage_end,
-                )
-                start = end
-    finally:
-        reader.close()
+    yield from level_windows_audio(SourceMaterializer().materialize(source), settings)
+
+
+def level_windows_audio(
+    source: MaterializedAudio, settings: CalibrationSettings
+) -> Iterator[LevelWindow]:
+    for coverage in source.observed_ranges:
+        start = _aligned_start(coverage.start, settings.window_frames)
+        while start + settings.window_frames <= coverage.end:
+            end = start + settings.window_frames
+            block = source.samples[
+                start - source.start_frame : end - source.start_frame
+            ]
+            yield LevelWindow(
+                start=start,
+                end=end,
+                level_dbfs=_level_dbfs(block, settings.analysis_floor_dbfs),
+                coverage_start=coverage.start,
+                coverage_end=coverage.end,
+            )
+            start = end
 
 
 def calibrate_threshold(
@@ -442,6 +477,81 @@ def detect_intervals(
     return result
 
 
+def _autocalibrate_from_options(
+    record: Path | None,
+    memory: str | None,
+    channels: list[str],
+    sample_rate: int,
+    options: AutocalibrateOptions,
+) -> AutocalibrateEdit:
+    output_format = options.format or Format.flac
+    subtype = options.subtype or (
+        Subtype.pcm_24 if output_format == Format.flac else None
+    )
+    return AutocalibrateEdit(
+        record=record,
+        memory=memory,
+        channels=channels,
+        sample_rate=sample_rate,
+        calibration=CalibrationSettings(
+            window_frames=max(1, round(options.window_time * sample_rate)),
+            candidate_percentile=options.candidate_percentile,
+            candidate_tolerance_db=options.candidate_tolerance_db,
+            minimum_silence_frames=max(
+                1, round(options.minimum_silence_time * sample_rate)
+            ),
+            noise_percentile=options.noise_percentile,
+            signal_margin_db=options.signal_margin_db,
+            analysis_floor_dbfs=options.analysis_floor_dbfs,
+        ),
+        silence=SilenceSettings(
+            quiet_before_frames=round(options.quiet_before * sample_rate),
+            quiet_after_frames=round(options.quiet_after * sample_rate),
+            stop_after_quiet_frames=round(options.stop_after_quiet * sample_rate),
+            shortest_file_frames=round(options.shortest_file_time * sample_rate),
+            longest_file_frames=round(options.longest_file_time * sample_rate),
+        ),
+        output=AutocalibrateOutput(format=output_format, subtype=subtype),
+    )
+
+
+def _prepare_materialized(
+    edit: AutocalibrateEdit,
+    sources: dict[str, ResolvedSource],
+    audio: dict[str, MaterializedAudio],
+    track_ids: dict[str, str],
+    sample_rate: int,
+) -> PreparedAutocalibrate:
+    if edit.sample_rate is not None and edit.sample_rate != sample_rate:
+        raise RecsError(
+            f'Edit sample rate is {edit.sample_rate}, but sources use {sample_rate}'
+        )
+    _validate_output(edit.output, audio)
+    thresholds = _thresholds(edit, audio)
+    intervals = {
+        selector: detect_intervals(
+            level_windows_audio(audio[selector], edit.calibration),
+            thresholds[selector],
+            edit.silence,
+        )
+        for selector in audio
+    }
+    canonical = edit.model_copy(
+        update={
+            'channels': list(audio),
+            'sample_rate': sample_rate,
+            'thresholds': [thresholds[s] for s in audio],
+        }
+    )
+    return PreparedAutocalibrate(
+        edit=canonical,
+        sources=sources,
+        audio=audio,
+        track_ids=track_ids,
+        intervals=intervals,
+    )
+
+
 def _resolve_record_sources(
     record_path: Path, requested: list[str]
 ) -> tuple[dict[str, ResolvedSource], dict[str, str], int]:
@@ -506,8 +616,10 @@ def _resolve_record_sources(
 
 
 def _validate_output(
-    output: AutocalibrateOutput, sources: dict[str, ResolvedSource]
+    output: AutocalibrateOutput, sources: dict[str, MaterializedAudio]
 ) -> None:
+    if output.format is None:
+        return
     maximum = max(s.channels for s in sources.values())
     if output.format == Format.flac and maximum > 8:
         raise RecsError('FLAC supports at most 8 channels')
@@ -521,7 +633,7 @@ def _validate_output(
 
 
 def _thresholds(
-    edit: AutocalibrateEdit, sources: dict[str, ResolvedSource]
+    edit: AutocalibrateEdit, sources: dict[str, MaterializedAudio]
 ) -> dict[str, CalibratedThreshold]:
     if edit.thresholds:
         result = {t.source: t for t in edit.thresholds}
@@ -535,7 +647,7 @@ def _thresholds(
     return {
         selector: calibrate_threshold(
             selector,
-            lambda source=source: level_windows(source, edit.calibration),
+            lambda source=source: level_windows_audio(source, edit.calibration),
             edit.calibration,
         )
         for selector, source in sources.items()
@@ -546,64 +658,65 @@ def _write_track(
     writer: session_record.SessionRecordWriter,
     destination: Path,
     track_id: str,
-    source: ResolvedSource,
+    source: MaterializedAudio,
     intervals: list[FrameRange],
     output: AutocalibrateOutput,
 ) -> None:
-    reader = _SourceReader(source)
-    try:
-        for index, frame_range in enumerate(intervals, 1):
-            relative = Path('audio') / track_id / f'{index:04d}.{output.format}'
-            path = destination / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            now = _timestamp(datetime.now(timezone.utc))
-            started = session_record.FileRecord(
-                type='file_started',
-                media_type='audio',
-                timestamp=now,
-                stream_id=f'audio:edit:{track_id}',
-                format=output.format,
-                frame_count=frame_range.start,
-                path=relative.as_posix(),
-                source='edit',
-                track_name=track_id,
-                source_channels=list(range(1, source.channels + 1)),
+    if output.format is None:
+        raise RecsError('Final autocalibration output requires format')
+    for index, frame_range in enumerate(intervals, 1):
+        relative = Path('audio') / track_id / f'{index:04d}.{output.format}'
+        path = destination / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        now = _timestamp(datetime.now(timezone.utc))
+        started = session_record.FileRecord(
+            type='file_started',
+            media_type='audio',
+            timestamp=now,
+            stream_id=f'audio:edit:{track_id}',
+            format=output.format,
+            frame_count=frame_range.start,
+            path=relative.as_posix(),
+            source='edit',
+            track_name=track_id,
+            source_channels=list(range(1, source.channels + 1)),
+            channels=source.channels,
+            sample_rate=source.sample_rate,
+        )
+        writer.write(started)
+        try:
+            fp = soundfile.SoundFile(
+                path,
+                mode='w',
+                samplerate=source.sample_rate,
                 channels=source.channels,
-                sample_rate=source.sample_rate,
+                format=output.format,
+                subtype=output.subtype,
             )
-            writer.write(started)
-            try:
-                fp = soundfile.SoundFile(
-                    path,
-                    mode='w',
-                    samplerate=source.sample_rate,
-                    channels=source.channels,
-                    format=output.format,
-                    subtype=output.subtype,
-                )
-            except soundfile.LibsndfileError as e:
-                raise RecsError(f'Cannot create output {path}: {e}') from e
-            try:
-                for start in range(frame_range.start, frame_range.end, 4096):
-                    end = min(start + 4096, frame_range.end)
-                    fp.write(reader.read(start, end))
-            finally:
-                fp.close()
-            with soundfile.SoundFile(path) as result:
-                depth = bit_depth(result)
-            writer.write(
-                started.model_copy(
-                    update={
-                        'type': 'file_finished',
-                        'timestamp': _timestamp(datetime.now(timezone.utc)),
-                        'frame_count': frame_range.end,
-                        'quantity_count': frame_range.end - frame_range.start,
-                        'bit_depth': depth,
-                    }
-                )
+        except soundfile.LibsndfileError as e:
+            raise RecsError(f'Cannot create output {path}: {e}') from e
+        try:
+            fp.write(
+                source.samples[
+                    frame_range.start - source.start_frame : frame_range.end
+                    - source.start_frame
+                ]
             )
-    finally:
-        reader.close()
+        finally:
+            fp.close()
+        with soundfile.SoundFile(path) as result:
+            depth = bit_depth(result)
+        writer.write(
+            started.model_copy(
+                update={
+                    'type': 'file_finished',
+                    'timestamp': _timestamp(datetime.now(timezone.utc)),
+                    'frame_count': frame_range.end,
+                    'quantity_count': frame_range.end - frame_range.start,
+                    'bit_depth': depth,
+                }
+            )
+        )
 
 
 def _unique_track_id(selector: str, used: list[str]) -> str:
@@ -660,66 +773,6 @@ class _Histogram:
             if cumulative >= target:
                 return self.floor + index * HISTOGRAM_BIN_DB
         return 0.0
-
-
-class _SourceReader:
-    def __init__(self, source: ResolvedSource) -> None:
-        self.source = source
-        self.readers: OrderedDict[Path, soundfile.SoundFile] = OrderedDict()
-
-    def read(self, start: int, end: int) -> np.ndarray:
-        result = np.empty((end - start, self.source.channels), dtype=np.float32)
-        written = 0
-        for fragment in self.source.fragments:
-            overlap_start = max(start, fragment.start)
-            overlap_end = min(end, fragment.end)
-            if overlap_start >= overlap_end:
-                continue
-            fp = self._reader(fragment.path)
-            fp.seek(overlap_start - fragment.start)
-            try:
-                data = fp.read(
-                    overlap_end - overlap_start,
-                    dtype='float32',
-                    always_2d=True,
-                )
-            except soundfile.SoundFileError as e:
-                raise RecsError(f'Cannot read source audio {fragment.path}: {e}') from e
-            first = fragment.channel_offset
-            count = len(data)
-            result[written : written + count] = data[
-                :, first : first + self.source.channels
-            ]
-            written += count
-        if written != end - start:
-            raise RecsError(f'Unobserved source frames in interval {start}:{end}')
-        return result
-
-    def close(self) -> None:
-        for fp in self.readers.values():
-            fp.close()
-        self.readers.clear()
-
-    def _reader(self, path: Path) -> soundfile.SoundFile:
-        if fp := self.readers.pop(path, None):
-            self.readers[path] = fp
-            return fp
-        fp = soundfile.SoundFile(path)
-        self.readers[path] = fp
-        if len(self.readers) > 8:
-            _, oldest = self.readers.popitem(last=False)
-            oldest.close()
-        return fp
-
-
-def _coverage_ranges(fragments: list[AudioFragment]) -> list[tuple[int, int]]:
-    result: list[tuple[int, int]] = []
-    for fragment in fragments:
-        if result and result[-1][1] == fragment.start:
-            result[-1] = (result[-1][0], fragment.end)
-        else:
-            result.append((fragment.start, fragment.end))
-    return result
 
 
 def _aligned_start(start: int, window_frames: int) -> int:

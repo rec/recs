@@ -32,7 +32,7 @@ class SessionRecordRequired(RecsError):
     pass
 
 
-class _InputTrack(BaseModel, frozen=True):
+class InputTrack(BaseModel, frozen=True):
     label: str
     selectors: list[str]
     source: SourceSpec
@@ -93,14 +93,25 @@ def complete_or_generate(
         return parse_edit(text)
     except ValueError:
         pass
+    return complete_or_generate_tracks(recipe, input_tracks(input_paths), options)
+
+
+def complete_or_generate_tracks(
+    recipe: dict[str, object], tracks: list[InputTrack], options: EditOptions
+) -> EditSpec:
+    text = tomlkit.dumps(recipe)
+    try:
+        return parse_edit(text)
+    except ValueError:
+        pass
     partial = parse_partial_edit(text)
     if partial.command is None or partial.command.operation is None:
         raise RecsError('Partial edit command has no _command.operation')
-    if not input_paths:
+    if not tracks:
         raise SessionRecordRequired('This edit command requires an input')
     generated = _generate(
         partial.command.operation,
-        input_paths,
+        tracks,
         options.channel,
         options.start,
         options.end,
@@ -144,6 +155,14 @@ def complete_or_generate(
         overridden_outputs.append(output)
     generated['outputs'] = overridden_outputs
     return EditSpec.model_validate(_merge(generated, overlay))
+
+
+def input_tracks(paths: list[Path]) -> list[InputTrack]:
+    return _input_tracks(_expand_input_paths(paths))
+
+
+def select_tracks(tracks: list[InputTrack], selectors: list[str]) -> list[InputTrack]:
+    return _select_tracks(tracks, selectors)
 
 
 def latest_record(cwd: Path) -> Path:
@@ -229,8 +248,8 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
     return result
 
 
-def _input_tracks(paths: list[Path]) -> list[_InputTrack]:
-    result: list[_InputTrack] = []
+def _input_tracks(paths: list[Path]) -> list[InputTrack]:
+    result: list[InputTrack] = []
     identifiers: list[str] = []
     qualify = len(paths) > 1
     for path in paths:
@@ -241,12 +260,12 @@ def _input_tracks(paths: list[Path]) -> list[_InputTrack]:
             result.extend(_record_tracks(path, input_id, qualify))
         else:
             result.append(_file_track(path, input_id))
-    if not result:
+    if paths and not result:
         raise RecsError('Edit inputs contain no audio tracks')
     return result
 
 
-def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[_InputTrack]:
+def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]:
     record = session_record.read(path)
     if record.errors:
         raise RecsError('; '.join(record.errors))
@@ -262,7 +281,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[_InputTrack
         and f.frame_count is not None
         and f.quantity_count is not None
     ]
-    result: list[_InputTrack] = []
+    result: list[InputTrack] = []
     selectors = list(dict.fromkeys(f'{f.source}:{f.track_name}' for f in finished))
     for selector in selectors:
         files = [f for f in finished if f'{f.source}:{f.track_name}' == selector]
@@ -272,7 +291,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[_InputTrack
             raise RecsError(f'Inconsistent audio metadata for {selector} in {path}')
         label = f'{input_id}:{selector}' if qualify else selector
         result.append(
-            _InputTrack(
+            InputTrack(
                 label=label,
                 selectors=[label],
                 source=SourceSpec(id='source', record=path, channel=selector),
@@ -288,12 +307,12 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[_InputTrack
     return result
 
 
-def _file_track(path: Path, input_id: str) -> _InputTrack:
+def _file_track(path: Path, input_id: str) -> InputTrack:
     try:
         info = soundfile.info(path)
     except soundfile.LibsndfileError as e:
         raise RecsError(f'Cannot read edit input {path}: {e}') from e
-    return _InputTrack(
+    return InputTrack(
         label=input_id,
         selectors=[input_id],
         source=SourceSpec(
@@ -305,12 +324,10 @@ def _file_track(path: Path, input_id: str) -> _InputTrack:
     )
 
 
-def _select_tracks(
-    tracks: list[_InputTrack], selectors: list[str]
-) -> list[_InputTrack]:
+def _select_tracks(tracks: list[InputTrack], selectors: list[str]) -> list[InputTrack]:
     if not selectors:
         return tracks
-    result: list[_InputTrack] = []
+    result: list[InputTrack] = []
     for selector in selectors:
         exact = [t for t in tracks if selector in t.selectors]
         if len(exact) == 1:
@@ -328,7 +345,7 @@ def _select_tracks(
     return result
 
 
-def _mono_tracks(track: _InputTrack) -> list[_InputTrack]:
+def _mono_tracks(track: InputTrack) -> list[InputTrack]:
     if track.channels == 1:
         return [track]
     return [
@@ -337,7 +354,7 @@ def _mono_tracks(track: _InputTrack) -> list[_InputTrack]:
     ]
 
 
-def _mono_track(track: _InputTrack, channel: int, label: str) -> _InputTrack:
+def _mono_track(track: InputTrack, channel: int, label: str) -> InputTrack:
     if not 1 <= channel <= track.channels:
         raise RecsError(
             f'Channel {channel} exceeds width {track.channels}: {track.label}'
@@ -355,7 +372,7 @@ def _mono_track(track: _InputTrack, channel: int, label: str) -> _InputTrack:
 
 def _generate(
     operation: CommandKind,
-    input_paths: list[Path],
+    input_tracks: list[InputTrack],
     requested_selectors: list[str],
     start_seconds: float,
     end_seconds: float | None,
@@ -365,8 +382,6 @@ def _generate(
     route_gains: list[float],
     crossfade: float | None,
 ) -> dict[str, object]:
-    paths = _expand_input_paths(input_paths)
-    input_tracks = _input_tracks(paths)
     selected = _select_tracks(input_tracks, requested_selectors)
     if operation == CommandKind.split:
         selected = [m for t in selected for m in _mono_tracks(t)]

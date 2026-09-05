@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import soundfile
 
-from recs.edit.schema import parse_edit
+from recs.edit.schema import NormalizeMode, parse_edit
 from recs.edit.session import execute_edit, prepare_edit
 from recs.ui import session_record
 
@@ -130,3 +130,24 @@ subtype = "float"
     )
     np.testing.assert_array_equal(chained_audio, audio)
     assert chained_rate == 48_000
+
+    normalized_destination = tmp_path / 'normalized'
+    normalized = edit.model_copy(
+        update={
+            'outputs': [
+                edit.outputs[0].model_copy(
+                    update={'normalize': NormalizeMode.normalize}
+                )
+            ]
+        }
+    )
+
+    execute_edit(normalized, source_directory, normalized_destination)
+
+    normalized_audio, normalized_rate = soundfile.read(
+        normalized_destination / 'audio/voice.wav',
+        dtype='float32',
+        always_2d=True,
+    )
+    assert normalized_rate == 48_000
+    assert np.max(np.abs(normalized_audio)) == 1

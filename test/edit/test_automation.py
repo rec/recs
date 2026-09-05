@@ -16,8 +16,11 @@ def test_gain_values_hold_declared_value_before_first_point() -> None:
         }
     )
 
+    result = gain_values(automation, 0.5, 0, 8)
+
+    assert result.dtype == np.float32
     np.testing.assert_allclose(
-        gain_values(automation, 0.5, 0, 8),
+        result,
         [0.5, 0.5, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0],
     )
 

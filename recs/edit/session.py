@@ -1,5 +1,6 @@
 import os
 import uuid
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
+from recs.edit.materialized import MaterializedAudio
 from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
@@ -33,19 +35,35 @@ def prepare_edit(
     sources = resolve_sources(edit, edit_directory)
     graph = validate_graph(edit, sources)
     validate_outputs(edit, graph, destination)
-    canonical = _canonical_edit(edit, sources, destination)
+    canonical = canonical_edit(edit, sources, destination)
     return PreparedEdit(edit=canonical, sources=sources, graph=graph)
 
 
 def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Path:
     prepared = prepare_edit(edit, edit_directory, destination)
     canonical = prepared.edit
-    sources = prepared.sources
-    graph = prepared.graph
+    rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
+    return write_session(
+        canonical_toml(canonical),
+        canonical,
+        prepared.graph,
+        rendered,
+        destination,
+        _resolution_metadata(prepared.sources, prepared.graph),
+    )
 
+
+def write_session(
+    edit_text: str,
+    edit: EditSpec,
+    graph: EditGraph,
+    rendered: dict[str, MaterializedAudio],
+    destination: Path,
+    metadata: dict[str, object],
+) -> Path:
     destination.mkdir(parents=True)
     edit_path = destination / 'edit.toml'
-    edit_path.write_text(canonical_toml(canonical))
+    edit_path.write_text(edit_text)
     now = datetime.now(timezone.utc)
     writer = session_record.SessionRecordWriter(
         destination / 'session-record.jsonl',
@@ -58,13 +76,16 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
             type='edit_started',
             timestamp=_timestamp(now),
             path='edit.toml',
-            metadata=_resolution_metadata(sources, graph),
+            metadata=metadata,
         ),
         sync=True,
     )
-    renderer = Renderer(canonical, sources, graph)
     try:
-        for output in canonical.outputs:
+        for output in edit.outputs:
+            if output.path is None or output.format is None:
+                raise RecsError(
+                    f'Output {output.id}: final output requires path and format'
+                )
             path = destination / output.path
             stream_id = f'audio:edit:{output.id}'
             frame_range = graph.output_extents[output.id]
@@ -81,21 +102,21 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
                 track_name=output.id,
                 source_channels=list(range(1, channels + 1)),
                 channels=channels,
-                sample_rate=canonical.sample_rate,
+                sample_rate=edit.sample_rate,
             )
             writer.write(started)
-            rendered = renderer.render(output)
+            audio = rendered[output.id]
             fp = open_output(
                 output,
                 path,
-                rendered.channels,
-                rendered.sample_rate,
+                audio.channels,
+                audio.sample_rate,
             )
             try:
-                fp.write(rendered.samples)
+                fp.write(audio.samples)
             finally:
                 fp.close()
-            quantity = len(rendered.samples)
+            quantity = len(audio.samples)
             with soundfile.SoundFile(path) as fp:
                 depth = bit_depth(fp)
             writer.write(
@@ -134,12 +155,17 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
     return writer.path
 
 
-def _canonical_edit(
-    edit: EditSpec, sources: dict[str, ResolvedSource], destination: Path
+def canonical_edit(
+    edit: EditSpec,
+    sources: Mapping[str, ResolvedSource | MaterializedAudio],
+    destination: Path,
 ) -> EditSpec:
     replacements = []
     for source in edit.sources:
         resolved = sources[source.id]
+        if isinstance(resolved, MaterializedAudio):
+            replacements.append(source)
+            continue
         path = resolved.record or resolved.file
         assert path is not None
         try:

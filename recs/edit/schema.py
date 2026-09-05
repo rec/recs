@@ -52,25 +52,33 @@ class SourceSpec(BaseModel, frozen=True):
     record: Path | None = None
     channel: str | None = None
     file: Path | None = None
+    memory: str | None = None
     channels: list[int] = Field(default_factory=list)
     input_format: Format | None = None
 
     @model_validator(mode='after')
     def validate_location(self) -> Self:
-        if (self.record is None) == (self.file is None):
-            raise ValueError('source requires exactly one of record or file')
+        locations = [
+            self.record is not None,
+            self.file is not None,
+            self.memory is not None,
+        ]
+        if sum(locations) != 1:
+            raise ValueError('source requires exactly one of record, file, or memory')
         if self.record is not None:
             if self.channel is None:
                 raise ValueError('record source requires channel')
             if self.channels:
-                raise ValueError('channels are only allowed for file sources')
+                raise ValueError(
+                    'channels are only allowed for file and memory sources'
+                )
         else:
             if self.channel is not None:
                 raise ValueError('channel is only allowed for record sources')
             if self.input_format is not None:
                 raise ValueError('input_format is only allowed for record sources')
             if not self.channels:
-                raise ValueError('file source requires channels')
+                raise ValueError('file and memory sources require channels')
             if (
                 self.channels
                 != list(range(self.channels[0], self.channels[0] + len(self.channels)))
@@ -154,8 +162,8 @@ class AutomationSpec(BaseModel, frozen=True):
 class OutputSpec(BaseModel, frozen=True):
     id: Identifier
     source: Identifier
-    path: Path
-    format: Format
+    path: Path | None = None
+    format: Format | None = None
     subtype: Subtype | None = None
     start: int | None = Field(default=None, ge=0)
     end: int | None = Field(default=None, gt=0)
@@ -191,6 +199,7 @@ class PartialSourceSpec(BaseModel, frozen=True):
     record: Path | None = None
     channel: str | None = None
     file: Path | None = None
+    memory: str | None = None
     channels: list[int] | None = None
     input_format: Format | None = None
 
