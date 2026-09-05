@@ -3,7 +3,7 @@
 import re
 from pathlib import Path, PurePosixPath
 
-from . import enums, playback, processing, selection
+from . import enums, modulation, playback, processing, selection
 from .instrument import Instrument, SampleInstrument, SampleSlot
 
 
@@ -113,7 +113,7 @@ def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> Samp
     pitch_keycenter = 60
     for opcode, value in opcodes:
         opcode = OPCODE_ALIASES.get(opcode, opcode)
-        if opcode not in SUPPORTED_OPCODES:
+        if opcode not in SUPPORTED_OPCODES and not AMP_VELOCITY_CURVE.fullmatch(opcode):
             raise ValueError(f'Region {index}: unsupported SFZ opcode: {opcode}')
         values[opcode] = value
         if opcode == 'key':
@@ -162,6 +162,8 @@ def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> Samp
         kwargs['processing'] = processing.Processing.model_validate(result)
     if result := _envelope(values):
         kwargs['envelope'] = playback.Envelope.model_validate(result)
+    if result := _velocity_modulation(values):
+        kwargs['modulation'] = [result]
     if result := _trigger(values):
         kwargs['trigger'] = result
     if group := _group(values.get('group')):
@@ -262,6 +264,56 @@ def _trigger(values: dict[str, str]) -> enums.TriggerKind | None:
     raise ValueError(f'Unsupported SFZ trigger: {value}')
 
 
+def _velocity_modulation(values: dict[str, str]) -> modulation.KeyModulation | None:
+    tracking = _number(values.get('amp_veltrack', '100'), 'amp_veltrack')
+    if not -100 <= tracking <= 100:
+        raise ValueError('amp_veltrack must be between -100 and 100')
+    if tracking == 0:
+        return None
+
+    specified: dict[int, float] = {}
+    for opcode, value in values.items():
+        if match := AMP_VELOCITY_CURVE.fullmatch(opcode):
+            velocity = int(match.group(1))
+            if velocity > 127:
+                raise ValueError(f'{opcode} velocity must be between 0 and 127')
+            amount = _number(value, opcode)
+            if not 0 <= amount <= 1:
+                raise ValueError(f'{opcode} must be between 0 and 1')
+            specified[velocity] = amount
+
+    if specified:
+        specified.setdefault(0, 0.0)
+        specified.setdefault(127, 1.0)
+        curve = _interpolated_velocity_curve(specified)
+    else:
+        curve = [(v / 127) ** 2 for v in range(128)]
+
+    proportion = abs(tracking) / 100
+    gains = (
+        [1 - proportion * (1 - a) for a in curve]
+        if tracking > 0
+        else [proportion * (1 - a) for a in curve]
+    )
+    return modulation.KeyModulation(
+        target='amplitude',
+        input=enums.Input.velocity,
+        operation=enums.Operation.multiply,
+        points=[modulation.Point(input=v / 127, amount=a) for v, a in enumerate(gains)],
+    )
+
+
+def _interpolated_velocity_curve(points: dict[int, float]) -> list[float]:
+    result = [0.0] * 128
+    ordered = sorted(points.items())
+    pairs = zip(ordered, ordered[1:], strict=False)
+    for (start, start_value), (end, end_value) in pairs:
+        for velocity in range(start, end + 1):
+            fraction = (velocity - start) / (end - start)
+            result[velocity] = start_value + fraction * (end_value - start_value)
+    return result
+
+
 def _key(value: str, opcode: str) -> int:
     try:
         key = int(value)
@@ -320,6 +372,7 @@ SUPPORTED_OPCODES = {
     'ampeg_hold',
     'ampeg_release',
     'ampeg_sustain',
+    'amp_veltrack',
     'direction',
     'end',
     'group',
@@ -369,3 +422,4 @@ TOKEN = re.compile(r'<([A-Za-z_][A-Za-z0-9_]*)>|([A-Za-z_][A-Za-z0-9_]*)=')
 BLOCK_COMMENT = re.compile(r'/\*.*?\*/', re.DOTALL)
 LINE_COMMENT = re.compile(r'//.*$', re.MULTILINE)
 PREPROCESSOR = re.compile(r'^\s*#', re.MULTILINE)
+AMP_VELOCITY_CURVE = re.compile(r'amp_velcurve_(\d+)')

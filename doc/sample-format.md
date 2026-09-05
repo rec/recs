@@ -1100,13 +1100,15 @@ only its containing slot. Both use the same fields:
 | `interpolation` | `"linear"` or `"step"`; default `"linear"` |
 | `points` | Nonempty list of `{ input = number, amount = number }` points; key inputs require integers |
 
-Supported processing targets are `volume_db`, `tuning_cents`, `pan`,
+Supported processing targets are `amplitude`, `volume_db`, `tuning_cents`, `pan`,
 `stereo_balance`, and
 `equalizer.BAND_ID.frequency_hz`, `equalizer.BAND_ID.gain_db`, or
 `equalizer.BAND_ID.resonance`. Band IDs must name an existing band in the
 same scope. A slot curve cannot reach into the instrument to disable its processing.
 
-Modulation for `volume_db`, `tuning_cents`, `pan`, `stereo_balance`, and EQ
+`amplitude` multiplies linear signal amplitude and accepts non-negative amounts,
+including exact zero. Modulation for `volume_db`, `tuning_cents`, `pan`,
+`stereo_balance`, and EQ
 `gain_db` uses `add`; its amount is in the target's units. Frequency and resonance use
 `multiply`; amounts are positive dimensionless ratios. Static key/velocity
 curves may also multiply the envelope duration targets defined above. Other

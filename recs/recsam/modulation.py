@@ -35,8 +35,11 @@ class Modulation(Model):
             validate_input_value(self.input, point.input)
             if previous is not None and point.input <= previous:
                 raise ValueError('Point inputs must be strictly increasing')
-            if self.operation == enums.Operation.multiply and point.amount <= 0:
-                raise ValueError('Multiplicative amounts must be positive')
+            if self.operation == enums.Operation.multiply:
+                if self.target == 'amplitude' and point.amount < 0:
+                    raise ValueError('Amplitude amounts must be non-negative')
+                if self.target != 'amplitude' and point.amount <= 0:
+                    raise ValueError('Multiplicative amounts must be positive')
             previous = point.input
         return self
 
@@ -96,6 +99,8 @@ class ControlCrossfade(Crossfade):
 
 def target_operation(target: str) -> enums.Operation:
     """Validate a target path independently of its containing processing scope."""
+    if target == 'amplitude':
+        return enums.Operation.multiply
     if target in ('volume_db', 'tuning_cents', 'pan', 'stereo_balance'):
         return enums.Operation.add
     parts = target.split('.')

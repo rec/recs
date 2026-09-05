@@ -36,6 +36,10 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert soft.mapping.maximum_velocity == 63 / 127
     assert soft.processing.volume_db == -3
     assert soft.processing.pan == -0.25
+    assert soft.modulation[0].target == 'amplitude'
+    assert soft.modulation[0].points[0].amount == 0
+    assert soft.modulation[0].points[64].amount == pytest.approx((64 / 127) ** 2)
+    assert soft.modulation[0].points[127].amount == 1
     assert soft.envelope.attack_seconds == 0.01
     assert soft.envelope.release_seconds == 0.4
     assert loud.mapping.lowest_key == 62
@@ -46,6 +50,34 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert loud.playback.mode == enums.PlaybackMode.one_shot
     assert loud.playback.start_frame == 10
     assert loud.playback.end_frame == 100
+
+
+def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
+    path = tmp_path / 'velocity.sfz'
+    path.write_text(
+        '<region> sample=normal.wav amp_veltrack=50 '
+        'amp_velcurve_0=0.2 amp_velcurve_64=0.6\n'
+        '<region> sample=inverted.wav amp_veltrack=-100 amp_velcurve_64=1'
+    )
+
+    normal, inverted = sfz.read(path).slots
+
+    normal_points = normal.modulation[0].points
+    assert normal_points[0].amount == 0.6
+    assert normal_points[32].amount == 0.7
+    assert normal_points[64].amount == 0.8
+    assert normal_points[127].amount == 1
+    inverted_points = inverted.modulation[0].points
+    assert inverted_points[0].amount == 1
+    assert inverted_points[64].amount == 0
+    assert inverted_points[127].amount == 0
+
+
+def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
+    path = tmp_path / 'flat.sfz'
+    path.write_text('<region> sample=flat.wav amp_veltrack=0')
+
+    assert sfz.read(path).slots[0].modulation == []
 
 
 def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
@@ -93,6 +125,9 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
     ('text', 'message'),
     [
         ('<region> sample=a.wav key=60 cutoff=1000', 'unsupported SFZ opcode'),
+        ('<region> sample=a.wav amp_veltrack=101', 'between -100 and 100'),
+        ('<region> sample=a.wav amp_velcurve_128=1', 'velocity must be'),
+        ('<region> sample=a.wav amp_velcurve_64=1.1', 'between 0 and 1'),
         ('<curve> curve_index=1', 'Unsupported SFZ header'),
         ('#include "other.sfz"', 'preprocessing is not supported'),
         ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit loop_start'),

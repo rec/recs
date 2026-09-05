@@ -97,6 +97,19 @@ def test_each_modulation_input_roundtrips(input_settings: dict[str, object]) -> 
     assert curve.model_dump(mode='json', exclude_unset=True) == raw
 
 
+def test_amplitude_modulation_accepts_exact_silence() -> None:
+    curve = TypeAdapter(modulation.ModulationCurve).validate_python(
+        {
+            'input': 'velocity',
+            'target': 'amplitude',
+            'operation': 'multiply',
+            'points': [{'input': 0.0, 'amount': 0.0}],
+        }
+    )
+
+    assert curve.points[0].amount == 0
+
+
 @pytest.mark.parametrize(
     'input_settings',
     [
@@ -137,6 +150,11 @@ def test_each_crossfade_input_roundtrips(input_settings: dict[str, object]) -> N
         {'points': [{'input': 1, 'amount': 0}, {'input': 1, 'amount': 1}]},
         {'points': []},
         {'target': 'volume_db', 'operation': 'multiply'},
+        {
+            'target': 'amplitude',
+            'operation': 'multiply',
+            'points': [{'input': 1, 'amount': -0.01}],
+        },
         {'target': 'equalizer.band.quality_factor', 'operation': 'multiply'},
         {'target': 'equalizer.band.resonance', 'operation': 'multiply'},
         {'target': 'lfos.vibrato.frequency_hz'},
