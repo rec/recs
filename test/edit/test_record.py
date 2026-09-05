@@ -39,6 +39,30 @@ channel = "device:pair:2"
     assert [f.channel_offset for f in source.fragments] == [1, 1]
 
 
+def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
+    path = tmp_path / 'take.wav'
+    soundfile.write(path, np.zeros((48_000, 4)), 48_000, subtype='FLOAT')
+    edit = parse_edit(
+        """
+schema_version = 1
+sample_rate = 48000
+
+[[sources]]
+id = "middle"
+file = "take.wav"
+channels = [2, 3]
+"""
+    )
+
+    source = resolve_sources(edit, tmp_path)['middle']
+
+    assert source.record is None
+    assert source.file == path
+    assert source.channels == 2
+    assert source.fragments[0].channel_offset == 1
+    assert source.timeline_end == 48_000
+
+
 def _write_audio_fragment(
     writer: SessionRecordWriter,
     directory: Path,

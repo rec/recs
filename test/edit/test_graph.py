@@ -47,6 +47,7 @@ def _source() -> ResolvedSource:
     return ResolvedSource(
         id='source',
         record=Path('session-record.jsonl'),
+        file=None,
         session_id='source-session',
         selector='device:track',
         channels=1,

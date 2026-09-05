@@ -21,7 +21,8 @@ class AudioFragment(BaseModel, frozen=True):
 
 class ResolvedSource(BaseModel, frozen=True):
     id: str
-    record: Path
+    record: Path | None
+    file: Path | None
     session_id: str | None
     selector: str
     channels: int
@@ -50,6 +51,10 @@ def resolve_sources(edit: EditSpec, edit_directory: Path) -> dict[str, ResolvedS
 
 
 def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
+    if source.file is not None:
+        return _resolve_file_source(source, edit_directory)
+    assert source.record is not None
+    assert source.channel is not None
     record_path = (edit_directory / source.record).resolve()
     if not record_path.is_file():
         raise RecsError(
@@ -95,12 +100,49 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     return ResolvedSource(
         id=source.id,
         record=record_path,
+        file=None,
         session_id=record.session_id,
         selector=source.channel,
         channels=width,
         sample_rate=sample_rate,
         timeline_end=timeline_end,
         fragments=fragments,
+    )
+
+
+def _resolve_file_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
+    assert source.file is not None
+    path = (edit_directory / source.file).resolve()
+    if not path.is_file():
+        raise RecsError(f'Source {source.id}: audio file does not exist: {path}')
+    try:
+        info = soundfile.info(path)
+    except soundfile.LibsndfileError as e:
+        raise RecsError(f'Source {source.id}: cannot read {path}: {e}') from e
+    first = source.channels[0] - 1
+    if source.channels[-1] > info.channels:
+        raise RecsError(
+            f'Source {source.id}: channel {source.channels[-1]} exceeds '
+            f'file width {info.channels}'
+        )
+    return ResolvedSource(
+        id=source.id,
+        record=None,
+        file=path,
+        session_id=None,
+        selector=f'{path.name}:{source.channels[0]}-{source.channels[-1]}',
+        channels=len(source.channels),
+        sample_rate=info.samplerate,
+        timeline_end=info.frames,
+        fragments=[
+            AudioFragment(
+                path=path,
+                start=0,
+                end=info.frames,
+                channels=len(source.channels),
+                channel_offset=first,
+            )
+        ],
     )
 
 
