@@ -94,5 +94,30 @@ subtype = "float"
     result = session_record.read(output_record)
     assert result.application == {'name': 'recs edit'}
     assert [f.type for f in result.files] == ['file_started', 'file_finished']
+    assert result.files[-1].source == 'edit'
+    assert result.files[-1].track_name == 'voice'
+    assert result.files[-1].source_channels == [1]
     assert result.files[-1].quantity_count == 48_000
     assert result.ended_at is not None
+
+    chained_destination = tmp_path / 'chained'
+    chained = edit.model_copy(
+        update={
+            'sources': [
+                edit.sources[0].model_copy(
+                    update={
+                        'record': Path('session-record.jsonl'),
+                        'channel': 'edit:voice',
+                    }
+                )
+            ]
+        }
+    )
+
+    execute_edit(chained, destination, chained_destination)
+
+    chained_audio, chained_rate = soundfile.read(
+        chained_destination / 'audio/voice.wav', dtype='float32', always_2d=True
+    )
+    np.testing.assert_array_equal(chained_audio, audio)
+    assert chained_rate == 48_000

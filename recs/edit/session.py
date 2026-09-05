@@ -68,6 +68,7 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
             path = destination / output.path
             stream_id = f'audio:edit:{output.id}'
             frame_range = graph.output_extents[output.id]
+            channels = graph.widths[output.source]
             started = session_record.FileRecord(
                 type='file_started',
                 media_type='audio',
@@ -76,8 +77,10 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
                 format=output.format,
                 frame_count=frame_range.start,
                 path=output.path.as_posix(),
-                track_name=output.source,
-                channels=graph.widths[output.source],
+                source='edit',
+                track_name=output.id,
+                source_channels=list(range(1, channels + 1)),
+                channels=channels,
                 sample_rate=canonical.sample_rate,
             )
             writer.write(started)
