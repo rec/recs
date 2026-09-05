@@ -72,6 +72,7 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
         raise RecsError(
             f'Source {source.id}: selector {source.channel!r} matches no finished audio'
         )
+    _validate_started_files(source.id, files, record.files)
     fragments, width, sample_rate = _select_fragments(
         source, files, record_path.parent, offset
     )
@@ -101,6 +102,30 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
         timeline_end=timeline_end,
         fragments=fragments,
     )
+
+
+def _validate_started_files(
+    source_id: str,
+    finished: list[session_record.FileRecord],
+    all_files: list[session_record.FileRecord],
+) -> None:
+    started = [f for f in all_files if f.type == 'file_started']
+    for file in finished:
+        if file.frame_count is None or file.quantity_count is None:
+            raise RecsError(f'Source {source_id}: incomplete range for {file.path}')
+        matches = [
+            f
+            for f in started
+            if f.path == file.path
+            and f.stream_id == file.stream_id
+            and f.frame_count is not None
+            and f.frame_count == file.frame_count - file.quantity_count
+        ]
+        if len(matches) != 1:
+            raise RecsError(
+                f'Source {source_id}: {file.path} has {len(matches)} matching '
+                'file_started records'
+            )
 
 
 def _parse_selector(selector: str) -> tuple[str, str, int | None]:

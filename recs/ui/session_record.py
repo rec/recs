@@ -128,6 +128,8 @@ class SessionRecordWriter:
         started_at: str,
         session_id: str | None = None,
         continued_from: str | None = None,
+        application: dict[str, str] | None = None,
+        metadata: dict[str, object] | None = None,
         sync_interval: float = 1.0,
     ) -> None:
         self.path = _available_path(path)
@@ -141,6 +143,8 @@ class SessionRecordWriter:
                 started_at=started_at,
                 session_id=session_id,
                 continued_from=continued_from,
+                application=application,
+                metadata=metadata,
             ),
             sync=True,
         )
