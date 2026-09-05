@@ -1,6 +1,6 @@
 from typing import TypeVar
 
-from reccy import config, units
+from reccy.configuration import tyro, units
 from tyro.constructors import PrimitiveConstructorSpec
 
 from recs.base import types
@@ -36,8 +36,8 @@ RECORD_KEYS = PrefixDict({value: value for value in types.RecordKeys})
 RECORD_KEYS_SPEC = _prefix_spec(RECORD_KEYS, 'KEY RECORDING MODE')
 SDTYPE_SPEC = _prefix_spec(SDTYPES, 'NUMERIC TYPE', trim_dots=True)
 SUBTYPE_SPEC = _prefix_spec(SUBTYPES, 'AUDIO SUBTYPE', trim_dots=True)
-TIME_SPEC = config.unit_spec(units.Seconds, 'TIME')
-MILLISECONDS_SPEC = config.unit_spec(units.WholeMilliseconds, 'MILLISECONDS')
-HERTZ_SPEC = config.unit_spec(units.Hertz, 'HZ')
-BYTES_SPEC = config.unit_spec(units.Bytes, 'BYTES')
-MEGABYTES_SPEC = config.unit_spec(units.Megabytes, 'MB')
+TIME_SPEC = tyro.unit_spec(units.Seconds, 'TIME')
+MILLISECONDS_SPEC = tyro.unit_spec(units.WholeMilliseconds, 'MILLISECONDS')
+HERTZ_SPEC = tyro.unit_spec(units.Hertz, 'HZ')
+BYTES_SPEC = tyro.unit_spec(units.Bytes, 'BYTES')
+MEGABYTES_SPEC = tyro.unit_spec(units.Megabytes, 'MB')

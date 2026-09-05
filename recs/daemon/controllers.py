@@ -3,7 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from reccy import models, service
+from reccy.services import controller, models
 
 from . import paths
 from .models import DaemonStatus, StatusResult
@@ -21,7 +21,7 @@ class ServiceController:
         self.platform = platform
         self.service = service_definition
         self.paths = paths.service_paths(platform, home, service_definition)
-        self._controller = service.ServiceController(
+        self._controller = controller.ServiceController(
             service_definition,
             platform,
             home,

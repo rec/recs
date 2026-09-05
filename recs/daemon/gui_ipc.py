@@ -5,7 +5,10 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
-from reccy import ipc, logging, models, settings
+from reccy.configuration import settings
+from reccy.protocol import ipc
+from reccy.runtime import logging
+from reccy.services import models
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord, RecsError

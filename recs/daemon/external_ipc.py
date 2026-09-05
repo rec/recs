@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from pydantic import PrivateAttr, TypeAdapter
-from reccy import ipc, models, rpc
+from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy
+from reccy.services import models
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.waveform import WaveformBatchData, WaveformLayoutData

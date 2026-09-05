@@ -4,7 +4,7 @@ from collections.abc import Hashable, Iterable
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
-from reccy import units
+from reccy.configuration import units
 
 
 class Model(BaseModel, frozen=True):

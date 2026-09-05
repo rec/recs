@@ -1,7 +1,7 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
-from reccy import ipc
+from reccy.protocol import ipc
 
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames

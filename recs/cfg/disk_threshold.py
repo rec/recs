@@ -4,7 +4,7 @@ import re
 from decimal import Decimal
 from math import isfinite
 
-from reccy.units import magnitude
+from reccy.configuration.units import magnitude
 
 
 def normalize(value: str) -> str:

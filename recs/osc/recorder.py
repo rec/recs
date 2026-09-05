@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import BinaryIO
 
-from reccy.jsonl import Compress
+from reccy.protocol.jsonl import Compress
 from threa import Runnable
 
 from recs.base import times

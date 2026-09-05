@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import cast
 
 from pydantic import BaseModel, Field
-from reccy import rpc
+from reccy.protocol import rpc
 
 from recs.daemon import paths
 

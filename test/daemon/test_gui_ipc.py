@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from reccy.models import DaemonMetadata, Platform
+from reccy.services.models import DaemonMetadata, Platform
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg

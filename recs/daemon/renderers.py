@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from reccy import models, renderers
+from reccy.services import models, renderers
 
 from .models import ServicePaths
 from .paths import service_paths

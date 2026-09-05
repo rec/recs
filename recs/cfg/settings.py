@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from reccy import settings
+from reccy.configuration import settings
 
 from recs.base.errors import RecsError
 

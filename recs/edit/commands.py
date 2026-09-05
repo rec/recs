@@ -4,7 +4,7 @@ from pathlib import Path
 
 import tomlkit
 from pydantic import TypeAdapter
-from reccy import units
+from reccy.configuration import units
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype

@@ -6,7 +6,7 @@ from test.conftest import DEVICES, DEVICES_FILE
 from typing import Any, NamedTuple
 
 import pytest
-from reccy import rpc
+from reccy.protocol import rpc
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord, RecsError

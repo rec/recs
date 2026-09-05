@@ -5,7 +5,8 @@ from typing import Annotated
 
 import tyro
 from pydantic import BaseModel, ConfigDict, Field
-from reccy import config, units
+from reccy.configuration import units
+from reccy.configuration.tyro import unit_spec
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
@@ -13,7 +14,7 @@ from recs.edit import commands, session
 from recs.edit.schema import NormalizeMode, canonical_toml
 from recs.ui import recording_paths
 
-TIME_SPEC = config.unit_spec(units.Seconds, 'TIME')
+TIME_SPEC = unit_spec(units.Seconds, 'TIME')
 
 
 class EditCli(BaseModel, frozen=True):

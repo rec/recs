@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from reccy import ipc
+from reccy.protocol import ipc
 
 WINDOWS_PIPE = r'\\.\pipe\recs'
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from reccy import models, paths
+from reccy.services import models, paths
 
 from .models import ServicePaths
 from .spec import RECS_SERVICE

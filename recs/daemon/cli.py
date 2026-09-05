@@ -1,7 +1,8 @@
 import json
 from typing import cast
 
-from reccy import models, rpc
+from reccy.protocol import rpc
+from reccy.services import models
 
 from recs.base.errors import RecsError
 

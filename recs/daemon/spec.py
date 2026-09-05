@@ -1,5 +1,5 @@
 from pathlib import Path
 
-from reccy import service_spec
+from reccy.services import spec
 
-RECS_SERVICE = service_spec.load(Path(__file__).with_name('service.toml'))
+RECS_SERVICE = spec.load(Path(__file__).with_name('service.toml'))

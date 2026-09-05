@@ -2,7 +2,7 @@ import plistlib
 import sys
 from pathlib import Path
 
-from reccy.models import Platform, ServiceSpec
+from reccy.services.models import Platform, ServiceSpec
 
 from recs.daemon import paths, renderers
 
@@ -37,7 +37,7 @@ def test_macos_launch_agent() -> None:
     assert plist['ProgramArguments'] == [
         sys.executable,
         '-m',
-        'reccy.service_runner',
+        'reccy.services.runner',
         '/Users/tom/Library/Logs/recs/recs.log',
         'recs',
         'recs',
@@ -98,7 +98,7 @@ def test_linux_systemd_unit() -> None:
 
     assert definition.path == Path('/home/tom/.config/systemd/user/recs.service')
     assert (
-        f'ExecStart={sys.executable} -m reccy.service_runner '
+        f'ExecStart={sys.executable} -m reccy.services.runner '
         '/home/tom/.local/state/recs/recs.log recs recs --silent --include Mic'
         in definition.content
     )
@@ -129,7 +129,7 @@ def test_linux_systemd_unit_supports_custom_service_identity() -> None:
     assert definition.path == Path('/home/tom/.config/systemd/user/lyte.service')
     assert 'Description=lyte lighting daemon' in definition.content
     assert (
-        f'ExecStart={sys.executable} -m reccy.service_runner '
+        f'ExecStart={sys.executable} -m reccy.services.runner '
         '/home/tom/.local/state/lyte/lyte.log lyte recs run-daemon'
         in definition.content
     )
@@ -145,7 +145,7 @@ def test_linux_xdg_autostart() -> None:
     assert definition.path == Path('/home/tom/.config/autostart/recs.desktop')
     assert 'Type=Application' in definition.content
     assert (
-        f'Exec={sys.executable} -m reccy.service_runner '
+        f'Exec={sys.executable} -m reccy.services.runner '
         '/home/tom/.local/state/recs/recs.log recs recs --silent --include Mic'
         in definition.content
     )
@@ -161,7 +161,7 @@ def test_windows_task_definition() -> None:
     assert task.task_name == 'recs'
     assert task.arguments == [
         '-m',
-        'reccy.service_runner',
+        'reccy.services.runner',
         'C:/Users/tom/AppData/Local/recs/logs/recs.log',
         'recs',
         'recs',

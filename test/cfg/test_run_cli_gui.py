@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from reccy.models import DaemonMetadata, Platform
+from reccy.services.models import DaemonMetadata, Platform
 
 from recs.base.errors import RecsError
 from recs.cfg import run_cli

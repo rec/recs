@@ -5,17 +5,17 @@ to inspect recording state, change mutable recording settings, configure
 tracks, add marks to the session record, pause or resume recording, and shut
 down the daemon.
 
-The public API uses `reccy.rpc`. The separate daemon GUI socket remains a
+The public API uses `reccy.protocol.rpc`. The separate daemon GUI socket remains a
 private implementation detail. Live waveforms are available through the public
 control and event endpoints described below.
 
 ## Quick start
 
-Use `reccy.rpc.Client` for a control request. It handles the connection,
+Use `reccy.protocol.rpc.Client` for a control request. It handles the connection,
 version handshake, JSON encoding, response, and connection close:
 
 ```python
-from reccy import rpc
+from reccy.protocol import rpc
 
 from recs.daemon import paths
 
@@ -56,13 +56,13 @@ or network transport.
 
 There are two independent versions:
 
-- `reccy.rpc.VERSION` is the transport version. It is currently `1` and is
+- `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the Recs payload version. It is
   currently `7` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
-`reccy.rpc.Client` handles the transport handshake and `capabilities` reports
+`reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
 the payload version.
 
 ## Commands
@@ -366,7 +366,7 @@ Waveforms use both public endpoints. Start an `EventClient` first, then call
 `subscribe_waveforms` on the control endpoint:
 
 ```python
-from reccy import rpc
+from reccy.protocol import rpc
 
 from recs.base.waveform import WaveformBatchData, WaveformLayoutData
 from recs.daemon import paths
@@ -471,10 +471,10 @@ control command.
 ## Events
 
 An event subscription is a separate long-lived connection. Use
-`reccy.rpc.EventClient`:
+`reccy.protocol.rpc.EventClient`:
 
 ```python
-from reccy import rpc
+from reccy.protocol import rpc
 
 from recs.daemon import paths
 
@@ -556,7 +556,7 @@ Errors use this wire shape:
 {"type":"error","message":"explanation"}
 ```
 
-`reccy.rpc.Client` converts this to `ConnectionError(message)`. Raw clients
+`reccy.protocol.rpc.Client` converts this to `ConnectionError(message)`. Raw clients
 must decode it themselves.
 
 Only one control request may be awaiting the Recs recorder at a time. A second

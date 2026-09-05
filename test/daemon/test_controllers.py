@@ -2,8 +2,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from reccy import service
-from reccy.models import DaemonMetadata, Platform, ServiceSpec
+from reccy.services import controller
+from reccy.services.models import DaemonMetadata, Platform, ServiceSpec
 
 from recs.daemon.controllers import ServiceController
 from recs.daemon.models import DaemonStatus
@@ -82,20 +82,20 @@ def test_macos_controller_installs_launch_agent(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     runner = FakeRunner()
-    monkeypatch.setattr(service, '_uid', lambda: 501)
-    controller = ServiceController(Platform.macos, tmp_path, runner)
+    monkeypatch.setattr(controller, '_uid', lambda: 501)
+    service_controller = ServiceController(Platform.macos, tmp_path, runner)
     daemon_metadata = metadata(Platform.macos, ['--include', 'Mic'])
 
-    controller.install(daemon_metadata)
+    service_controller.install(daemon_metadata)
 
-    assert controller.paths.metadata.exists()
-    assert controller.paths.service.exists()
+    assert service_controller.paths.metadata.exists()
+    assert service_controller.paths.service.exists()
     assert runner.commands == [
         [
             'launchctl',
             'bootstrap',
             'gui/501',
-            str(controller.paths.service),
+            str(service_controller.paths.service),
         ]
     ]
 

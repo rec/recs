@@ -3,7 +3,7 @@ import sys
 
 import tyro
 from pydantic import ValidationError
-from reccy import logging
+from reccy.runtime import logging
 
 from recs.base._query_device import devices_json, stream_devices
 from recs.base.errors import RecsError

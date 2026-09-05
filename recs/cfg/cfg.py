@@ -9,7 +9,8 @@ from typing import Annotated
 import soundfile
 import tyro
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from reccy import logging, units
+from reccy.configuration import units
+from reccy.runtime import logging
 from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict

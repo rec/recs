@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from reccy import rpc
+from reccy.protocol import rpc
 from reccy.reccy import Reccy
 
 from recs.base.waveform import (

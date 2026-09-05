@@ -8,7 +8,7 @@ from pathlib import Path
 from time import monotonic
 from typing import cast
 
-from reccy import logging
+from reccy.runtime import logging
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times

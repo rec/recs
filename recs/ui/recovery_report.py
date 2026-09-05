@@ -2,7 +2,7 @@ from pathlib import Path
 
 import tomlkit
 from pydantic import BaseModel, Field
-from reccy import logging
+from reccy.runtime import logging
 
 from . import recording_paths, session_record
 

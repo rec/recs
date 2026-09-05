@@ -2,7 +2,7 @@ import time
 from pathlib import Path
 
 import pytest
-from reccy import ipc
+from reccy.protocol import ipc
 
 from recs.daemon import gui_backend
 
