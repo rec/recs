@@ -122,7 +122,7 @@ def execute_composition(
     current_record = record_path
     for resolved_step in resolved:
         complete = commands.complete_or_generate(
-            resolved_step.recipe, current_record, resolved_step.step
+            resolved_step.recipe, [current_record], resolved_step.step
         )
         current_record = session.execute_edit(
             complete,

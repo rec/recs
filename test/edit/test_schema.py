@@ -59,6 +59,38 @@ def test_complete_edit_round_trips_through_canonical_toml() -> None:
     assert parse_edit(canonical_toml(edit)) == edit
 
 
+def test_direct_file_source_round_trips() -> None:
+    text = COMPLETE_EDIT.replace(
+        'record = "../session-record.jsonl"\nchannel = "X18:1-2"',
+        'file = "../take.wav"\nchannels = [1, 2]',
+    )
+
+    edit = parse_edit(text)
+
+    assert edit.sources[0].file == Path('../take.wav')
+    assert edit.sources[0].channels == [1, 2]
+    assert parse_edit(canonical_toml(edit)) == edit
+
+
+@pytest.mark.parametrize(
+    'source',
+    [
+        '',
+        'record = "record.jsonl"',
+        'file = "take.wav"',
+        'record = "record.jsonl"\nchannel = "device:track"\nfile = "take.wav"',
+        'file = "take.wav"\nchannels = [1, 3]',
+    ],
+)
+def test_source_requires_one_complete_location(source: str) -> None:
+    text = COMPLETE_EDIT.replace(
+        'record = "../session-record.jsonl"\nchannel = "X18:1-2"', source
+    )
+
+    with pytest.raises(ValidationError):
+        parse_edit(text)
+
+
 def test_complete_edit_rejects_unknown_versions_and_fields() -> None:
     with pytest.raises(ValidationError):
         parse_edit(COMPLETE_EDIT.replace('schema_version = 1', 'schema_version = 2'))

@@ -1,6 +1,8 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile
 
 from recs.base.errors import RecsError
 from recs.base.types import Format
@@ -64,22 +66,31 @@ def test_command_inheritance_cycles_are_rejected(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ('command', 'output_count', 'bus_count'),
-    [('clip', 2, 0), ('stitch', 2, 0), ('split', 2, 0), ('mix', 1, 1)],
+    ('command', 'source_count', 'output_count', 'bus_count'),
+    [
+        ('clip', 2, 2, 0),
+        ('stitch', 2, 1, 0),
+        ('split', 4, 4, 0),
+        ('mix', 2, 1, 1),
+    ],
 )
 def test_builtins_generate_complete_arrangements(
-    tmp_path: Path, command: str, output_count: int, bus_count: int
+    tmp_path: Path,
+    command: str,
+    source_count: int,
+    output_count: int,
+    bus_count: int,
 ) -> None:
     record_path = _record(tmp_path)
     recipe, _ = resolve_command(command, tmp_path)
 
     edit = complete_or_generate(
         recipe,
-        record_path,
+        [record_path],
         EditOptions(format=Format.wav),
     )
 
-    assert len(edit.sources) == 2
+    assert len(edit.sources) == source_count
     assert len(edit.outputs) == output_count
     assert len(edit.buses) == bus_count
 
@@ -90,7 +101,7 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
 
     edit = complete_or_generate(
         recipe,
-        record_path,
+        [record_path],
         EditOptions(channel=['device:pair:2'], format=Format.wav),
     )
 
@@ -104,13 +115,89 @@ def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
 
     edit = complete_or_generate(
         recipe,
-        record_path,
+        [record_path],
         EditOptions(route_gain=[0.75, 0.5], crossfade=0.25),
     )
 
     assert [r.gain for r in edit.routes] == [0.75, 0.5]
     assert len(edit.automation) == 2
     assert edit.automation[0].points[-1].frame == 12_000
+
+
+def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
+    second = _audio(tmp_path / 'second.wav', channels=1)
+    first = _audio(tmp_path / 'first.wav', channels=1)
+    recipe, _ = resolve_command('stitch', tmp_path)
+
+    edit = complete_or_generate(recipe, [second, first], EditOptions())
+
+    assert [s.file for s in edit.sources] == [second.resolve(), first.resolve()]
+    assert [c.timeline_start for c in edit.clips] == [0, 48_000]
+    assert [o.path.as_posix() for o in edit.outputs] == ['audio/stitch.flac']
+
+
+def test_split_expands_file_channels(tmp_path: Path) -> None:
+    path = _audio(tmp_path / 'pair.wav', channels=2)
+    recipe, _ = resolve_command('split', tmp_path)
+
+    edit = complete_or_generate(recipe, [path], EditOptions())
+
+    assert [s.channels for s in edit.sources] == [[1], [2]]
+    assert [t.channels for t in edit.tracks] == [1, 1]
+
+
+def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:
+    path = _audio(tmp_path / 'pair.wav', channels=2)
+    recipe, _ = resolve_command('split', tmp_path)
+
+    edit = complete_or_generate(recipe, [path], EditOptions(channel=['pair:2']))
+
+    assert len(edit.sources) == 1
+    assert edit.sources[0].channels == [2]
+
+
+def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
+    directory = tmp_path / 'takes'
+    directory.mkdir()
+    second = _audio(directory / 'b.wav', channels=1)
+    first = _audio(directory / 'a.wav', channels=1)
+    recipe, _ = resolve_command('clip', tmp_path)
+
+    edit = complete_or_generate(recipe, [directory], EditOptions())
+
+    assert [s.file for s in edit.sources] == [first.resolve(), second.resolve()]
+
+
+def test_directory_with_multiple_sessions_is_rejected(tmp_path: Path) -> None:
+    for name in ('one', 'two'):
+        directory = tmp_path / name
+        directory.mkdir()
+        session_record.SessionRecordWriter(
+            directory / 'session-record.jsonl', started_at='start'
+        ).close()
+    recipe, _ = resolve_command('clip', tmp_path)
+
+    with pytest.raises(RecsError, match='contains multiple session records'):
+        complete_or_generate(recipe, [tmp_path], EditOptions())
+
+
+def test_session_directories_use_qualified_selectors(tmp_path: Path) -> None:
+    directories = [tmp_path / name for name in ('one', 'two')]
+    records = []
+    for directory in directories:
+        directory.mkdir()
+        records.append(_record(directory))
+    recipe, _ = resolve_command('clip', tmp_path)
+
+    edit = complete_or_generate(
+        recipe,
+        directories,
+        EditOptions(channel=['two:device:pair']),
+    )
+
+    assert len(edit.sources) == 1
+    assert edit.sources[0].record == records[1].resolve()
+    assert edit.sources[0].channel == 'device:pair'
 
 
 def _record(directory: Path) -> Path:
@@ -144,4 +231,9 @@ def _record(directory: Path) -> Path:
             )
         )
     writer.close()
+    return path
+
+
+def _audio(path: Path, channels: int) -> Path:
+    soundfile.write(path, np.zeros((48_000, channels)), 48_000, subtype='FLOAT')
     return path

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 import tyro
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from recs.base.errors import RecsError
 from recs.edit import commands, composition, session
@@ -14,7 +14,7 @@ from recs.ui import recording_paths
 
 
 class EditCli(EditOptions, frozen=True):
-    record: Annotated[Path | None, tyro.conf.Positional] = None
+    inputs: Annotated[list[Path], tyro.conf.Positional] = Field(default_factory=list)
 
     destination: Annotated[
         Path | None,
@@ -55,18 +55,18 @@ def main(args: list[str] | None = None) -> int:
         return _run_composition(explicit, args, cwd)
     recipe, command_path = commands.resolve_command(command, cwd)
     cfg = tyro.cli(EditCli, args=args, prog=f'recs edit {command}')
-    record_path = cfg.record
+    input_paths = cfg.inputs
     try:
         complete = commands.complete_or_generate(
             recipe,
-            record_path,
+            input_paths,
             cfg,
         )
     except commands.SessionRecordRequired:
-        record_path = commands.latest_record(cwd)
+        input_paths = [commands.latest_record(cwd)]
         complete = commands.complete_or_generate(
             recipe,
-            record_path,
+            input_paths,
             cfg,
         )
     destination = cfg.destination or recording_paths.available_directory(
@@ -77,10 +77,16 @@ def main(args: list[str] | None = None) -> int:
         print(canonical_toml(prepared.edit), end='')
         return 0
     print(f'Command: {command} ({command_path})')
-    print(f'Record: {record_path or "declared by edit TOML"}')
+    print(
+        'Inputs: ' + (', '.join(str(p) for p in input_paths) or 'declared by edit TOML')
+    )
     print(f'Media types: {", ".join(complete.media_types)}')
     print(f'Sample rate: {complete.sample_rate}')
-    print(f'Channels: {", ".join(s.channel for s in complete.sources)}')
+    source_names = [
+        str(s.channel or f'{s.file}:{"-".join(str(c) for c in s.channels)}')
+        for s in complete.sources
+    ]
+    print(f'Channels: {", ".join(source_names)}')
     print(f'Tracks: {", ".join(t.id for t in complete.tracks)}')
     print(f'Buses: {", ".join(b.id for b in complete.buses) or "none"}')
     print(f'Output session: {destination}')

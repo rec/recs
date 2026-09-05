@@ -128,12 +128,15 @@ def _canonical_edit(
 ) -> EditSpec:
     replacements = []
     for source in edit.sources:
-        record = sources[source.id].record
+        resolved = sources[source.id]
+        path = resolved.record or resolved.file
+        assert path is not None
         try:
-            value = Path(os.path.relpath(record, destination))
+            value = Path(os.path.relpath(path, destination))
         except ValueError:
-            value = record
-        replacements.append(source.model_copy(update={'record': value}))
+            value = path
+        field = 'record' if resolved.record is not None else 'file'
+        replacements.append(source.model_copy(update={field: value}))
     return edit.model_copy(update={'sources': replacements})
 
 

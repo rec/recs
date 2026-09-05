@@ -48,9 +48,37 @@ Identifier = Annotated[str, AfterValidator(identifier)]
 
 class SourceSpec(BaseModel, frozen=True):
     id: Identifier
-    record: Path
-    channel: str
+    record: Path | None = None
+    channel: str | None = None
+    file: Path | None = None
+    channels: list[int] = Field(default_factory=list)
     input_format: Format | None = None
+
+    @model_validator(mode='after')
+    def validate_location(self) -> Self:
+        if (self.record is None) == (self.file is None):
+            raise ValueError('source requires exactly one of record or file')
+        if self.record is not None:
+            if self.channel is None:
+                raise ValueError('record source requires channel')
+            if self.channels:
+                raise ValueError('channels are only allowed for file sources')
+        else:
+            if self.channel is not None:
+                raise ValueError('channel is only allowed for record sources')
+            if self.input_format is not None:
+                raise ValueError('input_format is only allowed for record sources')
+            if not self.channels:
+                raise ValueError('file source requires channels')
+            if (
+                self.channels
+                != list(range(self.channels[0], self.channels[0] + len(self.channels)))
+                or self.channels[0] < 1
+            ):
+                raise ValueError(
+                    'file source channels must be consecutive and positive'
+                )
+        return self
 
     model_config = ConfigDict(extra='forbid')
 
@@ -161,6 +189,8 @@ class PartialSourceSpec(BaseModel, frozen=True):
     id: Identifier | None = None
     record: Path | None = None
     channel: str | None = None
+    file: Path | None = None
+    channels: list[int] | None = None
     input_format: Format | None = None
 
     model_config = ConfigDict(extra='forbid')
