@@ -63,6 +63,11 @@ def resolve_command(command: str, cwd: Path) -> tuple[dict[str, object], Path]:
     return _resolve_file(paths[0], commands, []), paths[0]
 
 
+def command_operation(recipe: dict[str, object]) -> CommandKind | None:
+    partial = parse_partial_edit(tomlkit.dumps(recipe))
+    return partial.command.operation if partial.command is not None else None
+
+
 def discover_commands(cwd: Path) -> dict[str, list[Path]]:
     directories = [
         cwd / '.recs/edit',

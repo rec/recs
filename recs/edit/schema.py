@@ -29,6 +29,7 @@ class NormalizeMode(StrEnum):
 
 
 class CommandKind(StrEnum):
+    autocalibrate = auto()
     clip = auto()
     stitch = auto()
     split = auto()

@@ -6,9 +6,9 @@ import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from recs.base.errors import RecsError
-from recs.edit import commands, session
+from recs.edit import autocalibrate, commands, session
 from recs.edit.options import EditOptions
-from recs.edit.schema import parse_edit, parse_partial_edit
+from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
 from recs.misc import legal_filename
 from recs.ui import session_record
 
@@ -121,14 +121,29 @@ def execute_composition(
 
     current_record = record_path
     for resolved_step in resolved:
-        complete = commands.complete_or_generate(
-            resolved_step.recipe, [current_record], resolved_step.step
-        )
-        current_record = session.execute_edit(
-            complete,
-            resolved_step.command_path.parent,
-            destination / resolved_step.directory_name,
-        )
+        child_destination = destination / resolved_step.directory_name
+        if (
+            commands.command_operation(resolved_step.recipe)
+            == CommandKind.autocalibrate
+        ):
+            options = autocalibrate.AutocalibrateOptions(
+                channel=resolved_step.step.channel,
+                format=resolved_step.step.format,
+                subtype=resolved_step.step.subtype,
+            )
+            edit = autocalibrate.autocalibrate_from_options(current_record, options)
+            current_record = autocalibrate.execute_autocalibrate(
+                edit, resolved_step.command_path.parent, child_destination
+            )
+        else:
+            complete = commands.complete_or_generate(
+                resolved_step.recipe, [current_record], resolved_step.step
+            )
+            current_record = session.execute_edit(
+                complete,
+                resolved_step.command_path.parent,
+                child_destination,
+            )
     return current_record
 
 

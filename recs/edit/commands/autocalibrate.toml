@@ -1,0 +1,3 @@
+[_command]
+help = "Infer each track's first sustained silence, fix that threshold, and rerun silence detection"
+operation = "autocalibrate"
