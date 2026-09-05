@@ -23,8 +23,15 @@ class FileOpener(BaseModel):
             raise FileExistsError(str(path))
 
         subtype = self.subtype
-        if subtype is None and soundfile.check_format(self.format, Subtype.float):
-            subtype = Subtype.float
+        if subtype is None:
+            if self.format == Format.flac:
+                subtype = (
+                    Subtype.pcm_24
+                    if soundfile.check_format(self.format, Subtype.pcm_24)
+                    else Subtype.pcm_32
+                )
+            elif soundfile.check_format(self.format, Subtype.float):
+                subtype = Subtype.float
 
         fp = soundfile.SoundFile(
             channels=self.channels,
