@@ -73,7 +73,7 @@ python = ">=3.10"
 exclude-newer = "1 week"
 
 [tool.uv.sources]
-reccy = { git = "https://github.com/rec/reccy.git", rev = "ac028c7c8434901e3e74b91cce13458af094e741" }
+reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
 
 
 [build-system]
