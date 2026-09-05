@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import soundfile
 
+from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_sources
 from recs.edit.schema import parse_edit
 from recs.ui.session_record import FileRecord, SessionFooter, SessionRecordWriter
@@ -37,6 +38,17 @@ channel = "device:pair:2"
         (96_000, 144_000),
     ]
     assert [f.channel_offset for f in source.fragments] == [1, 1]
+
+    materialized = materialize_source(source)
+
+    assert materialized.samples.shape == (144_000, 1)
+    assert materialized.samples.dtype == np.float32
+    assert not materialized.samples.flags.writeable
+    assert [(r.start, r.end) for r in materialized.observed_ranges] == [
+        (0, 48_000),
+        (96_000, 144_000),
+    ]
+    np.testing.assert_array_equal(materialized.samples[48_000:96_000], 0)
 
 
 def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
