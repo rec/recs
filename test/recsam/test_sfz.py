@@ -27,6 +27,9 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
 
     result = sfz.read(path)
 
+    assert result.instrument.sustain is not None
+    assert result.instrument.sustain.control == 'sustain'
+    assert result.instrument.controls['sustain'].default == 0
     assert result.instrument.name == 'Glass keys'
     assert len(result.slots) == 2
     soft, loud = result.slots
@@ -120,7 +123,7 @@ def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
     assert second.choke_group == 'sfz-group-2'
     assert second.chokes[0].group == 'sfz-group-1'
     assert second.chokes[0].mode == enums.ChokeMode.release
-    assert second.trigger == enums.TriggerKind.release
+    assert second.trigger == enums.TriggerKind.logical_release
 
 
 def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
@@ -134,9 +137,28 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
     slot = sfz.read(path).slots[0]
 
     assert slot.sample == 'release.wav'
-    assert slot.trigger == enums.TriggerKind.release
+    assert slot.trigger == enums.TriggerKind.logical_release
     assert slot.playback.mode == enums.PlaybackMode.one_shot
     assert slot.envelope.release_seconds == 0.2
+
+
+def test_read_sfz_distinguishes_release_triggers(tmp_path: Path) -> None:
+    path = tmp_path / 'triggers.sfz'
+    _write_wav(tmp_path / 'pedal-aware.wav')
+    _write_wav(tmp_path / 'key-up.wav')
+    path.write_text(
+        '<region> sample=pedal-aware.wav trigger=release loop_mode=loop_sustain '
+        'loop_start=100 loop_end=199\n'
+        '<region> sample=key-up.wav trigger=release_key loop_mode=no_loop'
+    )
+
+    pedal_aware, key_up = sfz.read(path).slots
+
+    assert pedal_aware.trigger == enums.TriggerKind.logical_release
+    assert pedal_aware.playback.mode == enums.PlaybackMode.one_shot
+    assert pedal_aware.playback.loop is None
+    assert key_up.trigger == enums.TriggerKind.release
+    assert key_up.playback.mode == enums.PlaybackMode.one_shot
 
 
 def test_read_sfz_uses_asset_layout_and_embedded_loop(tmp_path: Path) -> None:
@@ -177,6 +199,11 @@ def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
         ('<curve> curve_index=1', 'Unsupported SFZ header'),
         ('#include "other.sfz"', 'preprocessing is not supported'),
         ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit values'),
+        (
+            '<region> sample=a.wav trigger=release loop_mode=loop_continuous '
+            'loop_start=10 loop_end=20',
+            'cannot be represented',
+        ),
         ('<region> sample=*sine key=60', 'generated SFZ samples'),
         ('<region> key=60', 'sample is required'),
     ],

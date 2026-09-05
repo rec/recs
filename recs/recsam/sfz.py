@@ -3,7 +3,7 @@
 import re
 from pathlib import Path, PurePosixPath
 
-from . import assets, enums, modulation, playback, processing, selection
+from . import assets, controls, enums, modulation, playback, processing, selection
 from .instrument import Instrument, SampleInstrument, SampleSlot
 
 
@@ -19,7 +19,11 @@ def read(path: Path) -> SampleInstrument:
     ]
     return SampleInstrument(
         format_version=1,
-        instrument=Instrument(name=path.stem),
+        instrument=Instrument(
+            name=path.stem,
+            controls={'sustain': controls.Control()},
+            sustain=selection.Sustain(control='sustain'),
+        ),
         slots=slots,
     )
 
@@ -220,9 +224,13 @@ def _playback(
         mode = 'loop_continuous' if metadata.embedded_loop is not None else 'no_loop'
     if mode not in ('no_loop', 'one_shot', 'loop_continuous', 'loop_sustain'):
         raise ValueError(f'Region {index}: unsupported loop_mode: {mode}')
-    if mode == 'one_shot':
-        result['mode'] = enums.PlaybackMode.one_shot
-    elif mode == 'no_loop' and values.get('trigger') == 'release':
+    release_trigger = values.get('trigger') in ('release', 'release_key')
+    if release_trigger and mode == 'loop_continuous':
+        raise ValueError(
+            f'Region {index}: release-triggered loop_continuous playback '
+            'cannot be represented'
+        )
+    if mode == 'one_shot' or release_trigger:
         result['mode'] = enums.PlaybackMode.one_shot
     elif mode.startswith('loop_'):
         start = values.get('loop_start')
@@ -245,8 +253,6 @@ def _playback(
                 else enums.LoopMode.until_release
             ),
         )
-    elif any(k in values for k in ('loop_start', 'loop_end')):
-        raise ValueError(f'Region {index}: loop points require a looping loop_mode')
     start_frame = result.get('start_frame', 0)
     end_frame = result.get('end_frame', metadata.frames)
     assert isinstance(start_frame, int)
@@ -302,6 +308,8 @@ def _trigger(values: dict[str, str]) -> enums.TriggerKind | None:
     if value in (None, 'attack'):
         return None
     if value == 'release':
+        return enums.TriggerKind.logical_release
+    if value == 'release_key':
         return enums.TriggerKind.release
     raise ValueError(f'Unsupported SFZ trigger: {value}')
 
