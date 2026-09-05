@@ -46,6 +46,14 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert soft.modulation[0].points[127].amount == 1
     assert soft.envelope.attack_seconds == 0.01
     assert soft.envelope.release_seconds == 0.4
+    assert soft.envelope.attack_shape == enums.EnvelopeShape.linear
+    assert soft.envelope.decay_shape == enums.EnvelopeShape.exponential
+    assert soft.envelope.release_shape == enums.EnvelopeShape.exponential
+    assert {
+        'attack_shape',
+        'decay_shape',
+        'release_shape',
+    } <= soft.envelope.model_fields_set
     assert loud.mapping.lowest_key == 62
     assert loud.mapping.highest_key == 62
     assert not loud.mapping.pitch_tracking

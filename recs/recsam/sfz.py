@@ -283,8 +283,13 @@ def _processing(values: dict[str, str], channels: int) -> dict[str, float]:
     return result
 
 
-def _envelope(values: dict[str, str]) -> dict[str, float]:
-    result = {'release_seconds': 0.001}
+def _envelope(values: dict[str, str]) -> dict[str, object]:
+    result: dict[str, object] = {
+        'release_seconds': 0.001,
+        'attack_shape': enums.EnvelopeShape.linear,
+        'decay_shape': enums.EnvelopeShape.exponential,
+        'release_shape': enums.EnvelopeShape.exponential,
+    }
     for sfz_name, recsam_name in ENVELOPE_OPCODES.items():
         if sfz_name in values:
             value = _number(values[sfz_name], sfz_name)
