@@ -27,12 +27,15 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
 
     result = sfz.read(path)
 
-    assert result.instrument.sustain is not None
-    assert result.instrument.sustain.control == 'sustain'
-    assert result.instrument.controls['sustain'].default == 0
-    assert result.instrument.name == 'Glass keys'
-    assert len(result.slots) == 2
-    soft, loud = result.slots
+    assert result.complete
+    assert result.instrument is not None
+    instrument = result.instrument
+    assert instrument.instrument.sustain is not None
+    assert instrument.instrument.sustain.control == 'sustain'
+    assert instrument.instrument.controls['sustain'].default == 0
+    assert instrument.instrument.name == 'Glass keys'
+    assert len(instrument.slots) == 2
+    soft, loud = instrument.slots
     assert soft.id == 'region-1'
     assert soft.sample == 'Samples/Soft glass.wav'
     assert soft.name == 'Soft'
@@ -77,7 +80,9 @@ def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
         '<region> sample=inverted.wav amp_veltrack=-100 amp_velcurve_64=1'
     )
 
-    normal, inverted = sfz.read(path).slots
+    result = sfz.read(path)
+    assert result.instrument is not None
+    normal, inverted = result.instrument.slots
 
     normal_points = normal.modulation[0].points
     assert normal_points[0].amount == 0.6
@@ -95,7 +100,9 @@ def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
     _write_wav(tmp_path / 'flat.wav')
     path.write_text('<region> sample=flat.wav amp_veltrack=0')
 
-    assert sfz.read(path).slots[0].modulation == []
+    result = sfz.read(path)
+    assert result.instrument is not None
+    assert result.instrument.slots[0].modulation == []
 
 
 def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
@@ -103,7 +110,9 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     _write_wav(tmp_path / 'default.wav')
     path.write_text('<region> sample=default.wav')
 
-    mapping = sfz.read(path).slots[0].mapping
+    result = sfz.read(path)
+    assert result.instrument is not None
+    mapping = result.instrument.slots[0].mapping
 
     assert mapping.lowest_key == 0
     assert mapping.highest_key == 127
@@ -128,7 +137,8 @@ def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
 
     result = sfz.read(path)
 
-    first, second = result.slots
+    assert result.instrument is not None
+    first, second = result.instrument.slots
     assert first.choke_group == 'sfz-group-1'
     assert first.playback.loop is not None
     assert first.playback.loop.start_frame == 10
@@ -149,7 +159,9 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
         '<region> sample=release.wav key=60 trigger=release amp_release=0.2'
     )
 
-    slot = sfz.read(path).slots[0]
+    result = sfz.read(path)
+    assert result.instrument is not None
+    slot = result.instrument.slots[0]
 
     assert slot.sample == 'release.wav'
     assert slot.trigger == enums.TriggerKind.logical_release
@@ -167,7 +179,9 @@ def test_read_sfz_distinguishes_release_triggers(tmp_path: Path) -> None:
         '<region> sample=key-up.wav trigger=release_key loop_mode=no_loop'
     )
 
-    pedal_aware, key_up = sfz.read(path).slots
+    result = sfz.read(path)
+    assert result.instrument is not None
+    pedal_aware, key_up = result.instrument.slots
 
     assert pedal_aware.trigger == enums.TriggerKind.logical_release
     assert pedal_aware.playback.mode == enums.PlaybackMode.one_shot
@@ -185,7 +199,9 @@ def test_read_sfz_uses_asset_layout_and_embedded_loop(tmp_path: Path) -> None:
         '<region> sample=stereo.wav pan=25 loop_mode=no_loop'
     )
 
-    mono, stereo = sfz.read(path).slots
+    result = sfz.read(path)
+    assert result.instrument is not None
+    mono, stereo = result.instrument.slots
 
     assert mono.processing.pan == -0.25
     assert mono.playback.loop is not None
@@ -205,25 +221,95 @@ def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ('text', 'message'),
+    ('text', 'header', 'opcode', 'value', 'column', 'has_instrument', 'reason'),
     [
-        ('<region> sample=a.wav key=60 cutoff=1000', 'unsupported SFZ opcode'),
-        ('<region> sample=a.wav amp_veltrack=101', 'between -100 and 100'),
-        ('<region> sample=a.wav amp_velcurve_128=1', 'velocity must be'),
-        ('<region> sample=a.wav amp_velcurve_64=1.1', 'between 0 and 1'),
-        ('<curve> curve_index=1', 'Unsupported SFZ header'),
-        ('#include "other.sfz"', 'preprocessing is not supported'),
-        ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit values'),
+        (
+            '<region> sample=a.wav key=60 cutoff=1000',
+            'region',
+            'cutoff',
+            '1000',
+            30,
+            True,
+            'SFZ opcode is not implemented',
+        ),
+        (
+            '<curve> curve_index=1',
+            'curve',
+            None,
+            None,
+            1,
+            False,
+            'SFZ header is not implemented',
+        ),
+        (
+            '#include "other.sfz"',
+            'preprocessor',
+            '#include',
+            '"other.sfz"',
+            1,
+            False,
+            'Vendor-specific #include preprocessing is not implemented',
+        ),
         (
             '<region> sample=a.wav trigger=release loop_mode=loop_continuous '
             'loop_start=10 loop_end=20',
-            'cannot be represented',
+            'region',
+            'loop_mode',
+            'loop_continuous',
+            39,
+            True,
+            'Release-triggered loop_continuous playback is not implemented',
         ),
-        ('<region> sample=*sine key=60', 'generated SFZ samples'),
+        (
+            '<region> sample=*sine key=60',
+            'region',
+            'sample',
+            '*sine',
+            10,
+            False,
+            'Generated SFZ samples are not implemented',
+        ),
+    ],
+)
+def test_read_sfz_reports_unimplemented_features(
+    tmp_path: Path,
+    text: str,
+    header: str,
+    opcode: str | None,
+    value: str | None,
+    column: int,
+    has_instrument: bool,
+    reason: str,
+) -> None:
+    path = tmp_path / 'bad.sfz'
+    path.write_text(text)
+    _write_wav(tmp_path / 'a.wav')
+
+    result = sfz.read(path)
+
+    assert not result.complete
+    assert (result.instrument is not None) is has_instrument
+    assert len(result.unimplemented) == 1
+    feature = result.unimplemented[0]
+    assert feature.header == header
+    assert feature.opcode == opcode
+    assert feature.value == value
+    assert feature.line == 1
+    assert feature.column == column
+    assert feature.reason == reason
+
+
+@pytest.mark.parametrize(
+    ('text', 'message'),
+    [
+        ('<region> sample=a.wav amp_veltrack=101', 'between -100 and 100'),
+        ('<region> sample=a.wav amp_velcurve_128=1', 'velocity must be'),
+        ('<region> sample=a.wav amp_velcurve_64=1.1', 'between 0 and 1'),
+        ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit values'),
         ('<region> key=60', 'sample is required'),
     ],
 )
-def test_read_sfz_rejects_unrepresentable_input(
+def test_read_sfz_rejects_malformed_input(
     tmp_path: Path, text: str, message: str
 ) -> None:
     path = tmp_path / 'bad.sfz'

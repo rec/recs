@@ -11,6 +11,7 @@ from . import base
 class EmbeddedLoop(base.Model):
     start_frame: base.Frame
     end_frame: base.Frame
+    loop_type: int = 0
 
 
 class AudioMetadata(base.Model):
@@ -64,7 +65,7 @@ def _read_smpl_chunk(path: Path, data: bytes) -> EmbeddedLoop | None:
     if len(data) < 60:
         raise ValueError(f'Truncated WAV smpl loop in {path}')
     loop_type = struct.unpack_from('<I', data, 40)[0]
-    if loop_type:
-        raise ValueError(f'Unsupported WAV smpl loop type {loop_type} in {path}')
     start, inclusive_end = struct.unpack_from('<II', data, 44)
-    return EmbeddedLoop(start_frame=start, end_frame=inclusive_end + 1)
+    return EmbeddedLoop(
+        start_frame=start, end_frame=inclusive_end + 1, loop_type=loop_type
+    )

@@ -3,64 +3,115 @@
 import re
 from pathlib import Path, PurePosixPath
 
-from . import assets, controls, enums, modulation, playback, processing, selection
+from pydantic import Field
+
+from . import assets, base, controls, enums, modulation, playback, processing, selection
 from .instrument import Instrument, SampleInstrument, SampleSlot
 
 
-def read(path: Path) -> SampleInstrument:
-    """Read an SFZ file, rejecting features which recsam cannot represent."""
+class UnimplementedFeature(base.Model):
+    header: str
+    opcode: str | None
+    value: str | None
+    line: int
+    column: int
+    reason: str
+
+
+class SfzReadResult(base.Model):
+    instrument: SampleInstrument | None
+    unimplemented: list[UnimplementedFeature] = Field(default_factory=list)
+
+    @property
+    def complete(self) -> bool:
+        return not self.unimplemented
+
+
+class ParsedOpcode(base.Model):
+    header: str
+    opcode: str
+    value: str
+    line: int
+    column: int
+
+
+class ParsedRegion(base.Model):
+    default_path: str
+    opcodes: list[ParsedOpcode]
+    line: int
+
+
+def read(path: Path) -> SfzReadResult:
+    """Read representable SFZ data and report every unimplemented feature."""
     text = path.read_text(encoding='utf-8-sig')
-    regions = _parse(text)
+    regions, unimplemented = _parse(text)
     if not regions:
+        if unimplemented:
+            unimplemented.sort(key=lambda f: (f.line, f.column))
+            return SfzReadResult(instrument=None, unimplemented=unimplemented)
         raise ValueError('SFZ file contains no regions')
     slots = [
-        _slot(i, path, default_path, opcodes)
-        for i, (default_path, opcodes) in enumerate(regions, 1)
+        slot
+        for i, region in enumerate(regions, 1)
+        if (slot := _slot(i, path, region, unimplemented)) is not None
     ]
-    return SampleInstrument(
-        format_version=1,
-        instrument=Instrument(
-            name=path.stem,
-            controls={'sustain': controls.Control()},
-            sustain=selection.Sustain(control='sustain'),
-        ),
-        slots=slots,
+    instrument = (
+        SampleInstrument(
+            format_version=1,
+            instrument=Instrument(
+                name=path.stem,
+                controls={'sustain': controls.Control()},
+                sustain=selection.Sustain(control='sustain'),
+            ),
+            slots=slots,
+        )
+        if slots
+        else None
     )
+    unimplemented.sort(key=lambda f: (f.line, f.column))
+    return SfzReadResult(instrument=instrument, unimplemented=unimplemented)
 
 
-def _parse(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
-    text = BLOCK_COMMENT.sub(' ', text)
+def _parse(text: str) -> tuple[list[ParsedRegion], list[UnimplementedFeature]]:
+    unimplemented: list[UnimplementedFeature] = []
+    text = BLOCK_COMMENT.sub(_blank_comment, text)
     text = LINE_COMMENT.sub('', text)
-    if PREPROCESSOR.search(text):
-        raise ValueError('SFZ preprocessing is not supported')
+    text = _remove_preprocessors(text, unimplemented)
 
     matches = list(TOKEN.finditer(text))
     if not matches and text.strip():
         raise ValueError('SFZ file contains no headers or opcodes')
 
     current: str | None = None
+    current_line = 0
     default_path = ''
-    global_opcodes: list[tuple[str, str]] = []
-    master_opcodes: list[tuple[str, str]] = []
-    group_opcodes: list[tuple[str, str]] = []
-    region_opcodes: list[tuple[str, str]] = []
-    regions: list[tuple[str, list[tuple[str, str]]]] = []
+    global_opcodes: list[ParsedOpcode] = []
+    master_opcodes: list[ParsedOpcode] = []
+    group_opcodes: list[ParsedOpcode] = []
+    region_opcodes: list[ParsedOpcode] = []
+    regions: list[ParsedRegion] = []
 
     def finish_region() -> None:
         if current == 'region':
             regions.append(
-                (
-                    default_path,
-                    [
+                ParsedRegion(
+                    default_path=default_path,
+                    opcodes=[
                         *global_opcodes,
                         *master_opcodes,
                         *group_opcodes,
                         *region_opcodes,
                     ],
+                    line=current_line,
                 )
             )
 
+    line = 1
+    previous = 0
     for i, match in enumerate(matches):
+        line += text[previous : match.start()].count('\n')
+        previous = match.start()
+        column = match.start() - text.rfind('\n', 0, match.start())
         if i == 0 and text[: match.start()].strip():
             raise ValueError('Unexpected text before first SFZ header')
         header, opcode = match.groups()
@@ -70,8 +121,19 @@ def _parse(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
                 raise ValueError(f'Unexpected text after <{header}>')
             finish_region()
             current = header.lower()
+            current_line = line
             if current not in SUPPORTED_HEADERS:
-                raise ValueError(f'Unsupported SFZ header: <{header}>')
+                unimplemented.append(
+                    UnimplementedFeature(
+                        header=current,
+                        opcode=None,
+                        value=None,
+                        line=line,
+                        column=column,
+                        reason='SFZ header is not implemented',
+                    )
+                )
+                continue
             if current == 'global':
                 global_opcodes = []
                 master_opcodes = []
@@ -88,15 +150,31 @@ def _parse(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
         if current is None:
             raise ValueError(f'SFZ opcode outside a header: {opcode}')
         value = text[match.end() : end].strip()
-        if not value and not (
-            current == 'control' and opcode.lower() == 'default_path'
-        ):
+        name = opcode.lower()
+        item = ParsedOpcode(
+            header=current,
+            opcode=name,
+            value=value,
+            line=line,
+            column=column,
+        )
+        if current not in SUPPORTED_HEADERS:
+            continue
+        if not value and not (current == 'control' and name == 'default_path'):
             raise ValueError(f'SFZ opcode has no value: {opcode}')
-        item = opcode.lower(), value
+        canonical = OPCODE_ALIASES.get(name, name)
+        supported = canonical in SUPPORTED_OPCODES or AMP_VELOCITY_CURVE.fullmatch(
+            canonical
+        )
         if current == 'control':
-            if item[0] != 'default_path':
-                raise ValueError(f'Unsupported SFZ control opcode: {opcode}')
+            if name != 'default_path':
+                _add_unimplemented(
+                    unimplemented, item, 'SFZ control opcode is not implemented'
+                )
+                continue
             default_path = value
+        elif not supported:
+            _add_unimplemented(unimplemented, item, 'SFZ opcode is not implemented')
         elif current == 'global':
             global_opcodes.append(item)
         elif current == 'master':
@@ -107,24 +185,74 @@ def _parse(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
             region_opcodes.append(item)
 
     finish_region()
-    return regions
+    return regions, unimplemented
+
+
+def _add_unimplemented(
+    features: list[UnimplementedFeature], item: ParsedOpcode, reason: str
+) -> None:
+    features.append(
+        UnimplementedFeature(
+            header=item.header,
+            opcode=item.opcode,
+            value=item.value,
+            line=item.line,
+            column=item.column,
+            reason=reason,
+        )
+    )
+
+
+def _blank_comment(match: re.Match[str]) -> str:
+    return ''.join('\n' if c == '\n' else ' ' for c in match.group())
+
+
+def _remove_preprocessors(text: str, unimplemented: list[UnimplementedFeature]) -> str:
+    result: list[str] = []
+    for line, content in enumerate(text.splitlines(keepends=True), 1):
+        stripped = content.lstrip()
+        if not stripped.startswith('#'):
+            result.append(content)
+            continue
+        body = stripped[1:].strip()
+        directive, separator, value = body.partition(' ')
+        opcode = f'#{directive}' if directive else '#'
+        if directive == 'include':
+            reason = 'Vendor-specific #include preprocessing is not implemented'
+        elif directive == 'define':
+            reason = 'SFZ 2 #define preprocessing is not implemented'
+        else:
+            reason = 'SFZ preprocessing directive is not implemented'
+        unimplemented.append(
+            UnimplementedFeature(
+                header='preprocessor',
+                opcode=opcode,
+                value=value.strip() if separator else None,
+                line=line,
+                column=len(content) - len(stripped) + 1,
+                reason=reason,
+            )
+        )
+        result.append('\n' if content.endswith('\n') else '')
+    return ''.join(result)
 
 
 def _slot(
     index: int,
     sfz_path: Path,
-    default_path: str,
-    opcodes: list[tuple[str, str]],
-) -> SampleSlot:
+    region: ParsedRegion,
+    unimplemented: list[UnimplementedFeature],
+) -> SampleSlot | None:
     values: dict[str, str] = {}
+    declarations: dict[str, ParsedOpcode] = {}
     low_key = 0
     high_key = 127
     pitch_keycenter = 60
-    for opcode, value in opcodes:
-        opcode = OPCODE_ALIASES.get(opcode, opcode)
-        if opcode not in SUPPORTED_OPCODES and not AMP_VELOCITY_CURVE.fullmatch(opcode):
-            raise ValueError(f'Region {index}: unsupported SFZ opcode: {opcode}')
+    for item in region.opcodes:
+        opcode = OPCODE_ALIASES.get(item.opcode, item.opcode)
+        value = item.value
         values[opcode] = value
+        declarations[opcode] = item
         if opcode == 'key':
             low_key = high_key = pitch_keycenter = _key(value, opcode)
         elif opcode == 'lokey':
@@ -137,13 +265,21 @@ def _slot(
     if (sample := values.get('sample')) is None:
         raise ValueError(f'Region {index}: sample is required')
     if sample.startswith('*'):
-        raise ValueError(f'Region {index}: generated SFZ samples are not supported')
+        _add_unimplemented(
+            unimplemented,
+            declarations['sample'],
+            'Generated SFZ samples are not implemented',
+        )
+        return None
 
     tracking = _number(values.get('pitch_keytrack', '100'), 'pitch_keytrack')
     if tracking not in (0, 100):
-        raise ValueError(
-            f'Region {index}: partial pitch_keytrack cannot be represented'
+        _add_unimplemented(
+            unimplemented,
+            declarations['pitch_keytrack'],
+            'Partial pitch_keytrack is not implemented',
         )
+        tracking = 100
     mapping = playback.Mapping(
         lowest_key=low_key,
         highest_key=high_key,
@@ -155,9 +291,9 @@ def _slot(
         pitch_tracking=bool(tracking),
     )
 
-    sample_path = PurePosixPath(default_path.replace('\\', '/')) / sample.replace(
-        '\\', '/'
-    )
+    sample_path = PurePosixPath(
+        region.default_path.replace('\\', '/')
+    ) / sample.replace('\\', '/')
     metadata = assets.read_audio_metadata(sfz_path.parent.joinpath(*sample_path.parts))
     kwargs: dict[str, object] = {
         'id': f'region-{index}',
@@ -166,15 +302,15 @@ def _slot(
     }
     if name := values.get('region_label'):
         kwargs['name'] = name
-    if result := _playback(index, values, metadata):
+    if result := _playback(index, values, declarations, metadata, unimplemented):
         kwargs['playback'] = playback.SlotPlayback.model_validate(result)
-    if result := _processing(values, metadata.channels):
+    if result := _processing(values, declarations, metadata.channels, unimplemented):
         kwargs['processing'] = processing.Processing.model_validate(result)
     if result := _envelope(values):
         kwargs['envelope'] = playback.Envelope.model_validate(result)
     if result := _velocity_modulation(values):
         kwargs['modulation'] = [result]
-    if result := _trigger(values):
+    if result := _trigger(values, declarations, unimplemented):
         kwargs['trigger'] = result
     if group := _group(values.get('group')):
         kwargs['choke_group'] = group
@@ -196,7 +332,11 @@ def _slot(
 
 
 def _playback(
-    index: int, values: dict[str, str], metadata: assets.AudioMetadata
+    index: int,
+    values: dict[str, str],
+    declarations: dict[str, ParsedOpcode],
+    metadata: assets.AudioMetadata,
+    unimplemented: list[UnimplementedFeature],
 ) -> dict[str, object]:
     result: dict[str, object] = {}
     if 'offset' in values:
@@ -215,30 +355,55 @@ def _playback(
         )
 
     mode = values.get('loop_mode')
+    embedded_loop = metadata.embedded_loop
+    if (
+        embedded_loop is not None
+        and embedded_loop.loop_type
+        and (
+            mode is None
+            or mode.startswith('loop_')
+            and ('loop_start' not in values or 'loop_end' not in values)
+        )
+    ):
+        _add_unimplemented(
+            unimplemented,
+            declarations['sample'],
+            f'WAV smpl loop type {embedded_loop.loop_type} is not implemented',
+        )
+        embedded_loop = None
+        if mode is not None:
+            mode = 'no_loop'
+
     if mode is None:
         if not metadata.embedded_loop_known:
-            raise ValueError(
-                f'Region {index}: set loop_mode explicitly because embedded loop '
-                'metadata cannot be read from this sample format'
+            _add_unimplemented(
+                unimplemented,
+                declarations['sample'],
+                'Embedded loop metadata cannot be read from this sample format; '
+                'set loop_mode explicitly',
             )
-        mode = 'loop_continuous' if metadata.embedded_loop is not None else 'no_loop'
+            mode = 'no_loop'
+        else:
+            mode = 'loop_continuous' if embedded_loop is not None else 'no_loop'
     if mode not in ('no_loop', 'one_shot', 'loop_continuous', 'loop_sustain'):
         raise ValueError(f'Region {index}: unsupported loop_mode: {mode}')
     release_trigger = values.get('trigger') in ('release', 'release_key')
     if release_trigger and mode == 'loop_continuous':
-        raise ValueError(
-            f'Region {index}: release-triggered loop_continuous playback '
-            'cannot be represented'
+        _add_unimplemented(
+            unimplemented,
+            declarations.get('loop_mode', declarations['sample']),
+            'Release-triggered loop_continuous playback is not implemented',
         )
+        mode = 'one_shot'
     if mode == 'one_shot' or release_trigger:
         result['mode'] = enums.PlaybackMode.one_shot
     elif mode.startswith('loop_'):
         start = values.get('loop_start')
         end = values.get('loop_end')
-        if start is None and metadata.embedded_loop is not None:
-            start = str(metadata.embedded_loop.start_frame)
-        if end is None and metadata.embedded_loop is not None:
-            end = str(metadata.embedded_loop.end_frame - 1)
+        if start is None and embedded_loop is not None:
+            start = str(embedded_loop.start_frame)
+        if end is None and embedded_loop is not None:
+            end = str(embedded_loop.end_frame - 1)
         if start is None or end is None:
             raise ValueError(
                 f'Region {index}: loop_start and loop_end require file metadata '
@@ -268,7 +433,12 @@ def _playback(
     return result
 
 
-def _processing(values: dict[str, str], channels: int) -> dict[str, float]:
+def _processing(
+    values: dict[str, str],
+    declarations: dict[str, ParsedOpcode],
+    channels: int,
+    unimplemented: list[UnimplementedFeature],
+) -> dict[str, float]:
     result: dict[str, float] = {}
     if 'volume' in values:
         result['volume_db'] = _number(values['volume'], 'volume')
@@ -285,7 +455,11 @@ def _processing(values: dict[str, str], channels: int) -> dict[str, float]:
         elif channels == 2:
             result['stereo_balance'] = pan
         elif pan:
-            raise ValueError('pan requires a mono or stereo sample')
+            _add_unimplemented(
+                unimplemented,
+                declarations['pan'],
+                'Panning multichannel samples is not implemented',
+            )
     return result
 
 
@@ -303,7 +477,11 @@ def _envelope(values: dict[str, str]) -> dict[str, object]:
     return result
 
 
-def _trigger(values: dict[str, str]) -> enums.TriggerKind | None:
+def _trigger(
+    values: dict[str, str],
+    declarations: dict[str, ParsedOpcode],
+    unimplemented: list[UnimplementedFeature],
+) -> enums.TriggerKind | None:
     value = values.get('trigger')
     if value in (None, 'attack'):
         return None
@@ -311,6 +489,13 @@ def _trigger(values: dict[str, str]) -> enums.TriggerKind | None:
         return enums.TriggerKind.logical_release
     if value == 'release_key':
         return enums.TriggerKind.release
+    if value in ('first', 'legato'):
+        _add_unimplemented(
+            unimplemented,
+            declarations['trigger'],
+            f'trigger={value} is not implemented',
+        )
+        return None
     raise ValueError(f'Unsupported SFZ trigger: {value}')
 
 
