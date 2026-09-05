@@ -1402,6 +1402,25 @@ Audio regression fixtures should follow Recs' existing 48 kHz, at-least-one-
 second WAV convention; tiny direction examples above specify index order, not
 replacement audio fixtures.
 
+## SFZ Import
+
+`recs.recsam.sfz.read()` resolves samples relative to the SFZ file and returns a
+validated `SampleInstrument`. The source samples must exist so the importer can
+validate their layout, length, and embedded loop metadata. Imported sample
+paths remain relative to the source SFZ directory, so a serialized result must
+stay there unless its sample references and assets are moved together.
+
+SFZ note numbers range from 0 to 127. Named notes use International Pitch
+Notation with C4 equal to note 60; this convention does not vary with a host's
+display preference. Omitted key bounds cover 0 through 127 inclusively, and an
+omitted pitch key centre is note 60.
+
+SFZ velocity integers map to normalized recsam values as `velocity / 127`.
+Omitted bounds map to the inclusive interval `[0, 1]`. Imported velocity curves
+contain the 128 SFZ velocity points; behavior between them follows recsam's
+linear interpolation and is meaningful only when a non-MIDI trigger source is
+used.
+
 ## Python Models
 
 `recs.recsam.instrument.SampleInstrument` represents the root document, with

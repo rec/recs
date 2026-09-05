@@ -98,6 +98,21 @@ def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
     assert sfz.read(path).slots[0].modulation == []
 
 
+def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
+    path = tmp_path / 'defaults.sfz'
+    _write_wav(tmp_path / 'default.wav')
+    path.write_text('<region> sample=default.wav')
+
+    mapping = sfz.read(path).slots[0].mapping
+
+    assert mapping.lowest_key == 0
+    assert mapping.highest_key == 127
+    assert mapping.reference_pitch_hz == pytest.approx(261.625565)
+    assert mapping.minimum_velocity == 0
+    assert mapping.maximum_velocity == 1
+    assert mapping.pitch_tracking
+
+
 def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
     path = tmp_path / 'hats.sfz'
     _write_wav(tmp_path / 'open.wav')
