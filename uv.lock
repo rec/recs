@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-27T10:54:14.9771Z"
+exclude-newer = "2026-08-29T11:39:35.659091Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -689,7 +689,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.1.0"
-source = { git = "https://github.com/rec/reccy.git?rev=24b3d16aa1b3e966b8a8b918d1f7599bd4369590#24b3d16aa1b3e966b8a8b918d1f7599bd4369590" }
+source = { git = "https://github.com/rec/reccy.git?rev=ac028c7c8434901e3e74b91cce13458af094e741#ac028c7c8434901e3e74b91cce13458af094e741" }
 dependencies = [
     { name = "pint", version = "0.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pint", version = "0.25.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -741,7 +741,7 @@ requires-dist = [
     { name = "overrides" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyside6", specifier = ">=6.11.1" },
-    { name = "reccy", git = "https://github.com/rec/reccy.git?rev=24b3d16aa1b3e966b8a8b918d1f7599bd4369590" },
+    { name = "reccy", git = "https://github.com/rec/reccy.git?rev=ac028c7c8434901e3e74b91cce13458af094e741" },
     { name = "rich" },
     { name = "sounddevice" },
     { name = "soundfile" },
