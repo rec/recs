@@ -5,6 +5,7 @@ import pytest
 from recs.base.errors import RecsError
 from recs.base.types import Format
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
+from recs.edit.options import EditOptions
 from recs.ui import session_record
 
 
@@ -75,16 +76,7 @@ def test_builtins_generate_complete_arrangements(
     edit = complete_or_generate(
         recipe,
         record_path,
-        [],
-        0,
-        None,
-        [],
-        Format.wav,
-        None,
-        None,
-        None,
-        [],
-        None,
+        EditOptions(format=Format.wav),
     )
 
     assert len(edit.sources) == 2
@@ -99,16 +91,7 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
     edit = complete_or_generate(
         recipe,
         record_path,
-        ['device:pair:2'],
-        0,
-        None,
-        [],
-        Format.wav,
-        None,
-        None,
-        None,
-        [],
-        None,
+        EditOptions(channel=['device:pair:2'], format=Format.wav),
     )
 
     assert edit.sources[0].channel == 'device:pair:2'
@@ -122,16 +105,7 @@ def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
     edit = complete_or_generate(
         recipe,
         record_path,
-        [],
-        0,
-        None,
-        [],
-        None,
-        None,
-        None,
-        None,
-        [0.75, 0.5],
-        0.25,
+        EditOptions(route_gain=[0.75, 0.5], crossfade=0.25),
     )
 
     assert [r.gain for r in edit.routes] == [0.75, 0.5]

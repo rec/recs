@@ -8,6 +8,7 @@ from reccy.configuration import units
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
+from recs.edit.options import EditOptions
 from recs.edit.schema import (
     AutomationPoint,
     AutomationSpec,
@@ -16,7 +17,6 @@ from recs.edit.schema import (
     CommandKind,
     EditSpec,
     Interpolation,
-    NormalizeMode,
     OutputSpec,
     RouteSpec,
     SourceSpec,
@@ -69,16 +69,7 @@ def discover_commands(cwd: Path) -> dict[str, list[Path]]:
 def complete_or_generate(
     recipe: dict[str, object],
     record_path: Path | None,
-    selectors: list[str],
-    start: float,
-    end: float | None,
-    intervals: list[str],
-    output_format: Format | None,
-    subtype: Subtype | None,
-    normalize: NormalizeMode | None,
-    output_gain: float | None,
-    route_gains: list[float],
-    crossfade: float | None,
+    options: EditOptions,
 ) -> EditSpec:
     text = tomlkit.dumps(recipe)
     try:
@@ -93,14 +84,14 @@ def complete_or_generate(
     generated = _generate(
         partial.command.operation,
         record_path,
-        selectors,
-        start,
-        end,
-        intervals,
-        output_format,
-        subtype,
-        route_gains,
-        crossfade,
+        options.channel,
+        options.start,
+        options.end,
+        options.interval,
+        options.format,
+        options.subtype,
+        options.route_gain,
+        options.crossfade,
     )
     overlay = {k: v for k, v in recipe.items() if k not in {'extends', '_command'}}
     if outputs := overlay.pop('outputs', None):
@@ -120,19 +111,19 @@ def complete_or_generate(
     overridden_outputs: list[dict[str, object]] = []
     for value in generated_outputs:
         output = _dictionary(value, 'Generated command has invalid output')
-        if output_format is not None:
-            output['format'] = output_format
+        if options.format is not None:
+            output['format'] = options.format
             output['path'] = str(
-                Path(str(output['path'])).with_suffix(f'.{output_format}')
+                Path(str(output['path'])).with_suffix(f'.{options.format}')
             )
-            if subtype is None:
+            if options.subtype is None:
                 output.pop('subtype', None)
-        if subtype is not None:
-            output['subtype'] = subtype
-        if normalize is not None:
-            output['normalize'] = normalize
-        if output_gain is not None:
-            output['gain'] = output_gain
+        if options.subtype is not None:
+            output['subtype'] = options.subtype
+        if options.normalize is not None:
+            output['normalize'] = options.normalize
+        if options.gain is not None:
+            output['gain'] = options.gain
         overridden_outputs.append(output)
     generated['outputs'] = overridden_outputs
     return EditSpec.model_validate(_merge(generated, overlay))
