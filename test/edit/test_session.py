@@ -99,6 +99,16 @@ subtype = "float"
     assert result.files[-1].source_channels == [1]
     assert result.files[-1].quantity_count == 48_000
     assert result.ended_at is not None
+    assert result.events[0].metadata == {
+        'sources': {
+            'voice-source': {
+                'session_id': 'input-session',
+                'files': [source_path.as_posix()],
+                'gaps': [],
+            }
+        },
+        'output_ranges': {'voice': {'start': 0, 'end': 48_000}},
+    }
 
     chained_destination = tmp_path / 'chained'
     chained = edit.model_copy(
