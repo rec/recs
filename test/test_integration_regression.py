@@ -70,7 +70,7 @@ def test_hardware_recording_regression(
         assert np.array_equal(actual, audio[: len(actual), : actual.shape[1]])
         assert np.array_equal(later, actual)
         with soundfile.SoundFile(first_path) as fp:
-            assert fp.subtype == 'PCM_16'
+            assert fp.subtype == 'PCM_24'
 
 
 def query_devices() -> list[DeviceDict]:

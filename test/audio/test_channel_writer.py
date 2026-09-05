@@ -93,6 +93,9 @@ def test_channel_writer(case, mock_devices):
     assert case.result == result
 
     with soundfile.SoundFile(files[0]) as fp:
+        if case.format == Format.flac and case.sdtype is None:
+            assert fp.subtype.lower() == Subtype.pcm_24
+
         if case.sdtype in (None, SdType.float32) and soundfile.check_format(
             case.format, Subtype.float
         ):
