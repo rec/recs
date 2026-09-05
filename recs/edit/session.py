@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import soundfile
+from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
@@ -14,7 +15,17 @@ from recs.edit.schema import EditSpec, canonical_toml
 from recs.ui import session_record
 
 
-def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Path:
+class PreparedEdit(BaseModel, frozen=True):
+    edit: EditSpec
+    sources: dict[str, ResolvedSource]
+    graph: EditGraph
+
+    model_config = ConfigDict(extra='forbid')
+
+
+def prepare_edit(
+    edit: EditSpec, edit_directory: Path, destination: Path
+) -> PreparedEdit:
     if len(edit.media_types) != 1 or edit.media_types[0] != 'audio':
         raise RecsError(
             f'This editor supports only media_types = ["audio"]: {edit.media_types}'
@@ -23,6 +34,14 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
     graph = validate_graph(edit, sources)
     validate_outputs(edit, graph, destination)
     canonical = _canonical_edit(edit, sources, destination)
+    return PreparedEdit(edit=canonical, sources=sources, graph=graph)
+
+
+def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Path:
+    prepared = prepare_edit(edit, edit_directory, destination)
+    canonical = prepared.edit
+    sources = prepared.sources
+    graph = prepared.graph
 
     destination.mkdir(parents=True)
     edit_path = destination / 'edit.toml'

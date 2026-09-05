@@ -9,9 +9,8 @@ from reccy import config, units
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
-from recs.edit import commands
-from recs.edit.schema import NormalizeMode
-from recs.edit.session import execute_edit
+from recs.edit import commands, session
+from recs.edit.schema import NormalizeMode, canonical_toml
 from recs.ui import recording_paths
 
 TIME_SPEC = config.unit_spec(units.Seconds, 'TIME')
@@ -64,6 +63,8 @@ class EditCli(BaseModel, frozen=True):
         tyro.conf.arg(help='Crossfade the first two selected mix routes'),
     ] = None
 
+    dry_run: bool = False
+
     model_config = ConfigDict(extra='forbid')
 
 
@@ -110,6 +111,10 @@ def main(args: list[str] | None = None) -> int:
     destination = cfg.destination or recording_paths.available_directory(
         cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
     )
+    if cfg.dry_run:
+        prepared = session.prepare_edit(complete, command_path.parent, destination)
+        print(canonical_toml(prepared.edit), end='')
+        return 0
     print(f'Command: {command} ({command_path})')
     print(f'Record: {record_path or "declared by edit TOML"}')
     print(f'Media types: {", ".join(complete.media_types)}')
@@ -122,5 +127,5 @@ def main(args: list[str] | None = None) -> int:
         start = output.start or 0
         end = output.end if output.end is not None else 'arrangement end'
         print(f'Output: {output.path} ({output.format}, frames {start}:{end})')
-    execute_edit(complete, command_path.parent, destination)
+    session.execute_edit(complete, command_path.parent, destination)
     return 0

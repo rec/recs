@@ -4,7 +4,7 @@ import numpy as np
 import soundfile
 
 from recs.edit.schema import parse_edit
-from recs.edit.session import execute_edit
+from recs.edit.session import execute_edit, prepare_edit
 from recs.ui import session_record
 
 
@@ -77,6 +77,11 @@ subtype = "float"
 """
     )
     destination = tmp_path / 'edited'
+
+    prepared = prepare_edit(edit, source_directory, destination)
+
+    assert not destination.exists()
+    assert prepared.edit.sources[0].record == Path('../source/session-record.jsonl')
 
     output_record = execute_edit(edit, source_directory, destination)
 
