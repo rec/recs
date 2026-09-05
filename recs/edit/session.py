@@ -58,7 +58,7 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
             type='edit_started',
             timestamp=_timestamp(now),
             path='edit.toml',
-            metadata=_provenance(canonical, sources, graph),
+            metadata=_resolution_metadata(sources, graph),
         ),
         sync=True,
     )
@@ -137,28 +137,18 @@ def _canonical_edit(
     return edit.model_copy(update={'sources': replacements})
 
 
-def _provenance(
-    edit: EditSpec, sources: dict[str, ResolvedSource], graph: EditGraph
+def _resolution_metadata(
+    sources: dict[str, ResolvedSource], graph: EditGraph
 ) -> dict[str, object]:
     return {
-        'media_types': edit.media_types,
-        'sample_rate': edit.sample_rate,
-        'records': [
-            {
-                'source': s.id,
-                'path': s.record.as_posix(),
+        'sources': {
+            s.id: {
                 'session_id': s.session_id,
-                'selector': s.selector,
                 'files': [f.path.as_posix() for f in s.fragments],
                 'gaps': _gaps(s),
             }
             for s in sources.values()
-        ],
-        'tracks': {t.id: t.channels for t in edit.tracks},
-        'buses': {b.id: b.channels for b in edit.buses},
-        'clips': [c.model_dump(mode='json') for c in edit.clips],
-        'routes': [r.model_dump(mode='json') for r in edit.routes],
-        'automation': [a.model_dump(mode='json') for a in edit.automation],
+        },
         'output_ranges': {
             k: {'start': v.start, 'end': v.end} for k, v in graph.output_extents.items()
         },

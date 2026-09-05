@@ -443,13 +443,12 @@ or disappears.
 
 The adjacent `session-record.jsonl` is the sole record of what was produced.
 Its header has a new session ID and identifies Recs edit as the application. An
-`edit_started` lifecycle entry records the canonical edit path, input records
-and session IDs, selectors, resolved source files, track and bus widths, clip
-mappings, automation, sample rate, gaps rendered as silence, and warnings. Each
-generated file receives matching `file_started` and `file_finished` entries
-with a path relative to the new session record. A clean run appends a footer.
-No separate `edit-record.jsonl` is created, and no input session record is
-modified.
+`edit_started` lifecycle entry records the canonical edit path and resolved
+facts that are not duplicated in that file: source session IDs, selected source
+files, gaps rendered as silence, and computed output ranges. Each generated file
+receives matching `file_started` and `file_finished` entries with a path relative
+to the new session record. A clean run appends a footer. No separate
+`edit-record.jsonl` is created, and no input session record is modified.
 
 ## Output Channel Limits
 
