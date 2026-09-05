@@ -7,9 +7,9 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field
 
 from recs.base.errors import RecsError
-from recs.edit import commands, composition, session
+from recs.edit import autocalibrate, commands, composition, session
 from recs.edit.options import EditOptions
-from recs.edit.schema import canonical_toml
+from recs.edit.schema import CommandKind, canonical_toml
 from recs.ui import recording_paths
 
 
@@ -39,6 +39,30 @@ class CompositionCli(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
+class AutocalibrateCli(autocalibrate.AutocalibrateOptions, frozen=True):
+    record: Annotated[Path | None, tyro.conf.Positional] = None
+
+    destination: Annotated[
+        Path | None,
+        tyro.conf.arg(aliases=('-o',), help='New output session directory'),
+    ] = None
+
+    dry_run: bool = False
+
+    model_config = ConfigDict(extra='forbid')
+
+
+class AutocalibrateFileCli(BaseModel, frozen=True):
+    destination: Annotated[
+        Path | None,
+        tyro.conf.arg(aliases=('-o',), help='New output session directory'),
+    ] = None
+
+    dry_run: bool = False
+
+    model_config = ConfigDict(extra='forbid')
+
+
 def main(args: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if args is None else args)
     if not args:
@@ -53,7 +77,11 @@ def main(args: list[str] | None = None) -> int:
     explicit = (cwd / Path(command)).resolve()
     if composition.is_composition_file(explicit):
         return _run_composition(explicit, args, cwd)
+    if autocalibrate.is_autocalibrate_file(explicit):
+        return _run_autocalibrate_file(explicit, args, cwd)
     recipe, command_path = commands.resolve_command(command, cwd)
+    if commands.command_operation(recipe) == CommandKind.autocalibrate:
+        return _run_autocalibrate_command(command, command_path, args, cwd)
     cfg = tyro.cli(EditCli, args=args, prog=f'recs edit {command}')
     input_paths = cfg.inputs
     try:
@@ -95,6 +123,39 @@ def main(args: list[str] | None = None) -> int:
         end = output.end if output.end is not None else 'arrangement end'
         print(f'Output: {output.path} ({output.format}, frames {start}:{end})')
     session.execute_edit(complete, command_path.parent, destination)
+    return 0
+
+
+def _run_autocalibrate_command(
+    command: str, command_path: Path, args: list[str], cwd: Path
+) -> int:
+    cfg = tyro.cli(AutocalibrateCli, args=args, prog=f'recs edit {command}')
+    record_path = cfg.record or commands.latest_record(cwd)
+    value = autocalibrate.autocalibrate_from_options(record_path, cfg)
+    destination = cfg.destination or recording_paths.available_directory(
+        cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
+    )
+    if cfg.dry_run:
+        prepared = autocalibrate.prepare_autocalibrate(
+            value, command_path.parent, destination
+        )
+        print(autocalibrate.autocalibrate_summary(prepared), end='')
+        return 0
+    autocalibrate.execute_autocalibrate(value, command_path.parent, destination)
+    return 0
+
+
+def _run_autocalibrate_file(path: Path, args: list[str], cwd: Path) -> int:
+    cfg = tyro.cli(AutocalibrateFileCli, args=args, prog=f'recs edit {path}')
+    value = autocalibrate.parse_autocalibrate(path.read_text())
+    destination = cfg.destination or recording_paths.available_directory(
+        cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
+    )
+    if cfg.dry_run:
+        prepared = autocalibrate.prepare_autocalibrate(value, path.parent, destination)
+        print(autocalibrate.autocalibrate_summary(prepared), end='')
+        return 0
+    autocalibrate.execute_autocalibrate(value, path.parent, destination)
     return 0
 
 

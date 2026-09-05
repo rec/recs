@@ -6,6 +6,8 @@ import soundfile
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate
+from recs.edit.cli import main
+from recs.edit.composition import execute_composition, parse_composition
 from recs.edit.record import AudioFragment, ResolvedSource
 from recs.ui import session_record
 
@@ -75,8 +77,10 @@ def test_silence_detection_pads_splits_and_respects_source_gaps() -> None:
         source='device:voice',
         silence_start=0,
         silence_end=WINDOW_FRAMES * 2,
+        provisional_quiet_level_dbfs=-60,
         measured_noise_floor=60,
         noise_floor=54,
+        observed_window_count=7,
         window_count=2,
     )
     windows = [
@@ -128,8 +132,10 @@ def test_autocalibrate_toml_round_trips() -> None:
                 source='device:voice',
                 silence_start=WINDOW_FRAMES,
                 silence_end=WINDOW_FRAMES * 2,
+                provisional_quiet_level_dbfs=-60,
                 measured_noise_floor=60,
                 noise_floor=54,
+                observed_window_count=8,
                 window_count=1,
             )
         ],
@@ -142,44 +148,9 @@ def test_autocalibrate_toml_round_trips() -> None:
 
 
 def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
-    source_directory = tmp_path / 'source'
-    source_directory.mkdir()
     audio = _session_audio(0.001)
-    audio_path = source_directory / 'voice.wav'
-    soundfile.write(audio_path, audio, SAMPLE_RATE, subtype='FLOAT')
+    record_path, audio_path = _record(tmp_path, audio)
     original = audio_path.read_bytes()
-    record_path = source_directory / 'session-record.jsonl'
-    writer = session_record.SessionRecordWriter(
-        record_path, started_at='start', session_id='input'
-    )
-    values = {
-        'media_type': 'audio',
-        'stream_id': 'audio:device:voice',
-        'format': 'wav',
-        'path': 'voice.wav',
-        'source': 'device',
-        'track_name': 'voice',
-        'source_channels': [1],
-        'channels': 1,
-        'sample_rate': SAMPLE_RATE,
-        'bit_depth': 32,
-    }
-    writer.write(
-        session_record.FileRecord(
-            type='file_started', timestamp='start', frame_count=0, **values
-        )
-    )
-    writer.write(
-        session_record.FileRecord(
-            type='file_finished',
-            timestamp='end',
-            frame_count=len(audio),
-            quantity_count=len(audio),
-            **values,
-        )
-    )
-    writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=4))
-    writer.close()
     edit = autocalibrate.AutocalibrateEdit(
         record=Path('session-record.jsonl'),
         channels=['device:voice'],
@@ -197,7 +168,7 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
     destination = tmp_path / 'edited'
 
     result_path = autocalibrate.execute_autocalibrate(
-        edit, source_directory, destination
+        edit, record_path.parent, destination
     )
 
     first, rate = soundfile.read(
@@ -234,11 +205,137 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
     )
 
 
+def test_options_convert_durations_to_source_frames(tmp_path: Path) -> None:
+    record_path, _ = _record(tmp_path, _session_audio(0.001))
+    options = autocalibrate.AutocalibrateOptions(
+        channel=['device:voice'],
+        window_time=0.05,
+        minimum_silence_time=0.25,
+        quiet_before=0.5,
+        quiet_after=0.75,
+        stop_after_quiet=3,
+        shortest_file_time=0.2,
+        longest_file_time=10,
+        format='wav',
+        subtype='float',
+    )
+
+    value = autocalibrate.autocalibrate_from_options(record_path, options)
+
+    assert value.calibration.window_frames == 2_400
+    assert value.calibration.minimum_silence_frames == 12_000
+    assert value.silence == autocalibrate.SilenceSettings(
+        quiet_before_frames=24_000,
+        quiet_after_frames=36_000,
+        stop_after_quiet_frames=144_000,
+        shortest_file_frames=9_600,
+        longest_file_frames=480_000,
+    )
+
+
+def test_cli_dry_run_discovers_silence_without_writing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    record_path, _ = _record(tmp_path, _session_audio(0.001))
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    monkeypatch.chdir(tmp_path)
+
+    assert main(['autocalibrate', str(record_path), '--dry-run']) == 0
+
+    output = capsys.readouterr().out
+    assert 'device:voice:' in output
+    assert 'Calibration: first sustained silence per track; fixed thereafter' in output
+    assert 'Provisional quiet: -60.0 dBFS' in output
+    assert 'First silence: 24000:72000' in output
+    assert 'Observed windows: 40' in output
+    assert 'Measured noise: -60.0 dBFS' in output
+    assert 'Output: 1 file, 192000 frames (4.000 seconds)' in output
+    assert list(tmp_path.glob('* edit')) == []
+
+
+def test_composition_executes_autocalibration_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record_path, _ = _record(tmp_path, _session_audio(0.001))
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    composition_path = tmp_path / 'composition.toml'
+    composition_path.write_text(
+        'schema_version = 1\n'
+        'kind = "composition"\n'
+        '[[edits]]\n'
+        'command = "autocalibrate"\n'
+        'channel = ["device:voice"]\n'
+        'format = "wav"\n'
+        'subtype = "float"\n'
+    )
+    destination = tmp_path / 'composed'
+
+    result_path = execute_composition(
+        parse_composition(composition_path.read_text()),
+        composition_path,
+        record_path,
+        destination,
+    )
+
+    assert result_path == destination / '001-autocalibrate/session-record.jsonl'
+    result = session_record.read(result_path)
+    assert [f.track_name for f in result.files if f.type == 'file_finished'] == [
+        'device-voice'
+    ]
+    assert (destination / 'commands/001-autocalibrate.toml').is_file()
+
+
 def _session_audio(noise_amplitude: float) -> np.ndarray:
     audio = _tone(SAMPLE_RATE * 4, noise_amplitude)
     audio[: SAMPLE_RATE // 2] += _tone(SAMPLE_RATE // 2, 0.4)
     audio[SAMPLE_RATE * 3 // 2 : SAMPLE_RATE * 5 // 2] += _tone(SAMPLE_RATE, 0.4)
     return audio
+
+
+def _record(directory: Path, audio: np.ndarray) -> tuple[Path, Path]:
+    source_directory = directory / 'source'
+    source_directory.mkdir()
+    audio_path = source_directory / 'voice.wav'
+    soundfile.write(audio_path, audio, SAMPLE_RATE, subtype='FLOAT')
+    record_path = source_directory / 'session-record.jsonl'
+    writer = session_record.SessionRecordWriter(
+        record_path, started_at='start', session_id='input'
+    )
+    values = {
+        'media_type': 'audio',
+        'stream_id': 'audio:device:voice',
+        'format': 'wav',
+        'path': 'voice.wav',
+        'source': 'device',
+        'track_name': 'voice',
+        'source_channels': [1],
+        'channels': 1,
+        'sample_rate': SAMPLE_RATE,
+        'bit_depth': 32,
+    }
+    writer.write(
+        session_record.FileRecord(
+            type='file_started', timestamp='start', frame_count=0, **values
+        )
+    )
+    writer.write(
+        session_record.FileRecord(
+            type='file_finished',
+            timestamp='end',
+            frame_count=len(audio),
+            quantity_count=len(audio),
+            **values,
+        )
+    )
+    writer.write(
+        session_record.SessionFooter(
+            ended_at='end', duration_seconds=len(audio) / SAMPLE_RATE
+        )
+    )
+    writer.close()
+    return record_path, audio_path
 
 
 def _tone(frames: int, amplitude: float) -> np.ndarray:

@@ -6,12 +6,15 @@ from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import numpy as np
 import soundfile
 import tomlkit
+import tyro
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from reccy.configuration import units
+from reccy.configuration.tyro import unit_spec
 from typing_extensions import Self
 
 from recs.base.errors import RecsError
@@ -22,6 +25,45 @@ from recs.edit.schema import EditSpec, SourceSpec
 from recs.ui import session_record
 
 HISTOGRAM_BIN_DB = 0.1
+TIME_SPEC = unit_spec(units.Seconds, 'TIME')
+
+
+class AutocalibrateOptions(BaseModel, frozen=True):
+    """Infer noise from each track's first sustained silence and keep it fixed."""
+
+    channel: Annotated[
+        list[str], tyro.conf.arg(help='SOURCE:TRACK selector; repeat to select several')
+    ] = Field(default_factory=list)
+
+    window_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.1, gt=0)
+
+    candidate_percentile: float = Field(default=20.0, ge=0, le=100)
+
+    candidate_tolerance_db: float = Field(default=3.0, ge=0)
+
+    minimum_silence_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.5, gt=0)
+
+    noise_percentile: float = Field(default=95.0, ge=0, le=100)
+
+    signal_margin_db: float = Field(default=6.0, ge=0)
+
+    analysis_floor_dbfs: float = Field(default=-160.0, lt=0)
+
+    quiet_before: Annotated[units.Seconds, TIME_SPEC] = Field(default=1.0, ge=0)
+
+    quiet_after: Annotated[units.Seconds, TIME_SPEC] = Field(default=2.0, ge=0)
+
+    stop_after_quiet: Annotated[units.Seconds, TIME_SPEC] = Field(default=20.0, ge=0)
+
+    shortest_file_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=1.0, ge=0)
+
+    longest_file_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.0, ge=0)
+
+    format: Format | None = None
+
+    subtype: Subtype | None = None
+
+    model_config = ConfigDict(extra='forbid')
 
 
 class CalibrationSettings(BaseModel, frozen=True):
@@ -57,8 +99,10 @@ class CalibratedThreshold(BaseModel, frozen=True):
     source: str
     silence_start: int = Field(ge=0)
     silence_end: int = Field(gt=0)
+    provisional_quiet_level_dbfs: float = Field(le=0)
     measured_noise_floor: float = Field(ge=0)
     noise_floor: float = Field(ge=0)
+    observed_window_count: int = Field(gt=0)
     window_count: int = Field(gt=0)
 
     @model_validator(mode='after')
@@ -132,6 +176,41 @@ def canonical_autocalibrate(value: AutocalibrateEdit) -> str:
     return tomlkit.dumps(value.model_dump(mode='json', exclude_none=True))
 
 
+def autocalibrate_from_options(
+    record: Path, options: AutocalibrateOptions
+) -> AutocalibrateEdit:
+    record = record.resolve()
+    _, _, sample_rate = _resolve_record_sources(record, options.channel)
+    output_format = options.format or Format.flac
+    subtype = options.subtype or (
+        Subtype.pcm_24 if output_format == Format.flac else None
+    )
+    return AutocalibrateEdit(
+        record=record,
+        channels=options.channel,
+        sample_rate=sample_rate,
+        calibration=CalibrationSettings(
+            window_frames=max(1, round(options.window_time * sample_rate)),
+            candidate_percentile=options.candidate_percentile,
+            candidate_tolerance_db=options.candidate_tolerance_db,
+            minimum_silence_frames=max(
+                1, round(options.minimum_silence_time * sample_rate)
+            ),
+            noise_percentile=options.noise_percentile,
+            signal_margin_db=options.signal_margin_db,
+            analysis_floor_dbfs=options.analysis_floor_dbfs,
+        ),
+        silence=SilenceSettings(
+            quiet_before_frames=round(options.quiet_before * sample_rate),
+            quiet_after_frames=round(options.quiet_after * sample_rate),
+            stop_after_quiet_frames=round(options.stop_after_quiet * sample_rate),
+            shortest_file_frames=round(options.shortest_file_time * sample_rate),
+            longest_file_frames=round(options.longest_file_time * sample_rate),
+        ),
+        output=AutocalibrateOutput(format=output_format, subtype=subtype),
+    )
+
+
 def is_autocalibrate_file(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -178,22 +257,30 @@ def prepare_autocalibrate(
 
 
 def autocalibrate_summary(prepared: PreparedAutocalibrate) -> str:
+    if (sample_rate := prepared.edit.sample_rate) is None:
+        raise RecsError('Prepared autocalibration has no sample rate')
     lines = [
         f'Record: {prepared.edit.record}',
-        f'Sample rate: {prepared.edit.sample_rate}',
+        f'Sample rate: {sample_rate}',
+        'Calibration: first sustained silence per track; fixed thereafter',
     ]
     thresholds = {t.source: t for t in prepared.edit.thresholds}
     for selector, intervals in prepared.intervals.items():
         threshold = thresholds[selector]
         frames = sum(r.end - r.start for r in intervals)
+        file_word = 'file' if len(intervals) == 1 else 'files'
         lines.extend(
             [
                 f'{selector}:',
+                f'  Provisional quiet: '
+                f'{threshold.provisional_quiet_level_dbfs:.1f} dBFS',
                 f'  First silence: {threshold.silence_start}:{threshold.silence_end}',
+                f'  Observed windows: {threshold.observed_window_count}',
                 f'  Measured noise: {-threshold.measured_noise_floor:.1f} dBFS',
                 f'  Threshold: {-threshold.noise_floor:.1f} dBFS '
                 f'(noise_floor = {threshold.noise_floor:.1f})',
-                f'  Output: {len(intervals)} files, {frames} frames',
+                f'  Output: {len(intervals)} {file_word}, {frames} frames '
+                f'({frames / sample_rate:.3f} seconds)',
             ]
         )
     return '\n'.join(lines) + '\n'
@@ -313,8 +400,10 @@ def calibrate_threshold(
         source=source,
         silence_start=start,
         silence_end=end,
+        provisional_quiet_level_dbfs=round(provisional, 1),
         measured_noise_floor=round(-measured_dbfs, 1),
         noise_floor=round(-threshold_dbfs, 1),
+        observed_window_count=all_levels.count,
         window_count=levels.count,
     )
 
