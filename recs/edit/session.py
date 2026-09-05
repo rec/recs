@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
-from recs.edit.output import bit_depth, validate_outputs
+from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
 from recs.edit.schema import EditSpec, canonical_toml
@@ -84,7 +84,18 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
                 sample_rate=canonical.sample_rate,
             )
             writer.write(started)
-            quantity = renderer.render_output(output, path)
+            rendered = renderer.render(output)
+            fp = open_output(
+                output,
+                path,
+                rendered.channels,
+                rendered.sample_rate,
+            )
+            try:
+                fp.write(rendered.samples)
+            finally:
+                fp.close()
+            quantity = len(rendered.samples)
             with soundfile.SoundFile(path) as fp:
                 depth = bit_depth(fp)
             writer.write(
