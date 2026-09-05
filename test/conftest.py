@@ -37,8 +37,24 @@ class FakeDeviceQueryStream:
         return device.query_devices()
 
 
+class FakeMidiPort:
+    def iter_pending(self) -> list[object]:
+        return []
+
+    def close(self) -> None:
+        pass
+
+
 def wait(connections, timeout=None):
     return [c for c in connections if c.poll(source_recorder.POLL_TIMEOUT)]
+
+
+@pytest.fixture(autouse=True)
+def mock_midi_devices(monkeypatch: pytest.MonkeyPatch) -> None:
+    import mido
+
+    monkeypatch.setattr(mido, 'get_input_names', lambda: [])
+    monkeypatch.setattr(mido, 'open_input', lambda name: FakeMidiPort())
 
 
 @pytest.fixture
