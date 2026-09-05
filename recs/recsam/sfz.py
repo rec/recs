@@ -3,7 +3,7 @@
 import re
 from pathlib import Path, PurePosixPath
 
-from . import enums, modulation, playback, processing, selection
+from . import assets, enums, modulation, playback, processing, selection
 from .instrument import Instrument, SampleInstrument, SampleSlot
 
 
@@ -14,7 +14,7 @@ def read(path: Path) -> SampleInstrument:
     if not regions:
         raise ValueError('SFZ file contains no regions')
     slots = [
-        _slot(i, default_path, opcodes)
+        _slot(i, path, default_path, opcodes)
         for i, (default_path, opcodes) in enumerate(regions, 1)
     ]
     return SampleInstrument(
@@ -106,7 +106,12 @@ def _parse(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
     return regions
 
 
-def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> SampleSlot:
+def _slot(
+    index: int,
+    sfz_path: Path,
+    default_path: str,
+    opcodes: list[tuple[str, str]],
+) -> SampleSlot:
     values: dict[str, str] = {}
     low_key = 0
     high_key = 127
@@ -149,6 +154,7 @@ def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> Samp
     sample_path = PurePosixPath(default_path.replace('\\', '/')) / sample.replace(
         '\\', '/'
     )
+    metadata = assets.read_audio_metadata(sfz_path.parent.joinpath(*sample_path.parts))
     kwargs: dict[str, object] = {
         'id': f'region-{index}',
         'sample': str(sample_path),
@@ -156,9 +162,9 @@ def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> Samp
     }
     if name := values.get('region_label'):
         kwargs['name'] = name
-    if result := _playback(index, values):
+    if result := _playback(index, values, metadata):
         kwargs['playback'] = playback.SlotPlayback.model_validate(result)
-    if result := _processing(values):
+    if result := _processing(values, metadata.channels):
         kwargs['processing'] = processing.Processing.model_validate(result)
     if result := _envelope(values):
         kwargs['envelope'] = playback.Envelope.model_validate(result)
@@ -185,7 +191,9 @@ def _slot(index: int, default_path: str, opcodes: list[tuple[str, str]]) -> Samp
     return SampleSlot.model_validate(kwargs)
 
 
-def _playback(index: int, values: dict[str, str]) -> dict[str, object]:
+def _playback(
+    index: int, values: dict[str, str], metadata: assets.AudioMetadata
+) -> dict[str, object]:
     result: dict[str, object] = {}
     if 'offset' in values:
         result['start_frame'] = _integer(values['offset'], 'offset', minimum=0)
@@ -202,7 +210,14 @@ def _playback(index: int, values: dict[str, str]) -> dict[str, object]:
             else enums.Direction.backward
         )
 
-    mode = values.get('loop_mode', 'no_loop')
+    mode = values.get('loop_mode')
+    if mode is None:
+        if not metadata.embedded_loop_known:
+            raise ValueError(
+                f'Region {index}: set loop_mode explicitly because embedded loop '
+                'metadata cannot be read from this sample format'
+            )
+        mode = 'loop_continuous' if metadata.embedded_loop is not None else 'no_loop'
     if mode not in ('no_loop', 'one_shot', 'loop_continuous', 'loop_sustain'):
         raise ValueError(f'Region {index}: unsupported loop_mode: {mode}')
     if mode == 'one_shot':
@@ -212,9 +227,14 @@ def _playback(index: int, values: dict[str, str]) -> dict[str, object]:
     elif mode.startswith('loop_'):
         start = values.get('loop_start')
         end = values.get('loop_end')
+        if start is None and metadata.embedded_loop is not None:
+            start = str(metadata.embedded_loop.start_frame)
+        if end is None and metadata.embedded_loop is not None:
+            end = str(metadata.embedded_loop.end_frame - 1)
         if start is None or end is None:
             raise ValueError(
-                f'Region {index}: recsam requires explicit loop_start and loop_end'
+                f'Region {index}: loop_start and loop_end require file metadata '
+                'or explicit values'
             )
         result['loop'] = playback.Loop(
             start_frame=_integer(start, 'loop_start', minimum=0),
@@ -227,10 +247,22 @@ def _playback(index: int, values: dict[str, str]) -> dict[str, object]:
         )
     elif any(k in values for k in ('loop_start', 'loop_end')):
         raise ValueError(f'Region {index}: loop points require a looping loop_mode')
+    start_frame = result.get('start_frame', 0)
+    end_frame = result.get('end_frame', metadata.frames)
+    assert isinstance(start_frame, int)
+    assert isinstance(end_frame, int)
+    if start_frame >= metadata.frames:
+        raise ValueError(f'Region {index}: offset is beyond the end of the sample')
+    if end_frame > metadata.frames:
+        raise ValueError(f'Region {index}: end is beyond the end of the sample')
+    if loop := result.get('loop'):
+        assert isinstance(loop, playback.Loop)
+        if loop.start_frame < start_frame or loop.end_frame > end_frame:
+            raise ValueError(f'Region {index}: loop is outside the playback interval')
     return result
 
 
-def _processing(values: dict[str, str]) -> dict[str, float]:
+def _processing(values: dict[str, str], channels: int) -> dict[str, float]:
     result: dict[str, float] = {}
     if 'volume' in values:
         result['volume_db'] = _number(values['volume'], 'volume')
@@ -242,7 +274,12 @@ def _processing(values: dict[str, str]) -> dict[str, float]:
         pan = _number(values['pan'], 'pan') / 100
         if not -1 <= pan <= 1:
             raise ValueError('pan must be between -100 and 100')
-        result['pan'] = pan
+        if channels == 1:
+            result['pan'] = pan
+        elif channels == 2:
+            result['stereo_balance'] = pan
+        elif pan:
+            raise ValueError('pan requires a mono or stereo sample')
     return result
 
 

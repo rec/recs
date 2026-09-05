@@ -1,3 +1,5 @@
+import struct
+import wave
 from pathlib import Path
 
 import pytest
@@ -7,6 +9,8 @@ from recs.recsam import enums, sfz
 
 def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     path = tmp_path / 'Glass keys.sfz'
+    _write_wav(tmp_path / 'Samples' / 'Soft glass.wav')
+    _write_wav(tmp_path / 'Samples' / 'Loud glass.wav')
     path.write_text(
         """
         // Paths and global settings apply to both regions.
@@ -54,6 +58,8 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
 
 def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
     path = tmp_path / 'velocity.sfz'
+    _write_wav(tmp_path / 'normal.wav')
+    _write_wav(tmp_path / 'inverted.wav')
     path.write_text(
         '<region> sample=normal.wav amp_veltrack=50 '
         'amp_velcurve_0=0.2 amp_velcurve_64=0.6\n'
@@ -75,6 +81,7 @@ def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
 
 def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
     path = tmp_path / 'flat.sfz'
+    _write_wav(tmp_path / 'flat.wav')
     path.write_text('<region> sample=flat.wav amp_veltrack=0')
 
     assert sfz.read(path).slots[0].modulation == []
@@ -82,6 +89,8 @@ def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
 
 def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
     path = tmp_path / 'hats.sfz'
+    _write_wav(tmp_path / 'open.wav')
+    _write_wav(tmp_path / 'closed.wav')
     path.write_text(
         """
         <group> group=1 loop_mode=loop_sustain loop_start=10 loop_end=19
@@ -108,6 +117,7 @@ def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
 
 def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
     path = tmp_path / 'release.sfz'
+    _write_wav(tmp_path / 'release.wav')
     path.write_text(
         '<control> default_path=\n'
         '<region> sample=release.wav key=60 trigger=release amp_release=0.2'
@@ -121,6 +131,34 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
     assert slot.envelope.release_seconds == 0.2
 
 
+def test_read_sfz_uses_asset_layout_and_embedded_loop(tmp_path: Path) -> None:
+    path = tmp_path / 'assets.sfz'
+    _write_wav(tmp_path / 'mono.wav', loop=(100, 199))
+    _write_wav(tmp_path / 'stereo.wav', channels=2)
+    path.write_text(
+        '<region> sample=mono.wav pan=-25\n'
+        '<region> sample=stereo.wav pan=25 loop_mode=no_loop'
+    )
+
+    mono, stereo = sfz.read(path).slots
+
+    assert mono.processing.pan == -0.25
+    assert mono.playback.loop is not None
+    assert mono.playback.loop.start_frame == 100
+    assert mono.playback.loop.end_frame == 200
+    assert mono.playback.loop.mode == enums.LoopMode.through_release
+    assert stereo.processing.pan == 0
+    assert stereo.processing.stereo_balance == 0.25
+
+
+def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
+    path = tmp_path / 'missing.sfz'
+    path.write_text('<region> sample=missing.wav loop_mode=no_loop')
+
+    with pytest.raises(ValueError, match='Cannot read SFZ sample'):
+        sfz.read(path)
+
+
 @pytest.mark.parametrize(
     ('text', 'message'),
     [
@@ -130,7 +168,7 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
         ('<region> sample=a.wav amp_velcurve_64=1.1', 'between 0 and 1'),
         ('<curve> curve_index=1', 'Unsupported SFZ header'),
         ('#include "other.sfz"', 'preprocessing is not supported'),
-        ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit loop_start'),
+        ('<region> sample=a.wav loop_mode=loop_sustain', 'explicit values'),
         ('<region> sample=*sine key=60', 'generated SFZ samples'),
         ('<region> key=60', 'sample is required'),
     ],
@@ -140,6 +178,27 @@ def test_read_sfz_rejects_unrepresentable_input(
 ) -> None:
     path = tmp_path / 'bad.sfz'
     path.write_text(text)
+    _write_wav(tmp_path / 'a.wav')
 
     with pytest.raises(ValueError, match=message):
         sfz.read(path)
+
+
+def _write_wav(
+    path: Path, channels: int = 1, loop: tuple[int, int] | None = None
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), 'wb') as fp:
+        fp.setnchannels(channels)
+        fp.setsampwidth(2)
+        fp.setframerate(48_000)
+        fp.writeframes(b'\0\0' * channels * 48_000)
+    if loop is None:
+        return
+
+    start, end = loop
+    data = path.read_bytes()
+    smpl = struct.pack('<15I', 0, 0, 20_833, 60, 0, 0, 0, 1, 0, 0, 0, start, end, 0, 0)
+    chunk = b'smpl' + struct.pack('<I', len(smpl)) + smpl
+    data += chunk
+    path.write_bytes(data[:4] + struct.pack('<I', len(data) - 8) + data[8:])
