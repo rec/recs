@@ -6,7 +6,7 @@ from recs.base.errors import RecsError
 from recs.daemon import gui_protocol
 
 from . import disk_space, recording_paths
-from .session_record import EventEntry, timestamp_to_json
+from .session_record import EventRecord, timestamp_to_json
 
 if TYPE_CHECKING:
     from .recording_control import RecordingControl
@@ -16,7 +16,7 @@ def mark(
     control: 'RecordingControl', request: gui_protocol.Mark
 ) -> gui_protocol.Marked:
     control.write_entry(
-        EventEntry(
+        EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
             type='mark',
             label=request.label,
@@ -35,7 +35,7 @@ def pause_recording(
         if source.running:
             source.stop()
     control.write_entry(
-        EventEntry(
+        EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
             type='recording_paused',
             label=reason,
@@ -54,7 +54,7 @@ def resume_recording(
 ) -> gui_protocol.RecordingState:
     control.runtime_state.resume()
     control.write_entry(
-        EventEntry(
+        EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
             type='recording_resumed',
             label=reason,

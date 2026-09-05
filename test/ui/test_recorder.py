@@ -1086,7 +1086,7 @@ def test_recorder_writes_one_record_for_all_media(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
         rec.session.write(
-            session_record.FileEntry(
+            session_record.FileRecord(
                 type='file_finished',
                 media_type=medium,
                 timestamp='now',

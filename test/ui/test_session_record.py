@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from recs.ui import session_record
-from recs.ui.session_record import EventEntry, FileEntry, SessionRecordWriter
+from recs.ui.session_record import EventRecord, FileRecord, SessionRecordWriter
 
 
 def test_session_record_writer_batches_fsync(
@@ -18,10 +18,10 @@ def test_session_record_writer_batches_fsync(
     writer = SessionRecordWriter(tmp_path / 'session-record.jsonl', started_at='start')
 
     writer.write(
-        EventEntry(timestamp='event', type='key_pressed', key='g'),
+        EventRecord(timestamp='event', type='key_pressed', key='g'),
     )
     writer.write(
-        EventEntry(timestamp='event', type='key_pressed', key='h'),
+        EventRecord(timestamp='event', type='key_pressed', key='h'),
     )
     writer.close()
 
@@ -58,7 +58,9 @@ def test_session_record_reader_ignores_truncated_final_line(tmp_path: Path) -> N
     result = session_record.read(record)
 
     assert result.started_at == 'start'
-    assert result.events == [EventEntry(timestamp='event', type='key_pressed', key='g')]
+    assert result.events == [
+        EventRecord(timestamp='event', type='key_pressed', key='g')
+    ]
     assert 'truncated final line' in result.errors[0]
 
 
@@ -72,7 +74,9 @@ def test_session_record_reader_reports_bad_nonfinal_line(tmp_path: Path) -> None
 
     result = session_record.read(record)
 
-    assert result.events == [EventEntry(timestamp='event', type='key_pressed', key='g')]
+    assert result.events == [
+        EventRecord(timestamp='event', type='key_pressed', key='g')
+    ]
     assert 'line 2' in result.errors[0]
 
 
@@ -92,7 +96,7 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     result = session_record.read(record)
 
     assert result.files == [
-        FileEntry(
+        FileRecord(
             type='file_started',
             media_type='audio',
             timestamp='start',
@@ -105,7 +109,7 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
             sample_rate=48_000,
             bit_depth=32,
         ),
-        FileEntry(
+        FileRecord(
             type='file_finished',
             media_type='audio',
             timestamp='end',

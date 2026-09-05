@@ -12,7 +12,7 @@ class RecordingSession:
         self.files_written: set[Path] = set()
         self.file_end_frames: dict[Path, int] = {}
         self.file_end_timestamps: dict[Path, float] = {}
-        self.files: dict[Path, session_record.FileEntry] = {}
+        self.files: dict[Path, session_record.FileRecord] = {}
         self.record_writer: session_record.SessionRecordWriter | None = None
         self.record_errors: list[str] = []
 
@@ -53,7 +53,7 @@ class RecordingSession:
                     )
                 )
         self.write(
-            session_record.FooterEntry(
+            session_record.SessionFooter(
                 ended_at=session_record.timestamp_to_json(timestamp),
                 duration_seconds=timestamp - self.started_at,
             )
@@ -81,7 +81,7 @@ class RecordingSession:
 
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
         stream_channels = '-'.join(str(c) for c in file.source_channels)
-        entry = session_record.FileEntry(
+        entry = session_record.FileRecord(
             type='file_started',
             media_type='audio',
             timestamp=session_record.timestamp_to_json(
@@ -101,9 +101,9 @@ class RecordingSession:
         self.files[file.path] = entry
         self.write(entry)
 
-    def write(self, entry: session_record.RecordEntry) -> None:
+    def write(self, entry: session_record.Record) -> None:
         if self.record_writer is not None:
-            if isinstance(entry, session_record.FileEntry):
+            if isinstance(entry, session_record.FileRecord):
                 path = Path(entry.path)
                 if path.is_absolute():
                     entry = entry.model_copy(

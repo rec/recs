@@ -8,7 +8,7 @@ from recs.cfg.cfg import Cfg
 from . import disk_space, disk_space_policy, recording_paths, recording_session
 from .device_lifecycle import DeviceLifecycle
 from .recording_control import RecordingControl
-from .session_record import EventEntry, RecordEntry, timestamp_to_json
+from .session_record import EventRecord, Record, timestamp_to_json
 
 
 class DiskSpaceController:
@@ -19,7 +19,7 @@ class DiskSpaceController:
         devices: DeviceLifecycle,
         monitor: disk_space_policy.DiskSpacePolicy,
         recording: RecordingControl,
-        write_entry: Callable[[RecordEntry], None],
+        write_entry: Callable[[Record], None],
         warning: Callable[[str], None],
         cfg_changed: Callable[[Cfg], None],
         receive_pending_updates: Callable[[], None],
@@ -92,7 +92,7 @@ class DiskSpaceController:
         self, event_type: str, disk: disk_space.Disk, threshold: str | None, rate: float
     ) -> None:
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 type=event_type,
                 timestamp=timestamp_to_json(times.timestamp()),
                 path=str(self.cfg.directory.output_directory),
@@ -136,7 +136,7 @@ class DiskSpaceController:
         except OSError as error:
             self.warning(f'Cannot switch recording disk to {disk.path}: {error}')
             self.write_entry(
-                EventEntry(
+                EventRecord(
                     type='disk_switch_failed',
                     timestamp=timestamp_to_json(times.timestamp()),
                     from_path=previous,
@@ -146,7 +146,7 @@ class DiskSpaceController:
             )
             return False
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 type='disk_switch_started',
                 timestamp=timestamp_to_json(times.timestamp()),
                 from_path=previous,
@@ -174,7 +174,7 @@ class DiskSpaceController:
         self.cfg_changed(cfg)
         self.start_record()
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 type='disk_switch_finished',
                 timestamp=timestamp_to_json(times.timestamp()),
                 from_path=previous,

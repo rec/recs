@@ -9,7 +9,7 @@ from threa import Runnable
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
-from recs.ui.session_record import EventEntry, RecordEntry, timestamp_to_json
+from recs.ui.session_record import EventRecord, Record, timestamp_to_json
 
 from . import device
 from .writer import MidiMessage, MidiWriter
@@ -31,7 +31,7 @@ class MidiRecorder(Runnable):
         cfg: Cfg,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_entry: Callable[[RecordEntry], None],
+        write_entry: Callable[[Record], None],
         *,
         write_error: Callable[[str, str], None] | None = None,
         input_names: Callable[[], list[str]] = device.input_names,
@@ -225,7 +225,7 @@ class MidiRecorder(Runnable):
         self.failures.pop(selector, None)
         if writer is not None:
             self.write_entry(
-                EventEntry(
+                EventRecord(
                     timestamp=timestamp_to_json(started_at),
                     type='midi_source_started',
                     source=name,
@@ -243,7 +243,7 @@ class MidiRecorder(Runnable):
             started_at,
         )
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 timestamp=timestamp_to_json(started_at),
                 type='midi_source_started',
                 source=name,
@@ -278,7 +278,7 @@ class MidiRecorder(Runnable):
             self._record_failure(name, selector, ': '.join(errors))
         elif stopped:
             self.write_entry(
-                EventEntry(
+                EventRecord(
                     timestamp=timestamp_to_json(self.timestamp()),
                     type='midi_source_stopped',
                     source=name,
@@ -292,7 +292,7 @@ class MidiRecorder(Runnable):
         self.failures[selector] = (message, failure_time)
         self.warning(f'MIDI input {name} failed: {message}')
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 timestamp=timestamp_to_json(failure_time),
                 type='midi_source_failed',
                 source=name,

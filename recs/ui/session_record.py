@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
-class HeaderEntry(BaseModel):
+class SessionHeader(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'header'
@@ -20,7 +20,7 @@ class HeaderEntry(BaseModel):
     metadata: dict[str, object] | None = None
 
 
-class EventEntry(BaseModel):
+class EventRecord(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
@@ -60,7 +60,7 @@ class EventEntry(BaseModel):
     metadata: dict[str, object] | None = None
 
 
-class FileEntry(BaseModel):
+class FileRecord(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str
@@ -86,7 +86,7 @@ class FileEntry(BaseModel):
     metadata: dict[str, object] | None = None
 
 
-class WarningEntry(BaseModel):
+class WarningRecord(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'warning'
@@ -94,7 +94,7 @@ class WarningEntry(BaseModel):
     message: str
 
 
-class FooterEntry(BaseModel):
+class SessionFooter(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'footer'
@@ -112,13 +112,13 @@ class SessionRecord(BaseModel):
     metadata: dict[str, object] | None = None
     ended_at: str | None = None
     duration_seconds: float | None = None
-    events: list[EventEntry] = Field(default_factory=list)
-    files: list[FileEntry] = Field(default_factory=list)
+    events: list[EventRecord] = Field(default_factory=list)
+    files: list[FileRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
 
-RecordEntry = EventEntry | FileEntry | FooterEntry | HeaderEntry | WarningEntry
+Record = EventRecord | FileRecord | SessionFooter | SessionHeader | WarningRecord
 
 
 class SessionRecordWriter:
@@ -137,7 +137,7 @@ class SessionRecordWriter:
         self.last_sync = float('-inf')
         self.errors: list[str] = []
         self.write(
-            HeaderEntry(
+            SessionHeader(
                 started_at=started_at,
                 session_id=session_id,
                 continued_from=continued_from,
@@ -147,7 +147,7 @@ class SessionRecordWriter:
 
     def write(
         self,
-        entry: RecordEntry,
+        entry: Record,
         *,
         sync: bool = False,
     ) -> None:
@@ -175,8 +175,8 @@ class SessionRecordWriter:
 
 def read(path: Path) -> SessionRecord:
     entries, errors = read_entries(path)
-    header = next((e for e in entries if isinstance(e, HeaderEntry)), None)
-    footer = next((e for e in reversed(entries) if isinstance(e, FooterEntry)), None)
+    header = next((e for e in entries if isinstance(e, SessionHeader)), None)
+    footer = next((e for e in reversed(entries) if isinstance(e, SessionFooter)), None)
     return SessionRecord(
         started_at=header.started_at if header else '',
         session_id=header.session_id if header else None,
@@ -185,14 +185,14 @@ def read(path: Path) -> SessionRecord:
         metadata=header.metadata if header else None,
         ended_at=footer.ended_at if footer else None,
         duration_seconds=footer.duration_seconds if footer else None,
-        events=[e for e in entries if isinstance(e, EventEntry)],
-        files=[e for e in entries if isinstance(e, FileEntry)],
-        warnings=[e.message for e in entries if isinstance(e, WarningEntry)],
+        events=[e for e in entries if isinstance(e, EventRecord)],
+        files=[e for e in entries if isinstance(e, FileRecord)],
+        warnings=[e.message for e in entries if isinstance(e, WarningRecord)],
         errors=errors,
     )
 
 
-def read_entries(path: Path) -> tuple[list[RecordEntry], list[str]]:
+def read_entries(path: Path) -> tuple[list[Record], list[str]]:
     return _read_entries(path)
 
 
@@ -206,8 +206,8 @@ def timestamp_to_json(timestamp: float) -> str:
 
 def _read_entries(
     path: Path,
-) -> tuple[list[RecordEntry], list[str]]:
-    entries: list[RecordEntry] = []
+) -> tuple[list[Record], list[str]]:
+    entries: list[Record] = []
     errors: list[str] = []
     parse_errors: list[
         tuple[int, json.JSONDecodeError | ValidationError | ValueError]
@@ -231,21 +231,21 @@ def _read_entries(
 
 def _parse_entry(
     line: str,
-) -> RecordEntry:
+) -> Record:
     data = json.loads(line)
     if not isinstance(data, dict):
         raise ValueError('record line must be a JSON object')
     record_type = data.get('type')
     if record_type == 'header':
-        return HeaderEntry.model_validate(data)
+        return SessionHeader.model_validate(data)
     if record_type in {'file_finished', 'file_started'}:
-        return FileEntry.model_validate(data)
+        return FileRecord.model_validate(data)
     if record_type == 'footer':
-        return FooterEntry.model_validate(data)
+        return SessionFooter.model_validate(data)
     if record_type == 'warning':
-        return WarningEntry.model_validate(data)
+        return WarningRecord.model_validate(data)
     if isinstance(record_type, str):
-        return EventEntry.model_validate(data)
+        return EventRecord.model_validate(data)
     raise ValueError('record line is missing a string type')
 
 

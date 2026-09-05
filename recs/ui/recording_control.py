@@ -22,7 +22,7 @@ from . import (
 from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
 from .recording_control_protocol import RecordingControlTarget
-from .session_record import RecordEntry
+from .session_record import Record
 
 
 class RecordingRuntimeState(BaseModel):
@@ -43,7 +43,7 @@ class RecordingControl:
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
         disk: disk_space_policy.DiskSpacePolicy,
-        write_entry: Callable[[RecordEntry], None],
+        write_entry: Callable[[Record], None],
         cfg_changed: Callable[[Cfg], None],
         rows: Callable[[], list[dict[str, object]]],
         error_records: Callable[[], list[ErrorRecord]],

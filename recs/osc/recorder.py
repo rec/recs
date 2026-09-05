@@ -12,9 +12,9 @@ from threa import Runnable
 from recs.base import times
 from recs.cfg.cfg import Cfg
 from recs.ui.session_record import (
-    EventEntry,
-    FileEntry,
-    RecordEntry,
+    EventRecord,
+    FileRecord,
+    Record,
     timestamp_to_json,
 )
 
@@ -29,7 +29,7 @@ class OscRecorder(Runnable):
         cfg: Cfg,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_entry: Callable[[RecordEntry], None],
+        write_entry: Callable[[Record], None],
         write_error: Callable[[str, str], None] | None = None,
     ) -> None:
         self.cfg = cfg
@@ -98,7 +98,7 @@ class OscNodeRecorder:
         node: config.Node,
         session_directory: Path,
         warning: Callable[[str], None],
-        write_entry: Callable[[RecordEntry], None],
+        write_entry: Callable[[Record], None],
         write_error: Callable[[str, str], None] | None,
     ) -> None:
         self.node = node
@@ -140,7 +140,7 @@ class OscNodeRecorder:
         self.next_polls = [now for _ in self.node.polls]
         self.next_subscriptions = [now for _ in self.node.subscriptions]
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 type='osc_node_started',
                 timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,
@@ -214,7 +214,7 @@ class OscNodeRecorder:
         self.file_outbound_count = 0
         self.file_decode_error_count = 0
         self.write_entry(
-            FileEntry(
+            FileRecord(
                 type='file_started',
                 media_type='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
@@ -232,7 +232,7 @@ class OscNodeRecorder:
         self.output.close()
         self.output = None
         self.write_entry(
-            FileEntry(
+            FileRecord(
                 type='file_finished',
                 media_type='osc',
                 timestamp=timestamp_to_json(times.timestamp()),
@@ -339,7 +339,7 @@ class OscNodeRecorder:
         self.last_error = message
         self.warning(f'OSC node {self.node.name} {operation} failed: {message}')
         self.write_entry(
-            EventEntry(
+            EventRecord(
                 type='osc_node_failed',
                 timestamp=timestamp_to_json(times.timestamp()),
                 source=self.node.name,

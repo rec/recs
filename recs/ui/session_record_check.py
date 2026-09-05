@@ -59,8 +59,8 @@ def check(path: Path) -> list[str]:
 def _file_size_errors(
     record_path: Path,
     file_path: Path,
-    file: session_record.FileEntry,
-    started: dict[str, session_record.FileEntry],
+    file: session_record.FileRecord,
+    started: dict[str, session_record.FileRecord],
 ) -> list[str]:
     if file.type != 'file_finished' or file.frame_count is None:
         return []
@@ -81,7 +81,7 @@ def _file_size_errors(
 
 
 def _frame_errors(
-    record_path: Path, files: list[session_record.FileEntry]
+    record_path: Path, files: list[session_record.FileRecord]
 ) -> list[str]:
     errors: list[str] = []
     started = {f.path: f for f in files if f.type == 'file_started'}
@@ -107,7 +107,7 @@ def _frame_errors(
 
 
 def _midi_file_errors(
-    record_path: Path, file_path: Path, file: session_record.FileEntry
+    record_path: Path, file_path: Path, file: session_record.FileRecord
 ) -> list[str]:
     if file.type != 'file_finished':
         return []

@@ -124,7 +124,7 @@ def _records(path: Path) -> list[tuple[Path, session_record.SessionRecord]]:
     return records
 
 
-def _midi_ports(files: list[session_record.FileEntry]) -> list[str]:
+def _midi_ports(files: list[session_record.FileRecord]) -> list[str]:
     names: set[str] = set()
     for file in files:
         if file.midi_port is not None:

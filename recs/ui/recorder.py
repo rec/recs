@@ -233,7 +233,7 @@ class Recorder(Runnables):
 
     def _record_device_buffer_update(self, source: str, stats: BufferStats) -> None:
         self._write_record_entry(
-            session_record.EventEntry(
+            session_record.EventRecord(
                 type='buffer_overflow' if stats.dropped_frames else 'buffer_pressure',
                 timestamp=session_record.timestamp_to_json(stats.last_drop_timestamp),
                 source=source,
@@ -465,7 +465,7 @@ class Recorder(Runnables):
         self._midi.suspend_for_card_replace()
         self._osc.suspend_for_card_replace()
         self._write_record_entry(
-            session_record.EventEntry(
+            session_record.EventRecord(
                 type='card_replace_started',
                 timestamp=session_record.timestamp_to_json(times.timestamp()),
                 disk=str(result.old_mount),
@@ -515,7 +515,7 @@ class Recorder(Runnables):
         self._set_awaiting_card(False)
         self._start_record()
         self._write_record_entry(
-            session_record.EventEntry(
+            session_record.EventRecord(
                 type='card_replace_finished',
                 timestamp=session_record.timestamp_to_json(timestamp),
                 to_path=str(destination.output_directory),
@@ -607,7 +607,7 @@ class Recorder(Runnables):
         value: object | None = None,
     ) -> None:
         self._write_record_entry(
-            session_record.EventEntry(
+            session_record.EventRecord(
                 timestamp=session_record.timestamp_to_json(
                     recording_paths.timestamp_or_now(timestamp)
                 ),
@@ -622,7 +622,7 @@ class Recorder(Runnables):
 
     def _record_key_event(self, event: KeyEvent) -> None:
         self._write_record_entry(
-            session_record.EventEntry(
+            session_record.EventRecord(
                 timestamp=session_record.timestamp_to_json(times.timestamp()),
                 type=event.type,
                 key=event.key,
@@ -688,7 +688,7 @@ class Recorder(Runnables):
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         if not self._output_unmounted:
             self.session.write(
-                session_record.WarningEntry(
+                session_record.WarningRecord(
                     timestamp=timestamp,
                     message=warning,
                 )
@@ -703,10 +703,10 @@ class Recorder(Runnables):
 
     def _write_record_entry(
         self,
-        record: session_record.EventEntry
-        | session_record.FileEntry
-        | session_record.FooterEntry
-        | session_record.WarningEntry,
+        record: session_record.EventRecord
+        | session_record.FileRecord
+        | session_record.SessionFooter
+        | session_record.WarningRecord,
     ) -> None:
         if self._output_unmounted:
             return

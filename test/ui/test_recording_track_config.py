@@ -10,7 +10,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
 from recs.ui import recording_track_config
-from recs.ui.session_record import RecordEntry
+from recs.ui.session_record import Record
 
 
 class FakeSourceProcess:
@@ -53,11 +53,11 @@ class FakeControl:
         self.state = FakeState()
         self.track_names: SourceTrackNames = {}
         self.saved_tracks: dict[str, list[settings.TrackSettings]] = {}
-        self.records: list[RecordEntry] = []
+        self.records: list[Record] = []
         self.cfg_revision = 0
         self.cfgs: list[Cfg] = []
 
-    def write_entry(self, record: RecordEntry) -> None:
+    def write_entry(self, record: Record) -> None:
         self.records.append(record)
 
     def cfg_changed(self, cfg: Cfg) -> None:

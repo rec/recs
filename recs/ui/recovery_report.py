@@ -75,18 +75,18 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
 
 def recovery_report(path: Path) -> RecoveryReport | None:
     records, errors = session_record.read_entries(path)
-    if any(isinstance(record, session_record.FooterEntry) for record in records):
+    if any(isinstance(record, session_record.SessionFooter) for record in records):
         return None
     header = next(
         (
             record
             for record in records
-            if isinstance(record, session_record.HeaderEntry)
+            if isinstance(record, session_record.SessionHeader)
         ),
         None,
     )
     files = [
-        record for record in records if isinstance(record, session_record.FileEntry)
+        record for record in records if isinstance(record, session_record.FileRecord)
     ]
     started = {record.path: record for record in files if record.type == 'file_started'}
     finished = {record.path for record in files if record.type == 'file_finished'}
@@ -96,7 +96,7 @@ def recovery_report(path: Path) -> RecoveryReport | None:
         (
             record
             for record in reversed(records)
-            if not isinstance(record, session_record.HeaderEntry)
+            if not isinstance(record, session_record.SessionHeader)
         ),
         None,
     )
@@ -115,11 +115,11 @@ def recovery_report(path: Path) -> RecoveryReport | None:
 
 
 def _source_reports(
-    records: list[session_record.RecordEntry],
+    records: list[session_record.Record],
 ) -> list[SourceReport]:
     latest: dict[str, SourceReport] = {}
     for record in records:
-        if not isinstance(record, session_record.EventEntry):
+        if not isinstance(record, session_record.EventRecord):
             continue
         if record.source is not None:
             latest[record.source] = SourceReport(
@@ -131,7 +131,7 @@ def _source_reports(
 
 
 def _track_reports(
-    files: list[session_record.FileEntry],
+    files: list[session_record.FileRecord],
     open_files: list[str],
     missing_files: list[str],
 ) -> list[TrackReport]:
@@ -181,10 +181,10 @@ def _track_reports(
 
 
 def _disk_report(
-    records: list[session_record.RecordEntry],
+    records: list[session_record.Record],
 ) -> DiskReport | None:
     for record in reversed(records):
-        if not isinstance(record, session_record.EventEntry):
+        if not isinstance(record, session_record.EventRecord):
             continue
         if (
             record.disk is not None
@@ -201,12 +201,12 @@ def _disk_report(
     return None
 
 
-def _timestamp(record: session_record.RecordEntry | None) -> str | None:
+def _timestamp(record: session_record.Record | None) -> str | None:
     if isinstance(
         record,
-        session_record.EventEntry
-        | session_record.FileEntry
-        | session_record.WarningEntry,
+        session_record.EventRecord
+        | session_record.FileRecord
+        | session_record.WarningRecord,
     ):
         return record.timestamp
     return None

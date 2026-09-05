@@ -4,7 +4,7 @@ import mido
 
 from recs.cfg.cfg import Cfg
 from recs.midi.recorder import MidiRecorder
-from recs.ui.session_record import RecordEntry
+from recs.ui.session_record import Record
 
 
 class FakePort:
@@ -25,7 +25,7 @@ class FakePort:
 
 
 def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     warnings: list[str] = []
     port = FakePort(mido.Message('note_on', note=60, velocity=64, time=0.5))
     cfg = Cfg(output_directory=str(tmp_path))
@@ -72,7 +72,7 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
 def test_midi_recorder_writes_messages_received_during_card_replacement(
     tmp_path: Path,
 ) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     port = FakePort()
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
@@ -99,7 +99,7 @@ def test_midi_recorder_writes_messages_received_during_card_replacement(
 def test_midi_recorder_ignores_missing_backend_without_selected_input(
     tmp_path: Path,
 ) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     warnings: list[str] = []
 
     def input_names() -> list[str]:
@@ -120,7 +120,7 @@ def test_midi_recorder_ignores_missing_backend_without_selected_input(
 
 
 def test_midi_recorder_waits_for_selected_input(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path), midi_include=['Launchkey']),
@@ -150,7 +150,7 @@ def test_midi_recorder_waits_for_selected_input(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     warnings: list[str] = []
     recorder = MidiRecorder(
         Cfg(output_directory=str(tmp_path)),
@@ -176,7 +176,7 @@ def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     warnings: list[str] = []
     names: list[str] = []
     clock = [0.0]
@@ -223,7 +223,7 @@ def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
 
 
 def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     names = ['Launchkey']
     clock = [0.0]
     port = FakePort()
@@ -254,7 +254,7 @@ def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> No
 
 
 def test_midi_recorder_discovers_inputs_at_a_bounded_interval(tmp_path: Path) -> None:
-    records: list[RecordEntry] = []
+    records: list[Record] = []
     clock = [0.0]
     names: list[str] = []
     calls = 0
