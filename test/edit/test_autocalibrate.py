@@ -206,7 +206,8 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
 
 
 def test_options_convert_durations_to_source_frames(tmp_path: Path) -> None:
-    record_path, _ = _record(tmp_path, _session_audio(0.001))
+    source = _session_audio(0.001)
+    record_path, _ = _record(tmp_path, source)
     options = autocalibrate.AutocalibrateOptions(
         channel=['device:voice'],
         window_time=0.05,
@@ -279,12 +280,71 @@ def test_composition_executes_autocalibration_child(
         destination,
     )
 
-    assert result_path == destination / '001-autocalibrate/session-record.jsonl'
+    assert result_path == destination / 'session-record.jsonl'
     result = session_record.read(result_path)
     assert [f.track_name for f in result.files if f.type == 'file_finished'] == [
         'device-voice'
     ]
-    assert (destination / 'commands/001-autocalibrate.toml').is_file()
+    assert not (destination / '001-autocalibrate').exists()
+    assert not (destination / 'commands').exists()
+    canonical = parse_composition((destination / 'edit.toml').read_text())
+    assert canonical.stages[0].operation == 'autocalibrate'
+
+
+def test_composition_passes_autocalibration_arrays_to_later_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _session_audio(0.001)
+    record_path, _ = _record(tmp_path, source)
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    composition_path = tmp_path / 'composition.toml'
+    composition_path.write_text(
+        'schema_version = 1\n'
+        'kind = "composition"\n'
+        '[[edits]]\n'
+        'command = "autocalibrate"\n'
+        'channel = ["device:voice"]\n'
+        '[[edits]]\n'
+        'command = "clip"\n'
+        'format = "wav"\n'
+        'subtype = "float"\n'
+    )
+    destination = tmp_path / 'composed'
+
+    result_path = execute_composition(
+        parse_composition(composition_path.read_text()),
+        composition_path,
+        record_path,
+        destination,
+    )
+
+    rendered, sample_rate = soundfile.read(
+        destination / 'audio/edit-device-voice.wav',
+        dtype='float32',
+        always_2d=True,
+    )
+    assert result_path == destination / 'session-record.jsonl'
+    assert sample_rate == SAMPLE_RATE
+    assert len(rendered) == SAMPLE_RATE * 4
+    np.testing.assert_array_equal(rendered[:, 0], source)
+    assert not (destination / '001-autocalibrate').exists()
+    assert not (destination / '002-clip').exists()
+    canonical_path = destination / 'edit.toml'
+    canonical = parse_composition(canonical_path.read_text())
+    assert 'format' not in canonical.stages[0].edit['output']
+    assert 'subtype' not in canonical.stages[0].edit['output']
+
+    replay = tmp_path / 'replayed'
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'missing-config'))
+    execute_composition(canonical, canonical_path, record_path, replay)
+
+    replayed, replayed_rate = soundfile.read(
+        replay / 'audio/edit-device-voice.wav',
+        dtype='float32',
+        always_2d=True,
+    )
+    assert replayed_rate == SAMPLE_RATE
+    np.testing.assert_array_equal(replayed, rendered)
 
 
 def _session_audio(noise_amplitude: float) -> np.ndarray:

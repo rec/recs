@@ -1,9 +1,15 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile
 
-from recs.edit.materialized import materialize_source
+from recs.base.errors import RecsError
+from recs.edit.materialized import (
+    SourceMaterializer,
+    allocate_audio,
+    materialize_source,
+)
 from recs.edit.record import resolve_sources
 from recs.edit.schema import parse_edit
 from recs.ui.session_record import FileRecord, SessionFooter, SessionRecordWriter
@@ -50,6 +56,11 @@ channel = "device:pair:2"
     ]
     np.testing.assert_array_equal(materialized.samples[48_000:96_000], 0)
 
+    materializer = SourceMaterializer()
+    assert materializer.materialize(source) is materializer.materialize(
+        source.model_copy(update={'id': 'same-source'})
+    )
+
 
 def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
     path = tmp_path / 'take.wav'
@@ -73,6 +84,21 @@ channels = [2, 3]
     assert source.channels == 2
     assert source.fragments[0].channel_offset == 1
     assert source.timeline_end == 48_000
+
+
+def test_materialized_allocation_reports_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(*args: object, **kwargs: object) -> np.ndarray:
+        raise MemoryError
+
+    monkeypatch.setattr(np, 'zeros', fail)
+
+    with pytest.raises(
+        RecsError,
+        match='Cannot allocate 384000 bytes for materialized audio: test track',
+    ):
+        allocate_audio(48_000, 2, 'test track')
 
 
 def _write_audio_fragment(

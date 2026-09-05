@@ -13,6 +13,10 @@ def validate_outputs(edit: EditSpec, graph: EditGraph, destination: Path) -> Non
         raise RecsError(f'Output session directory already exists: {destination}')
     paths: list[Path] = []
     for output in edit.outputs:
+        if output.path is None or output.format is None:
+            raise RecsError(
+                f'Output {output.id}: final output requires path and format'
+            )
         path = destination / output.path
         resolved = path.resolve()
         audio_directory = (destination / 'audio').resolve()
@@ -42,6 +46,8 @@ def validate_outputs(edit: EditSpec, graph: EditGraph, destination: Path) -> Non
 def open_output(
     output: OutputSpec, path: Path, channels: int, sample_rate: int
 ) -> soundfile.SoundFile:
+    if output.format is None:
+        raise RecsError(f'Output {output.id}: final output requires format')
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         return soundfile.SoundFile(

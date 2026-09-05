@@ -53,6 +53,10 @@ def resolve_sources(edit: EditSpec, edit_directory: Path) -> dict[str, ResolvedS
 def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     if source.file is not None:
         return _resolve_file_source(source, edit_directory)
+    if source.memory is not None:
+        raise RecsError(
+            f'Source {source.id}: memory source is valid only inside a composition'
+        )
     assert source.record is not None
     assert source.channel is not None
     record_path = (edit_directory / source.record).resolve()

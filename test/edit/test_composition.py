@@ -75,21 +75,24 @@ def test_composition_executes_each_edit_from_the_previous_session(
 
     result = execute_composition(value, composition_path, record_path, destination)
 
-    first = destination / '001-clip'
-    second = destination / '002-clip'
-    assert result == second / 'session-record.jsonl'
-    assert (first / 'session-record.jsonl').is_file()
-    assert (second / 'session-record.jsonl').is_file()
-    assert (destination / 'commands/001-clip.toml').is_file()
-    assert (destination / 'commands/002-clip.toml').is_file()
+    assert result == destination / 'session-record.jsonl'
+    assert not (destination / '001-clip').exists()
+    assert not (destination / '002-clip').exists()
+    assert not (destination / 'commands').exists()
     canonical = parse_composition((destination / 'edit.toml').read_text())
-    assert [e.command for e in canonical.edits] == [
-        'commands/001-clip.toml',
-        'commands/002-clip.toml',
-    ]
+    assert [e.command for e in canonical.edits] == ['clip', 'clip']
+    assert len(canonical.resolved_commands) == 2
+    assert len(canonical.stages) == 2
+    first_output = canonical.stages[0].edit['outputs'][0]
+    assert 'path' not in first_output
+    assert 'format' not in first_output
+    assert 'subtype' not in first_output
+    assert canonical.stages[1].edit['outputs'][0]['format'] == 'wav'
 
     rendered, rate = soundfile.read(
-        second / 'audio/edit-device-voice.wav', dtype='float32', always_2d=True
+        destination / 'audio/edit-device-voice.wav',
+        dtype='float32',
+        always_2d=True,
     )
     np.testing.assert_array_equal(rendered, audio)
     assert rate == 48_000
@@ -136,9 +139,7 @@ def test_composition_stops_after_a_child_cannot_read_the_previous_session(
     with pytest.raises(RecsError, match='Unknown channel selectors'):
         execute_composition(value, composition_path, record_path, destination)
 
-    assert (destination / '001-clip/session-record.jsonl').is_file()
-    assert not (destination / '002-clip').exists()
-    assert not (destination / '003-clip').exists()
+    assert not destination.exists()
 
 
 def test_composition_summary_resolves_stages_without_writing(
@@ -158,11 +159,76 @@ def test_composition_summary_resolves_stages_without_writing(
     )
 
     assert f'Record: {record_path.resolve()}' in summary
-    assert '1: clip (' in summary
+    assert '1: clip' in summary
     assert 'Selectors: device:voice' in summary
-    assert 'Encoding: wav/float' in summary
-    assert f'Result: {destination / "001-clip/session-record.jsonl"}' in summary
+    assert 'Intermediate media: memory only' in summary
+    assert 'Materialized audio: 192000 bytes' in summary
+    assert 'Estimated peak materialized audio:' in summary
+    assert f'Result: {destination / "session-record.jsonl"}' in summary
     assert not destination.exists()
+
+
+def test_composition_rejects_explicit_intermediate_encoding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    record_path, _ = _record(tmp_path)
+    composition_path = tmp_path / 'compose.toml'
+    composition_path.write_text(
+        'schema_version = 1\n'
+        'kind = "composition"\n'
+        '[[edits]]\n'
+        'command = "clip"\n'
+        'format = "wav"\n'
+        '[[edits]]\n'
+        'command = "clip"\n'
+    )
+    destination = tmp_path / 'composed'
+
+    with pytest.raises(RecsError, match='intermediate encoding'):
+        execute_composition(
+            parse_composition(composition_path.read_text()),
+            composition_path,
+            record_path,
+            destination,
+        )
+
+    assert not destination.exists()
+
+
+def test_canonical_composition_runs_without_command_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    record_path, audio = _record(tmp_path)
+    composition_path = tmp_path / 'compose.toml'
+    composition_path.write_text(
+        _composition_text(('clip', 'device:voice'), ('clip', None))
+    )
+    first = tmp_path / 'first'
+    execute_composition(
+        parse_composition(composition_path.read_text()),
+        composition_path,
+        record_path,
+        first,
+    )
+    canonical_path = first / 'edit.toml'
+    second = tmp_path / 'second'
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'missing-config'))
+
+    result = execute_composition(
+        parse_composition(canonical_path.read_text()),
+        canonical_path,
+        record_path,
+        second,
+    )
+
+    rendered, rate = soundfile.read(
+        second / 'audio/edit-device-voice.wav', dtype='float32', always_2d=True
+    )
+    assert result == second / 'session-record.jsonl'
+    assert rate == 48_000
+    np.testing.assert_array_equal(rendered, audio)
 
 
 def test_resolved_composition_flattens_inherited_recipes(
@@ -228,9 +294,10 @@ def _record(directory: Path) -> tuple[Path, np.ndarray]:
 
 def _composition_text(*steps: tuple[str, str | None]) -> str:
     text = 'schema_version = 1\nkind = "composition"\n'
-    for command, channel in steps:
+    for index, (command, channel) in enumerate(steps):
         text += f'[[edits]]\ncommand = "{command}"\n'
         if channel is not None:
             text += f'channel = ["{channel}"]\n'
-        text += 'format = "wav"\nsubtype = "float"\n'
+        if index == len(steps) - 1:
+            text += 'format = "wav"\nsubtype = "float"\n'
     return text
