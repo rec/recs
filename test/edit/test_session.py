@@ -104,7 +104,6 @@ subtype = "float"
             'voice-source': {
                 'session_id': 'input-session',
                 'files': [source_path.as_posix()],
-                'gaps': [],
             }
         },
         'output_ranges': {'voice': {'start': 0, 'end': 48_000}},

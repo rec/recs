@@ -145,7 +145,6 @@ def _resolution_metadata(
             s.id: {
                 'session_id': s.session_id,
                 'files': [f.path.as_posix() for f in s.fragments],
-                'gaps': _gaps(s),
             }
             for s in sources.values()
         },
@@ -153,14 +152,6 @@ def _resolution_metadata(
             k: {'start': v.start, 'end': v.end} for k, v in graph.output_extents.items()
         },
     }
-
-
-def _gaps(source: ResolvedSource) -> list[dict[str, int]]:
-    return [
-        {'start': a.end, 'end': b.start}
-        for a, b in zip(source.fragments, source.fragments[1:], strict=False)
-        if a.end < b.start
-    ]
 
 
 def _timestamp(value: datetime) -> str:
