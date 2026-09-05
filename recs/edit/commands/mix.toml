@@ -1,0 +1,3 @@
+[_command]
+help = "Mix selected audio tracks through a master bus"
+operation = "mix"

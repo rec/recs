@@ -1,0 +1,3 @@
+[_command]
+help = "Write selected audio tracks to separate files"
+operation = "split"

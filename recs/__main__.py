@@ -51,6 +51,10 @@ def run() -> int:
             from recs.ui import session_record_check
 
             return session_record_check.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'edit':
+            from recs.edit.cli import main
+
+            return main(sys.argv[2:])
         cfg = tyro.cli(cli.CliCfg, prog='recs', description=cli.HELP)
         run_cli.run_cli(cfg)
         return 0

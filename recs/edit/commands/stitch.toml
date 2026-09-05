@@ -1,0 +1,3 @@
+[_command]
+help = "Join selected source intervals consecutively"
+operation = "stitch"

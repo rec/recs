@@ -1,0 +1,3 @@
+[_command]
+help = "Extract an interval from selected audio tracks"
+operation = "clip"
