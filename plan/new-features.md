@@ -1,265 +1,89 @@
-# New Feature Suggestions
+# Top Remaining Features
 
 ## Scope
 
-This document suggests future `recs` features. It favors features that make the
-recorder safer to run unattended, easier to inspect after a session, and more
-useful as a local service. It does not include refactoring work from
-`plan/possible-issues.md` unless that refactoring directly unlocks a user-facing
-feature.
+This is the ranked product backlog for the five most valuable unfinished Recs
+features. Completed work and ideas superseded by Showco or existing Recs tools
+have been removed.
 
-Existing plans already cover external IPC, disk-space handling, daemon install,
-Raspberry Pi operation, calibration, and the remote GUI. Those ideas are
-included here only where they need product-level prioritization or where a
-smaller feature could land first.
+## 1. Portable Session Export
 
-## Priorities
+Add a read-only command that copies a session and every referenced continuation
+record and media file into one self-contained directory:
 
-1. Protect recordings and make failures visible.
-2. Make unattended daemon operation trustworthy.
-3. Improve session review and file recovery.
-4. Add control features that reduce setup time at a show.
-5. Explore larger "universal recorder" directions only after the audio recorder
-   is operationally solid.
-
-## Daemon and control features
-
-### Local web control panel
-
-Provide a small local web UI for daemon status and common controls:
-
-- recording health;
-- device and track status;
-- disk status;
-- current output directory;
-- recent warnings;
-- calibrate;
-- mark;
-- pause, resume, and stop recording;
-- safe shutdown.
-
-Why it matters: the Raspberry Pi stage-recorder workflow needs phone or tablet
-control without requiring SSH or a desktop GUI.
-
-Implementation notes: build this on the documented RPC protocol. Keep it
-optional and separate from the recording process so UI failures cannot stop
-recording.
-
-### Dedicated hardware or USB command trigger
-
-Support a simple physical command path for unattended rigs. Examples:
-
-- insert a USB stick with a command file to trigger calibration or shutdown;
-- press a configured keyboard key to add a labeled marker;
-- press a simple GPIO button on Raspberry Pi for mark or safe shutdown.
-
-Why it matters: a stage recorder may run without a monitor, keyboard, or network.
-
-Implementation notes: keep the first version narrow. A USB command file or
-existing keyboard path is less invasive than adding GPIO dependencies.
-
-### Status monitors
-
-Add watch-style commands:
-
-```sh
-recs watch
-recs watch --json
+```console
+recs session export SESSION-RECORD DESTINATION
 ```
 
-Useful modes:
+The export must rewrite record links and media paths relative to the exported
+records, retain session IDs and provenance, verify copied file sizes, and write
+an export summary. It must never modify its sources or leave a destination that
+looks complete after a failed copy.
 
-- live rows, similar to the terminal UI;
-- warnings only;
-- disk countdown;
-- device online/offline changes;
-- buffer pressure and dropped frames.
+This is the highest-value remaining feature because sessions may span removable
+disks and currently require manual copying without a reliable completeness
+check.
 
-Why it matters: this gives a terminal-friendly view of a daemon without starting
-a second recorder.
+## 2. Named Recording Setups
 
-Implementation notes: subscribe to events rather than polling aggressively.
+Add named setup profiles covering device selection, aliases, track layout,
+noise floors, formats, output patterns, and marker labels:
 
-## Recording workflow features
-
-### Setup profiles
-
-Add named setup profiles that group device selection, track layouts, aliases,
-noise floors, formats, output directory patterns, and marker labels:
-
-```sh
+```console
 recs profile save rehearsal
 recs profile use x18-show
 recs daemon install --profile x18-show
 ```
 
-Why it matters: the same user may move between laptop microphone, USB interface,
-X18, cassette digitizing, and stage-recording setups. Device profiles already
-exist, but users need a higher-level setup unit.
+Profiles should round-trip through the existing `Cfg` and track-settings models.
+Applying a profile must validate its layout against detected hardware and fail
+without partially changing the active setup.
 
-Implementation notes: avoid adding another partial config format unless it can
-round-trip through the existing `Cfg` model.
+This consolidates the narrower track-layout-preset idea and removes repetitive,
+error-prone setup before recordings.
 
-### Guided calibration workflow
+## 3. Daemon Status Watch
 
-Build a command and control API flow that measures selected tracks, previews
-recommended noise floors, and optionally applies them:
+Add an event-driven terminal client for a running daemon:
 
-```sh
-recs calibrate --interactive
-recs control calibrate --apply
+```console
+recs watch
+recs watch --json
 ```
 
-Useful behavior:
+It should expose live recording rows, warnings, disk countdown, source
+transitions, buffer pressure, dropped frames, and card-replacement state. It
+must subscribe to public events rather than poll the recorder and must not start
+another recording process.
 
-- choose all selected tracks by default;
-- allow a subset of tracks;
-- show measured values and previous values;
-- apply per-track noise floors;
-- write a record event when calibration changes live recording state.
+This provides a lightweight diagnostic path when Showco is unavailable and is
+especially useful over SSH.
 
-Why it matters: noise-floor setup is one of the most important quality knobs and
-one of the easiest to get wrong.
+## 4. SFZ Export
 
-Implementation notes: keep quiet-before and quiet-after as user-selected timing
-settings. Calibration should tune noise floors, not rewrite all silence
-behavior.
+Implement deterministic best-effort serialization from recsam to SFZ, with
+complete diagnostics for fields that SFZ cannot represent. A completely
+imported SFZ file must survive recsam-to-SFZ-to-recsam conversion without losing
+supported behavior or Recs metadata.
 
-### Track layout presets
+The detailed design and acceptance criteria are in [SFZ Export](sfz-write.md).
+This closes the interoperability loop for existing sample libraries and makes
+recsam safer to adopt as an editable intermediate format.
 
-Allow a named track layout to be saved and reapplied:
+## 5. Offline Recsam Playback
 
-```sh
-recs tracks save x18-stereo-pairs
-recs tracks use x18-stereo-pairs
-```
+Implement the recsam playback engine first as deterministic offline rendering
+from performance events into a new Recs session. Establish slot selection,
+voice lifecycle, timing, loops, envelopes, modulation, routing, and shared asset
+loading before adding a live audio host.
 
-Why it matters: multi-channel interfaces often have stable routing. Rebuilding
-mono and stereo pairs through the GUI or protocol is repetitive.
+The detailed design and hardware-validation boundary are in
+[Sample Playback](sample-playback.md) and
+[Human And Experimental Verification](human.md).
 
-Implementation notes: validate layouts against the currently detected channel
-count before applying them. If a layout cannot apply cleanly, fail loudly rather
-than partially changing tracks.
+This turns recsam from a schema and converter into a usable instrument format
+while keeping live latency and callback risk out of the first implementation.
 
-### Session marker improvements
-
-Expand markers beyond plain labels:
-
-- marker categories;
-- quick marker keys;
-- start and end markers for sections;
-- optional notes;
-- marker export as CSV or JSON.
-
-Why it matters: markers turn long unattended recordings into usable session
-material.
-
-Implementation notes: keep the record event format append-only and simple.
-Avoid adding editing semantics until there is a session browser.
-
-## Recovery and export features
-
-### Session package export
-
-Add a command that copies a session record and all referenced files into a
-portable folder:
-
-```sh
-recs session export PATH/to/session-record.jsonl DEST
-```
-
-Useful behavior:
-
-- preserve relative track paths where possible;
-- include continued records after disk switches;
-- write an export summary;
-- optionally verify file sizes after copy.
-
-Why it matters: recordings often need to move from a stage disk to a laptop or
-archive disk without losing record context.
-
-Implementation notes: keep export read-only relative to the original session.
-
-### Split and stitch tools
-
-Add post-processing commands based on record timing:
-
-```sh
-recs session split PATH --markers
-recs session stitch PATH --track "1-2"
-```
-
-Use cases:
-
-- export one continuous WAV per track;
-- cut files by markers;
-- gather all files for one song or set;
-- repair a session split across disks.
-
-Why it matters: `recs` creates capture-oriented files. Users often need
-review-oriented files afterward.
-
-Implementation notes: this can be CPU and disk intensive. It should be an
-explicit post-processing command, not part of live recording.
-
-## Longer-term universal recorder features
-
-### DMX and lighting event recording
-
-Record DMX, Art-Net, sACN, or related lighting-control streams as timed data.
-
-Why it matters: this fits the broader live-show recording goal and can share the
-record/session model.
-
-Implementation notes: treat this as a separate protocol source with its own
-storage format. Avoid coupling it to audio tracks or channel writers.
-
-### Companion player
-
-Add a read-only player that can play a session timeline:
-
-- audio files;
-- markers;
-- future MIDI or lighting streams;
-- disk-switch continuity.
-
-Why it matters: capture is only half the recorder story. A timeline player makes
-the recorded data useful without requiring manual file hunting.
-
-Implementation notes: this should come after the record index and validation
-commands so playback has a reliable source of truth.
-
-## Features to avoid for now
-
-### Embedded Twitch streaming
-
-Do not put Twitch streaming inside the recorder process. The performance plan
-already argues for a separate streamer so network and encoder failures cannot
-block local recording.
-
-### Live video capture
-
-Avoid live video capture in `recs` for now. It conflicts with the goal of a
-lightweight background recorder and adds large CPU, disk, and synchronization
-problems.
-
-### Database-backed session history
-
-Do not add a database until record scanning is proven insufficient. JSONL
-records are easier to inspect, copy, recover, and test.
-
-### Complex automatic editing
-
-Avoid features that automatically decide song boundaries, remove silence
-destructively, normalize audio, or publish mixes from live recordings. Those are
-post-processing concerns and should not add risk to capture.
-
-## Suggested first implementation order
-
-1. local web control panel
-2. session export
-3. guided calibration workflow
-
-## Additional work beyond the prompt
+## Additional Work Beyond The Prompt
 
 None.

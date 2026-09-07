@@ -148,7 +148,6 @@ leaves truthful final-output state.
 
 ## Removable Media And Source Faults
 
-These checks cover the remaining hardware validation in `possible-issues.md`.
 Use only expendable USB media.
 
 1. Start a multichannel X18 recording and confirm files and the session record
