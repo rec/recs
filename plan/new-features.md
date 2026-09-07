@@ -2,22 +2,11 @@
 
 ## Scope
 
-This is the ranked product backlog for the five most valuable unfinished Recs
+This is the ranked product backlog for the most valuable unfinished Recs
 features. Completed work and ideas superseded by Showco or existing Recs tools
 have been removed.
 
-## 1. SFZ Export
-
-Implement deterministic best-effort serialization from recsam to SFZ, with
-complete diagnostics for fields that SFZ cannot represent. A completely
-imported SFZ file must survive recsam-to-SFZ-to-recsam conversion without losing
-supported behavior or Recs metadata.
-
-The detailed design and acceptance criteria are in [SFZ Export](sfz-write.md).
-This closes the interoperability loop for existing sample libraries and makes
-recsam safer to adopt as an editable intermediate format.
-
-## 2. Offline Recsam Playback
+## 1. Offline Recsam Playback
 
 Implement the recsam playback engine first as deterministic offline rendering
 from performance events into a new Recs session. Establish slot selection,

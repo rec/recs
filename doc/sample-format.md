@@ -1402,13 +1402,42 @@ Audio regression fixtures should follow Recs' existing 48 kHz, at-least-one-
 second WAV convention; tiny direction examples above specify index order, not
 replacement audio fixtures.
 
-## SFZ Import
+## SFZ Import And Export
 
-`recs.recsam.sfz.read()` resolves samples relative to the SFZ file and returns a
-validated `SampleInstrument`. The source samples must exist so the importer can
-validate their layout, length, and embedded loop metadata. Imported sample
-paths remain relative to the source SFZ directory, so a serialized result must
-stay there unless its sample references and assets are moved together.
+`recs.recsam.sfz.read()` resolves samples relative to the SFZ file and returns
+an `SfzReadResult`. Its `instrument` is a validated `SampleInstrument` when at
+least one region was representable. `unimplemented` lists unsupported source
+features; `complete` is true when that list is empty. Each diagnostic has an
+`SfzLocation` containing the header, opcode, line, and column. The source
+samples must exist so the importer can validate their layout, length, and
+embedded loop metadata. Imported sample paths remain relative to the source
+SFZ directory, so a serialized result must stay there unless its sample
+references and assets are moved together.
+
+`recs.recsam.sfz.write()` performs no filesystem access. It returns an
+`SfzWriteResult` containing deterministic SFZ `contents` and any declarations
+that could not be represented. Export diagnostics use a `RecsamLocation` with
+a stable model path such as `slots[0].playback.direction`. Partial output is
+usable, but only `complete=true` means no behavior or metadata was omitted.
+
+The exporter writes one self-contained region per slot. It supports samples,
+labels, key and exact MIDI-velocity bounds, pitch centers, forward/reverse
+playback, half-open trim and loop endpoints, held/one-shot modes, release
+triggers, immediate/release choking, static volume/tuning/pan or stereo
+balance, amplitude envelopes, key and velocity crossfades, and linear
+amplitude-by-velocity curves. Instrument settings are resolved into each
+region. It reports unsafe sample references and recsam controls, selections,
+articulations, mirror playback, loop crossfades, simultaneous pan and balance,
+EQ, named envelopes, LFOs, and unsupported modulation instead of silently
+approximating them.
+
+Because `write()` deliberately does not inspect assets, a referenced mono
+sample must use recsam `pan` and a stereo sample must use `stereo_balance` for
+the emitted SFZ `pan` opcode to retain its intended meaning.
+
+Versioned `// recs:instrument` and `// recs:slot` JSON comments preserve
+instrument and slot names, IDs, descriptions, and tags across a complete
+round trip. Other SFZ players can ignore these comments.
 
 SFZ note numbers range from 0 to 127. Named notes use International Pitch
 Notation with C4 equal to note 60; this convention does not vary with a host's
