@@ -3,7 +3,7 @@ import json
 import subprocess as sp
 
 import pytest
-import tomli
+import tomllib
 import tyro
 
 from recs.base.types import Format, MidiTiming, SdType, Subtype
@@ -11,7 +11,7 @@ from recs.cfg import cli
 
 
 def test_console_script_entry_point() -> None:
-    project = tomli.loads(open('pyproject.toml').read())['project']
+    project = tomllib.loads(open('pyproject.toml').read())['project']
     module_name, function_name = project['scripts']['recs'].split(':')
 
     module = importlib.import_module(module_name)

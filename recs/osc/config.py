@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import tomli
+import tomllib
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -102,7 +102,7 @@ class Nodes(BaseModel):
 
 def load(path: Path) -> list[Node]:
     try:
-        value = tomli.loads(path.read_text())
+        value = tomllib.loads(path.read_text())
         return Nodes.model_validate(value).nodes
-    except (OSError, tomli.TOMLDecodeError, ValidationError) as error:
+    except (OSError, tomllib.TOMLDecodeError, ValidationError) as error:
         raise ValueError(f'Invalid OSC configuration {path}: {error}') from None

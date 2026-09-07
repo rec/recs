@@ -1,7 +1,8 @@
 """Named expression domains, independent of any controller protocol."""
 
+from typing import Self
+
 from pydantic import model_validator
-from typing_extensions import Self
 
 from .base import Bipolar, Model
 from .enums import Polarity

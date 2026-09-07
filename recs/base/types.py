@@ -1,7 +1,5 @@
 from collections.abc import Callable
-from enum import auto
-
-from strenum import StrEnum
+from enum import StrEnum, auto
 
 Stop = Callable[[], None]
 

@@ -9,11 +9,10 @@ belong to a future prepared-instrument loader.
 
 from collections.abc import Iterable
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
-from typing_extensions import Self
 
 from . import enums
 from .base import Identifier, Model, Text, unique
