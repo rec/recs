@@ -34,6 +34,62 @@ Successful commands return either a JSON object or the string `"ok"`.
 `rpc.Client.call()` returns the decoded value. It raises `ConnectionError` when
 Recs returns an error.
 
+## Command-line client
+
+`recs control` exposes the common one-request operations without requiring
+Python code:
+
+```sh
+recs control status
+recs control disk
+recs control devices
+recs control capabilities
+recs control mutable
+recs control get recording.longest_file_time
+recs control set recording.longest_file_time 1h
+recs control mark "solo starts"
+recs control pause
+recs control resume
+recs control calibrate
+recs control card-replace
+recs control reload-profiles
+```
+
+The subcommands map to the protocol as follows:
+
+| CLI subcommand | Protocol command |
+| --- | --- |
+| `status` | `status_snapshot` |
+| `disk` | `disk_status` |
+| `devices` | `list_devices` |
+| `capabilities` | `capabilities` |
+| `mutable` | `mutable_attributes` |
+| `get ADDRESS` | `get_cfg` |
+| `set ADDRESS VALUE` | `set_cfg` |
+| `mark LABEL` | `mark` |
+| `pause` | `pause_recording` |
+| `resume` | `resume_recording` |
+| `calibrate` | `calibrate` for all selected online tracks |
+| `card-replace` | `card_replace` |
+| `reload-profiles` | `reload_profiles` |
+
+Each invocation prints exactly one JSON value followed by a newline. Commands
+without a data response print `"ok"`. Connection, timeout, daemon, and response
+validation failures are printed to standard error and return exit status `1`.
+
+`set` parses `VALUE` as JSON when possible. Numbers, booleans, `null`, arrays,
+and objects therefore retain their JSON types. Other values, including unit
+strings such as `1h`, are sent as strings. To send a numeric-looking string,
+include JSON string quotes in the shell argument:
+
+```sh
+recs control set some.address '"3600"'
+```
+
+`pause` and `resume` have the audio-only behavior described under Recording
+control; MIDI and OSC continue while audio is paused. Waveform subscriptions
+are not one-request operations and are not exposed through `recs control`.
+
 ## Endpoints
 
 On macOS and Linux, Recs owns these Unix sockets:
