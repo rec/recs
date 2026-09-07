@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -67,3 +70,19 @@ def test_gap_cannot_cover_recorded_audio() -> None:
     data['gaps'] = [{'start': 0, 'end': 96000, 'reason': 'unknown'}]
     with pytest.raises(ValidationError, match='overlaps'):
         AudioStream.model_validate(data)
+
+
+def test_unrecorded_intervals_need_explicit_gaps() -> None:
+    data = recording().body.streams[0].model_dump()
+    data['gaps'] = []
+    with pytest.raises(ValidationError, match='explicit gaps'):
+        AudioStream.model_validate(data)
+
+
+def test_documented_recording_and_sequence_examples_round_trip() -> None:
+    path = Path(__file__).parents[2] / 'doc/recording-format.md'
+    examples = re.findall(r'```toml\n(.*?)```', path.read_text(), re.DOTALL)
+    assert len(examples) == 2
+    for example in examples:
+        value = parse_document(example)
+        assert parse_document(document_toml(value)) == value

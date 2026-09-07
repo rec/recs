@@ -1,0 +1,95 @@
+assets:
+- byte_length: 1467
+  encoding: recs-session-v3
+  id: original-journal
+  path: migration/session-record-v3.jsonl
+  sha256: 551f11d52393c809c90adbc2ed84ea433ae37651bc29f51d4c08bcef853b06e9
+- byte_length: 96044
+  encoding: wav
+  id: asset-2f97f5e90dbceaad
+  path: audio.wav
+  sha256: de1a21e8218c213a0ac3a1dd1562389578815375698f50f6785bb8339b4e3436
+- byte_length: 42
+  encoding: smf
+  id: asset-6928c7a28fdd6b91
+  path: notes.mid
+  sha256: 06a06cc9fd2da3955003d1b6f803445b6acac454c23c28afdfca70957d97e43a
+- byte_length: 77
+  encoding: jsonl
+  id: asset-f8206985070a549c
+  path: osc-0.jsonl
+  sha256: ec1a547a2708e11e3a6efc45e571177c574f0a8e11bdec958876bf4ded3b7a18
+- byte_length: 34
+  encoding: jsonl
+  id: asset-f3e5412ee2822d5e
+  path: osc-1.jsonl
+  sha256: d001b881e8d4292404c4532e527a9b38b93d901051274494e570b0f60c849153
+body:
+  clock_observations: []
+  ended_at: '2026-09-04T12:00:03Z'
+  journal: original-journal
+  observed_duration_seconds: 3.0
+  started_at: '2026-09-04T12:00:00Z'
+  state: sealed
+  streams:
+  - end: 96000
+    fragments:
+    - asset: asset-2f97f5e90dbceaad
+      asset_start: 0
+      count: 48000
+      start: 48000
+      variant_group: null
+    gaps:
+    - end: 48000
+      reason: unknown
+      start: 0
+    id: stream-c160dbc57a502291
+    kind: audio
+    source_id: audio:desk
+    stream:
+      channels:
+      - channel-0
+      family: sampled
+      quantity: audio_amplitude
+      timebase: clock-c160dbc57a502291
+      unit: full_scale
+    unmapped_fragments: []
+  - event_schema: midi
+    fragments:
+    - asset: asset-6928c7a28fdd6b91
+      event_count: 2
+      observed_opened_at: '2026-09-04T12:00:01Z'
+      timing: smf
+      timing_source: null
+    id: stream-4658c87f69f94fb7
+    kind: events
+    source_id: midi:desk
+    timebase: null
+  - event_schema: osc
+    fragments:
+    - asset: asset-f8206985070a549c
+      event_count: 1
+      observed_opened_at: '2026-09-04T12:00:01Z'
+      timing: osc_jsonl
+      timing_source: null
+    - asset: asset-f3e5412ee2822d5e
+      event_count: 1
+      observed_opened_at: '2026-09-04T12:00:01Z'
+      timing: osc_jsonl
+      timing_source: null
+    id: stream-595cf3de8e2da8e0
+    kind: events
+    source_id: osc:desk
+    timebase: null
+  unfinished_files: []
+format: recs
+id: test-session
+kind: recording
+name: session
+timebases:
+- id: clock-c160dbc57a502291
+  kind: physical
+  rate:
+    denominator: 1
+    numerator: 48000
+version: 1
