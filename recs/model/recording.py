@@ -23,11 +23,14 @@ class Gap(TickRange):
     reason: GapReason
 
 
-class AudioFragment(Model):
-    asset: Identifier
+class AudioSpan(Model):
     asset_start: int = Field(default=0, ge=0, strict=True)
     start: int = Field(ge=0, strict=True)
     count: int = Field(ge=0, strict=True)
+
+
+class AudioFragment(AudioSpan):
+    asset: Identifier
     variant_group: Identifier | None = None
 
 

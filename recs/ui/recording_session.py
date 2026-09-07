@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from recs.model.recording import AudioSpan
 from recs.ui import recording_paths, session_record
 from recs.ui.source_recorder import SourceFile
 
@@ -12,6 +13,7 @@ class RecordingSession:
         self.files_written: set[Path] = set()
         self.file_end_frames: dict[Path, int] = {}
         self.file_end_timestamps: dict[Path, float] = {}
+        self.file_spans: dict[Path, list[AudioSpan]] = {}
         self.files: dict[Path, session_record.FileRecord] = {}
         self.record_writer: session_record.SessionRecordWriter | None = None
         self.record_errors: list[str] = []
@@ -44,11 +46,11 @@ class RecordingSession:
                             ),
                             'frame_count': end_frame,
                             'quantity_count': (
-                                end_frame - file.frame_count
-                                if end_frame is not None
-                                and file.frame_count is not None
+                                sum(s.count for s in self.file_spans[path])
+                                if path in self.file_spans
                                 else None
                             ),
+                            'audio_spans': self.file_spans.get(path),
                         }
                     )
                 )
@@ -76,6 +78,7 @@ class RecordingSession:
         self.files_written = set()
         self.file_end_frames = {}
         self.file_end_timestamps = {}
+        self.file_spans = {}
         self.files = {}
 
     def record_files(
@@ -83,10 +86,12 @@ class RecordingSession:
         files: list[Path],
         end_frames: dict[Path, int],
         end_timestamps: dict[Path, float],
+        spans: dict[Path, list[AudioSpan]],
     ) -> None:
         self.files_written.update(files)
         self.file_end_frames.update(end_frames)
         self.file_end_timestamps.update(end_timestamps)
+        self.file_spans.update(spans)
 
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
         stream_channels = '-'.join(str(c) for c in file.source_channels)

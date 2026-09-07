@@ -219,6 +219,7 @@ class Recorder(Runnables):
                 update.files,
                 update.file_end_frames or {},
                 update.file_end_timestamps or {},
+                update.file_spans or {},
             )
             for file_record in update.file_records or []:
                 self.session.record_file_started(
