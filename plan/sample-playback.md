@@ -146,15 +146,10 @@ force unrelated recording classes to serve as sampler abstractions.
 
 ## DSP Backend And Resource Use
 
-The current dependencies are not a complete sampler engine. Before writing
-resampling and other expensive DSP ourselves, evaluate a proven playback engine
-such as [sfizz](https://sfz.tools/sfizz/) against the retained TOML semantics.
-
-Check direction and loop behavior, modulation composition, event timing,
-channel layouts, and deterministic selection. A backend that silently changes
-those semantics is not a conforming implementation. Translating the format to
-another engine's input syntax is an option to evaluate, not an assumption that
-all features map faithfully.
+The current dependencies are not a complete sampler engine. Select a playback
+engine only after completing the sampler backend checks in
+[Human And Experimental Verification](human.md). Translating the format to
+another engine's input syntax must not silently change retained TOML semantics.
 
 If no complete engine fits, reuse suitable DSP libraries for the expensive
 primitives while keeping Recs' selection and lifecycle rules explicit. Backend
@@ -166,9 +161,7 @@ state, not a private copy of the sample. Bound rendering buffers and define a
 cache budget for large instruments. Do not assume that loading every recording into
 memory is acceptable.
 
-Avoid Python loops over individual samples for expensive DSP. Measure CPU,
-memory, and latency using realistic polyphony and multichannel material before
-claiming live suitability.
+Avoid Python loops over individual samples for expensive DSP.
 
 ## Suggested Implementation Order
 
@@ -176,21 +169,22 @@ claiming live suitability.
    semantics and cross-feature interactions.
 2. Build file loading and asset validation around the existing recsam models,
    then implement instrument creation in coordination with the editing framework.
-3. Evaluate the DSP backend and build the block-rendering API around the existing
-   recsam events, preserving trigger identity, pitch separation, and control precision.
+3. Select the DSP backend using
+   [Human And Experimental Verification](human.md), then build the
+   block-rendering API around the existing recsam events, preserving trigger
+   identity, pitch separation, and control precision.
 4. Implement deterministic offline MIDI rendering for the base format, producing
    a new session record and generated audio.
 5. Add retained features incrementally, with focused behavior and audio
    regression tests for each addition and its interactions.
 6. Verify that event timing and deterministic selection are independent of
    render block size. Check voice limits and shared-asset memory behavior.
-7. Add live MIDI and audio hosting only after offline rendering is correct, then
-   measure latency, resource use, and underruns on target hardware.
+7. Add live MIDI and audio hosting only after offline rendering is correct.
 
 Follow Recs' existing 48 kHz, at-least-one-second WAV convention for digital
 audio regression fixtures. Test rendered output and visible behavior rather
-than private implementation details. Hardware checks remain distinct from
-automated offline verification.
+than private implementation details. Hardware acceptance is defined in
+[Human And Experimental Verification](human.md).
 
 ## Additional Work Beyond The Prompt
 
