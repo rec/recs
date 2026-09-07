@@ -9,13 +9,14 @@ within the current Recs architecture.
 Related documents:
 
 - [Recsam Instrument Format](../doc/sample-format.md): proposed TOML representation.
-- [Sample Format Additions](sample-format.md): candidate features awaiting review.
-- [Editing Tools](editing-tools.md): planned session-to-session editing framework.
+- [Remaining Recsam Format Work](sample-format.md): candidate features awaiting
+  review.
+- `recs/edit/`: the existing session-to-session editing framework.
 
-Recs already has recording, MIDI capture, audio-file I/O, and session records.
-The `recs/edit/` framework is still a plan. Sample playback needs a new stateful
-audio engine; it is not simply another recording source or a collection of
-independent edit commands.
+Recs already has recording, MIDI capture, audio-file I/O, session records, and
+materialized session-to-session edits. Sample playback still needs a new
+stateful audio engine; it is not simply another recording source or a
+collection of independent edit commands.
 
 Microtonality remains covered by its separate specification. Format and event
 models exist; playback, transport adapters, and recording-daemon changes do not.
@@ -140,7 +141,7 @@ segmentation policies that do not belong in sample playback. An offline render
 must preserve its requested timeline rather than inherit recording decisions
 about quiet material.
 
-The planned editor and sampler should share DSP primitives when both actually
+The editor and sampler should share DSP primitives when both actually
 need them. Do not build a general-purpose processing framework in advance or
 force unrelated recording classes to serve as sampler abstractions.
 
