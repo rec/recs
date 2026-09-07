@@ -103,7 +103,9 @@ def test_composition_cli_dry_run_accepts_reserved_and_direct_forms(
     writer = session_record.SessionRecordWriter(record_path, started_at='start')
     writer.close()
     composition_path = tmp_path / 'composition.toml'
-    composition_path.write_text('schema_version = 1\nkind = "composition"\n')
+    composition_path.write_text(
+        'schema_version = 2\nkind = "composition"\nresult = "root"\n'
+    )
     monkeypatch.chdir(tmp_path)
 
     assert main(['compose', 'composition.toml', '--dry-run']) == 0

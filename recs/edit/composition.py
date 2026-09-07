@@ -24,15 +24,35 @@ from recs.edit.render import Renderer
 from recs.edit.schema import (
     CommandKind,
     EditSpec,
+    Identifier,
     SourceSpec,
+    identifier,
     parse_edit,
     parse_partial_edit,
 )
 from recs.ui import session_record
 
+ROOT_NODE = 'root'
+
+
+class ResolvedNode(BaseModel, frozen=True):
+    recipe: dict[str, object]
+
+    operation: CommandKind
+
+    edit: dict[str, object]
+
+    model_config = ConfigDict(extra='forbid')
+
 
 class CompositionStep(EditOptions, frozen=True):
+    id: Identifier
+
     command: str
+
+    inputs: list[str] = Field(min_length=1)
+
+    resolved: ResolvedNode | None = None
 
     @field_validator('command')
     @classmethod
@@ -41,37 +61,29 @@ class CompositionStep(EditOptions, frozen=True):
             raise ValueError('command must not be empty')
         return value
 
-
-class ResolvedCommand(BaseModel, frozen=True):
-    command: str
-    recipe: dict[str, object]
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class ResolvedStage(BaseModel, frozen=True):
-    command: str
-    operation: CommandKind
-    edit: dict[str, object]
-
-    model_config = ConfigDict(extra='forbid')
+    @field_validator('inputs')
+    @classmethod
+    def validate_inputs(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError('inputs must not contain duplicates')
+        for value in values:
+            if value != ROOT_NODE:
+                identifier(value)
+        return values
 
 
 class CompositionEdit(BaseModel, frozen=True):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
+
     kind: Literal['composition']
+
+    result: str
+
     edits: list[CompositionStep] = Field(default_factory=list)
-    resolved_commands: list[ResolvedCommand] = Field(default_factory=list)
-    stages: list[ResolvedStage] = Field(default_factory=list)
 
     @model_validator(mode='after')
-    def validate_resolved_lengths(self) -> Self:
-        for name, values in (
-            ('resolved_commands', self.resolved_commands),
-            ('stages', self.stages),
-        ):
-            if values and len(values) != len(self.edits):
-                raise ValueError(f'{name} must contain one entry per edit')
+    def validate_edit_graph(self) -> Self:
+        _composition_order(self.edits, self.result)
         return self
 
     model_config = ConfigDict(extra='forbid')
@@ -79,8 +91,12 @@ class CompositionEdit(BaseModel, frozen=True):
 
 class ResolvedStep(BaseModel, frozen=True):
     step: CompositionStep
+
     command_path: Path
+
     recipe: dict[str, object]
+
+    operation: CommandKind
 
     model_config = ConfigDict(extra='forbid')
 
@@ -92,17 +108,41 @@ class PreparedComposition:
         edit: EditSpec,
         graph: EditGraph,
         rendered: dict[str, MaterializedAudio],
-        stage_memory: list[int],
+        node_memory: dict[str, int],
         peak_memory: int,
+        execution_order: list[str],
         autocalibration: autocalibrate.PreparedAutocalibrate | None = None,
     ) -> None:
         self.canonical = canonical
         self.edit = edit
         self.graph = graph
         self.rendered = rendered
-        self.stage_memory = stage_memory
+        self.node_memory = node_memory
         self.peak_memory = peak_memory
+        self.execution_order = execution_order
         self.autocalibration = autocalibration
+
+
+class AudioDescription(BaseModel, frozen=True):
+    channels: int
+
+    timeline_end: int
+
+    model_config = ConfigDict(extra='forbid')
+
+
+class CompiledNode(BaseModel, frozen=True):
+    resolved: ResolvedStep
+
+    edit: EditSpec | autocalibrate.AutocalibrateEdit
+
+    graph: EditGraph | None
+
+    disk_sources: dict[str, ResolvedSource]
+
+    selected_tracks: list[commands.InputTrack]
+
+    model_config = ConfigDict(extra='forbid')
 
 
 def parse_composition(text: str) -> CompositionEdit:
@@ -120,27 +160,35 @@ def is_composition_file(path: Path) -> bool:
 
 
 def resolve_composition(value: CompositionEdit, directory: Path) -> list[ResolvedStep]:
+    steps = {s.id: s for s in value.edits}
     result: list[ResolvedStep] = []
-    embedded = value.resolved_commands or [None] * len(value.edits)
-    for index, (step, resolved) in enumerate(
-        zip(value.edits, embedded, strict=False), 1
-    ):
-        if resolved is None:
+    for node_id in _composition_order(value.edits, value.result):
+        step = steps[node_id]
+        if step.resolved is None:
             recipe, command_path = commands.resolve_command(step.command, directory)
-        else:
-            if resolved.command != step.command:
+            _validate_recipe(recipe, node_id, step.command)
+            operation = commands.command_operation(recipe)
+            if operation is None:
                 raise RecsError(
-                    f'Resolved command {index} does not match edit: '
-                    f'{resolved.command!r} != {step.command!r}'
+                    f'Composition node {node_id!r} has no _command.operation'
                 )
-            recipe = resolved.recipe
+        else:
+            recipe = step.resolved.recipe
             command_path = directory / step.command
-        _validate_recipe(recipe, index, step.command)
+            _validate_recipe(recipe, node_id, step.command)
+            operation = commands.command_operation(recipe)
+            if operation != step.resolved.operation:
+                raise RecsError(
+                    f'Composition node {node_id!r} resolved operation does not '
+                    'match its recipe'
+                )
+        assert operation is not None
         result.append(
             ResolvedStep(
                 step=step,
                 command_path=command_path,
                 recipe={k: v for k, v in recipe.items() if k != 'extends'},
+                operation=operation,
             )
         )
     return result
@@ -158,59 +206,43 @@ def prepare_composition(
         raise RecsError('An empty composition has no materialized result')
     if destination.exists():
         raise RecsError(f'Output composition directory already exists: {destination}')
-    for index, resolved_step in enumerate(resolved[:-1], 1):
-        if (
-            resolved_step.step.format is not None
-            or resolved_step.step.subtype is not None
+    for resolved_step in resolved:
+        step = resolved_step.step
+        if step.id != value.result and (
+            step.format is not None or step.subtype is not None
         ):
             raise RecsError(
-                f'Composition edit {index} requests an intermediate encoding; '
-                'only the final edit may set format or subtype'
+                f'Composition node {step.id!r} requests an intermediate encoding; '
+                'only the result node may set format or subtype'
             )
 
-    current_tracks = commands.input_tracks([record_path])
+    root_tracks = _namespace_tracks(ROOT_NODE, commands.input_tracks([record_path]))
+    compiled_nodes = _compile_nodes(resolved, value.result, root_tracks, destination)
+    sessions: dict[str, list[commands.InputTrack]] = {ROOT_NODE: root_tracks}
     materializer = SourceMaterializer()
     memory: dict[str, MaterializedAudio] = {}
-    stages: list[ResolvedStage] = []
-    stage_memory: list[int] = []
+    consumers = _consumer_counts(value.edits)
+    canonical_steps: list[CompositionStep] = []
+    node_memory: dict[str, int] = {}
     peak_memory = 0
     final_edit: EditSpec | None = None
     final_graph: EditGraph | None = None
     final_rendered: dict[str, MaterializedAudio] = {}
     final_autocalibration: autocalibrate.PreparedAutocalibrate | None = None
-    for index, resolved_step in enumerate(resolved, 1):
-        operation = commands.command_operation(resolved_step.recipe)
-        assert operation is not None
-        if operation == CommandKind.autocalibrate:
-            selected = commands.select_tracks(
-                current_tracks, resolved_step.step.channel
+    final_sample_rate = 0
+
+    for compiled in compiled_nodes:
+        resolved_step = compiled.resolved
+        step = resolved_step.step
+        live_before = _live_storage(materializer, memory)
+        if resolved_step.operation == CommandKind.autocalibrate:
+            audio, selectors = _materialize_input_tracks(
+                compiled.selected_tracks, memory, materializer
             )
-            audio, selectors = _materialize_input_tracks(selected, memory, materializer)
-            sample_rates = {a.sample_rate for a in audio.values()}
-            if len(sample_rates) != 1:
-                raise RecsError(
-                    f'Selected tracks have mixed sample rates: {sample_rates}'
-                )
-            sample_rate = next(iter(sample_rates))
-            options = autocalibrate.AutocalibrateOptions(
-                channel=selectors,
-                format=resolved_step.step.format,
-                subtype=resolved_step.step.subtype,
-            )
-            if value.stages:
-                stage = value.stages[index - 1]
-                if (
-                    stage.command != resolved_step.step.command
-                    or stage.operation != operation
-                ):
-                    raise RecsError(f'Resolved stage {index} does not match its edit')
-                autocalibrate_edit = autocalibrate.AutocalibrateEdit.model_validate(
-                    stage.edit
-                )
-            else:
-                autocalibrate_edit = autocalibrate.autocalibrate_from_materialized(
-                    f'stage-{index - 1:03d}', selectors, sample_rate, options
-                )
+            autocalibrate_edit = compiled.edit
+            assert isinstance(autocalibrate_edit, autocalibrate.AutocalibrateEdit)
+            assert autocalibrate_edit.sample_rate is not None
+            node_sample_rate = autocalibrate_edit.sample_rate
             prepared_autocalibration = autocalibrate.prepare_materialized_autocalibrate(
                 autocalibrate_edit,
                 audio,
@@ -220,98 +252,92 @@ def prepare_composition(
             rendered = autocalibrate.materialized_autocalibrate_outputs(
                 prepared_autocalibration
             )
-            memory, materialized_session, current_tracks = _stage_session(
-                index, rendered, sample_rate
+            canonical_edit = _canonical_stage(
+                prepared_autocalibration.edit, final=step.id == value.result
             )
-            stage_memory.append(
-                _storage_bytes([t.audio for t in materialized_session.tracks])
+            graph = None
+            peak_memory = max(
+                peak_memory,
+                live_before + _storage_bytes(list(rendered.values())),
             )
-            peak_memory = max(peak_memory, stage_memory[-1])
-            stages.append(
-                ResolvedStage(
-                    command=resolved_step.step.command,
-                    operation=operation,
-                    edit=_canonical_stage(
-                        prepared_autocalibration.edit,
-                        final=index == len(resolved),
-                    ),
-                )
-            )
-            final_edit = None
-            final_graph = None
-            final_rendered = rendered
-            final_autocalibration = prepared_autocalibration
-            continue
-        if value.stages:
-            stage = value.stages[index - 1]
-            if (
-                stage.command != resolved_step.step.command
-                or stage.operation != operation
-            ):
-                raise RecsError(f'Resolved stage {index} does not match its edit')
-            edit = EditSpec.model_validate(stage.edit)
+            if step.id == value.result:
+                final_autocalibration = prepared_autocalibration
+                final_edit = None
+                final_graph = None
+                final_rendered = rendered
+                final_sample_rate = node_sample_rate
         else:
-            edit = commands.complete_or_generate_tracks(
-                resolved_step.recipe, current_tracks, resolved_step.step
-            )
-        if edit.media_types != ['audio']:
-            raise RecsError(
-                'Compositions support only media_types = ["audio"]: '
-                f'{edit.media_types}'
-            )
-        sources = _resolve_stage_sources(
-            edit, resolved_step.command_path.parent, memory
+            edit = compiled.edit
+            graph = compiled.graph
+            assert isinstance(edit, EditSpec) and graph is not None
+            sources = _runtime_sources(edit, compiled.disk_sources, memory)
+            canonical = session.canonical_edit(edit, sources, destination)
+            node_sample_rate = canonical.sample_rate
+            renderer = Renderer(canonical, sources, graph, materializer)
+            rendered = renderer.outputs
+            canonical_edit = _canonical_stage(canonical, final=step.id == value.result)
+            peak_memory = max(peak_memory, live_before + renderer.peak_memory_bytes)
+            if step.id == value.result:
+                final_edit = canonical
+                final_graph = graph
+                final_rendered = rendered
+                final_autocalibration = None
+                final_sample_rate = node_sample_rate
+
+        node_audio, materialized_session, node_tracks = _node_session(
+            step.id, rendered, node_sample_rate
         )
-        graph = validate_graph(edit, sources)
-        if index == len(resolved):
-            validate_outputs(edit, graph, destination)
-        canonical_edit = session.canonical_edit(edit, sources, destination)
-        renderer = Renderer(canonical_edit, sources, graph, materializer)
-        rendered = renderer.outputs
-        memory, materialized_session, current_tracks = _stage_session(
-            index, rendered, canonical_edit.sample_rate
+        memory.update(node_audio)
+        sessions[step.id] = node_tracks
+        node_memory[step.id] = _storage_bytes(
+            [t.audio for t in materialized_session.tracks]
         )
-        current_bytes = _storage_bytes([t.audio for t in materialized_session.tracks])
-        stage_memory.append(current_bytes)
-        peak_memory = max(peak_memory, renderer.peak_memory_bytes)
-        stages.append(
-            ResolvedStage(
-                command=resolved_step.step.command,
-                operation=operation,
-                edit=_canonical_stage(
-                    canonical_edit,
-                    final=index == len(resolved),
-                ),
+        peak_memory = max(peak_memory, _live_storage(materializer, memory))
+        canonical_steps.append(
+            step.model_copy(
+                update={
+                    'resolved': ResolvedNode(
+                        recipe=resolved_step.recipe,
+                        operation=resolved_step.operation,
+                        edit=canonical_edit,
+                    )
+                }
             )
         )
-        final_edit = canonical_edit
-        final_graph = graph
-        final_rendered = rendered
-        final_autocalibration = None
-    canonical = value.model_copy(
-        update={
-            'resolved_commands': [
-                ResolvedCommand(command=s.step.command, recipe=s.recipe)
-                for s in resolved
-            ],
-            'stages': stages,
-        }
+        for input_id in step.inputs:
+            consumers[input_id] -= 1
+            if consumers[input_id] == 0:
+                _release_node(input_id, sessions, memory, materializer)
+
+    canonical = CompositionEdit(
+        schema_version=2,
+        kind='composition',
+        result=value.result,
+        edits=canonical_steps,
     )
+    execution_order = [s.step.id for s in resolved]
     if final_autocalibration is not None:
-        placeholder = EditSpec(schema_version=1, sample_rate=sample_rate)
+        placeholder = EditSpec(schema_version=1, sample_rate=final_sample_rate)
         placeholder_graph = EditGraph(widths={}, output_extents={}, bus_order=[])
         return PreparedComposition(
             canonical,
             placeholder,
             placeholder_graph,
             final_rendered,
-            stage_memory,
+            node_memory,
             peak_memory,
+            execution_order,
             final_autocalibration,
         )
     assert final_edit is not None and final_graph is not None
     return PreparedComposition(
-        canonical, final_edit, final_graph, final_rendered, stage_memory, peak_memory
+        canonical,
+        final_edit,
+        final_graph,
+        final_rendered,
+        node_memory,
+        peak_memory,
+        execution_order,
     )
 
 
@@ -331,6 +357,7 @@ def execute_composition(
     prepared = prepare_composition(value, composition_path, record_path, destination)
     metadata = {
         'source_record': record_path.as_posix(),
+        'execution_order': prepared.execution_order,
         'peak_memory_bytes': prepared.peak_memory,
     }
     if prepared.autocalibration is not None:
@@ -364,21 +391,236 @@ def composition_summary(
     if destination is None:
         raise RecsError('A non-empty composition requires a destination')
     prepared = prepare_composition(value, composition_path, record_path, destination)
+    steps = {s.id: s for s in value.edits}
     lines = [
         f'Record: {record_path}',
+        f'Result node: {value.result}',
         f'Output session: {destination}',
         'Intermediate media: memory only',
+        f'Execution order: {", ".join(prepared.execution_order)}',
     ]
-    for index, (step, size) in enumerate(
-        zip(value.edits, prepared.stage_memory, strict=False), 1
-    ):
+    for node_id in prepared.execution_order:
+        step = steps[node_id]
         selectors = ', '.join(step.channel) or 'all compatible tracks'
-        lines.append(f'{index}: {step.command}')
+        lines.append(f'{node_id}: {step.command}')
+        lines.append(f'   Inputs: {", ".join(step.inputs)}')
         lines.append(f'   Selectors: {selectors}')
-        lines.append(f'   Materialized audio: {size} bytes')
+        lines.append(f'   Materialized audio: {prepared.node_memory[node_id]} bytes')
     lines.append(f'Estimated peak materialized audio: {prepared.peak_memory} bytes')
     lines.append(f'Result: {destination / "session-record.jsonl"}')
     return '\n'.join(lines) + '\n'
+
+
+def _composition_order(edits: list[CompositionStep], result: str) -> list[str]:
+    ids = [e.id for e in edits]
+    if len(ids) != len(set(ids)):
+        raise ValueError('composition edit IDs must be unique')
+    if ROOT_NODE in ids:
+        raise ValueError(f'{ROOT_NODE!r} is reserved for the original session')
+    if not edits:
+        if result != ROOT_NODE:
+            raise ValueError('an empty composition must use result = "root"')
+        return []
+    identifier(result)
+    if result not in ids:
+        raise ValueError(f'unknown composition result: {result}')
+    known = set(ids) | {ROOT_NODE}
+    for edit in edits:
+        unknown = sorted(set(edit.inputs) - known)
+        if unknown:
+            raise ValueError(
+                f'composition node {edit.id!r} has unknown inputs: {unknown}'
+            )
+        if edit.id in edit.inputs:
+            raise ValueError(f'composition node {edit.id!r} depends on itself')
+
+    dependencies = {e.id: set(e.inputs) - {ROOT_NODE} for e in edits}
+    remaining = set(ids)
+    order: list[str] = []
+    while remaining:
+        ready = sorted(i for i in remaining if dependencies[i] <= set(order))
+        if not ready:
+            raise ValueError('composition graph contains a cycle')
+        order.extend(ready)
+        remaining.difference_update(ready)
+
+    ancestors = {result}
+    pending = [result]
+    while pending:
+        for node_id in dependencies[pending.pop()]:
+            if node_id not in ancestors:
+                ancestors.add(node_id)
+                pending.append(node_id)
+    disconnected = sorted(set(ids) - ancestors)
+    if disconnected:
+        raise ValueError(
+            f'composition nodes do not contribute to result: {disconnected}'
+        )
+    return order
+
+
+def _compile_nodes(
+    resolved: list[ResolvedStep],
+    result_node: str,
+    root_tracks: list[commands.InputTrack],
+    destination: Path,
+) -> list[CompiledNode]:
+    inventories: dict[str, list[commands.InputTrack]] = {ROOT_NODE: root_tracks}
+    memory_tracks: dict[str, commands.InputTrack] = {}
+    result: list[CompiledNode] = []
+    for resolved_step in resolved:
+        step = resolved_step.step
+        input_tracks = [t for i in step.inputs for t in inventories[i]]
+        if resolved_step.operation == CommandKind.autocalibrate:
+            selected = commands.select_tracks(input_tracks, step.channel)
+            sample_rates = {t.sample_rate for t in selected}
+            if len(sample_rates) != 1:
+                raise RecsError(
+                    f'Selected tracks have mixed sample rates: {sample_rates}'
+                )
+            sample_rate = next(iter(sample_rates))
+            selectors = [t.label for t in selected]
+            options = autocalibrate.AutocalibrateOptions(
+                channel=selectors,
+                format=step.format,
+                subtype=step.subtype,
+            )
+            edit = (
+                autocalibrate.autocalibrate_from_materialized(
+                    step.id, selectors, sample_rate, options
+                )
+                if step.resolved is None
+                else autocalibrate.AutocalibrateEdit.model_validate(step.resolved.edit)
+            )
+            if edit.sample_rate != sample_rate:
+                raise RecsError(
+                    f'Composition node {step.id!r} uses sample rate '
+                    f'{edit.sample_rate}, but its inputs use {sample_rate}'
+                )
+            output_tracks = _autocalibration_output_tracks(
+                step.id,
+                selected,
+                autocalibrate.autocalibrate_track_ids(selectors),
+            )
+            compiled = CompiledNode(
+                resolved=resolved_step,
+                edit=edit,
+                graph=None,
+                disk_sources={},
+                selected_tracks=selected,
+            )
+        else:
+            edit = (
+                commands.complete_or_generate_tracks(
+                    resolved_step.recipe, input_tracks, step
+                )
+                if step.resolved is None
+                else EditSpec.model_validate(step.resolved.edit)
+            )
+            if edit.media_types != ['audio']:
+                raise RecsError(
+                    'Compositions support only media_types = ["audio"]: '
+                    f'{edit.media_types}'
+                )
+            disk_sources, descriptions = _described_sources(
+                edit, resolved_step.command_path.parent, memory_tracks
+            )
+            graph = validate_graph(edit, descriptions)
+            if step.id == result_node:
+                validate_outputs(edit, graph, destination)
+            output_tracks = _output_tracks(step.id, edit, graph)
+            compiled = CompiledNode(
+                resolved=resolved_step,
+                edit=edit,
+                graph=graph,
+                disk_sources=disk_sources,
+                selected_tracks=input_tracks,
+            )
+        inventories[step.id] = output_tracks
+        memory_tracks.update(
+            {t.source.memory: t for t in output_tracks if t.source.memory is not None}
+        )
+        result.append(compiled)
+    return result
+
+
+def _described_sources(
+    edit: EditSpec,
+    directory: Path,
+    memory_tracks: Mapping[str, commands.InputTrack],
+) -> tuple[dict[str, ResolvedSource], dict[str, ResolvedSource | AudioDescription]]:
+    disk = [s for s in edit.sources if s.memory is None]
+    disk_sources = (
+        resolve_sources(edit.model_copy(update={'sources': disk}), directory)
+        if disk
+        else {}
+    )
+    result: dict[str, ResolvedSource | AudioDescription] = dict(disk_sources)
+    for source in edit.sources:
+        if source.memory is None:
+            continue
+        try:
+            track = memory_tracks[source.memory]
+        except KeyError:
+            raise RecsError(
+                f'Source {source.id}: unknown materialized track {source.memory}'
+            ) from None
+        if source.channels[-1] > track.channels:
+            raise RecsError(
+                f'Source {source.id}: channel {source.channels[-1]} exceeds '
+                f'materialized width {track.channels}'
+            )
+        if track.sample_rate != edit.sample_rate:
+            raise RecsError(
+                f'Edit sample rate is {edit.sample_rate}, but source {source.id} '
+                f'uses {track.sample_rate}'
+            )
+        result[source.id] = AudioDescription(
+            channels=len(source.channels), timeline_end=track.frame_count
+        )
+    return disk_sources, result
+
+
+def _output_tracks(
+    node_id: str, edit: EditSpec, graph: EditGraph
+) -> list[commands.InputTrack]:
+    return [
+        commands.InputTrack(
+            label=f'{node_id}:{output.id}',
+            selectors=[f'{node_id}:{output.id}'],
+            source=SourceSpec(
+                id='source',
+                memory=f'{node_id}:{output.id}',
+                channels=list(range(1, graph.widths[output.source] + 1)),
+            ),
+            channels=graph.widths[output.source],
+            sample_rate=edit.sample_rate,
+            frame_count=graph.output_extents[output.id].end,
+        )
+        for output in edit.outputs
+    ]
+
+
+def _autocalibration_output_tracks(
+    node_id: str,
+    selected: list[commands.InputTrack],
+    track_ids: dict[str, str],
+) -> list[commands.InputTrack]:
+    return [
+        commands.InputTrack(
+            label=f'{node_id}:{track_ids[track.label]}',
+            selectors=[f'{node_id}:{track_ids[track.label]}'],
+            source=SourceSpec(
+                id='source',
+                memory=f'{node_id}:{track_ids[track.label]}',
+                channels=list(range(1, track.channels + 1)),
+            ),
+            channels=track.channels,
+            sample_rate=track.sample_rate,
+            frame_count=track.frame_count,
+        )
+        for track in selected
+    ]
 
 
 def _canonical_stage(
@@ -406,7 +648,7 @@ def _canonical_stage(
     return edit.model_dump(mode='json', exclude_none=True)
 
 
-def _validate_recipe(recipe: dict[str, object], index: int, command: str) -> None:
+def _validate_recipe(recipe: dict[str, object], node_id: str, command: str) -> None:
     text = tomlkit.dumps(recipe)
     try:
         parse_edit(text)
@@ -414,24 +656,21 @@ def _validate_recipe(recipe: dict[str, object], index: int, command: str) -> Non
         partial = parse_partial_edit(text)
         if partial.command is None or partial.command.operation is None:
             raise RecsError(
-                f'Composite child {index} has no _command.operation: {command}'
+                f'Composition node {node_id!r} has no _command.operation: {command}'
             ) from None
     else:
         raise RecsError(
-            f'Composite child {index} is a complete arrangement and does not '
+            f'Composition node {node_id!r} is a complete arrangement and does not '
             f'consume its input session: {command}'
         )
 
 
-def _resolve_stage_sources(
-    edit: EditSpec, directory: Path, memory: Mapping[str, MaterializedAudio]
+def _runtime_sources(
+    edit: EditSpec,
+    disk_sources: Mapping[str, ResolvedSource],
+    memory: Mapping[str, MaterializedAudio],
 ) -> dict[str, ResolvedSource | MaterializedAudio]:
-    disk = [s for s in edit.sources if s.memory is None]
-    result: dict[str, ResolvedSource | MaterializedAudio] = {}
-    if disk:
-        result.update(
-            resolve_sources(edit.model_copy(update={'sources': disk}), directory)
-        )
+    result: dict[str, ResolvedSource | MaterializedAudio] = dict(disk_sources)
     for source in edit.sources:
         if source.memory is None:
             continue
@@ -445,8 +684,8 @@ def _resolve_stage_sources(
     return result
 
 
-def _stage_session(
-    index: int,
+def _node_session(
+    node_id: str,
     rendered: dict[str, MaterializedAudio],
     sample_rate: int,
 ) -> tuple[
@@ -456,21 +695,20 @@ def _stage_session(
     tracks: list[MaterializedTrack] = []
     inputs: list[commands.InputTrack] = []
     for track_name, audio in rendered.items():
-        key = f'stage-{index:03d}:{track_name}'
+        key = f'{node_id}:{track_name}'
         memory[key] = audio
         tracks.append(
             MaterializedTrack(
-                source='edit',
+                source=node_id,
                 track_name=track_name,
-                stream_id=f'audio:edit:{track_name}',
+                stream_id=f'audio:{node_id}:{track_name}',
                 audio=audio,
             )
         )
-        label = f'edit:{track_name}'
         inputs.append(
             commands.InputTrack(
-                label=label,
-                selectors=[label],
+                label=key,
+                selectors=[key],
                 source=SourceSpec(
                     id='source',
                     memory=key,
@@ -482,11 +720,21 @@ def _stage_session(
             )
         )
     materialized_session = MaterializedSession(
-        session_id=f'stage-{index:03d}',
+        session_id=node_id,
         duration_frames=max((a.end_frame for a in rendered.values()), default=0),
         tracks=tracks,
     )
     return memory, materialized_session, inputs
+
+
+def _namespace_tracks(
+    node_id: str, tracks: list[commands.InputTrack]
+) -> list[commands.InputTrack]:
+    result: list[commands.InputTrack] = []
+    for track in tracks:
+        label = f'{node_id}:{track.label}'
+        result.append(track.model_copy(update={'label': label, 'selectors': [label]}))
+    return result
 
 
 def _materialize_input_tracks(
@@ -504,7 +752,13 @@ def _materialize_input_tracks(
             for i, t in enumerate(tracks)
         ],
     )
-    resolved = _resolve_stage_sources(edit, Path.cwd(), memory)
+    disk = [s for s in edit.sources if s.memory is None]
+    disk_sources = (
+        resolve_sources(edit.model_copy(update={'sources': disk}), Path.cwd())
+        if disk
+        else {}
+    )
+    resolved = _runtime_sources(edit, disk_sources, memory)
     audio: dict[str, MaterializedAudio] = {}
     for index, track in enumerate(tracks):
         value = resolved[f'source-{index}']
@@ -514,6 +768,34 @@ def _materialize_input_tracks(
             else materializer.materialize(value)
         )
     return audio, [t.label for t in tracks]
+
+
+def _consumer_counts(edits: list[CompositionStep]) -> dict[str, int]:
+    result = {ROOT_NODE: 0} | {e.id: 0 for e in edits}
+    for edit in edits:
+        for input_id in edit.inputs:
+            result[input_id] += 1
+    return result
+
+
+def _release_node(
+    node_id: str,
+    sessions: dict[str, list[commands.InputTrack]],
+    memory: dict[str, MaterializedAudio],
+    materializer: SourceMaterializer,
+) -> None:
+    tracks = sessions.pop(node_id, [])
+    for track in tracks:
+        if track.source.memory is not None:
+            memory.pop(track.source.memory, None)
+    if node_id == ROOT_NODE:
+        materializer.audio.clear()
+
+
+def _live_storage(
+    materializer: SourceMaterializer, memory: Mapping[str, MaterializedAudio]
+) -> int:
+    return _storage_bytes(list(materializer.audio.values()) + list(memory.values()))
 
 
 def _storage_bytes(values: list[MaterializedAudio]) -> int:

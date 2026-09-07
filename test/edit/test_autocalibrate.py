@@ -263,11 +263,14 @@ def test_composition_executes_autocalibration_child(
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
     composition_path = tmp_path / 'composition.toml'
     composition_path.write_text(
-        'schema_version = 1\n'
+        'schema_version = 2\n'
         'kind = "composition"\n'
+        'result = "calibrated"\n'
         '[[edits]]\n'
+        'id = "calibrated"\n'
         'command = "autocalibrate"\n'
-        'channel = ["device:voice"]\n'
+        'inputs = ["root"]\n'
+        'channel = ["root:device:voice"]\n'
         'format = "wav"\n'
         'subtype = "float"\n'
     )
@@ -283,12 +286,13 @@ def test_composition_executes_autocalibration_child(
     assert result_path == destination / 'session-record.jsonl'
     result = session_record.read(result_path)
     assert [f.track_name for f in result.files if f.type == 'file_finished'] == [
-        'device-voice'
+        'root-device-voice'
     ]
     assert not (destination / '001-autocalibrate').exists()
     assert not (destination / 'commands').exists()
     canonical = parse_composition((destination / 'edit.toml').read_text())
-    assert canonical.stages[0].operation == 'autocalibrate'
+    assert canonical.edits[0].resolved is not None
+    assert canonical.edits[0].resolved.operation == 'autocalibrate'
 
 
 def test_composition_passes_autocalibration_arrays_to_later_edit(
@@ -299,13 +303,18 @@ def test_composition_passes_autocalibration_arrays_to_later_edit(
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
     composition_path = tmp_path / 'composition.toml'
     composition_path.write_text(
-        'schema_version = 1\n'
+        'schema_version = 2\n'
         'kind = "composition"\n'
+        'result = "final"\n'
         '[[edits]]\n'
+        'id = "calibrated"\n'
         'command = "autocalibrate"\n'
-        'channel = ["device:voice"]\n'
+        'inputs = ["root"]\n'
+        'channel = ["root:device:voice"]\n'
         '[[edits]]\n'
+        'id = "final"\n'
         'command = "clip"\n'
+        'inputs = ["calibrated"]\n'
         'format = "wav"\n'
         'subtype = "float"\n'
     )
@@ -319,7 +328,7 @@ def test_composition_passes_autocalibration_arrays_to_later_edit(
     )
 
     rendered, sample_rate = soundfile.read(
-        destination / 'audio/edit-device-voice.wav',
+        destination / 'audio/calibrated-root-device-voice.wav',
         dtype='float32',
         always_2d=True,
     )
@@ -331,15 +340,16 @@ def test_composition_passes_autocalibration_arrays_to_later_edit(
     assert not (destination / '002-clip').exists()
     canonical_path = destination / 'edit.toml'
     canonical = parse_composition(canonical_path.read_text())
-    assert 'format' not in canonical.stages[0].edit['output']
-    assert 'subtype' not in canonical.stages[0].edit['output']
+    assert canonical.edits[0].resolved is not None
+    assert 'format' not in canonical.edits[0].resolved.edit['output']
+    assert 'subtype' not in canonical.edits[0].resolved.edit['output']
 
     replay = tmp_path / 'replayed'
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'missing-config'))
     execute_composition(canonical, canonical_path, record_path, replay)
 
     replayed, replayed_rate = soundfile.read(
-        replay / 'audio/edit-device-voice.wav',
+        replay / 'audio/calibrated-root-device-voice.wav',
         dtype='float32',
         always_2d=True,
     )

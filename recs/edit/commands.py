@@ -329,6 +329,12 @@ def _select_tracks(tracks: list[InputTrack], selectors: list[str]) -> list[Input
         return tracks
     result: list[InputTrack] = []
     for selector in selectors:
+        if selector.endswith(':*'):
+            prefix = selector[:-1]
+            matches = [t for t in tracks if t.label.startswith(prefix)]
+            if matches:
+                result.extend(matches)
+                continue
         exact = [t for t in tracks if selector in t.selectors]
         if len(exact) == 1:
             result.append(exact[0])
