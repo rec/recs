@@ -1,6 +1,9 @@
 import base64
+import ipaddress
 import json
+import queue
 import socket
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -107,6 +110,10 @@ class OscNodeRecorder:
         self.write_entry = write_entry
         self.write_error = write_error
         self.socket: socket.socket | None = None
+        self.target: tuple[str, int] | None = None
+        self.resolved_targets: queue.SimpleQueue[
+            tuple[tuple[str, int] | None, str | None]
+        ] = queue.SimpleQueue()
         self.output: BinaryIO | None = None
         self.path: Path | None = None
         self.bytes_written = 0
@@ -134,11 +141,18 @@ class OscNodeRecorder:
             self._fail('start', str(error))
             return
         now = time.monotonic()
-        for command in self.node.commands:
-            if command.on_start:
-                self._send(command, 'command')
-        self.next_polls = [now for _ in self.node.polls]
-        self.next_subscriptions = [now for _ in self.node.subscriptions]
+        if self.node.host is not None and self.node.port is not None:
+            try:
+                ipaddress.IPv4Address(self.node.host)
+            except ipaddress.AddressValueError:
+                threading.Thread(
+                    target=self._resolve_target,
+                    daemon=True,
+                    name=f'OscResolve-{self.node.name}',
+                ).start()
+            else:
+                self.target = (self.node.host, self.node.port)
+                self._start_outbound(now)
         self.write_entry(
             EventRecord(
                 type='osc_node_started',
@@ -159,14 +173,18 @@ class OscNodeRecorder:
         if self.socket is None:
             return
         now = time.monotonic()
-        for index, poll in enumerate(self.node.polls):
-            if now >= self.next_polls[index]:
-                self._send(poll, 'poll')
-                self.next_polls[index] = now + poll.period
-        for index, subscription in enumerate(self.node.subscriptions):
-            if now >= self.next_subscriptions[index]:
-                self._send(subscription, 'subscription')
-                self.next_subscriptions[index] = now + subscription.resubscribe_period
+        self._receive_resolved_target(now)
+        if self.target is not None:
+            for index, poll in enumerate(self.node.polls):
+                if now >= self.next_polls[index]:
+                    self._send(poll, 'poll')
+                    self.next_polls[index] = now + poll.period
+            for index, subscription in enumerate(self.node.subscriptions):
+                if now >= self.next_subscriptions[index]:
+                    self._send(subscription, 'subscription')
+                    self.next_subscriptions[index] = (
+                        now + subscription.resubscribe_period
+                    )
         while True:
             try:
                 data, source = self.socket.recvfrom(65_535)
@@ -265,12 +283,10 @@ class OscNodeRecorder:
 
     def _send(self, message: config.Command, reason: str) -> None:
         assert self.socket is not None
-        assert self.node.host is not None
-        assert self.node.port is not None
+        assert self.target is not None
         data = codec.encode_message(message.path, message.args)
-        target = (self.node.host, self.node.port)
         try:
-            self.socket.sendto(data, target)
+            self.socket.sendto(data, self.target)
         except OSError as error:
             self._fail('send', str(error))
             self._write_json(
@@ -279,7 +295,7 @@ class OscNodeRecorder:
                     'monotonic': time.monotonic(),
                     'direction': 'out',
                     'kind': 'error',
-                    'target': [target[0], target[1]],
+                    'target': [self.target[0], self.target[1]],
                     'error': str(error),
                     'reason': reason,
                 }
@@ -295,10 +311,47 @@ class OscNodeRecorder:
                     'kind': 'osc',
                     'data_b64': base64.b64encode(data).decode('ascii'),
                     'decoded': codec.decode_packet(data),
-                    'target': [target[0], target[1]],
+                    'target': [self.target[0], self.target[1]],
                     'reason': reason,
                 }
             )
+
+    def _resolve_target(self) -> None:
+        assert self.node.host is not None
+        assert self.node.port is not None
+        try:
+            address = socket.getaddrinfo(
+                self.node.host,
+                self.node.port,
+                family=socket.AF_INET,
+                type=socket.SOCK_DGRAM,
+            )[0][4]
+        except OSError as error:
+            self.resolved_targets.put((None, str(error)))
+            return
+        host, port = address[0], address[1]
+        assert isinstance(host, str)
+        assert isinstance(port, int)
+        self.resolved_targets.put(((host, port), None))
+
+    def _receive_resolved_target(self, now: float) -> None:
+        try:
+            target, error = self.resolved_targets.get_nowait()
+        except queue.Empty:
+            return
+        if error is not None:
+            self._fail('resolve', error)
+            return
+        assert target is not None
+        self.target = target
+        self._start_outbound(now)
+
+    def _start_outbound(self, now: float) -> None:
+        for command in self.node.commands:
+            if command.on_start:
+                self._send(command, 'command')
+        self.next_polls = [now for _ in self.node.polls]
+        self.next_subscriptions = [now for _ in self.node.subscriptions]
 
     def _write_json(self, record: dict[str, object]) -> None:
         if self.card_replace_paused:

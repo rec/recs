@@ -148,8 +148,8 @@ leaves truthful final-output state.
 
 ## Removable Media And Source Faults
 
-These checks also appear in `possible-issues.md`, which remains unchanged while
-that analysis is in active use. Use only expendable USB media.
+These checks cover the remaining hardware validation in `possible-issues.md`.
+Use only expendable USB media.
 
 1. Start a multichannel X18 recording and confirm files and the session record
    are advancing.
@@ -172,7 +172,7 @@ writes to an unavailable volume.
 
 ## Network Isolation
 
-This check also exercises a risk retained in `possible-issues.md`.
+This check validates that the OSC network isolation is effective in production.
 
 1. During a long recording, disable Wi-Fi and Ethernet, break DNS, and stop any
    remote streaming or update service. Confirm local audio, MIDI, OSC, status,
