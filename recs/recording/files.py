@@ -1,4 +1,4 @@
-"""Validate a candidate recording without changing the production session reader."""
+"""Verify sealed recording assets, audio frames, and event counts."""
 
 import base64
 import hashlib

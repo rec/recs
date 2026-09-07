@@ -2,8 +2,9 @@
 
 Recs continuously records audio, MIDI, OSC, and key events into timestamped
 sessions. Audio can be recorded continuously or split around quiet passages.
-Every session has one `session-record.jsonl` that indexes its media files and
-records source, configuration, disk, and control events.
+Each completed session has a `recording.toml` indexing its media and native
+timelines. Its `session-record.jsonl` preserves capture lifecycle, source,
+configuration, disk, and control events.
 
 The recorder is designed to run unattended. It discovers selected audio and
 MIDI devices after startup, resumes when devices return, monitors free space,
@@ -40,6 +41,7 @@ audio between files. A run creates a timestamped session directory:
 
 ```text
 2026-09-07 20-15-15/
+  recording.toml
   session-record.jsonl
   audio/
     1-2 + 20260907-201515.flac
@@ -136,15 +138,19 @@ recorder:
 ```console
 recs sessions /path/to/recordings
 recs session show /path/to/session
-recs record check /path/to/session/session-record.jsonl
+recs record check /path/to/session/recording.toml
 recs explain /path/to/session/session-record.jsonl
-recs session export /path/to/session/session-record.jsonl /path/to/export
+recs session export /path/to/session/recording.toml /path/to/export
 ```
 
 `recs edit` reads TOML edit definitions or installed edit commands and writes a
 new session directory containing generated media, the resolved `edit.toml`, and
-a new session record. Each installed edit command provides Tyro-generated
-`--help`.
+a new `recording.toml` and capture journal. Each installed edit command provides
+Tyro-generated `--help`.
+
+Older sessions require explicit conversion with `recs session migrate` before
+editing or export. See [Recording and Sequence Documents](doc/recording-format.md)
+for conversion, verification, and historical timing limitations.
 
 Before opening a new record, Recs scans the configured output root for
 unfinished sessions. Each one receives a `recs-recovery-report.toml` beside its
@@ -159,6 +165,8 @@ of Recsam instruments is not implemented yet.
 - [Glossary](doc/glossary.md)
 - [Runtime Architecture](doc/runtime-architecture.md)
 - [Session Record Format](doc/session-record-format.md)
+- [Recording and Sequence Documents](doc/recording-format.md)
+- [Audio Arrangement Documents](doc/arrangement-format.md)
 - [Recs Protocol](doc/recs_protocol.md)
 - [Configuration Units](doc/configuration-units.md)
 - [Recsam Instrument Format](doc/sample-format.md)

@@ -1,21 +1,23 @@
 # How to build the common model
 
-Part of the [master proposal](master.md). The user subsequently authorized the
-preparation work up to, but excluding, switching production session readers.
+Part of the [master proposal](master.md). After the preparation checkpoint,
+the user authorized continuing with the session-reader cutover.
 Additional work beyond the prompt: None.
 
 ## Implementation status
 
-The preparation is implemented in Recs. The supported subset has pure common
-models, exact rational physical timebases, sealed assets, common event envelopes,
+The preparation and session-reader cutover are implemented in Recs. The supported
+subset has pure common models, exact rational physical timebases, sealed assets, common event envelopes,
 structured source and parameter references, and typed audio ports. Audio editing
 now uses the common arrangement document, with file destinations separate from
 public outputs. Existing rendered-audio regression behavior is retained.
 
 Recording and sequence documents have a common parser, TOML serializer, and
 generated JSON Schema through `document_schema()`. The explicit
-`recs session migrate` converter prepares version 3 sessions independently of
-production readers. See the [implemented recording format](../../doc/recording-format.md)
+`recs session migrate` converter prepares historical version 3 sessions. New
+captures and successful audio edits finalize `recording.toml`; browsing,
+checking, export, and session-source resolution consume it. See the
+[implemented recording format](../../doc/recording-format.md)
 for complete examples, defaults, verification, and conversion instructions.
 
 The code commits, each tested and pushed, are:
@@ -28,6 +30,8 @@ The code commits, each tested and pushed, are:
 | `ce79588` | Separate arrangement audio ports from file destinations |
 | `56cf634` | Add recording and sequence document profiles |
 | `67ea823` | Add verified session migration before reader cutover |
+| `805fe33` | Save both production conversions and the preparation checkpoint |
+| `26f78a5` | Preserve exact audio spans through capture and silence trimming |
 
 Both user-selected production sessions have new metadata and byte-identical
 journal snapshots. All referenced media hashes were checked again after writing;
@@ -51,22 +55,42 @@ The original media remains local operational data. The metadata and journal
 snapshots are checked in as migration evidence; checking out this repository
 alone does not download the production audio.
 
-Verification at this stopping point: 914 tests pass, plus Ruff, formatting,
-type checking, pyupgrade, and diff checks. Both saved production candidates
-also passed a second independent payload/hash verification. Hardware capture
-and live playback were not run.
+The preparation checkpoint passed 914 tests and a second independent verification
+of both production payload/hash sets. The cutover adds coverage for reading
+silence-trimmed spans, moving a two-volume export away from its original files,
+asset integrity failures, and failed finalization recovery. Hardware capture
+and live playback have not been run.
 
-### Next boundary: session-reader cutover
+Cutover verification: 914 tests pass, plus Ruff, formatting, type checking,
+pyupgrade, and diff checks. Both production recordings were read through the
+new browser and verified again, decoding all audio and checking every asset's
+hash and byte length. Both original journals still match their preserved
+snapshots. The editor's rejection of an unresolved production stream was also
+checked without rendering or changing production media.
 
-Production session writing, browsing, export, and the editor's session source
-resolver still use version 3. No reader automatically selects `recording.toml`.
-The remaining stage 2 work below must establish precise fragment lifecycle
-records, native MIDI capture timing, continuation handling, and common-document
-export, then switch those consumers coherently. A renderer must reject streams
-with unresolved placement until an explicit placement decision has been made;
-historical audio cannot acquire missing timing evidence through conversion.
+### Current boundary: common session readers and export
 
-Arrangements currently retain file paths, legacy session selectors, and internal
+The version 3 append-only journal remains capture evidence. Finalization builds
+typed streams and sealed assets after writers close. Exact audio span offsets
+survive buffering and silence trimming, so new captures do not repeat the
+historical interior-gap ambiguity. Session readers require `recording.toml`;
+there is no automatic old-format fallback. The renderer rejects selected
+streams with unresolved placement. Historical audio cannot acquire missing
+timing evidence through conversion.
+
+Common continuation links preserve native positions across volumes. Export
+copies their complete asset sets, rewrites common-document links, and verifies
+hashes, retaining original journal bytes. Recovery reports missing finalized
+documents even when the capture journal already has a footer. Diagnostics can
+still inspect the operational journal directly with `recs explain`.
+
+Stage 2 is not yet complete: native MIDI timing before SMF quantization, common
+native OSC capture events, explicit clock observations, and a fully typed
+capture journal remain. Existing MIDI/OSC payloads retain their original timing
+representations. Current gap reasons remain `unknown` when the evidence does
+not distinguish silence suppression from other omissions.
+
+Arrangements currently retain file paths, structured source/track selectors, and internal
 materialized sources at their preparation boundary. General document dependency
 packaging, nested reusable mixes, musical beat clocks, drift fitting, instruments,
 DSP graphs, and the sibling application cutovers remain later roadmap work.
@@ -162,6 +186,10 @@ mismatches fail clearly. Test exact 44.1/48 kHz time conversion separately from
 actual resampling. Do not claim universal media support at this stage.
 
 ### 2. Adopt recording descriptors and common events
+
+Partially implemented: common recording readers, finalization, exact audio
+spans, continuation handling, and portable export are in place. The remaining
+native event and clock work below is required before this whole stage passes.
 
 Refactor the session journal writer/readers and export path together. Retain
 file lifecycle and diagnostic truth while adding typed streams, native timing,

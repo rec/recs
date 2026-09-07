@@ -21,7 +21,7 @@ files:
   format: wav
   frame_count: 48000
   media_type: audio
-  path: files/<session>/audio/mono-1.wav
+  path: audio/mono-1.wav
   quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/mono.wav
@@ -38,7 +38,7 @@ files:
   format: wav
   frame_count: 48000
   media_type: audio
-  path: files/<session>/audio/stereo-1.wav
+  path: audio/stereo-1.wav
   quantity_count: 48000
   sample_rate: 48000
   source: test/testdata/file_inputs/stereo.wav

@@ -9,6 +9,7 @@ from recs.edit import autocalibrate
 from recs.edit.cli import main
 from recs.edit.composition import execute_composition, parse_composition
 from recs.edit.record import AudioFragment, ResolvedSource
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 SAMPLE_RATE = 48_000
@@ -124,7 +125,7 @@ def test_calibration_rejects_tracks_without_sustained_quiet() -> None:
 
 def test_autocalibrate_toml_round_trips() -> None:
     value = autocalibrate.AutocalibrateEdit(
-        record=Path('../session-record.jsonl'),
+        record=Path('../recording.toml'),
         channels=['device:voice'],
         sample_rate=SAMPLE_RATE,
         thresholds=[
@@ -152,7 +153,7 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
     record_path, audio_path = _record(tmp_path, audio)
     original = audio_path.read_bytes()
     edit = autocalibrate.AutocalibrateEdit(
-        record=Path('session-record.jsonl'),
+        record=Path('recording.toml'),
         channels=['device:voice'],
         silence=autocalibrate.SilenceSettings(
             quiet_before_frames=0,
@@ -188,7 +189,7 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
     assert rate == second_rate == SAMPLE_RATE
     assert audio_path.read_bytes() == original
 
-    result = session_record.read(result_path)
+    result = session_record.read(result_path.with_name('session-record.jsonl'))
     finished = [f for f in result.files if f.type == 'file_finished']
     assert [(f.frame_count, f.quantity_count) for f in finished] == [
         (SAMPLE_RATE // 2, SAMPLE_RATE // 2),
@@ -280,8 +281,8 @@ def test_composition_executes_autocalibration_child(
         destination,
     )
 
-    assert result_path == destination / 'session-record.jsonl'
-    result = session_record.read(result_path)
+    assert result_path == destination / 'recording.toml'
+    result = session_record.read(result_path.with_name('session-record.jsonl'))
     assert [f.track_name for f in result.files if f.type == 'file_finished'] == [
         'device-voice'
     ]
@@ -323,7 +324,7 @@ def test_composition_passes_autocalibration_arrays_to_later_edit(
         dtype='float32',
         always_2d=True,
     )
-    assert result_path == destination / 'session-record.jsonl'
+    assert result_path == destination / 'recording.toml'
     assert sample_rate == SAMPLE_RATE
     assert len(rendered) == SAMPLE_RATE * 4
     np.testing.assert_array_equal(rendered[:, 0], source)
@@ -359,9 +360,11 @@ def _record(directory: Path, audio: np.ndarray) -> tuple[Path, Path]:
     source_directory.mkdir()
     audio_path = source_directory / 'voice.wav'
     soundfile.write(audio_path, audio, SAMPLE_RATE, subtype='FLOAT')
-    record_path = source_directory / 'session-record.jsonl'
+    record_path = source_directory / 'recording.toml'
     writer = session_record.SessionRecordWriter(
-        record_path, started_at='start', session_id='input'
+        (record_path).with_name('session-record.jsonl'),
+        started_at='start',
+        session_id='input',
     )
     values = {
         'media_type': 'audio',
@@ -395,6 +398,7 @@ def _record(directory: Path, audio: np.ndarray) -> tuple[Path, Path]:
         )
     )
     writer.close()
+    finalize_recording(writer.path)
     return record_path, audio_path
 
 
@@ -410,7 +414,7 @@ def _source(directory: Path, name: str, audio: np.ndarray) -> ResolvedSource:
     soundfile.write(path, audio, SAMPLE_RATE, subtype='FLOAT')
     return ResolvedSource(
         id=name.removesuffix('.wav'),
-        record=directory / 'session-record.jsonl',
+        record=directory / 'recording.toml',
         file=None,
         session_id='input',
         selector=f'device:{name}',

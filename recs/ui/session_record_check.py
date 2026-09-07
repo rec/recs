@@ -1,176 +1,45 @@
-import argparse
 import sys
 from pathlib import Path
+from typing import Annotated
 
-from . import session_record
+import tyro
+from pydantic import BaseModel
+from soundfile import SoundFileError
+
+from ..base.errors import RecsError
+from ..recording.files import verify_recording
+from ..recording.read import read_recording_chain
+
+
+class CheckCli(BaseModel, frozen=True):
+    path: Annotated[Path, tyro.conf.Positional]
 
 
 def main(argv: list[str]) -> int:
-    args = _parser().parse_args(argv)
-    errors = check(args.path)
+    if not argv or argv[0] != 'check':
+        sys.exit('Usage: recs record check RECORDING.toml')
+    config = tyro.cli(CheckCli, args=argv[1:], prog='recs record check')
+    errors = check(config.path)
     for error in errors:
         print(error, file=sys.stderr)
     return int(bool(errors))
 
 
 def check(path: Path) -> list[str]:
+    errors: list[str] = []
     try:
-        record = session_record.read(path)
-    except OSError as e:
-        return [f'{path}: {e}']
-
-    errors = list(record.errors)
-    if not record.started_at:
-        errors.append(f'{path}: missing header')
-    if record.duration_seconds is None:
-        errors.append(f'{path}: missing footer')
-    elif record.duration_seconds < 0:
-        errors.append(f'{path}: duration must be non-negative')
-    started = _file_paths(
-        path, [f.path for f in record.files if f.type == 'file_started']
-    )
-    finished = _file_paths(
-        path, [f.path for f in record.files if f.type == 'file_finished']
-    )
-    for file in sorted(started - finished):
-        errors.append(f'{path}: unfinished file {file.as_posix()}')
-    started_records = {f.path: f for f in record.files if f.type == 'file_started'}
-    for file in record.files:
-        if not file.path:
-            errors.append(f'{path}: file path must not be empty')
-            continue
-        if Path(file.path).is_absolute():
-            errors.append(f'{path}: file path must be relative: {file.path}')
-            continue
-        file_path = _file_path(path, file.path)
-        if not file_path.resolve().is_relative_to(path.parent.resolve()):
-            errors.append(f'{path}: file path escapes session: {file.path}')
-            continue
-        if not file_path.exists():
-            errors.append(f'{path}: missing file {file.path}')
-            continue
-        errors.extend(_file_size_errors(path, file_path, file, started_records))
-        errors.extend(_midi_file_errors(path, file_path, file))
-    errors.extend(_frame_errors(path, record.files))
-    errors.extend(_continuation_errors(path, record))
+        for record_path, document in read_recording_chain(path):
+            result = verify_recording(document, record_path.parent)
+            if document.body.state != 'sealed':
+                errors.append(
+                    f'{record_path}: recording is open; '
+                    f'{len(document.body.unfinished_files)} unfinished files'
+                )
+            if result.unresolved_audio_files:
+                errors.append(
+                    f'{record_path}: {result.unresolved_audio_files} audio files '
+                    'have unresolved timeline placement'
+                )
+    except (OSError, RecsError, ValueError, EOFError, SoundFileError) as error:
+        errors.append(f'{path}: {type(error).__name__}: {error}')
     return errors
-
-
-def _file_size_errors(
-    record_path: Path,
-    file_path: Path,
-    file: session_record.FileRecord,
-    started: dict[str, session_record.FileRecord],
-) -> list[str]:
-    if file.type != 'file_finished' or file.frame_count is None:
-        return []
-    if file.channels is None or file.bit_depth is None:
-        return []
-    if (start := started.get(file.path)) is None or start.frame_count is None:
-        return []
-    frames = file.frame_count - start.frame_count
-    if frames < 0:
-        return []
-    expected_bytes = frames * file.channels * file.bit_depth // 8
-    if file_path.stat().st_size < expected_bytes:
-        return [
-            f'{record_path}: {file.path} is smaller than '
-            f'{frames} frames at {file.channels} channels/{file.bit_depth} bits'
-        ]
-    return []
-
-
-def _frame_errors(
-    record_path: Path, files: list[session_record.FileRecord]
-) -> list[str]:
-    errors: list[str] = []
-    started = {f.path: f for f in files if f.type == 'file_started'}
-    last_frame: dict[str, int] = {}
-    for file in files:
-        if file.frame_count is None:
-            continue
-        if (
-            file.type == 'file_finished'
-            and (start := started.get(file.path)) is not None
-            and start.frame_count is not None
-            and file.frame_count < start.frame_count
-        ):
-            errors.append(f'{record_path}: {file.path} finishes before it starts')
-            continue
-        previous = last_frame.get(file.stream_id)
-        if previous is not None and file.frame_count < previous:
-            errors.append(
-                f'{record_path}: frame count moved backwards for {file.stream_id}'
-            )
-        last_frame[file.stream_id] = file.frame_count
-    return errors
-
-
-def _midi_file_errors(
-    record_path: Path, file_path: Path, file: session_record.FileRecord
-) -> list[str]:
-    if file.type != 'file_finished':
-        return []
-    if file.media_type != 'midi' or not file.quantity_count:
-        return []
-    if file_path.stat().st_size:
-        return []
-    return [f'{record_path}: {file.path} has MIDI messages but is empty']
-
-
-def _continuation_errors(
-    record_path: Path, record: session_record.SessionRecord
-) -> list[str]:
-    errors: list[str] = []
-    if record.continued_from:
-        if Path(record.continued_from).is_absolute():
-            errors.append(f'{record_path}: continued_from must be relative')
-        else:
-            source = _file_path(record_path, record.continued_from)
-            if not source.exists():
-                errors.append(f'{record_path}: continued_from record is missing')
-    for event in record.events:
-        if (
-            event.type
-            not in {
-                'disk_switch_continued_at',
-                'session_continued_at',
-            }
-            or event.continued_at is None
-        ):
-            continue
-        if Path(event.continued_at).is_absolute():
-            errors.append(f'{record_path}: continued record path must be relative')
-            continue
-        continued = _file_path(record_path, event.continued_at)
-        if not continued.exists():
-            errors.append(f'{record_path}: continued record is missing')
-            continue
-        try:
-            next_record = session_record.read(continued)
-        except OSError as e:
-            errors.append(f'{record_path}: continued record cannot be read: {e}')
-            continue
-        if (
-            next_record.continued_from is None
-            or _file_path(continued, next_record.continued_from).resolve()
-            != record_path.resolve()
-        ):
-            errors.append(f'{continued}: continued_from does not point back')
-    return errors
-
-
-def _file_paths(record_path: Path, paths: list[str]) -> set[Path]:
-    return {_file_path(record_path, p) for p in paths}
-
-
-def _file_path(record_path: Path, path: str) -> Path:
-    return record_path.parent / Path(path)
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog='recs record check')
-    subparsers = parser.add_subparsers(dest='command', required=True)
-    check_parser = subparsers.add_parser('check')
-    check_parser.add_argument('path', type=Path)
-    return parser

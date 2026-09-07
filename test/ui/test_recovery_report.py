@@ -3,6 +3,7 @@ from pathlib import Path
 import tomlkit
 from pytest import MonkeyPatch
 
+from recs.recording.finalize import finalize_recording
 from recs.ui import recovery_report
 
 
@@ -83,6 +84,7 @@ def test_skips_finished_record(monkeypatch: MonkeyPatch, tmp_path: Path) -> None
         '{"type":"header","version":3,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
+    finalize_recording(record)
     messages: list[str] = []
     monkeypatch.setattr(
         recovery_report.LOGGER,
@@ -106,3 +108,17 @@ def test_ignores_osc_data_file_named_record(tmp_path: Path) -> None:
 
     assert recovery_report.report_unfinished_sessions(tmp_path) == []
     assert not (directory / 'recs-recovery-report.toml').exists()
+
+
+def test_reports_closed_journal_without_finalized_document(tmp_path: Path) -> None:
+    directory = tmp_path / 'session'
+    directory.mkdir()
+    (directory / 'session-record.jsonl').write_text(
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+    )
+    reports = recovery_report.report_unfinished_sessions(tmp_path)
+    assert len(reports) == 1
+    report = tomlkit.parse(reports[0].read_text())
+    assert 'Cannot read recording' in str(report['finalization_error'])
+    assert 'recording.toml' in str(report['finalization_error'])

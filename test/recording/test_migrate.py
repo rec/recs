@@ -14,7 +14,8 @@ from recs.model import recording
 from recs.model.codec import parse_document
 from recs.model.recording import AudioStream, RecordingDocument
 from recs.recording.files import sealed_asset, verify_recording
-from recs.recording.migrate import migrate_session, prepare_migration
+from recs.recording.finalize import prepare_recording
+from recs.recording.migrate import migrate_session
 from recs.ui import session_record
 
 
@@ -122,7 +123,7 @@ def test_migration_preserves_payloads_and_native_gap_positions(
 
 
 def test_changed_media_fails_verification(session: Path) -> None:
-    document, _ = prepare_migration(session / 'session-record.jsonl')
+    document, _ = prepare_recording(session / 'session-record.jsonl')
     with (session / 'audio.wav').open('ab') as output:
         output.write(b'changed')
     with pytest.raises(RecsError, match='Asset bytes disagree'):
@@ -165,7 +166,7 @@ def test_explicit_path_base_handles_historical_session_prefix(session: Path) -> 
     path.write_text(
         ''.join(e.model_dump_json(exclude_none=True) + '\n' for e in entries)
     )
-    document, _ = prepare_migration(path, session.parent)
+    document, _ = prepare_recording(path, session.parent)
     audio = document.body.streams[0]
     assert isinstance(audio, AudioStream)
     assert audio.fragments[0].start == 48000
@@ -190,7 +191,7 @@ def test_unfinished_files_and_torn_tail_remain_visibly_open(session: Path) -> No
     path.write_text(
         ''.join(e.model_dump_json(exclude_none=True) + '\n' for e in entries)
     )
-    document, _ = prepare_migration(path)
+    document, _ = prepare_recording(path)
     assert document.body.state == 'open'
     assert document.body.unfinished_files[0].journal_path == 'incomplete.wav'
     with path.open('a') as output:
@@ -224,7 +225,7 @@ def test_symlink_outside_session_is_rejected(session: Path) -> None:
 
 
 def test_native_event_order_is_checked_across_fragments(session: Path) -> None:
-    document, _ = prepare_migration(session / 'session-record.jsonl')
+    document, _ = prepare_recording(session / 'session-record.jsonl')
     for index in range(2):
         (session / f'events-{index}.jsonl').write_text(
             json.dumps(

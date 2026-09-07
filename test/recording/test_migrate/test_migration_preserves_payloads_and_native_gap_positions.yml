@@ -26,6 +26,8 @@ assets:
   sha256: d001b881e8d4292404c4532e527a9b38b93d901051274494e570b0f60c849153
 body:
   clock_observations: []
+  continued_at: []
+  continued_from: null
   ended_at: '2026-09-04T12:00:03Z'
   journal: original-journal
   observed_duration_seconds: 3.0
@@ -46,6 +48,7 @@ body:
     id: stream-c160dbc57a502291
     kind: audio
     source_id: audio:desk
+    source_name: null
     stream:
       channels:
       - channel-0
@@ -53,6 +56,7 @@ body:
       quantity: audio_amplitude
       timebase: clock-c160dbc57a502291
       unit: full_scale
+    track_name: null
     unmapped_fragments: []
   - event_schema: midi
     fragments:

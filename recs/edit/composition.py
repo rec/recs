@@ -23,7 +23,7 @@ from recs.edit.render import Renderer
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
 from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from recs.model.time import Rate, Timebase
-from recs.ui import session_record
+from recs.recording.read import read_recording_chain
 
 
 class CompositionStep(EditOptions, frozen=True):
@@ -379,7 +379,7 @@ def composition_summary(
         lines.append(f'   Selectors: {selectors}')
         lines.append(f'   Materialized audio: {size} bytes')
     lines.append(f'Estimated peak materialized audio: {prepared.peak_memory} bytes')
-    lines.append(f'Result: {destination / "session-record.jsonl"}')
+    lines.append(f'Result: {destination / "recording.toml"}')
     return '\n'.join(lines) + '\n'
 
 
@@ -534,9 +534,5 @@ def _validate_record(path: Path) -> Path:
     path = path.resolve()
     if not path.is_file():
         raise RecsError(f'Session record does not exist: {path}')
-    entries, errors = session_record.read_entries(path)
-    if errors:
-        raise RecsError('; '.join(errors))
-    if not entries or not isinstance(entries[0], session_record.SessionHeader):
-        raise RecsError(f'Session record has no initial header: {path}')
+    read_recording_chain(path)
     return path
