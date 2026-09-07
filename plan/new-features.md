@@ -6,24 +6,7 @@ This is the ranked product backlog for the five most valuable unfinished Recs
 features. Completed work and ideas superseded by Showco or existing Recs tools
 have been removed.
 
-## 1. Daemon Status Watch
-
-Add an event-driven terminal client for a running daemon:
-
-```console
-recs watch
-recs watch --json
-```
-
-It should expose live recording rows, warnings, disk countdown, source
-transitions, buffer pressure, dropped frames, and card-replacement state. It
-must subscribe to public events rather than poll the recorder and must not start
-another recording process.
-
-This provides a lightweight diagnostic path when Showco is unavailable and is
-especially useful over SSH.
-
-## 2. SFZ Export
+## 1. SFZ Export
 
 Implement deterministic best-effort serialization from recsam to SFZ, with
 complete diagnostics for fields that SFZ cannot represent. A completely
@@ -34,7 +17,7 @@ The detailed design and acceptance criteria are in [SFZ Export](sfz-write.md).
 This closes the interoperability loop for existing sample libraries and makes
 recsam safer to adopt as an editable intermediate format.
 
-## 3. Offline Recsam Playback
+## 2. Offline Recsam Playback
 
 Implement the recsam playback engine first as deterministic offline rendering
 from performance events into a new Recs session. Establish slot selection,

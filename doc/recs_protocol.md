@@ -578,6 +578,18 @@ The callback runs on the event client's background reader thread. Keep the
 `EventClient` alive for as long as events are needed and call `events.close()`
 to disconnect.
 
+The bundled terminal client performs this subscription and displays the live
+rows, warnings, buffer pressure, dropped frames, card-replacement state, and an
+estimated disk-space countdown:
+
+```console
+recs watch
+recs watch --json
+```
+
+The JSON form writes the initial `status_snapshot` followed by each public event
+as one JSON object per line. Neither form starts a recorder or polls the daemon.
+
 Recs publishes these events:
 
 | Event | Data |
