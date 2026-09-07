@@ -39,12 +39,6 @@ status path and service response.
 A preflight command should check service state, writable output disk, configured
 devices, settings validity, and expected singleton ownership before a show.
 
-### Error floods can hide first cause
-
-Malformed control commands, repeated device failures, disk warnings, or protocol
-errors can flood status and records. The system should rate-limit identical
-errors while preserving first timestamp, most recent timestamp, and count.
-
 ### Recs must stay local when networks fail
 
 Recs itself uses local sockets, but Showco and other suite programs may wait on
