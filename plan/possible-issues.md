@@ -46,12 +46,6 @@ network actions or status checks. Recording must continue when Wi-Fi, Ethernet,
 DNS, remote update, or streaming fails. Local status freshness should be
 reported separately from failed network operations.
 
-### Key recording has privacy and UX implications
-
-`record_key_all_apps` can record key activity outside the recorder UI. That may
-be useful for marking recordings, but it is a surprising capability and may
-conflict with user expectations in daemon or shared-machine use.
-
 ### Dry-run, calibration, and silence-preview share recording paths
 
 `ChannelWriter` treats dry run, calibration, and silence preview as
