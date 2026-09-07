@@ -16,8 +16,8 @@ class RecordingSession:
         self.record_writer: session_record.SessionRecordWriter | None = None
         self.record_errors: list[str] = []
 
-    def start(self, path: Path, *, dry_run: bool, silence_preview: bool) -> None:
-        if dry_run or silence_preview:
+    def start(self, path: Path, *, enabled: bool) -> None:
+        if not enabled:
             return
         self.record_writer = session_record.SessionRecordWriter(
             path,

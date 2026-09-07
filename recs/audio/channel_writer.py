@@ -68,9 +68,7 @@ class ChannelWriter(Runnable):
         super().__init__()
 
         self.cfg = cfg
-        self.do_not_record = (
-            cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
-        )
+        self.write_audio = cfg.general.writes_files
         self.metadata = cfg.metadata_dict
         self.session_directory = session_directory
         self.output_path_pattern = _output_path_pattern(cfg, session_directory)
@@ -122,9 +120,7 @@ class ChannelWriter(Runnable):
 
     def set_cfg(self, cfg: Cfg, times: time_settings.TimeSettings[int]) -> None:
         self.cfg = cfg
-        self.do_not_record = (
-            cfg.general.dry_run or cfg.general.calibrate or cfg.general.silence_preview
-        )
+        self.write_audio = cfg.general.writes_files
         self.metadata = cfg.metadata_dict
         self.output_path_pattern = _output_path_pattern(cfg, self.session_directory)
         self.times = times
@@ -240,7 +236,7 @@ class ChannelWriter(Runnable):
             self.timeline_frame = timeline_frame
         self._volume.accumulate(block)
 
-        if not self.do_not_record and (self._sfs or not self.stopped):
+        if self.write_audio and (self._sfs or not self.stopped):
             expected_dt = len(block) / self.track.source.samplerate
 
             if (

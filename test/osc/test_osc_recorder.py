@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from recs.cfg.cfg import Cfg
 from recs.osc import codec, recorder
 from recs.osc.recorder import OscRecorder
@@ -32,6 +34,35 @@ class FakeSocket:
 
     def setblocking(self, value: bool) -> None:
         pass
+
+
+def test_osc_recorder_does_not_open_outputs_in_preview_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        """[[nodes]]
+name = "telemetry"
+bind_port = 7000
+"""
+    )
+    sockets: list[FakeSocket] = []
+    monkeypatch.setattr(
+        recorder.socket, 'socket', lambda *args: sockets.append(FakeSocket())
+    )
+    output_directory = tmp_path / 'session/osc'
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config, silence_preview=True),
+        output_directory,
+        lambda warning: None,
+        lambda record: None,
+    )
+
+    osc_recorder.start()
+    osc_recorder.poll()
+
+    assert sockets == []
+    assert not output_directory.exists()
 
 
 def test_subscription_records_inbound_packets_not_successful_renewals(

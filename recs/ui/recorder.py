@@ -633,20 +633,19 @@ class Recorder(Runnables):
         )
 
     def _start_record(self) -> None:
-        if not self.cfg.general.dry_run and not self.cfg.general.silence_preview:
+        if self.cfg.general.writes_files:
             recovery_report.report_unfinished_sessions(
                 recording_paths.recovery_root(self.cfg.directory.output_directory)
             )
         self.session.start(
             self.session_directory / 'session-record.jsonl',
-            dry_run=self.cfg.general.dry_run,
-            silence_preview=self.cfg.general.silence_preview,
+            enabled=self.cfg.general.writes_files,
         )
-        if self.cfg.midi.record_midi:
+        if self.cfg.general.writes_files and self.cfg.midi.record_midi:
             self._midi.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
             )
-        if self.cfg.osc.osc_nodes.name:
+        if self.cfg.general.writes_files and self.cfg.osc.osc_nodes.name:
             self._osc.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'osc')
             )

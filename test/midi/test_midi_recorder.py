@@ -119,6 +119,25 @@ def test_midi_recorder_ignores_missing_backend_without_selected_input(
     assert records == []
 
 
+def test_midi_recorder_does_not_discover_inputs_in_calibration_mode(
+    tmp_path: Path,
+) -> None:
+    input_queries: list[bool] = []
+    recorder = MidiRecorder(
+        Cfg(output_directory=str(tmp_path), calibrate=True),
+        session_directory=tmp_path,
+        warning=lambda warning: None,
+        write_entry=lambda record: None,
+        input_names=lambda: input_queries.append(True) or ['Launchkey'],
+    )
+
+    recorder.start()
+    recorder.poll()
+
+    assert input_queries == []
+    assert not tmp_path.joinpath('Launchkey.mid').exists()
+
+
 def test_midi_recorder_waits_for_selected_input(tmp_path: Path) -> None:
     records: list[Record] = []
     warnings: list[str] = []

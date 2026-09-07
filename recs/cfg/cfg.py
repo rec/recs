@@ -109,6 +109,10 @@ class General(BaseModel):
         tyro.conf.arg(help='Save mutable API settings for the next recording run'),
     ] = None
 
+    @property
+    def writes_files(self) -> bool:
+        return not (self.dry_run or self.calibrate or self.silence_preview)
+
 
 class Device(BaseModel):
     #

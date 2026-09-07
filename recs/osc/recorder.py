@@ -41,7 +41,7 @@ class OscRecorder(Runnable):
         super().__init__()
 
     def start(self) -> None:
-        if not self.cfg.osc.osc_nodes.name:
+        if not self.cfg.general.writes_files or not self.cfg.osc.osc_nodes.name:
             super().start()
             return
         try:

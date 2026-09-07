@@ -59,7 +59,7 @@ class MidiRecorder(Runnable):
         super().__init__()
 
     def start(self) -> None:
-        if not self.cfg.midi.record_midi:
+        if not self.cfg.general.writes_files or not self.cfg.midi.record_midi:
             super().start()
             return
         self._discover(self.monotonic_clock())
@@ -99,7 +99,7 @@ class MidiRecorder(Runnable):
         self.card_replace_backlog = []
 
     def poll(self) -> None:
-        if not self.cfg.midi.record_midi:
+        if not self.cfg.general.writes_files or not self.cfg.midi.record_midi:
             return
         if (now := self.monotonic_clock()) >= self.next_discovery:
             self._discover(now)
