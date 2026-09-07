@@ -60,21 +60,72 @@ existing keyboard path is less invasive than adding GPIO dependencies.
 
 ### Control API client CLI
 
-Add commands that send one RPC request to the running daemon:
+Add commands that send exactly one request to the existing public RPC endpoint:
 
 ```sh
+recs control status
+recs control disk
+recs control devices
 recs control mark "solo starts"
 recs control calibrate
-recs control set recording.longest_file_time 3600
+recs control get recording.longest_file_time
+recs control set recording.longest_file_time 1h
 recs control pause
 recs control resume
+recs control card-replace
+recs control reload-profiles
 ```
 
 Why it matters: shell scripts and other local tools should not need to construct
 JSON envelopes for common operations.
 
-Implementation notes: use the existing public RPC endpoint and protocol models.
-Do not call daemon internals directly.
+The first version should expose these one-shot commands:
+
+| CLI command | RPC command | Arguments |
+| --- | --- | --- |
+| `status` | `status_snapshot` | none |
+| `disk` | `disk_status` | none |
+| `devices` | `list_devices` | none |
+| `capabilities` | `capabilities` | none |
+| `mutable` | `mutable_attributes` | none |
+| `get ADDRESS` | `get_cfg` | dotted configuration address |
+| `set ADDRESS VALUE` | `set_cfg` | dotted address and typed value |
+| `mark LABEL` | `mark` | one marker label |
+| `pause` | `pause_recording` | none |
+| `resume` | `resume_recording` | none |
+| `calibrate` | `calibrate` | all selected online tracks |
+| `card-replace` | `card_replace` | none |
+| `reload-profiles` | `reload_profiles` | none |
+
+Use separate frozen Pydantic command classes with Tyro. Each class should map
+directly to one protocol operation and call `reccy.protocol.rpc.Client` through
+`recs.daemon.paths.external_control_endpoint()`, with role `recs-control` and a
+six-second client timeout. Do not import recorder, service-controller, or GUI
+implementation classes.
+
+`set` should parse `VALUE` as JSON when it is valid JSON, and otherwise pass it
+as a string. Thus `3600`, `true`, `null`, lists, and objects retain their JSON
+types, while authored unit values such as `1h` remain strings for normal Recs
+configuration validation. A deliberately numeric string can be supplied as a
+JSON string, including its quotes in the shell argument.
+
+Print every successful RPC result as one JSON value followed by a newline,
+including the string `"ok"`. This gives scripts one stable output contract and
+does not require separate human and JSON modes. Print connection, timeout,
+protocol, and validation errors to standard error and return status `1`; Tyro
+usage errors retain Tyro's normal status. Never modify settings or daemon files
+directly when an RPC call fails.
+
+Do not include waveform subscriptions in this command. They require the event
+endpoint and a long-lived process and belong in `recs watch`. Structured track,
+track-name, key-label, and noise-floor mutation commands can follow after their
+CLI input syntax is designed; users still have the documented Python RPC API.
+Do not add a generic raw-RPC escape hatch alongside the typed commands.
+
+Implementation should be confined to a control CLI module, its focused tests,
+and dispatch from `recs.__main__`. Tests should assert each command's exact RPC
+name and keyword arguments, JSON value parsing, JSON output, endpoint and role,
+timeout behavior, and nonzero failures. No new dependency is needed.
 
 ### Status monitors
 
