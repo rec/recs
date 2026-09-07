@@ -6,7 +6,7 @@ from reccy.configuration import units
 from reccy.configuration.tyro import unit_spec
 
 from recs.base.types import Format, Subtype
-from recs.edit.schema import NormalizeMode
+from recs.model.arrangement import NormalizeMode
 
 TIME_SPEC = unit_spec(units.Seconds, 'TIME')
 
