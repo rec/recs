@@ -32,7 +32,7 @@ def run_cli(cfg: Cfg) -> None:
                 raise RecsError('recs daemon is not running')
             gui_ipc.run_remote_gui(metadata, cfg)
         else:
-            loaded = settings.load(cfg, _cli_overrides())
+            loaded = settings.load(cfg, cli_overrides(sys.argv[1:]))
             if loaded.cfg.save_settings:
                 Recorder(loaded.cfg, loaded).run()
             else:
@@ -78,7 +78,7 @@ def _info() -> None:
     print(json.dumps(info2, indent=4))
 
 
-def _cli_overrides() -> set[str]:
+def cli_overrides(arguments: list[str]) -> set[str]:
     options = {
         '-B': 'band_mode',
         '-b': 'quiet_before_start',
@@ -90,7 +90,7 @@ def _cli_overrides() -> set[str]:
         '-z': 'noise_floor',
     }
     fields: set[str] = set()
-    for argument in sys.argv[1:]:
+    for argument in arguments:
         option = argument.split('=', 1)[0]
         if option in options:
             fields.add(options[option])

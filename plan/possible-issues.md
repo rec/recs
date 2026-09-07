@@ -30,15 +30,6 @@ same time. It also depends on platform-specific removable disk detection.
 The code has isolated unit tests, but it still needs Pi/X18/USB-media tests for
 full, unplugged, read-only, slow, and remounted disks while recording.
 
-### Singleton ownership is not yet an operator-facing preflight
-
-The control transports reject extra clients, but two daemon starts or stale
-service state can still confuse an operator if ownership is not visible in the
-status path and service response.
-
-A preflight command should check service state, writable output disk, configured
-devices, settings validity, and expected singleton ownership before a show.
-
 ### Recs must stay local when networks fail
 
 Recs itself uses local sockets, but Showco and other suite programs may wait on
@@ -46,20 +37,11 @@ network actions or status checks. Recording must continue when Wi-Fi, Ethernet,
 DNS, remote update, or streaming fails. Local status freshness should be
 reported separately from failed network operations.
 
-## Suggested remediation order
+## Remaining validation
 
-1. Add disk-stall observability: write latency, callback queue high-water marks,
-   dropped-frame trends, and emergency reporting before overflow.
-2. Runtime-test disk switching and source shutdown with real child processes,
-   final record entries, and late source updates.
-3. Replace per-record-entry `fsync` with bounded batching plus final durable
-   flush and visible record-write failures.
-4. Add external RPC request deadlines that mirror GUI control timeout behavior.
-5. Improve source child failure diagnostics: exception type, exit code, final
-   frame count, last callback timestamp, and expected versus forced stop.
-6. Add device-query backoff, latest-only queues, and stable device identity.
-7. Add startup-failure status records and a preflight command for show setup.
-8. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
+1. Exercise disk switching on the Raspberry Pi with an X18 and real USB media,
+   including full, unplugged, read-only, slow, and remounted disks.
+2. Measure CPU and memory on the Raspberry Pi target with 18-channel input,
    daemon GUI enabled, and disk-switch checks active.
 ## Additional work beyond the prompt
 
