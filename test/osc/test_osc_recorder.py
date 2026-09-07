@@ -116,7 +116,8 @@ resubscribe_period = 10
     assert first['direction'] == 'in'
     assert first['decoded'] == [{'path': '/ch/01/mix/on', 'types': 'T', 'args': [True]}]
     assert second['kind'] == 'osc'
-    assert 'source' not in second
+    assert second['endpoint'] == first['endpoint']
+    assert second['ordinal'] == first['ordinal'] + 1
     assert warnings == []
     assert [record.type for record in records] == [
         'file_started',
@@ -125,8 +126,8 @@ resubscribe_period = 10
     ]
     finished = records[-1]
     assert finished.quantity_count == 2
-    assert finished.inbound_count == 2
-    assert finished.outbound_count == 0
+    assert first['direction'] == second['direction'] == 'in'
+    assert finished.start_tick <= first['tick'] <= second['tick'] < finished.end_tick
 
 
 def test_hostname_resolution_does_not_block_recording(
@@ -219,13 +220,12 @@ period = 1
     assert warnings == ['OSC node mixer resolve failed: DNS unavailable']
 
 
-def test_jsonl_compression_can_be_disabled(tmp_path: Path, monkeypatch) -> None:
+def test_native_packets_are_independently_readable(tmp_path: Path, monkeypatch) -> None:
     config = tmp_path / 'osc.toml'
     config.write_text(
         """[[nodes]]
 name = "telemetry"
 bind_port = 7000
-jsonl_compression = false
 """
     )
     fake_socket = FakeSocket()
@@ -251,7 +251,8 @@ jsonl_compression = false
         json.loads(line)
         for line in (tmp_path / 'session/osc/telemetry.jsonl').read_text().splitlines()
     ]
-    assert all('source' in line for line in lines)
+    assert all('endpoint' in line for line in lines)
+    assert [e['ordinal'] for e in lines] == [0, 1]
 
 
 def test_osc_recorder_writes_packets_received_during_card_replacement(
@@ -262,7 +263,6 @@ def test_osc_recorder_writes_packets_received_during_card_replacement(
         """[[nodes]]
 name = "telemetry"
 bind_port = 7000
-jsonl_compression = false
 """
     )
     fake_socket = FakeSocket()

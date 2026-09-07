@@ -46,7 +46,7 @@ audio between files. A run creates a timestamped session directory:
   audio/
     1-2 + 20260907-201515.flac
   midi/
-    Launchkey-20260907-201515.mid
+    Launchkey-20260907-201515.jsonl
   osc/
     X18.jsonl
 ```
@@ -141,6 +141,7 @@ recs session show /path/to/session
 recs record check /path/to/session/recording.toml
 recs explain /path/to/session/session-record.jsonl
 recs session export /path/to/session/recording.toml /path/to/export
+recs session export-midi /path/to/session/recording.toml midi:Launchkey take.mid
 ```
 
 `recs edit` reads TOML edit definitions or installed edit commands and writes a

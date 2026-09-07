@@ -1,263 +1,169 @@
-# Session Record Format
+# Capture journal format
 
-## Purpose
-
-A Recs session journal is the append-only lifecycle history for one recording
-session. On completion, it supplies evidence for the canonical
-[`recording.toml` content index](recording-format.md). Browsing, checking,
-export, and editing use that common document; diagnostics and recovery still
-inspect the journal, including while a recording is incomplete.
-
-The record is named `session-record.jsonl`. It is stored at the root of a
-session directory beside the media directory tree:
+`session-record.jsonl` is the append-only evidence used to finalize
+[`recording.toml`](recording-format.md). Current captures use **version 4**.
+Historical version 3 journals are read only by the explicit migration code and
+by the browser when a recording references preserved version 3 evidence.
 
 ```text
-2026-09-01 20-15-15/
+session/
   session-record.jsonl
-  audio/
-    X18-1-2.flac
-  midi/
-    Launchkey-20260901-201515.mid
-  osc/
-    X18.jsonl
+  recording.toml
+  audio/take.wav
+  midi/keys-20260907-120000.jsonl
+  osc/desk.jsonl
+  key/keyboard.jsonl
 ```
 
-Audio samples, MIDI messages, and OSC packets are stored in referenced data
-files, not embedded in session-record entries. Counts and summaries of those
-quantities may appear in file entries. Key presses and releases, marks, source
-state, and other low-volume operational observations are lifecycle entries in
-the record itself.
+## Encoding and lifecycle
 
-Referenced paths are relative to the directory containing
-`session-record.jsonl`. They MAY use media subdirectories, but MUST NOT be
-absolute or escape the session directory with `..`.
-
-## Encoding
-
-The session record is UTF-8 JSON Lines. Each non-empty line is one JSON object.
-Entries are written in observation order. Readers MUST use each entry's time
-fields rather than treating line order as exact chronological order.
-
-Writers append complete lines and flush them promptly. The current reader keeps
-valid entries and reports every malformed line, identifying a malformed last
-line as `truncated final line`. The validator treats that report as an error.
-Unknown string-valued lifecycle entry types are retained as events; unknown
-fields within a known entry shape are rejected.
-
-The first entry MUST be a header. A normally completed record MUST end with a
-footer. An absent footer identifies an unfinished session and does not make
-earlier complete entries unusable.
-
-## Time
-
-Wall-clock times use RFC 3339 UTC strings ending in `Z`. Writers SHOULD retain
-the greatest precision supplied by their clock and MUST NOT write local times
-or UTC offsets. For example:
+Each nonempty UTF-8 JSONL line is one complete record. Writers flush each line
+and periodically fsync. Line order is observation order, not a cross-device
+clock mapping. The first line is a header; clean shutdown ends with a footer.
 
 ```json
-{"timestamp":"2026-09-01T18:15:15.123456789Z"}
+{"type":"header","version":4,"session_id":"take-1","started_at":"2026-09-07T12:00:00.000Z"}
 ```
 
-The header's `started_at` is the session's wall-clock origin. Lifecycle entries
-use `timestamp`; the footer uses `ended_at`.
+Header fields are `type`, `version`, and `started_at`, with optional
+`session_id`, `continued_from`, `application`, and `metadata`. A footer has
+`type = "footer"`, `ended_at`, and observed `duration_seconds`.
 
-The session record's wall-clock timestamps locate and correlate files. Exact
-sample, message, packet, or frame timing belongs in each data file. A file
-format without an intrinsic time representation MUST define one in its schema.
-Integer counters and rational rates SHOULD be used there instead of floating
-point seconds. This permits, for example, an audio sample position at 44,100
-samples per second or a MIDI tick at 960 ticks per beat without rounding it to
-nanoseconds.
+The parser retains valid lines and reports malformed ones. Finalization accepts
+one torn JSON line only at the physical end, retaining an explicitly open
+recording. Invalid complete records and corrupt interior lines fail. A missing
+footer or unfinished file also leaves the recording open. Completed files can
+still be verified and exposed; an unfinished file is evidence, not a sealed
+asset. No missing samples or packets are synthesized during recovery.
 
-When a source clock is not the system wall clock, its file entry MUST identify
-the timing source. A data format MAY include both source-clock and wall-clock
-observations so later tools can estimate drift or clock discontinuities.
+## Typed file records
 
-## Header
+`AudioFileRecord` and `EventFileRecord` replace the old optional mixture of
+audio, MIDI, and OSC metadata. Both carry `type`, `timestamp`, `stream_id`,
+`path`, and `format`, with optional human-readable `source`. Paths are relative
+to the journal directory and must remain inside it after symlink resolution.
 
-Format version 3 begins with:
+A file has one `file_started` record and one terminal record:
 
-```json
-{"type":"header","version":3,"session_id":"4b21821a-c52a-47d2-8f60-94e482db3770","started_at":"2026-09-01T18:15:15.123Z"}
+- `file_finished` records actual stored `quantity_count` after the file closes.
+- `file_discarded` records an audio file intentionally removed by the minimum
+  capture-length policy. It does not claim an asset or an interrupted file.
+
+Audio records use `media_type = "audio"` and require a `clock_id` shared by
+tracks from the same device capture. A reconnect starts a distinct clock.
+Their other fields are `frame_count`,
+`track_name`, ordered `source_channels`, `channels`, `sample_rate`, `bit_depth`,
+and finished `audio_spans`. Each span has payload `asset_start`, native `start`,
+and stored frame `count`. Payload offsets consecutively cover the file, while
+native positions can have gaps. `quantity_count` is the sum of stored frames.
+Finalization requires native boundaries and checks them against the payload.
+
+Event records use `media_type = "midi"`, `"osc"`, or `"key"`, and
+`format = "recs_events"`. They require a physical `timebase`, `start_tick`,
+and `timing_source`; finished records also supply `end_tick` and actual event
+`quantity_count`. The half-open extent bounds stored events, not a claim that
+nothing happened outside it. Empty fragments may have equal start/end ticks.
+Buffered events can predate the new file's opening, so the finished extent
+includes their original ticks rather than their later write time.
+
+Unknown media families require a typed schema before journal support is added.
+The current parser rejects an arbitrary media string and untyped field bag.
+
+## Native event payloads
+
+Every line is independently readable, with a typed `kind`, integer `tick`, and
+unique `ordinal`. Native event clocks have 1,000,000,000 ticks per second.
+Ordinals preserve order at equal ticks and continue across rotation and volumes.
+The capture clock is not reset when a new output file is opened.
+
+- MIDI stores raw `data` byte integers. The default `system` timing mode stamps
+  the host monotonic clock in the input callback, before queueing. The optional
+  `mido` mode accumulates supplied source deltas exactly, rounding the absolute
+  position once to nanoseconds. It requires a source that supplies meaningful
+  deltas; the installed RtMidi-backed Mido callback does not retain them.
+- OSC stores raw `data_b64`, `direction`, `endpoint`, observed wall `source_time`,
+  decoded messages or decode errors, and optional send `reason`. Receive ticks
+  are taken before decoding. Raw bytes remain available when decoding fails.
+  Rotation needs no previous-file compression state. Failed sends remain
+  diagnostic events rather than successful packet captures.
+- Keys store `key` and `press`/`release` action at host observation time. Their
+  labelled operational events remain in the journal for diagnostics.
+
+MIDI-file quantization happens only during explicit interchange export:
+
+```sh
+recs session export-midi session/recording.toml midi:keys take.mid
 ```
 
-Required fields:
+Export writes a type-0 SMF at 960 ticks per beat and 120 BPM. It rounds absolute
+positions before deriving deltas, avoiding accumulated per-message rounding.
+It verifies selected payloads and refuses an existing destination.
+Real-time MIDI messages, such as MIDI clock, remain in native recordings.
+SMF export reports those unsupported messages before creating a destination.
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `type` | string | Always `header` |
-| `version` | integer | Session record format version, currently `3` |
-| `started_at` | string | RFC 3339 UTC session origin |
+## Audio timelines and clocks
 
-Optional fields:
+`audio_timeline` records identify a capture stream, `clock_id`, source, track, sample rate,
+source channels, native `start`/`end`, and explicit gaps. They are written when
+a writer closes or is reconfigured. Known gap reasons distinguish
+`silence_suppressed`, `input_overflow` for missing known native ranges, and
+`short_capture` for deliberately discarded audio. Unobserved boundaries remain
+`unknown`. A PortAudio overflow with no known frame count stays diagnostic;
+its duration is not invented.
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `session_id` | string | UUID shared by disk continuations; current writers always provide it |
-| `continued_from` | string | Relative path to the preceding session record |
-| `application` | object | Writer name and version |
-| `metadata` | object | User-supplied session metadata |
+Each audio source-process instance has its own capture identity and native
+sample-frame clock, shared by its tracks. That identity survives output-volume changes. A reconnected
+source gets a new identity, because its sample counter restarts. The audio editor
+rejects selections spanning independent clocks until alignment is explicit.
+File inputs retain their sample-derived timeline without pretending that their
+file positions were physical wall-clock observations.
 
-## File Entries
+`clock_observation` records contain `timebases` and an `observation` with:
 
-Every data file has one `file_started` entry and, when it closes normally, one
-`file_finished` entry. Both identify the same `stream_id` and `path`.
+| Field | Meaning |
+| --- | --- |
+| `source` | Native timebase ID and integer tick |
+| `session` | Reference timebase ID and integer tick |
+| `timing_source` | How the relationship was observed |
+| `uncertainty_ticks` | Optional bound in reference-clock ticks; absent means unknown |
+| `segment` | Observation segment, default zero |
 
-```json
-{"type":"file_started","timestamp":"2026-09-01T18:15:15.123Z","stream_id":"audio:x18:1-2","media_type":"audio","path":"audio/X18-1-2.flac","format":"flac","source":"X18","track_name":"room","source_channels":[1,2],"channels":2,"sample_rate":48000,"bit_depth":16}
+`wall` means Unix-epoch nanoseconds. `monotonic` means the host's monotonic
+nanosecond counter. Capture brackets host wall-clock readings with monotonic
+readings and retains that measurement interval as uncertainty. MIDI observations
+relate its native tick to callback receipt. Audio file-boundary observations
+retain native frame positions and callback-derived wall time with unknown
+uncertainty. These are measured correspondences, not fitted drift curves or a
+claim of sample-perfect synchronization between devices.
+
+## Operational records and continuations
+
+`EventRecord` retains typed diagnostic fields for source discovery/failure,
+pause/resume, configuration, marks, key transitions, disk events, queue pressure,
+and continuation decisions. Unknown event names remain inspectable; unknown
+fields are rejected. `WarningRecord` has a message and optional repeat count
+and first timestamp. None of these operational summaries replaces payload data.
+
+Volume changes close current files and the current journal. The old journal
+names the next one; the new header uses `continued_from`. Ordinary disk
+continuations retain the session ID. The explicit `new_session` command creates
+a new session ID with the same reciprocal linkage. Finalization translates
+journal links to `recording.toml`; portable export rewrites those document links
+and keeps original journal bytes unchanged.
+
+## Finalization and checking
+
+Normal recording shutdown and successful edits finalize automatically. For a
+stopped, interrupted capture without a document:
+
+```sh
+recs session finalize /path/to/session
+recs record check /path/to/session/recording.toml
 ```
 
-```json
-{"type":"file_finished","timestamp":"2026-09-01T19:15:15.123Z","stream_id":"audio:x18:1-2","media_type":"audio","path":"audio/X18-1-2.flac","format":"flac","source":"X18","frame_count":172800000,"quantity_count":172800000}
-```
-
-Required fields:
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `type` | string | `file_started` or `file_finished` |
-| `timestamp` | string | Wall-clock observation time |
-| `stream_id` | string | Stable identity across files and disk switches |
-| `media_type` | string | Built-in or user-defined medium |
-| `path` | string | Data-file path relative to the session record |
-| `format` | string | File format or schema identifier |
-
-Optional fields:
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `source` | string | Human-readable source or device identity |
-| `track_name` | string | Configured or canonical logical track name |
-| `source_channels` | array of integers | Exact source channels represented, in file order |
-| `frame_count` | integer | Source timeline frame at file start or finish, when applicable |
-| `channels` | integer | Number of audio channels in the file |
-| `sample_rate` | integer | Audio sample rate in frames per second |
-| `bit_depth` | integer | Stored audio bits per sample |
-| `quantity_count` | integer | Samples, messages, packets, or frames represented |
-| `audio_spans` | array of objects | Finished audio's native `start`, payload `asset_start`, and stored frame `count` for each contiguous span |
-| `timing_source` | string | Clock used within the data file |
-| `midi_port` | string | MIDI input port name |
-| `osc_node` | string | Configured OSC node name |
-| `inbound_count` | integer | Received OSC packet count |
-| `outbound_count` | integer | Sent OSC packet count |
-| `decode_error_count` | integer | OSC packet decode-error count |
-| `metadata` | object | Media-specific declarative metadata |
-
-`quantity_count` is a summary, not embedded quantity data. Its unit is defined
-by `media_type` or by the user-defined schema.
-
-A stream split by silence, size, duration, disconnection, or disk replacement
-keeps the same `stream_id` and receives a new path. A source with several
-logical outputs uses a distinct stream ID for each output.
-
-## Built-In Media Types
-
-### Audio
-
-`media_type` is `audio`. `quantity_count` counts sample frames. Audio entries
-use `track_name` for the configured or canonical logical track and
-`source_channels` for its exact ordered hardware channels. `channels` is the
-number of channels in the file; `sample_rate` and `bit_depth` describe its PCM
-representation. Metadata MAY include speaker positions and codec settings.
-Samples remain in the audio file. Finished audio records include `audio_spans`
-to locate samples precisely after silence suppression: payload offsets cover
-the file consecutively while native positions can have gaps. `quantity_count`
-is the sum of stored span counts. Older journals computed it from native
-endpoints, which can disagree with stored frames; explicit conversion retains
-that discrepancy as unresolved placement rather than guessing silence locations.
-
-### MIDI
-
-`media_type` is `midi`. `quantity_count` counts MIDI messages. Metadata SHOULD
-include the port name and timing source. Recs writes type-0 Standard MIDI Files
-at 960 ticks per beat with an initial 120 BPM tempo event and delta-timed
-messages.
-
-### OSC
-
-`media_type` is `osc`. `quantity_count` counts packets. Current entries use the
-top-level `osc_node`, `inbound_count`, `outbound_count`, and
-`decode_error_count` fields. The OSC data file contains packet payloads,
-directions, endpoints, and packet times.
-
-## User-Defined Media Types
-
-The `FileRecord` model accepts any string for `media_type` and `format`, so
-applications can index additional file-backed media. A user-defined
-`media_type` should use a collision-resistant reverse-domain name, such as
-`org.example.motion-capture`. The optional `metadata` object contains
-declarative parameters needed to interpret that file.
-
-Extensions MUST keep quantity data in the referenced file. They MUST NOT add
-top-level fields beyond those accepted by `FileRecord`; additional declarative
-values belong in `metadata`. This keeps generic readers able to index, move,
-validate, and recover files without understanding every medium.
-
-## Lifecycle Entries
-
-The record may contain source discovery and failure, audio pause and resume,
-configuration changes, warnings, marks, key transitions, disk pressure, disk
-replacement, calibration, and session-continuation events. These entries
-describe the recording process; they do not carry media quantities.
-
-Every lifecycle entry has `type` and `timestamp`. `EventRecord` provides the
-optional top-level fields used by current writers, including `source`, `track`,
-`key`, `label`, `address`, `value`, frame and drop counts, queue and write
-timings, paths, disk values, continuation links, configuration revision, and
-MIDI or OSC source names. Less common structured values may use `metadata`:
-
-```json
-{"type":"source_failed","timestamp":"2026-09-01T18:20:00.000Z","source":"Launchkey","reason":"device disconnected"}
-```
-
-A warning uses its own entry shape with `type` set to `warning`, a required
-string `message`, and optional `first_timestamp` and repeat `count`.
-
-## Continuation
-
-When recording moves to another disk, Recs closes the current files and session
-record, then creates a new session directory and `session-record.jsonl`. The new
-header keeps the same `session_id` and uses `continued_from` to identify the old
-record. Before its footer, the old record contains a
-`disk_switch_continued_at` lifecycle entry naming the new record.
-
-The `new_session` protocol command uses the same reciprocal record links but
-assigns a new `session_id`. Its old record contains a `session_continued_at`
-entry naming the new record. The new record's `continued_from` points back to
-the old record.
-
-Continuation paths are relative when both records are addressable from a common
-filesystem tree. A record copied without its predecessor remains readable, but
-`recs record check` reports the missing linked record.
-
-## Footer
-
-A clean shutdown appends:
-
-```json
-{"type":"footer","ended_at":"2026-09-01T19:15:15.123Z","duration_seconds":3600.0}
-```
-
-`type` and `ended_at` are required. `duration_seconds` is an informational
-summary measured by the writer. Readers use the timestamps and data-file timing
-for precise analysis.
-
-## Validation
-
-A conforming record should satisfy the rules above. The current
-`recs record check` command checks:
-
-- a readable version-3 header;
-- a footer with a non-negative duration;
-- relative paths contained by the session directory;
-- a matching finish entry for every started file;
-- existing referenced files;
-- plausible audio file sizes when frame and PCM metadata are available;
-- non-empty MIDI files when a finished entry reports messages;
-- nondecreasing frame counts for each stream;
-- existing continuation targets and a backlink for each forward continuation event;
-- non-negative quantity counts.
-
-Pydantic validation rejects unsupported header versions and unknown fields in
-the defined entry models. `recs record check` reports a missing footer as an
-unfinished session.
+Finalization never overwrites an existing document. It hashes finished assets,
+checks audio counts/layouts and event extents/order/counts, and retains incomplete
+evidence as an open recording. `record check` additionally decodes all audio
+and checks all assets and continuation documents. Recovery scans report a missing
+or open document even when the journal has a footer. Physical capture, device
+latency, and live playout require hardware validation separately.

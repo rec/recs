@@ -13,10 +13,10 @@ from recs.base.errors import RecsError
 from recs.model import recording
 from recs.model.codec import parse_document
 from recs.model.recording import AudioStream, RecordingDocument
+from recs.recording import legacy
 from recs.recording.files import sealed_asset, verify_recording
-from recs.recording.finalize import prepare_recording
+from recs.recording.legacy_finalize import prepare_legacy_recording
 from recs.recording.migrate import migrate_session
-from recs.ui import session_record
 
 
 @pytest.fixture
@@ -56,8 +56,8 @@ def session(tmp_path: Path) -> Path:
     )
     for index, packet in enumerate(packets):
         (root / f'osc-{index}.jsonl').write_text(json.dumps(packet) + '\n')
-    records: list[session_record.Record] = [
-        session_record.SessionHeader(
+    records: list[legacy.Record] = [
+        legacy.SessionHeader(
             started_at='2026-09-04T12:00:00Z', session_id='test-session'
         )
     ]
@@ -69,7 +69,7 @@ def session(tmp_path: Path) -> Path:
     ):
         for kind in ('file_started', 'file_finished'):
             records.append(
-                session_record.FileRecord(
+                legacy.FileRecord(
                     type=kind,
                     media_type=media,
                     format=encoding,
@@ -85,9 +85,7 @@ def session(tmp_path: Path) -> Path:
                 )
             )
     records.append(
-        session_record.SessionFooter(
-            ended_at='2026-09-04T12:00:03Z', duration_seconds=3
-        )
+        legacy.SessionFooter(ended_at='2026-09-04T12:00:03Z', duration_seconds=3)
     )
     (root / 'session-record.jsonl').write_text(
         ''.join(r.model_dump_json(exclude_none=True) + '\n' for r in records)
@@ -117,13 +115,13 @@ def test_migration_preserves_payloads_and_native_gap_positions(
     assert (session / 'migration/session-record-v3.jsonl').read_bytes() == (
         session / 'session-record.jsonl'
     ).read_bytes()
-    assert session_record.read(session / 'session-record.jsonl').duration_seconds == 3
+    assert legacy.read(session / 'session-record.jsonl').duration_seconds == 3
     with pytest.raises(RecsError, match='already exists'):
         migrate_session(session)
 
 
 def test_changed_media_fails_verification(session: Path) -> None:
-    document, _ = prepare_recording(session / 'session-record.jsonl')
+    document, _ = prepare_legacy_recording(session / 'session-record.jsonl')
     with (session / 'audio.wav').open('ab') as output:
         output.write(b'changed')
     with pytest.raises(RecsError, match='Asset bytes disagree'):
@@ -156,17 +154,17 @@ def test_frame_count_mismatch_preserves_audio_without_inventing_placement(
 
 def test_explicit_path_base_handles_historical_session_prefix(session: Path) -> None:
     path = session / 'session-record.jsonl'
-    entries, _ = session_record.read_entries(path)
+    entries, _ = legacy.read_entries(path)
     entries = [
         e.model_copy(update={'path': 'session/' + e.path})
-        if isinstance(e, session_record.FileRecord)
+        if isinstance(e, legacy.FileRecord)
         else e
         for e in entries
     ]
     path.write_text(
         ''.join(e.model_dump_json(exclude_none=True) + '\n' for e in entries)
     )
-    document, _ = prepare_recording(path, session.parent)
+    document, _ = prepare_legacy_recording(path, session.parent)
     audio = document.body.streams[0]
     assert isinstance(audio, AudioStream)
     assert audio.fragments[0].start == 48000
@@ -176,10 +174,10 @@ def test_explicit_path_base_handles_historical_session_prefix(session: Path) -> 
 
 def test_unfinished_files_and_torn_tail_remain_visibly_open(session: Path) -> None:
     path = session / 'session-record.jsonl'
-    entries, _ = session_record.read_entries(path)
+    entries, _ = legacy.read_entries(path)
     entries.insert(
         -1,
-        session_record.FileRecord(
+        legacy.FileRecord(
             type='file_started',
             media_type='audio',
             format='wav',
@@ -191,7 +189,7 @@ def test_unfinished_files_and_torn_tail_remain_visibly_open(session: Path) -> No
     path.write_text(
         ''.join(e.model_dump_json(exclude_none=True) + '\n' for e in entries)
     )
-    document, _ = prepare_recording(path)
+    document, _ = prepare_legacy_recording(path)
     assert document.body.state == 'open'
     assert document.body.unfinished_files[0].journal_path == 'incomplete.wav'
     with path.open('a') as output:
@@ -225,7 +223,7 @@ def test_symlink_outside_session_is_rejected(session: Path) -> None:
 
 
 def test_native_event_order_is_checked_across_fragments(session: Path) -> None:
-    document, _ = prepare_recording(session / 'session-record.jsonl')
+    document, _ = prepare_legacy_recording(session / 'session-record.jsonl')
     for index in range(2):
         (session / f'events-{index}.jsonl').write_text(
             json.dumps(
@@ -251,7 +249,9 @@ def test_native_event_order_is_checked_across_fragments(session: Path) -> None:
         event_schema='recs_events',
         timebase=document.timebases[0].id,
         fragments=[
-            recording.EventFragment(asset=a.id, timing='recs_events', event_count=1)
+            recording.EventFragment(
+                asset=a.id, timing='recs_events', event_count=1, start=48000, end=48001
+            )
             for a in assets
         ],
     )

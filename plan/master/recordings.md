@@ -107,7 +107,7 @@ search the network for a vaguely similar replacement.
 
 ## Change from today
 
-`SessionHeader` version 3, `FileRecord`, and `EventRecord` in
+The original `SessionHeader` version 3, `FileRecord`, and `EventRecord` in
 `recs/ui/session_record.py` already capture stream identity, file lifecycle,
 quantities, and diagnostic events. Replace their optional audio/MIDI/OSC field
 mixture with typed stream and observation records. Keep the journal write and
@@ -118,3 +118,11 @@ recovery behavior where suitable. Replace `SOURCE:TRACK[:OFFSET]` parsing in
 paths, loaded buffers, and estimated clocks must not become the portable source
 definition. Extend the existing session export workflow rather than adding a
 second export path with different containment and gap semantics.
+
+## Implemented stage 2 profile
+
+Current captures use typed version 4 journal records, native MIDI/OSC/key JSONL,
+measured clock observations, and explicit audio gap evidence. See the normative
+[recording document](../../doc/recording-format.md) and
+[capture journal](../../doc/session-record-format.md) profiles. Dense arrays and
+general document dependency packaging above remain proposals for later stages.

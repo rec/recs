@@ -16,12 +16,12 @@ def test_writes_recovery_report_beside_unfinished_record(
     (audio / 'open.wav').write_bytes(b'audio')
     record = session / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"file-start",'
+        '{"type":"header","version":4,"started_at":"start"}\n'
+        '{"type":"file_started","media_type":"audio","clock_id":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"file-start",'
         '"path":"audio/open.wav","track_name":"1","source_channels":[1],'
         '"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"missing-start",'
+        '{"type":"file_started","media_type":"audio","clock_id":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"missing-start",'
         '"path":"audio/missing.wav","track_name":"1",'
         '"source_channels":[1],"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
@@ -81,7 +81,7 @@ def test_skips_finished_record(monkeypatch: MonkeyPatch, tmp_path: Path) -> None
     directory.mkdir(parents=True)
     record = directory / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"header","version":4,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
     finalize_recording(record)
@@ -114,7 +114,7 @@ def test_reports_closed_journal_without_finalized_document(tmp_path: Path) -> No
     directory = tmp_path / 'session'
     directory.mkdir()
     (directory / 'session-record.jsonl').write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"header","version":4,"started_at":"start"}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
     reports = recovery_report.report_unfinished_sessions(tmp_path)

@@ -88,7 +88,8 @@ def _record(
     )
     for kind in ('file_started', 'file_finished'):
         writer.write(
-            session_record.FileRecord(
+            session_record.AudioFileRecord(
+                clock_id='audio',
                 type=kind,
                 media_type='audio',
                 stream_id='audio:device:1',

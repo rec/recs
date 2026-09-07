@@ -93,7 +93,8 @@ def write_session(
             stream_id = f'audio:edit:{output.id}'
             frame_range = graph.output_extents[output.id]
             channels = graph.widths[output.source]
-            started = session_record.FileRecord(
+            started = session_record.AudioFileRecord(
+                clock_id=edit.timebases[0].id,
                 type='file_started',
                 media_type='audio',
                 timestamp=_timestamp(datetime.now(timezone.utc)),

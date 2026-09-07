@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from ..base.errors import RecsError
 from ..model.recording import AudioStream, EventStream
+from ..recording import legacy
 from ..recording.read import read_recording
 from . import session_record
 
@@ -81,7 +82,12 @@ def summarize(path: Path) -> SessionSummary | None:
     event_assets = {f.asset for s in events for f in s.fragments}
     media = audio_assets | event_assets
     try:
-        journal = session_record.read(path / assets[body.journal].path)
+        asset = assets[body.journal]
+        journal = (
+            legacy.read(path / asset.path)
+            if asset.encoding == 'recs-session-v3'
+            else session_record.read(path / asset.path)
+        )
     except OSError as error:
         journal = None
         warnings = [f'Cannot read capture diagnostics: {error}']
@@ -108,18 +114,23 @@ def summarize(path: Path) -> SessionSummary | None:
             {
                 s.source_id.removeprefix('midi:')
                 for s in events
-                if s.event_schema == 'midi'
+                if (s.event_kind == 'midi' or s.event_schema == 'midi')
             }
         ),
         files=len(media),
         audio_files=len(audio_assets),
         midi_files=len(
-            {f.asset for s in events if s.event_schema == 'midi' for f in s.fragments}
+            {
+                f.asset
+                for s in events
+                if (s.event_kind == 'midi' or s.event_schema == 'midi')
+                for f in s.fragments
+            }
         ),
         midi_messages=sum(
             f.event_count
             for s in events
-            if s.event_schema == 'midi'
+            if (s.event_kind == 'midi' or s.event_schema == 'midi')
             for f in s.fragments
         ),
         total_bytes=sum(assets[a].byte_length for a in media),

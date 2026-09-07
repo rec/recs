@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from ..base.errors import RecsError
 from ..model.codec import document_toml, parse_document
 from .files import Verification, verify_recording
-from .finalize import prepare_recording
+from .legacy_finalize import prepare_legacy_recording
 
 
 class MigrateSession(BaseModel, frozen=True):
@@ -44,7 +44,7 @@ def migrate_session(
     for path in (output, snapshot, report_path):
         if path.exists():
             raise RecsError(f'Migration output already exists: {path}')
-    document, notes = prepare_recording(journal, paths_relative_to)
+    document, notes = prepare_legacy_recording(journal, paths_relative_to)
     # No writes occur until every referenced finished payload has been verified.
     verification = verify_recording(document, root)
     original = journal.read_bytes()

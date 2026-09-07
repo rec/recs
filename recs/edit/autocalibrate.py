@@ -674,7 +674,8 @@ def _write_track(
         path = destination / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         now = _timestamp(datetime.now(timezone.utc))
-        started = session_record.FileRecord(
+        started = session_record.AudioFileRecord(
+            clock_id='audio',
             type='file_started',
             media_type='audio',
             timestamp=now,

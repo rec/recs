@@ -1,101 +1,108 @@
+import hashlib
 from datetime import datetime
+from fractions import Fraction
 from pathlib import Path
+from time import monotonic_ns
 from typing import Protocol
 
-from recs.base import times
 from recs.base.types import MidiTiming
 from recs.misc import legal_filename
-from recs.ui.session_record import FileRecord, timestamp_to_json
-
-TICKS_PER_BEAT = 960
-TEMPO = 500_000
-TICKS_PER_SECOND = TICKS_PER_BEAT * 1_000_000 / TEMPO
+from recs.model.events import MidiEvent
+from recs.model.time import ClockObservation, Position, Rate, Timebase
+from recs.recording.events import EventWriter
+from recs.ui.session_record import ClockRecord
 
 
 class MidiMessage(Protocol):
     time: object
 
-    def copy(self, **kwargs: object) -> object:
+    def bytes(self) -> list[int]:
         pass
 
 
-class MidiWriter:
+class MidiClock:
+    def __init__(self, timing_source: MidiTiming, start_tick: int) -> None:
+        self.timing_source = timing_source
+        self.start_tick = start_tick
+        self.elapsed = Fraction(0)
+        self.ordinal = 0
+        self.last_tick = start_tick
+        self.received_tick = start_tick
+
+    def capture(self, message: MidiMessage, received_tick: int) -> MidiEvent:
+        delta = Fraction(str(message.time or 0))
+        if delta < 0:
+            raise ValueError('MIDI source delta cannot be negative')
+        self.elapsed += delta
+        tick = (
+            self.start_tick + round(self.elapsed * 1_000_000_000)
+            if self.timing_source == MidiTiming.mido
+            else received_tick
+        )
+        if tick < self.last_tick:
+            raise ValueError('MIDI capture clock moved backwards')
+        event = MidiEvent(tick=tick, ordinal=self.ordinal, data=message.bytes())
+        self.last_tick = tick
+        self.received_tick = received_tick
+        self.ordinal += 1
+        return event
+
+
+class MidiWriter(EventWriter):
     def __init__(
         self,
         session_directory: Path,
         port_name: str,
         timing_source: MidiTiming,
         started_at: float,
+        clock: MidiClock | None = None,
     ) -> None:
-        import mido
-
-        self.session_directory = session_directory
-        self.port_name = port_name
-        self.timing_source = timing_source
-        self.started_at = started_at
-        self.message_count = 0
-        self.last_timestamp: float | None = None
-        self.last_tick = 0
-        self.path = _next_path(session_directory, port_name, started_at)
-        self.file = mido.MidiFile(type=0, ticks_per_beat=TICKS_PER_BEAT)
-        self.track = mido.MidiTrack()
-        self.file.tracks.append(self.track)
-        self.track.append(mido.MetaMessage('set_tempo', tempo=TEMPO, time=0))
-        self.track.append(mido.MetaMessage('track_name', name=port_name, time=0))
-
-    def start_entry(self) -> FileRecord:
-        return FileRecord(
-            type='file_started',
-            media_type='midi',
-            timestamp=timestamp_to_json(self.started_at),
-            stream_id=f'midi:{self.port_name}',
-            format='smf',
-            path=self.path.as_posix(),
-            source=self.port_name,
-            timing_source=str(self.timing_source),
-            midi_port=self.port_name,
+        self.clock = clock or MidiClock(timing_source, monotonic_ns())
+        super().__init__(
+            _next_path(session_directory, port_name, started_at),
+            port_name,
+            'midi',
+            Timebase(
+                id='clock-'
+                + hashlib.sha256(('midi:' + port_name).encode()).hexdigest()[:16],
+                rate=Rate(numerator=1_000_000_000),
+            ),
+            str(timing_source),
+            self.clock.last_tick,
         )
 
-    def record(self, message: MidiMessage, timestamp: float | None = None) -> None:
-        delta = self._delta_seconds(message, timestamp)
-        self.track.append(message.copy(time=round(delta * TICKS_PER_SECOND)))
-        self.message_count += 1
-
-    def finish(self) -> FileRecord:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.file.save(self.path)
-        return FileRecord(
-            type='file_finished',
-            media_type='midi',
-            timestamp=timestamp_to_json(times.timestamp()),
-            stream_id=f'midi:{self.port_name}',
-            format='smf',
-            path=self.path.as_posix(),
-            source=self.port_name,
-            quantity_count=self.message_count,
-            timing_source=str(self.timing_source),
-            midi_port=self.port_name,
+    def record(self, message: MidiMessage, received_tick: int | None = None) -> None:
+        self.write(
+            self.clock.capture(
+                message, monotonic_ns() if received_tick is None else received_tick
+            )
         )
 
-    def _delta_seconds(self, message: MidiMessage, timestamp: float | None) -> float:
-        if self.timing_source == MidiTiming.mido:
-            value = float(getattr(message, 'time', 0.0) or 0.0)
-            return max(value, 0.0)
-        now = times.timestamp() if timestamp is None else timestamp
-        if self.last_timestamp is None:
-            self.last_timestamp = now
-            return 0.0
-        delta = now - self.last_timestamp
-        self.last_timestamp = now
-        return max(delta, 0.0)
+    def clock_entry(self) -> ClockRecord:
+        return ClockRecord(
+            timebases=[
+                self.timebase,
+                Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+            ],
+            observation=ClockObservation(
+                source=Position(timebase=self.timebase.id, tick=self.clock.last_tick),
+                session=Position(timebase='monotonic', tick=self.clock.received_tick),
+                timing_source='midi_'
+                + str(self.clock.timing_source)
+                + '_observed_at_callback',
+                uncertainty_ticks=0
+                if self.clock.timing_source == MidiTiming.system
+                else None,
+            ),
+        )
 
 
 def _next_path(session_directory: Path, port_name: str, started_at: float) -> Path:
     stem = legal_filename.legal_filename(port_name)
     stamp = datetime.fromtimestamp(started_at).strftime('%Y%m%d-%H%M%S')
-    path = session_directory / f'{stem}-{stamp}.mid'
+    path = session_directory / f'{stem}-{stamp}.jsonl'
     index = 2
     while path.exists():
-        path = session_directory / f'{stem}-{stamp}-{index}.mid'
+        path = session_directory / f'{stem}-{stamp}-{index}.jsonl'
         index += 1
     return path

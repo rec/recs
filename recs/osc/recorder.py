@@ -1,22 +1,23 @@
 import base64
 import ipaddress
-import json
 import queue
 import socket
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import BinaryIO
+from typing import Literal
 
-from reccy.protocol.jsonl import Compress
+from pydantic import TypeAdapter
 from threa import Runnable
 
 from recs.base import times
 from recs.cfg.cfg import Cfg
+from recs.model.events import Endpoint, OscDecodeError, OscEvent, OscMessage
+from recs.model.time import Rate, Timebase
+from recs.recording.events import EventWriter
 from recs.ui.session_record import (
     EventRecord,
-    FileRecord,
     Record,
     timestamp_to_json,
 )
@@ -114,21 +115,18 @@ class OscNodeRecorder:
         self.resolved_targets: queue.SimpleQueue[
             tuple[tuple[str, int] | None, str | None]
         ] = queue.SimpleQueue()
-        self.output: BinaryIO | None = None
+        self.writer: EventWriter | None = None
+        self.ordinal = 0
         self.path: Path | None = None
         self.bytes_written = 0
         self.inbound_count = 0
         self.outbound_count = 0
         self.decode_error_count = 0
-        self.file_inbound_count = 0
-        self.file_outbound_count = 0
-        self.file_decode_error_count = 0
         self.last_packet_time: float | None = None
         self.last_error: str | None = None
         self.next_polls: list[float] = []
         self.next_subscriptions: list[float] = []
-        self.compressor = Compress(key='kind') if node.jsonl_compression else None
-        self.card_replace_backlog: list[dict[str, object]] = []
+        self.card_replace_backlog: list[OscEvent] = []
         self.card_replace_paused = False
 
     def start(self) -> None:
@@ -188,6 +186,7 @@ class OscNodeRecorder:
         while True:
             try:
                 data, source = self.socket.recvfrom(65_535)
+                received_tick = time.monotonic_ns()
             except BlockingIOError:
                 return
             except OSError as error:
@@ -197,17 +196,7 @@ class OscNodeRecorder:
             self.last_packet_time = times.timestamp()
             decoded = codec.decode_packet(data)
             self.decode_error_count += sum('error' in message for message in decoded)
-            self._write_json(
-                {
-                    'time': self.last_packet_time,
-                    'monotonic': time.monotonic(),
-                    'direction': 'in',
-                    'kind': 'osc',
-                    'data_b64': base64.b64encode(data).decode('ascii'),
-                    'decoded': decoded,
-                    'source': [source[0], source[1]],
-                }
-            )
+            self._capture(data, 'in', source, received_tick)
 
     def status(self) -> dict[str, object]:
         return {
@@ -226,59 +215,36 @@ class OscNodeRecorder:
         self.directory = session_directory
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path = _next_path(self.directory, self.node.name)
-        self.output = self.path.open('ab')
-        self.bytes_written = 0
-        self.file_inbound_count = 0
-        self.file_outbound_count = 0
-        self.file_decode_error_count = 0
-        self.write_entry(
-            FileRecord(
-                type='file_started',
-                media_type='osc',
-                timestamp=timestamp_to_json(times.timestamp()),
-                stream_id=f'osc:{self.node.name}',
-                format='jsonl',
-                path=self.path.as_posix(),
-                source=self.node.name,
-                osc_node=self.node.name,
-            )
+        self.writer = EventWriter(
+            self.path,
+            self.node.name,
+            'osc',
+            Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+            'host_monotonic_packet_observation',
+            time.monotonic_ns(),
         )
+        self.bytes_written = 0
+        self.write_entry(self.writer.start_entry())
 
     def close_output(self) -> None:
-        if self.output is None or self.path is None:
+        if self.writer is None:
             return
-        self.output.close()
-        self.output = None
-        self.write_entry(
-            FileRecord(
-                type='file_finished',
-                media_type='osc',
-                timestamp=timestamp_to_json(times.timestamp()),
-                stream_id=f'osc:{self.node.name}',
-                format='jsonl',
-                path=self.path.as_posix(),
-                source=self.node.name,
-                osc_node=self.node.name,
-                quantity_count=self.file_inbound_count + self.file_outbound_count,
-                inbound_count=self.file_inbound_count,
-                outbound_count=self.file_outbound_count,
-                decode_error_count=self.file_decode_error_count,
-            )
-        )
+        self.write_entry(self.writer.finish())
+        self.writer = None
 
     def suspend_for_card_replace(self) -> None:
         self.close_output()
         self.card_replace_paused = True
 
     def suspend_after_unmount(self) -> None:
-        self.output = None
+        self.writer = None
         self.card_replace_paused = True
 
     def open_session(self, session_directory: Path) -> None:
         self.card_replace_paused = False
         self.open_output(session_directory)
         for record in self.card_replace_backlog:
-            self._write_json(record)
+            self._write_event(record)
         self.card_replace_backlog = []
 
     def _send(self, message: config.Command, reason: str) -> None:
@@ -289,32 +255,10 @@ class OscNodeRecorder:
             self.socket.sendto(data, self.target)
         except OSError as error:
             self._fail('send', str(error))
-            self._write_json(
-                {
-                    'time': times.timestamp(),
-                    'monotonic': time.monotonic(),
-                    'direction': 'out',
-                    'kind': 'error',
-                    'target': [self.target[0], self.target[1]],
-                    'error': str(error),
-                    'reason': reason,
-                }
-            )
             return
         self.outbound_count += 1
         if message.record_success:
-            self._write_json(
-                {
-                    'time': times.timestamp(),
-                    'monotonic': time.monotonic(),
-                    'direction': 'out',
-                    'kind': 'osc',
-                    'data_b64': base64.b64encode(data).decode('ascii'),
-                    'decoded': codec.decode_packet(data),
-                    'target': [self.target[0], self.target[1]],
-                    'reason': reason,
-                }
-            )
+            self._capture(data, 'out', self.target, time.monotonic_ns(), reason)
 
     def _resolve_target(self) -> None:
         assert self.node.host is not None
@@ -353,36 +297,43 @@ class OscNodeRecorder:
         self.next_polls = [now for _ in self.node.polls]
         self.next_subscriptions = [now for _ in self.node.subscriptions]
 
-    def _write_json(self, record: dict[str, object]) -> None:
-        if self.card_replace_paused:
-            self.card_replace_backlog.append(record)
-            return
-        if self.output is None:
-            return
-        kind = record.get('kind')
-        direction = record.get('direction')
-        decoded = record.get('decoded')
-        decode_errors = (
-            sum(isinstance(message, dict) and 'error' in message for message in decoded)
-            if isinstance(decoded, list)
-            else 0
+    def _capture(
+        self,
+        data: bytes,
+        direction: Literal['in', 'out'],
+        endpoint: tuple[str, int],
+        tick: int,
+        reason: str | None = None,
+    ) -> None:
+        event = OscEvent(
+            tick=tick,
+            ordinal=self.ordinal,
+            data_b64=base64.b64encode(data).decode('ascii'),
+            direction=direction,
+            source_time=timestamp_to_json(times.timestamp()),
+            endpoint=Endpoint(host=endpoint[0], port=endpoint[1]),
+            decoded=TypeAdapter(list[OscMessage | OscDecodeError]).validate_python(
+                codec.decode_packet(data)
+            ),
+            reason=reason,
         )
-        if self.compressor is not None:
-            record = next(self.compressor([record]))
-        data = json.dumps(record, separators=(',', ':')).encode() + b'\n'
+        self.ordinal += 1
+        self._write_event(event)
+
+    def _write_event(self, event: OscEvent) -> None:
+        if self.card_replace_paused:
+            self.card_replace_backlog.append(event)
+            return
+        if self.writer is None:
+            return
+        size = len(event.model_dump_json(exclude_none=True).encode()) + 1
         try:
-            if self.bytes_written and self.bytes_written + len(data) > MAX_FILE_BYTES:
+            if self.bytes_written and self.bytes_written + size > MAX_FILE_BYTES:
                 self.close_output()
                 self.open_output(self.directory)
-            assert self.output is not None
-            self.output.write(data)
-            self.output.flush()
-            self.bytes_written += len(data)
-            if kind == 'osc' and direction == 'in':
-                self.file_inbound_count += 1
-                self.file_decode_error_count += decode_errors
-            elif kind == 'osc' and direction == 'out':
-                self.file_outbound_count += 1
+            assert self.writer is not None
+            self.writer.write(event)
+            self.bytes_written += size
         except OSError as error:
             if self.write_error is not None:
                 self.write_error(self.node.name, str(error))

@@ -52,6 +52,14 @@ def run() -> int:
 
             return session_browser.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'session':
+            if len(sys.argv) > 2 and sys.argv[2] == 'finalize':
+                from recs.recording.finalize import main
+
+                return main(sys.argv[3:])
+            if len(sys.argv) > 2 and sys.argv[2] == 'export-midi':
+                from recs.midi.export import main
+
+                return main(sys.argv[3:])
             if len(sys.argv) > 2 and sys.argv[2] == 'migrate':
                 from recs.recording.migrate import main
 

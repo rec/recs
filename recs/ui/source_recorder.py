@@ -1,11 +1,14 @@
 import contextlib
+import hashlib
 import threading
+import uuid
 from collections.abc import Callable, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Queue
 from time import monotonic, sleep
 from typing import Any, NamedTuple, cast
+from weakref import WeakSet
 
 import numpy as np
 from pydantic import BaseModel
@@ -28,7 +31,8 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
-from recs.model.recording import AudioSpan
+from recs.model.recording import AudioSpan, Gap, GapReason
+from recs.ui.session_record import AudioTimelineRecord
 
 POLL_TIMEOUT = 0.05
 MAX_MERGED_WARNINGS = 64
@@ -71,6 +75,9 @@ class SourceUpdate(NamedTuple):
     writing_enabled: bool | None = None
     write_error: str | None = None
     file_spans: dict[Path, list[AudioSpan]] | None = None
+    timelines: list[AudioTimelineRecord] | None = None
+    finished_files: list[Path] | None = None
+    discarded_files: list[Path] | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -234,6 +241,7 @@ class SourceFile(NamedTuple):
     bit_depth: int
     start_frame: int | None = None
     start_timestamp: float | None = None
+    capture_id: str | None = None
 
 
 class BufferedUpdate(NamedTuple):
@@ -281,11 +289,18 @@ class SourceCalibration:
 
 
 class SourceFileEvents:
-    def __init__(self, writers: Sequence['ChannelWriter']) -> None:
+    def __init__(
+        self, writers: Sequence['ChannelWriter'], capture_id: str | None = None
+    ) -> None:
+        self.capture_id = capture_id
         self.file_counts = [0] * len(writers)
         self.pending_file_end_frames: dict[Path, int] = {}
         self.pending_file_end_timestamps: dict[Path, float] = {}
         self.pending_file_spans: dict[Path, list[AudioSpan]] = {}
+        self.pending_timelines: list[AudioTimelineRecord] = []
+        self.timeline_writers: WeakSet[ChannelWriter] = WeakSet()
+        self.pending_finished: set[Path] = set()
+        self.pending_discarded: set[Path] = set()
 
     def reset_writers(self, writers: Sequence['ChannelWriter']) -> None:
         self.file_counts = [0] * len(writers)
@@ -295,6 +310,31 @@ class SourceFileEvents:
             self.pending_file_end_frames.update(writer.file_end_frames)
             self.pending_file_end_timestamps.update(writer.file_end_timestamps)
             self.pending_file_spans.update(writer.file_spans)
+            self.pending_finished.update(writer.finished_files)
+            self.pending_discarded.update(writer.discarded_files)
+            if writer.observed_ranges and writer not in self.timeline_writers:
+                self.pending_timelines.append(audio_timeline(writer, self.capture_id))
+                self.timeline_writers.add(writer)
+
+    def timelines(self) -> list[AudioTimelineRecord]:
+        result, self.pending_timelines = self.pending_timelines, []
+        return result
+
+    def discarded(self, writers: Sequence[ChannelWriter]) -> list[Path]:
+        result = self.pending_discarded | {
+            p for w in writers for p in w.discarded_files
+        }
+        self.pending_discarded = set()
+        for writer in writers:
+            writer.discarded_files.clear()
+        return sorted(result)
+
+    def finished(self, writers: Sequence[ChannelWriter]) -> list[Path]:
+        result = self.pending_finished | {p for w in writers for p in w.finished_files}
+        self.pending_finished = set()
+        for writer in writers:
+            writer.finished_files.clear()
+        return sorted(result)
 
     def new_files(
         self, writers: Sequence['ChannelWriter'], bit_depth: int
@@ -321,6 +361,7 @@ class SourceFileEvents:
                     bit_depth=bit_depth,
                     start_frame=writer.file_start_frames[path],
                     start_timestamp=writer.file_start_timestamps[path],
+                    capture_id=self.capture_id,
                 )
                 for path in new_files
             )
@@ -349,6 +390,53 @@ class SourceFileEvents:
         }
         self.pending_file_end_timestamps = {}
         return result
+
+
+def audio_timeline(
+    writer: ChannelWriter, capture_id: str | None = None
+) -> AudioTimelineRecord:
+    observed = writer.observed_ranges
+    captured = [s for v in writer.file_spans.values() for s in v]
+    discarded = writer.discarded_spans
+    boundaries = sorted(
+        {
+            *(p for r in observed for p in (r.start, r.end)),
+            *(p for s in captured for p in (s.start, s.start + s.count)),
+            *(p for s in discarded for p in (s.start, s.start + s.count)),
+        }
+    )
+    gaps: list[Gap] = []
+    for start, end in zip(boundaries, boundaries[1:]):
+        if any(s.start <= start < s.start + s.count for s in captured):
+            continue
+        reason = (
+            GapReason.silence_suppressed
+            if any(r.start <= start < r.end for r in observed)
+            else GapReason.input_overflow
+        )
+        if any(s.start <= start < s.start + s.count for s in discarded):
+            reason = GapReason.short_capture
+        if gaps and gaps[-1].end == start and gaps[-1].reason == reason:
+            gaps[-1] = Gap(start=gaps[-1].start, end=end, reason=reason)
+        else:
+            gaps.append(Gap(start=start, end=end, reason=reason))
+    name = track_name(writer.track_names, writer.track) or writer.track.name
+    channels = '-'.join(str(c) for c in writer.track.channels)
+    return AudioTimelineRecord(
+        clock_id='clock-'
+        + hashlib.sha256((capture_id or writer.track.source.name).encode()).hexdigest()[
+            :16
+        ],
+        stream_id=f'audio:{writer.track.source.name}:{channels}'
+        + (f':{capture_id}' if capture_id else ''),
+        source=writer.track.source.name,
+        track_name=name,
+        sample_rate=writer.track.source.samplerate,
+        source_channels=list(writer.track.channels),
+        start=observed[0].start,
+        end=writer.timeline_frame,
+        gaps=gaps,
+    )
 
 
 class InputBuffer:
@@ -530,6 +618,13 @@ class SourceControlApplier:
                     ),
                     file_records=file_records,
                     file_spans=recorder.file_events.spans(recorder.channel_writers),
+                    timelines=recorder.file_events.timelines(),
+                    finished_files=recorder.file_events.finished(
+                        recorder.channel_writers
+                    ),
+                    discarded_files=recorder.file_events.discarded(
+                        recorder.channel_writers
+                    ),
                     frames=0,
                     source_name=recorder.source.key,
                     writing_enabled=False,
@@ -606,7 +701,7 @@ class SourceRecorder(Runnables):
             )
             for t in tracks
         )
-        self.file_events = SourceFileEvents(self.channel_writers)
+        self.file_events = SourceFileEvents(self.channel_writers, uuid.uuid4().hex)
         self.pending_active_channels: set[int] = set()
         self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
@@ -660,6 +755,7 @@ class SourceRecorder(Runnables):
                 update = self.buffer.get(block=False)
                 self.control.receive()
                 self._receive_update(update)
+        self.file_events.remember_finished_files(self.channel_writers)
         files, records = self.file_events.new_files(
             self.channel_writers, self.sample_bit_depth
         )
@@ -675,6 +771,9 @@ class SourceRecorder(Runnables):
                     self.channel_writers
                 ),
                 file_spans=self.file_events.spans(self.channel_writers),
+                timelines=self.file_events.timelines(),
+                finished_files=self.file_events.finished(self.channel_writers),
+                discarded_files=self.file_events.discarded(self.channel_writers),
                 frame_count=self.buffer.timeline_frames,
             )
         )
@@ -795,6 +894,9 @@ class SourceRecorder(Runnables):
                 file_records=file_records,
                 file_end_frames=file_end_frames,
                 file_spans=self.file_events.spans(self.channel_writers),
+                timelines=self.file_events.timelines(),
+                finished_files=self.file_events.finished(self.channel_writers),
+                discarded_files=self.file_events.discarded(self.channel_writers),
                 file_end_timestamps=file_end_timestamps,
                 frame_count=u.end_frame,
                 track_state_frames=dict.fromkeys(msgs, u.end_frame),
@@ -849,6 +951,15 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         file_records=[r for r in file_records.values() if r.path in file_paths],
         file_end_frames=_merge_file_map(first.file_end_frames, second.file_end_frames),
         file_spans=_merge_file_map(first.file_spans, second.file_spans),
+        timelines=[*(first.timelines or []), *(second.timelines or [])] or None,
+        discarded_files=_merge_files(
+            first.discarded_files or [], second.discarded_files or []
+        )
+        or None,
+        finished_files=_merge_files(
+            first.finished_files or [], second.finished_files or []
+        )
+        or None,
         file_end_timestamps=_merge_file_map(
             first.file_end_timestamps, second.file_end_timestamps
         ),

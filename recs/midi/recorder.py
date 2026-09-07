@@ -1,24 +1,31 @@
 from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
-from time import monotonic
-from typing import Protocol, cast
+from queue import Empty, SimpleQueue
+from time import monotonic, monotonic_ns
+from typing import NamedTuple, Protocol, cast
 
 from threa import Runnable
 
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
+from recs.model.events import MidiEvent
 from recs.ui.session_record import EventRecord, Record, timestamp_to_json
 
 from . import device
-from .writer import MidiMessage, MidiWriter
+from .writer import MidiClock, MidiMessage, MidiWriter
 
 MIDI_DISCOVERY_INTERVAL_SECONDS = 10.0
 
 
+class MidiPacket(NamedTuple):
+    message: MidiMessage
+    received_tick: int
+
+
 class MidiPort(Protocol):
-    def iter_pending(self) -> list[MidiMessage]:
+    def iter_pending(self) -> list[MidiPacket]:
         pass
 
     def close(self) -> None:
@@ -38,6 +45,7 @@ class MidiRecorder(Runnable):
         open_input: Callable[[str], MidiPort] | None = None,
         timestamp: Callable[[], float] = times.timestamp,
         monotonic_clock: Callable[[], float] = monotonic,
+        capture_clock: Callable[[], int] = monotonic_ns,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
@@ -45,15 +53,17 @@ class MidiRecorder(Runnable):
         self.write_entry = write_entry
         self.write_error = write_error
         self.input_names = input_names
-        self.open_input = open_input or _open_input
+        self.open_input = open_input or CallbackPort
         self.timestamp = timestamp
         self.monotonic_clock = monotonic_clock
+        self.capture_clock = capture_clock
+        self.clocks: dict[str, MidiClock] = {}
         self.ports: dict[str, MidiPort] = {}
         self.writers: dict[str, MidiWriter] = {}
         self.port_selectors: dict[str, str] = {}
         self.last_message_timestamp: dict[str, float] = {}
         self.failures: dict[str, tuple[str, float]] = {}
-        self.card_replace_backlog: list[tuple[str, MidiMessage, float]] = []
+        self.card_replace_backlog: list[tuple[str, MidiEvent]] = []
         self.card_replace_paused = False
         self.next_discovery = float('-inf')
         super().__init__()
@@ -73,7 +83,14 @@ class MidiRecorder(Runnable):
     def close_session(self) -> None:
         for name, writer in list(self.writers.items()):
             try:
+                self._drain(name, self.ports[name])
+            except (OSError, ValueError) as error:
+                if isinstance(error, OSError):
+                    self._record_write_error(name, error)
+                self._record_failure(name, self._selector(name), str(error))
+            try:
                 self.write_entry(writer.finish())
+                self.write_entry(writer.clock_entry())
             except OSError as error:
                 self._record_write_error(name, error)
                 self._record_failure(name, self._selector(name), str(error))
@@ -92,10 +109,10 @@ class MidiRecorder(Runnable):
         for name in self.ports:
             self._new_writer(name, self.timestamp())
         self.card_replace_paused = False
-        for name, message, timestamp in self.card_replace_backlog:
+        for name, event in self.card_replace_backlog:
             if name not in self.writers:
-                self._new_writer(name, timestamp)
-            self.writers[name].record(message, timestamp)
+                self._new_writer(name, self.timestamp())
+            self.writers[name].write(event)
         self.card_replace_backlog = []
 
     def poll(self) -> None:
@@ -105,22 +122,9 @@ class MidiRecorder(Runnable):
             self._discover(now)
         for name, port in list(self.ports.items()):
             try:
-                messages = list(port.iter_pending())
-            except OSError as error:
+                self._drain(name, port)
+            except (OSError, ValueError) as error:
                 self._remove(name, failure=str(error))
-                continue
-            for message in messages:
-                timestamp = self.timestamp()
-                if self.card_replace_paused:
-                    self.card_replace_backlog.append((name, message, timestamp))
-                    self.last_message_timestamp[name] = timestamp
-                    continue
-                try:
-                    self.writers[name].record(message, timestamp)
-                except OSError as error:
-                    self._remove(name, failure=str(error))
-                    break
-                self.last_message_timestamp[name] = timestamp
 
     def status(self) -> list[dict[str, object]]:
         states: list[dict[str, object]] = []
@@ -180,6 +184,15 @@ class MidiRecorder(Runnable):
         )
         return states
 
+    def _drain(self, name: str, port: MidiPort) -> None:
+        for packet in port.iter_pending():
+            event = self.clocks[name].capture(packet.message, packet.received_tick)
+            if self.card_replace_paused:
+                self.card_replace_backlog.append((name, event))
+            else:
+                self.writers[name].write(event)
+            self.last_message_timestamp[name] = self.timestamp()
+
     def _discover(self, now: float) -> None:
         self.next_discovery = now + MIDI_DISCOVERY_INTERVAL_SECONDS
         try:
@@ -201,6 +214,12 @@ class MidiRecorder(Runnable):
         selector = self._selector(name)
         started_at = self.timestamp()
         try:
+            self.clocks.setdefault(
+                name,
+                MidiClock(
+                    cast(MidiTiming, self.cfg.midi.midi_timing), self.capture_clock()
+                ),
+            )
             port = self.open_input(name)
             writer = None
             if not self.card_replace_paused:
@@ -209,6 +228,7 @@ class MidiRecorder(Runnable):
                     name,
                     cast(MidiTiming, self.cfg.midi.midi_timing),
                     started_at,
+                    self.clocks[name],
                 )
         except (ModuleNotFoundError, OSError) as error:
             if port is not None:
@@ -241,6 +261,7 @@ class MidiRecorder(Runnable):
             name,
             cast(MidiTiming, self.cfg.midi.midi_timing),
             started_at,
+            self.clocks[name],
         )
         self.write_entry(
             EventRecord(
@@ -267,9 +288,15 @@ class MidiRecorder(Runnable):
                 port.close()
             except OSError as error:
                 errors.append(str(error))
+            if not failure and (name in self.writers or self.card_replace_paused):
+                try:
+                    self._drain(name, port)
+                except (OSError, ValueError) as error:
+                    errors.append(str(error))
         if (writer := self.writers.pop(name, None)) is not None:
             try:
                 self.write_entry(writer.finish())
+                self.write_entry(writer.clock_entry())
             except OSError as error:
                 self._record_write_error(name, error)
                 errors.append(str(error))
@@ -316,7 +343,23 @@ class MidiRecorder(Runnable):
         )
 
 
-def _open_input(name: str) -> MidiPort:
-    mido = import_module('mido')
-    open_input = cast(Callable[[str], MidiPort], vars(mido)['open_input'])
-    return open_input(name)
+class CallbackPort:
+    def __init__(self, name: str) -> None:
+        self.packets: SimpleQueue[MidiPacket] = SimpleQueue()
+        mido = import_module('mido')
+        open_input = cast(Callable[..., MidiPort], vars(mido)['open_input'])
+        self.port = open_input(name, callback=self.capture)
+
+    def capture(self, message: MidiMessage) -> None:
+        self.packets.put(MidiPacket(message, monotonic_ns()))
+
+    def iter_pending(self) -> list[MidiPacket]:
+        packets: list[MidiPacket] = []
+        while True:
+            try:
+                packets.append(self.packets.get_nowait())
+            except Empty:
+                return packets
+
+    def close(self) -> None:
+        self.port.close()

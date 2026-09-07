@@ -97,10 +97,18 @@ def recovery_report(path: Path) -> RecoveryReport | None:
         None,
     )
     files = [
-        record for record in records if isinstance(record, session_record.FileRecord)
+        record
+        for record in records
+        if isinstance(
+            record, session_record.AudioFileRecord | session_record.EventFileRecord
+        )
     ]
     started = {record.path: record for record in files if record.type == 'file_started'}
-    finished = {record.path for record in files if record.type == 'file_finished'}
+    finished = {
+        record.path
+        for record in files
+        if record.type in {'file_finished', 'file_discarded'}
+    }
     open_files = sorted(set(started) - finished)
     missing_files = [file for file in open_files if not _file_path(path, file).exists()]
     last = next(
@@ -143,26 +151,28 @@ def _source_reports(
 
 
 def _track_reports(
-    files: list[session_record.FileRecord],
+    files: list[session_record.AudioFileRecord | session_record.EventFileRecord],
     open_files: list[str],
     missing_files: list[str],
 ) -> list[TrackReport]:
     reports: dict[tuple[str, str | None, tuple[int, ...], str | None], TrackReport] = {}
     for file in files:
+        audio = file if isinstance(file, session_record.AudioFileRecord) else None
+        midi_port = file.source if file.media_type == 'midi' else None
         key = (
             file.media_type,
             file.source,
-            tuple(file.source_channels or []),
-            file.midi_port,
+            tuple(audio.source_channels or []) if audio else (),
+            midi_port,
         )
         current = reports.get(
             key,
             TrackReport(
                 media_type=file.media_type,
                 source=file.source,
-                track_name=file.track_name,
-                source_channels=file.source_channels,
-                midi_port=file.midi_port,
+                track_name=audio.track_name if audio else None,
+                source_channels=audio.source_channels if audio else None,
+                midi_port=midi_port,
             ),
         )
         reports[key] = current.model_copy(

@@ -17,6 +17,7 @@ class GapReason(StrEnum):
     silence_suppressed = auto()
     input_overflow = auto()
     disconnected = auto()
+    short_capture = auto()
 
 
 class Gap(TickRange):
@@ -113,8 +114,23 @@ class EventFragment(Model):
     asset: Identifier
     event_count: int = Field(ge=0, strict=True)
     timing: Literal['smf', 'osc_jsonl', 'recs_events']
+    start: int | None = Field(default=None, strict=True)
+    end: int | None = Field(default=None, strict=True)
     observed_opened_at: str | None = None
     timing_source: str | None = None
+
+    @model_validator(mode='after')
+    def extent(self) -> Self:
+        if self.timing == 'recs_events':
+            if self.start is None or self.end is None or self.end < self.start:
+                raise ValueError(
+                    'native event fragments require an ordered temporal extent'
+                )
+            if self.event_count and self.start == self.end:
+                raise ValueError('nonempty event fragments require a nonempty extent')
+        elif self.start is not None or self.end is not None:
+            raise ValueError('external event timing has no native extent')
+        return self
 
 
 class EventStream(Model):
@@ -122,6 +138,7 @@ class EventStream(Model):
     id: Identifier
     source_id: str = Field(min_length=1)
     event_schema: Literal['midi', 'osc', 'recs_events']
+    event_kind: Literal['midi', 'osc', 'key'] | None = None
     timebase: Identifier | None = None
     fragments: list[EventFragment] = Field(default_factory=list)
 
