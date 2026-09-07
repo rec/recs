@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from reccy.configuration import units
 
 from recs.base.errors import RecsError
 from recs.cfg import settings
@@ -44,6 +45,46 @@ def test_saved_settings_round_trip(
     assert not path.with_name('.settings.json.tmp').exists()
 
 
+def test_saved_settings_preserve_authored_units(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / 'settings.json'
+    monkeypatch.setattr(settings, 'settings_path', lambda: path)
+    cfg = Cfg(
+        save_settings=True,
+        quiet_before_start='250ms',
+        quiet_after_end='1 min',
+    )
+
+    settings.save(cfg, {}, {})
+    attributes = json.loads(path.read_text())['attributes']
+    loaded = settings.load(Cfg(save_settings=True))
+
+    assert attributes['recording.quiet_before_start'] == '250ms'
+    assert attributes['recording.quiet_after_end'] == '1 min'
+    provenance = units.collect_unit_provenance(loaded.cfg)
+    assert provenance['recording.quiet_before_start'].authored == '250ms'
+    assert provenance['recording.quiet_after_end'].authored == '1 min'
+
+
+def test_saved_settings_keep_numeric_api_updates_numeric(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / 'settings.json'
+    monkeypatch.setattr(settings, 'settings_path', lambda: path)
+    cfg = Cfg(
+        save_settings=True,
+        quiet_before_start='250ms',
+        quiet_after_end='1 min',
+    ).set_attr('recording.quiet_before_start', 0.5)
+
+    settings.save(cfg, {}, {})
+    attributes = json.loads(path.read_text())['attributes']
+
+    assert attributes['recording.quiet_before_start'] == 0.5
+    assert attributes['recording.quiet_after_end'] == '1 min'
+
+
 def test_cli_override_wins_over_saved_setting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -56,6 +97,22 @@ def test_cli_override_wins_over_saved_setting(
     )
 
     assert loaded.cfg.recording.noise_floor == 60
+
+
+def test_cli_unit_provenance_wins_over_saved_setting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / 'settings.json'
+    monkeypatch.setattr(settings, 'settings_path', lambda: path)
+    settings.save(Cfg(save_settings=True, quiet_before_start='1s'), {}, {})
+
+    loaded = settings.load(
+        Cfg(save_settings=True, quiet_before_start='250ms'),
+        {'recording.quiet_before_start'},
+    )
+
+    provenance = units.collect_unit_provenance(loaded.cfg)
+    assert provenance['recording.quiet_before_start'].authored == '250ms'
 
 
 def test_settings_allow_unavailable_profile_path(

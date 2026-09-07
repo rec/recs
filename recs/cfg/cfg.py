@@ -4,7 +4,7 @@ import warnings
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import soundfile
 import tyro
@@ -702,18 +702,22 @@ class Cfg(BaseModel):
     def mutable_attributes(self) -> frozenset[str]:
         return frozenset(_mutable_attributes(type(self)))
 
-    def get_attr(self, address: str) -> object:
+    def get_attr(self, address: str, *, authored: bool = False) -> object:
         part, field = _cfg_address(address)
-        value = getattr(self, part).model_dump(mode='json')
+        section = getattr(self, part)
+        value = (
+            units.authored_dump(section, mode='json')
+            if authored
+            else units.runtime_dump(section, mode='json')
+        )
         return value[field]
 
     def set_attr(self, address: str, value: object) -> Self:
         part, field = _cfg_address(address)
         if address not in self.mutable_attributes:
             raise ValueError(f'Immutable configuration attribute: {address}')
-        data = self.model_dump(mode='json')
-        section = data[part]
-        assert isinstance(section, dict)
+        data = units.revalidation_dump(self)
+        section = cast(dict[str, object], data[part])
         section[field] = value
         return type(self)(**data)
 
@@ -810,14 +814,16 @@ class Cfg(BaseModel):
         if not values:
             return self
 
-        data = self.model_dump()
+        data = units.revalidation_dump(self)
         for field, value in values.items():
             if field in CFG_PARTS:
                 if not isinstance(value, dict):
                     raise ValueError(f'Profile section {field} must be an object')
-                data[field] = data[field] | value
+                section = cast(dict[str, object], data[field])
+                data[field] = section | value
             elif field in FLAT_FIELDS:
-                data[FLAT_FIELDS[field]][field] = value
+                section = cast(dict[str, object], data[FLAT_FIELDS[field]])
+                section[field] = value
             else:
                 raise ValueError(f'Unknown profile field: {field}')
         return type(self)(**data)

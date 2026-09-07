@@ -65,7 +65,10 @@ def save(
     track_names: SourceTrackNames,
     tracks: dict[str, list[TrackSettings]],
 ) -> None:
-    attributes = {address: cfg.get_attr(address) for address in cfg.mutable_attributes}
+    attributes = {
+        address: cfg.get_attr(address, authored=True)
+        for address in cfg.mutable_attributes
+    }
     saved_settings = Settings(
         attributes=attributes,
         track_names=track_names,

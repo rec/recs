@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 import tyro
 from pydantic import ValidationError
+from reccy.configuration import units
 
 from recs.cfg.cfg import Cfg, Console, Recording
 from recs.cfg.cli import CliCfg
@@ -34,12 +35,39 @@ def test_cli_and_api_use_the_same_numeric_config_values() -> None:
     assert parsed.recording.memory_reserve_megabytes == 1000
     assert parsed.recording.minimum_free_space == 1_073_741_824
     assert parsed.recording.disk_alert_thresholds[-1] == '1073741824'
+    provenance = units.collect_unit_provenance(parsed)
+    assert provenance['recording.quiet_before_start'].authored == '250ms'
+    assert provenance['console.ui_refresh_rate'].authored == '20Hz'
+    assert provenance['recording.minimum_free_space'].authored == '1GiB'
     updated = Cfg().set_attr('recording.quiet_before_start', '250ms')
     assert updated.get_attr('recording.quiet_before_start') == 0.25
     assert (
         Cfg.model_validate_json(updated.model_dump_json()).recording.quiet_before_start
         == 0.25
     )
+
+
+def test_api_updates_preserve_other_authored_units() -> None:
+    cfg = Cfg(quiet_before_start='250ms', quiet_after_end='1 min')
+
+    updated = cfg.set_attr('recording.quiet_before_start', '0.5s')
+
+    assert updated.get_attr('recording.quiet_before_start') == 0.5
+    assert updated.get_attr('recording.quiet_before_start', authored=True) == '0.5s'
+    provenance = units.collect_unit_provenance(updated)
+    assert provenance['recording.quiet_before_start'].authored == '0.5s'
+    assert provenance['recording.quiet_after_end'].authored == '1 min'
+
+
+def test_numeric_api_updates_drop_only_the_updated_unit_provenance() -> None:
+    cfg = Cfg(quiet_before_start='250ms', quiet_after_end='1 min')
+
+    updated = cfg.set_attr('recording.quiet_before_start', 0.5)
+
+    assert updated.get_attr('recording.quiet_before_start', authored=True) == 0.5
+    provenance = units.collect_unit_provenance(updated)
+    assert 'recording.quiet_before_start' not in provenance
+    assert provenance['recording.quiet_after_end'].authored == '1 min'
 
 
 def test_waveform_periods_require_whole_milliseconds() -> None:
@@ -52,11 +80,15 @@ def test_device_profiles_accept_units_and_keep_other_settings(tmp_path: Path) ->
     path.write_text(
         '{"Mic": {"quiet_after_end": "250ms", "minimum_free_space": "2MiB"}}'
     )
-    cfg = Cfg(profiles=path, quiet_after_end=2)
+    cfg = Cfg(profiles=path, quiet_before_start='1 sec', quiet_after_end=2)
     profiled = cfg.with_device_profile('Mic')
     assert profiled.recording.quiet_after_end == 0.25
     assert profiled.recording.minimum_free_space == 2_097_152
     assert cfg.recording.quiet_after_end == 2
+    provenance = units.collect_unit_provenance(profiled)
+    assert provenance['recording.quiet_before_start'].authored == '1 sec'
+    assert provenance['recording.quiet_after_end'].authored == '250ms'
+    assert provenance['recording.minimum_free_space'].authored == '2MiB'
 
 
 @pytest.mark.parametrize(
