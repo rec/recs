@@ -1,0 +1,1284 @@
+format = "recs"
+version = 1
+id = "d0929489-3fed-4aa8-ada3-182f5923cc50"
+name = "2026-09-04 15-01-57"
+kind = "recording"
+
+[[assets]]
+id = "original-journal"
+path = "migration/session-record-v3.jsonl"
+encoding = "recs-session-v3"
+byte_length = 53850
+sha256 = "fc710b7ebf0f875e2adf5d06a2ed96e37e80024c61c4279e1fb89fcbcab67362"
+
+[[assets]]
+id = "asset-f28fdf4c43815dc8"
+path = "midi/FLOW 8-20260904-150157.mid"
+encoding = "smf"
+byte_length = 43
+sha256 = "86c91c66d6dad6870b600af2ba0e6d727fdb77fb76c3afb82e3989e72cc01d5e"
+
+[[assets]]
+id = "asset-fc44ffdf3decffdd"
+path = "midi/IAC Driver Bus 1-20260904-150157.mid"
+encoding = "smf"
+byte_length = 53
+sha256 = "23a0c50697c3a0039c8dc6cda8b7aca77415f47a5ef01e5a2043bae51ea75c09"
+
+[[assets]]
+id = "asset-982fc90d6deb66d4"
+path = "midi/U6MIDI Pro Port 1-20260904-150157.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "2e1254653a348064e4ee9d7e6badebabc71f3a1d225b4162d5b72d3b1911cf8e"
+
+[[assets]]
+id = "asset-f2cc7c62df0d22ef"
+path = "midi/U6MIDI Pro Port 2-20260904-150157.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "a828b4472d403989d74b71bb3aa0246be348edd3670a5f1cd34f96510a56d3a4"
+
+[[assets]]
+id = "asset-e7b5c63c8dee7578"
+path = "midi/U6MIDI Pro Port 3-20260904-150157.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "edc4c7d15777e8b66c5f51086e0faeca96c6d9b8a5e8490e503d7c6ba2f6b01b"
+
+[[assets]]
+id = "asset-3b917147c64b2140"
+path = "audio/FLOW 8 (Recording) + 1-2 + 20260904-150158.flac"
+encoding = "flac"
+byte_length = 438448
+sha256 = "508c6fbf603513a3a93d8c142f771d9fa4965e2d7449cc7ccf77876db1e213c8"
+
+[[assets]]
+id = "asset-781ae40c7d911b1e"
+path = "audio/FLOW 8 (Recording) + 3-4 + 20260904-150216.flac"
+encoding = "flac"
+byte_length = 373789845
+sha256 = "32214a7073b54daeadcba90c4960005ac1f9fae42428bc36ec4c357cc62d6a64"
+
+[[assets]]
+id = "asset-8d5a25d2b8e809b4"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150206.flac"
+encoding = "flac"
+byte_length = 75299
+sha256 = "4ee71bfb36d7ba742610c70edc9305ec2651cc03e9be0dc40107ce5a5a82c5cb"
+
+[[assets]]
+id = "asset-aafb89db474a6452"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150320.flac"
+encoding = "flac"
+byte_length = 2490957
+sha256 = "c52fdc4eb4df55cd31c9efb2e35457cca61102d743d6485f7a90a260f445dac2"
+
+[[assets]]
+id = "asset-f34757ed81cfb115"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150658.flac"
+encoding = "flac"
+byte_length = 12755178
+sha256 = "f36a2857300db2b3911c7a37787b34c28b71266f6a2b3223a3065fdff10f7a1d"
+
+[[assets]]
+id = "asset-6bb77298038f9a30"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151217.flac"
+encoding = "flac"
+byte_length = 3217801
+sha256 = "9a9c101ba3016285b0f4e67ecea3f2e4d3ebfc01c314db45365800739dec6aca"
+
+[[assets]]
+id = "asset-db409520ba189283"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151338.flac"
+encoding = "flac"
+byte_length = 207658
+sha256 = "35cd7c843901f7e8c736818c9b16fb1cb03660ff9f0ae5169d61182495133565"
+
+[[assets]]
+id = "asset-a71d95781b2edd1d"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151411.flac"
+encoding = "flac"
+byte_length = 2414756
+sha256 = "c9921aa1a9783429662339c7ad315687f598387cc29dfa923ef343c7a33142c4"
+
+[[assets]]
+id = "asset-846ed4b58a000720"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151554.flac"
+encoding = "flac"
+byte_length = 24178055
+sha256 = "482b0ee8905413863dd3799c8a5328921d97c3c34ebb6675cd4d82fdce20c30b"
+
+[[assets]]
+id = "asset-d28d60cc618ac978"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-152457.flac"
+encoding = "flac"
+byte_length = 30250280
+sha256 = "cc3ee44b2f0c16994cf7cd2722a002e031fe699cdf3a6b786c2f7e7bc1e9264e"
+
+[[assets]]
+id = "asset-624f53f118a22992"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-155737.flac"
+encoding = "flac"
+byte_length = 7672327
+sha256 = "244f7354d642647ddb269a7783d859d76b532f2e074ef56344eb4b0a62ac7fa3"
+
+[[assets]]
+id = "asset-939e3103ae84c739"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-160453.flac"
+encoding = "flac"
+byte_length = 7680142
+sha256 = "609f3f6d39e0d29f8d6e25dab2424324bea83cea37fd41f34c3d0d804e2b5825"
+
+[[assets]]
+id = "asset-59bc5a5a592583af"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-160947.flac"
+encoding = "flac"
+byte_length = 9730493
+sha256 = "5a7e9cdd2c09f8a7fce04f171854822391c6bb9b318b894919d7146d3d5cd2ed"
+
+[[assets]]
+id = "asset-f304de816f21da5e"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-162244.flac"
+encoding = "flac"
+byte_length = 19604674
+sha256 = "e6290c166e45922f60c94a8006a1dee1da726437d5d1faf3c44ebdfcd380db24"
+
+[[assets]]
+id = "asset-fe1a9840e63ea107"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163011.flac"
+encoding = "flac"
+byte_length = 5680025
+sha256 = "80d5099158e51b19fbce356e45f724e71ba854a2d540f6707c1f6158e4329e0d"
+
+[[assets]]
+id = "asset-3970b50ef2dab0f8"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163252.flac"
+encoding = "flac"
+byte_length = 180289
+sha256 = "e624df0598f7daacfafb041390fcd4d17df5351699599ccd317270aaf9c509cb"
+
+[[assets]]
+id = "asset-d52f0f623518d746"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163319.flac"
+encoding = "flac"
+byte_length = 3076431
+sha256 = "202d6eadfeff67b63b48df3159e08944338e5dced0bedb467456099a91b9242d"
+
+[[assets]]
+id = "asset-e1ecfcf3f4d9c5c0"
+path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163533.flac"
+encoding = "flac"
+byte_length = 6449703
+sha256 = "44e857de2afd495c86f39c47c70eb0aa0966688c17a2902fbe81a07c1c4f2b61"
+
+[[assets]]
+id = "asset-d41c3e2bea76fcfc"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150206.flac"
+encoding = "flac"
+byte_length = 221461
+sha256 = "f85bc8e7e11c0a4ec5ea66a483eefad3dd5dc62907ae99a96428966317f74ad5"
+
+[[assets]]
+id = "asset-e36d07e1f90f6261"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150320.flac"
+encoding = "flac"
+byte_length = 2158121
+sha256 = "9939cecb10bd0393b74b978116f28c49c43d7e84e743be0ffa07ecfe793203ee"
+
+[[assets]]
+id = "asset-941ac3a5ec83689e"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150658.flac"
+encoding = "flac"
+byte_length = 9285479
+sha256 = "65e47093a526b91c5964eea90ba04f81a467c9604055f5e1a6b695e04d232360"
+
+[[assets]]
+id = "asset-f32d6c8fe1cd35af"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151217.flac"
+encoding = "flac"
+byte_length = 2376189
+sha256 = "bfc4244d86d562b41690c5ad435cafaf89debf657ed541c67a7121ae5a4e18f7"
+
+[[assets]]
+id = "asset-315bf46659ff2bc4"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151338.flac"
+encoding = "flac"
+byte_length = 134325
+sha256 = "013a33cbff6fe0e90c0bcb411a905275c949bd5474d5b6b92d28aa0a3a110cf6"
+
+[[assets]]
+id = "asset-789862f0f8e2ffab"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151411.flac"
+encoding = "flac"
+byte_length = 1761849
+sha256 = "52dd1402ce1899cbd0c05d8a648af8450af778e38cd90a20ec32b319bebfc099"
+
+[[assets]]
+id = "asset-9b50378dd7d3c1c4"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151554.flac"
+encoding = "flac"
+byte_length = 54238637
+sha256 = "1901b2727d6c99cd1925f621423ae84174677a54aa52d7f2db2a920e52bb7220"
+
+[[assets]]
+id = "asset-d1608e8254a2e025"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-155743.flac"
+encoding = "flac"
+byte_length = 29959016
+sha256 = "259e2f2b063c71dddc5b9b49b08cabdc8612e628309f20ce042eb85e4a55bb27"
+
+[[assets]]
+id = "asset-2b20158a5c891a38"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-162244.flac"
+encoding = "flac"
+byte_length = 11423647
+sha256 = "8ffb5dc622b347f6babb3442b6923d76932d39f319fcee6660b4622196f6d9a3"
+
+[[assets]]
+id = "asset-5c08e95ab253a148"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163011.flac"
+encoding = "flac"
+byte_length = 5208489
+sha256 = "b07a2947f0a2144012dbd3feb77b445f95fdb01677599531c62d91d867664dad"
+
+[[assets]]
+id = "asset-35c3f35e3627ee7b"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163253.flac"
+encoding = "flac"
+byte_length = 159919
+sha256 = "e8b375aab85ab1e4a3f1d88c0a28a46cf063488fa8446963d020a8ac932bbe8e"
+
+[[assets]]
+id = "asset-9b3146b7d6908032"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163319.flac"
+encoding = "flac"
+byte_length = 2564733
+sha256 = "dfe8f615cbbbf7255483613fc2e081c0a28a6aeca6c2ef1607c7071927c09bc5"
+
+[[assets]]
+id = "asset-5885458e5f3001d0"
+path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163533.flac"
+encoding = "flac"
+byte_length = 5529842
+sha256 = "990acf8279e2816d19df2bd782f162854a47b68e09ed3b91f0342cd231999c4a"
+
+[[assets]]
+id = "asset-229aca9b41a2d20a"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-150206.flac"
+encoding = "flac"
+byte_length = 4439479
+sha256 = "e7f93a92e01d0df8dd93a81739a612144ff027fa98d3509aadae73936fff09b4"
+
+[[assets]]
+id = "asset-601a91197aa90de8"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-150544.flac"
+encoding = "flac"
+byte_length = 124057409
+sha256 = "535745dff536acf5317d4952a86658ce2a3e9bad8b74314b4d3b9820197fe5fc"
+
+[[assets]]
+id = "asset-ecaa9b91b29d5015"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-155743.flac"
+encoding = "flac"
+byte_length = 54208368
+sha256 = "f2fbd0c41dea7e083a93d0c460ac4179d1037b0627d5ae710a67fecf35d57b29"
+
+[[assets]]
+id = "asset-1851cdffc9e3a191"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-162204.flac"
+encoding = "flac"
+byte_length = 26007951
+sha256 = "35a2396e0ea09093467c2280dbc5665a9408cb78a15aac4adca6e59789f0a3ac"
+
+[[assets]]
+id = "asset-54bc303f8c19b360"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163006.flac"
+encoding = "flac"
+byte_length = 10817712
+sha256 = "66ac13753f3b50df3bdd281b450d8322a2b36aa2dcb0738270e96766bcb32627"
+
+[[assets]]
+id = "asset-ae2c01ffd0a2072e"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163253.flac"
+encoding = "flac"
+byte_length = 17183613
+sha256 = "635b603e24af315d7925d40138970a586c6cf96fda1f4077d6fd565c8a779f63"
+
+[[assets]]
+id = "asset-f6b81f5cb43c898c"
+path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163944.flac"
+encoding = "flac"
+byte_length = 83042
+sha256 = "5c8954e887e7046eb96056ae3e78c50da9e2484d90416ef4e76046f87f38f30a"
+
+[[assets]]
+id = "asset-0c00a5847aa53508"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-150158.flac"
+encoding = "flac"
+byte_length = 13208044
+sha256 = "44e1159458d4952edcc25f0a115e9775faafbd9cfb99c621a16247ffb1cf2ea3"
+
+[[assets]]
+id = "asset-994ade518c2b5545"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-150752.flac"
+encoding = "flac"
+byte_length = 16920597
+sha256 = "f704b2fbf69ea5b72f1b74f2d713c185e5ba5f6bc761ff8e20e72582b9c7bab4"
+
+[[assets]]
+id = "asset-ef070b913d681196"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-151300.flac"
+encoding = "flac"
+byte_length = 19061252
+sha256 = "8b2c865899848b2756819b6fe8d148b2b3f566d45359b14f84b336ca3a43a4c0"
+
+[[assets]]
+id = "asset-f11c09cacfd581d7"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-151859.flac"
+encoding = "flac"
+byte_length = 1085807
+sha256 = "fb0de4e7b60f1c76551a8766ee972b22ff2f318725435afa0c30582136cf3832"
+
+[[assets]]
+id = "asset-5f907c881aadb5e4"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-151919.flac"
+encoding = "flac"
+byte_length = 8511303
+sha256 = "d1303b498dcddc06061e37893622e19c210279425651c80a9a06d9428bfa2538"
+
+[[assets]]
+id = "asset-38d9756c2d9925ba"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-152152.flac"
+encoding = "flac"
+byte_length = 24725160
+sha256 = "fdbfed0f2c20aab7997811535f38588550342e10774c0a22046ff6ab2a164220"
+
+[[assets]]
+id = "asset-2189573223f43884"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-152850.flac"
+encoding = "flac"
+byte_length = 18173824
+sha256 = "c76396aefd0fa9a4f5377be51380145ac19011cf9af9815d699286e76e01c503"
+
+[[assets]]
+id = "asset-2520395d65c28b1e"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-153446.flac"
+encoding = "flac"
+byte_length = 10364321
+sha256 = "5282bfe0e8cb396bd116290941219b459f923d28dd716fed3732b19613869ec7"
+
+[[assets]]
+id = "asset-7925f03229ff1ab8"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-153820.flac"
+encoding = "flac"
+byte_length = 17900900
+sha256 = "837b6f385f53534d781b7b79341286debf5fc25fd43ba69b01c0b4516040ba96"
+
+[[assets]]
+id = "asset-7078d6f92781e423"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-154751.flac"
+encoding = "flac"
+byte_length = 8748000
+sha256 = "53de56081601cc3156d8cc592b5aba6645626fbd39a290ed4411bfd50d67cf0b"
+
+[[assets]]
+id = "asset-53b8f21f39b1b3dd"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-155307.flac"
+encoding = "flac"
+byte_length = 5677966
+sha256 = "48a17471331ce1236d3c3f62f6713fc4818df4ce16c0aa14767acbd60b1388dc"
+
+[[assets]]
+id = "asset-643454ed1b8c7caa"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-155632.flac"
+encoding = "flac"
+byte_length = 1343887
+sha256 = "b0e6319cea95fe92b8b3754a2888f6c983c4f93325a84d2e4a2151b7f42c634e"
+
+[[assets]]
+id = "asset-a84ffd642a07dcb9"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-155719.flac"
+encoding = "flac"
+byte_length = 16540446
+sha256 = "4ba32906d551630363efb6337e15c52486fe2caf5b19e9502ebddc5ef6ee35d7"
+
+[[assets]]
+id = "asset-cbda3928b4a93ea6"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-160409.flac"
+encoding = "flac"
+byte_length = 29851047
+sha256 = "7d85817057e568d6c5d0b72d807f7a744e227e732a39b04fb884009f4c2a7e4a"
+
+[[assets]]
+id = "asset-e79a47bdf97f4553"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-161508.flac"
+encoding = "flac"
+byte_length = 29913836
+sha256 = "54629bb333525ce21a234ab447c8c262d0d04d74eb1c2fd196632cc92c9da39c"
+
+[[assets]]
+id = "asset-aa87f3eb8a6390fe"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-162739.flac"
+encoding = "flac"
+byte_length = 2734710
+sha256 = "9e97b52bb5462480fedd606d529515b9a16f41778cb1beaf2e3806dbc9eca336"
+
+[[assets]]
+id = "asset-4e282f2c2f257152"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-162821.flac"
+encoding = "flac"
+byte_length = 24027313
+sha256 = "74d070b663ea42388d6a3694ea22bb83c71c73cd0ea232b31cf3e99890c9a745"
+
+[[assets]]
+id = "asset-a906fda6e411a1ec"
+path = "audio/MacBook Pro Microphone + 1 + 20260904-163619.flac"
+encoding = "flac"
+byte_length = 11583038
+sha256 = "d20b8b9040d6b1bbb97fbb5c7c8d306a500862fa3876876e228fbe583af83fe0"
+
+[[timebases]]
+id = "clock-5e226690c59de982"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-f41eac0a041172e2"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-4e986fb6c56c24f2"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-1bc345f3335f1830"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-8d60a292cd10400d"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-3120708d92e52f5e"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[body]
+state = "sealed"
+started_at = "2026-09-04T13:01:57.389Z"
+ended_at = "2026-09-04T14:40:17.864Z"
+observed_duration_seconds = 5900.475615978241
+journal = "original-journal"
+clock_observations = []
+unfinished_files = []
+
+[[body.streams]]
+kind = "events"
+id = "stream-0765b5a81a95046e"
+source_id = "midi:FLOW 8"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-f28fdf4c43815dc8"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T13:01:57.805Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-4575f1b311c4594d"
+source_id = "midi:IAC Driver Bus 1"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-fc44ffdf3decffdd"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T13:01:57.806Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-13d4d8b046170ed5"
+source_id = "midi:U6MIDI Pro Port 1"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-982fc90d6deb66d4"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T13:01:57.807Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-35c986fb90ebf3cc"
+source_id = "midi:U6MIDI Pro Port 2"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-f2cc7c62df0d22ef"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T13:01:57.808Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-61140ec3037d80a1"
+source_id = "midi:U6MIDI Pro Port 3"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-e7b5c63c8dee7578"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T13:01:57.809Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "audio"
+id = "stream-5e226690c59de982"
+source_id = "audio:FLOW 8 (Recording):1-2"
+end = 1712128
+fragments = []
+gaps = []
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-3b917147c64b2140"
+count = 843776
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 0
+end = 1712128
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-5e226690c59de982"
+channels = ["input-1", "input-2"]
+
+[[body.streams]]
+kind = "audio"
+id = "stream-f41eac0a041172e2"
+source_id = "audio:FLOW 8 (Recording):3-4"
+end = 283164672
+fragments = []
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-781ae40c7d911b1e"
+count = 280715264
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 856064
+end = 283164672
+
+[[body.streams.gaps]]
+start = 0
+end = 856064
+reason = "unknown"
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-f41eac0a041172e2"
+channels = ["input-3", "input-4"]
+
+[[body.streams]]
+kind = "audio"
+id = "stream-4e986fb6c56c24f2"
+source_id = "audio:FLOW 8 (Recording):5-6"
+end = 281141248
+fragments = []
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-8d5a25d2b8e809b4"
+count = 163840
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 360448
+end = 1392640
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-aafb89db474a6452"
+count = 3207168
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 3907584
+end = 8863744
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-f34757ed81cfb115"
+count = 12034048
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 14409728
+end = 28635136
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-6bb77298038f9a30"
+count = 2957312
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 29700096
+end = 33525760
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-db409520ba189283"
+count = 311296
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 33619968
+end = 34799616
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-a71d95781b2edd1d"
+count = 2424832
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 35176448
+end = 39370752
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-846ed4b58a000720"
+count = 23056384
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 40116224
+end = 65650688
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-d28d60cc618ac978"
+count = 33460224
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 66203648
+end = 101310464
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-624f53f118a22992"
+count = 12955648
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 160272384
+end = 179433472
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-939e3103ae84c739"
+count = 7184384
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 181223424
+end = 189276160
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-59bc5a5a592583af"
+count = 11350016
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 195354624
+end = 207572992
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-f304de816f21da5e"
+count = 18108416
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 232628224
+end = 253657088
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-fe1a9840e63ea107"
+count = 5922816
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 254087168
+end = 261349376
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-3970b50ef2dab0f8"
+count = 323584
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 261844992
+end = 263036928
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-d52f0f623518d746"
+count = 4378624
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 263110656
+end = 268357632
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-e1ecfcf3f4d9c5c0"
+count = 9150464
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 269541376
+end = 281141248
+
+[[body.streams.gaps]]
+start = 0
+end = 360448
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 1392640
+end = 3907584
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 8863744
+end = 14409728
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 28635136
+end = 29700096
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 33525760
+end = 33619968
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 34799616
+end = 35176448
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 39370752
+end = 40116224
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 65650688
+end = 66203648
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 101310464
+end = 160272384
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 179433472
+end = 181223424
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 189276160
+end = 195354624
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 207572992
+end = 232628224
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 253657088
+end = 254087168
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 261349376
+end = 261844992
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 263036928
+end = 263110656
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 268357632
+end = 269541376
+reason = "unknown"
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-4e986fb6c56c24f2"
+channels = ["input-5", "input-6"]
+
+[[body.streams]]
+kind = "audio"
+id = "stream-1bc345f3335f1830"
+source_id = "audio:FLOW 8 (Recording):7-8"
+end = 281182208
+fragments = []
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-d41c3e2bea76fcfc"
+count = 491520
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 380928
+end = 1740800
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-e36d07e1f90f6261"
+count = 3608576
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 3928064
+end = 8806400
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-941ac3a5ec83689e"
+count = 11603968
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 14409728
+end = 28573696
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-f32d6c8fe1cd35af"
+count = 2850816
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 29704192
+end = 33468416
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-315bf46659ff2bc4"
+count = 253952
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 33619968
+end = 34742272
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-789862f0f8e2ffab"
+count = 2269184
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 35180544
+end = 39321600
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-9b50378dd7d3c1c4"
+count = 58851328
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 40116224
+end = 101310464
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-d1608e8254a2e025"
+count = 43085824
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 160600064
+end = 207646720
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-2b20158a5c891a38"
+count = 17924096
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 232628224
+end = 253894656
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-5c08e95ab253a148"
+count = 6361088
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 254095360
+end = 261480448
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-35c3f35e3627ee7b"
+count = 323584
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 261894144
+end = 263086080
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-9b3146b7d6908032"
+count = 4317184
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 263143424
+end = 268328960
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-5885458e5f3001d0"
+count = 9076736
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 269541376
+end = 281182208
+
+[[body.streams.gaps]]
+start = 0
+end = 380928
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 1740800
+end = 3928064
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 8806400
+end = 14409728
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 28573696
+end = 29704192
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 33468416
+end = 33619968
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 34742272
+end = 35180544
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 39321600
+end = 40116224
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 101310464
+end = 160600064
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 207646720
+end = 232628224
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 253894656
+end = 254095360
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 261480448
+end = 261894144
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 263086080
+end = 263143424
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 268328960
+end = 269541376
+reason = "unknown"
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-1bc345f3335f1830"
+channels = ["input-7", "input-8"]
+
+[[body.streams]]
+kind = "audio"
+id = "stream-8d60a292cd10400d"
+source_id = "audio:FLOW 8 (Recording):9-10"
+end = 282603520
+fragments = []
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-229aca9b41a2d20a"
+count = 5558272
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 360448
+end = 8855552
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-601a91197aa90de8"
+count = 90296320
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 10854400
+end = 102436864
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-ecaa9b91b29d5015"
+count = 46858240
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 160600064
+end = 208982016
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-1851cdffc9e3a191"
+count = 21565440
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 230703104
+end = 253820928
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-54bc303f8c19b360"
+count = 6959104
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 253865984
+end = 261693440
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-ae2c01ffd0a2072e"
+count = 17399808
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 261869568
+end = 281436160
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-f6b81f5cb43c898c"
+count = 143360
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 281591808
+end = 282603520
+
+[[body.streams.gaps]]
+start = 0
+end = 360448
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 8855552
+end = 10854400
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 102436864
+end = 160600064
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 208982016
+end = 230703104
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 253820928
+end = 253865984
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 261693440
+end = 261869568
+reason = "unknown"
+
+[[body.streams.gaps]]
+start = 281436160
+end = 281591808
+reason = "unknown"
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-8d60a292cd10400d"
+channels = ["input-9", "input-10"]
+
+[[body.streams]]
+kind = "audio"
+id = "stream-3120708d92e52f5e"
+source_id = "audio:MacBook Pro Microphone:1"
+end = 283151872
+gaps = []
+
+[[body.streams.fragments]]
+asset = "asset-0c00a5847aa53508"
+asset_start = 0
+start = 0
+count = 16965120
+
+[[body.streams.fragments]]
+asset = "asset-994ade518c2b5545"
+asset_start = 0
+start = 16965120
+count = 14821888
+
+[[body.streams.fragments]]
+asset = "asset-ef070b913d681196"
+asset_start = 0
+start = 31787008
+count = 17228800
+
+[[body.streams.fragments]]
+asset = "asset-f11c09cacfd581d7"
+asset_start = 0
+start = 49015808
+count = 960000
+
+[[body.streams.fragments]]
+asset = "asset-5f907c881aadb5e4"
+asset_start = 0
+start = 49975808
+count = 7309312
+
+[[body.streams.fragments]]
+asset = "asset-38d9756c2d9925ba"
+asset_start = 0
+start = 57285120
+count = 20095488
+
+[[body.streams.fragments]]
+asset = "asset-2189573223f43884"
+asset_start = 0
+start = 77380608
+count = 17100288
+
+[[body.streams.fragments]]
+asset = "asset-2520395d65c28b1e"
+asset_start = 0
+start = 94480896
+count = 10255360
+
+[[body.streams.fragments]]
+asset = "asset-7078d6f92781e423"
+asset_start = 0
+start = 132160512
+count = 15156224
+
+[[body.streams.fragments]]
+asset = "asset-53b8f21f39b1b3dd"
+asset_start = 0
+start = 147316736
+count = 9808896
+
+[[body.streams.fragments]]
+asset = "asset-643454ed1b8c7caa"
+asset_start = 0
+start = 157125632
+count = 2258432
+
+[[body.streams.fragments]]
+asset = "asset-a84ffd642a07dcb9"
+asset_start = 0
+start = 159384064
+count = 19717632
+
+[[body.streams.fragments]]
+asset = "asset-cbda3928b4a93ea6"
+asset_start = 0
+start = 179101696
+count = 31618560
+
+[[body.streams.fragments]]
+asset = "asset-e79a47bdf97f4553"
+asset_start = 0
+start = 210720256
+count = 36060672
+
+[[body.streams.fragments]]
+asset = "asset-aa87f3eb8a6390fe"
+asset_start = 0
+start = 246780928
+count = 2020352
+
+[[body.streams.fragments]]
+asset = "asset-4e282f2c2f257152"
+asset_start = 0
+start = 248801280
+count = 22941184
+
+[[body.streams.fragments]]
+asset = "asset-a906fda6e411a1ec"
+asset_start = 0
+start = 271742464
+count = 11409408
+
+[[body.streams.unmapped_fragments]]
+asset = "asset-7925f03229ff1ab8"
+count = 27405312
+reason = "frame_count_mismatch"
+
+[body.streams.unmapped_fragments.journal_range]
+start = 104736256
+end = 132160512
+
+[body.streams.stream]
+family = "sampled"
+quantity = "audio_amplitude"
+unit = "full_scale"
+timebase = "clock-3120708d92e52f5e"
+channels = ["input-1"]
