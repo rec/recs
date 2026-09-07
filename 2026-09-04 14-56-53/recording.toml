@@ -1,0 +1,122 @@
+format = "recs"
+version = 1
+id = "0d04a5d3-ba24-47b9-8bee-fe7445a3076c"
+name = "2026-09-04 14-56-53"
+kind = "recording"
+timebases = []
+
+[[assets]]
+id = "original-journal"
+path = "migration/session-record-v3.jsonl"
+encoding = "recs-session-v3"
+byte_length = 3877
+sha256 = "1b60abbc97831cf18e719b8ce10cb2e152b2506dc7c35d5fdd3728f1c568fa8b"
+
+[[assets]]
+id = "asset-7e1690de03536b65"
+path = "midi/FLOW 8-20260904-145653.mid"
+encoding = "smf"
+byte_length = 43
+sha256 = "86c91c66d6dad6870b600af2ba0e6d727fdb77fb76c3afb82e3989e72cc01d5e"
+
+[[assets]]
+id = "asset-bbbb78e9bd188494"
+path = "midi/IAC Driver Bus 1-20260904-145653.mid"
+encoding = "smf"
+byte_length = 53
+sha256 = "23a0c50697c3a0039c8dc6cda8b7aca77415f47a5ef01e5a2043bae51ea75c09"
+
+[[assets]]
+id = "asset-41005058457ef199"
+path = "midi/U6MIDI Pro Port 1-20260904-145653.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "2e1254653a348064e4ee9d7e6badebabc71f3a1d225b4162d5b72d3b1911cf8e"
+
+[[assets]]
+id = "asset-4999ccca9608bab2"
+path = "midi/U6MIDI Pro Port 2-20260904-145653.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "a828b4472d403989d74b71bb3aa0246be348edd3670a5f1cd34f96510a56d3a4"
+
+[[assets]]
+id = "asset-3d63f1a8fcdbbf04"
+path = "midi/U6MIDI Pro Port 3-20260904-145653.mid"
+encoding = "smf"
+byte_length = 54
+sha256 = "edc4c7d15777e8b66c5f51086e0faeca96c6d9b8a5e8490e503d7c6ba2f6b01b"
+
+[body]
+state = "sealed"
+started_at = "2026-09-04T12:56:53.114Z"
+ended_at = "2026-09-04T12:56:53.487Z"
+observed_duration_seconds = 0.37293124198913574
+journal = "original-journal"
+clock_observations = []
+unfinished_files = []
+
+[[body.streams]]
+kind = "events"
+id = "stream-0765b5a81a95046e"
+source_id = "midi:FLOW 8"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-7e1690de03536b65"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T12:56:53.475Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-4575f1b311c4594d"
+source_id = "midi:IAC Driver Bus 1"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-bbbb78e9bd188494"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T12:56:53.477Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-13d4d8b046170ed5"
+source_id = "midi:U6MIDI Pro Port 1"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-41005058457ef199"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T12:56:53.479Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-35c986fb90ebf3cc"
+source_id = "midi:U6MIDI Pro Port 2"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-4999ccca9608bab2"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T12:56:53.480Z"
+timing_source = "mido"
+
+[[body.streams]]
+kind = "events"
+id = "stream-61140ec3037d80a1"
+source_id = "midi:U6MIDI Pro Port 3"
+event_schema = "midi"
+
+[[body.streams.fragments]]
+asset = "asset-3d63f1a8fcdbbf04"
+event_count = 0
+timing = "smf"
+observed_opened_at = "2026-09-04T12:56:53.482Z"
+timing_source = "mido"
