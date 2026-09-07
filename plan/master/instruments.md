@@ -1,0 +1,94 @@
+# Sample instruments and performance objects
+
+Part of the [master proposal](master.md). An instrument consumes performance
+events and produces named streams. A sample instrument is one realization;
+a synthesizer graph can expose the same performance interface.
+
+## Preserve the useful recsam model
+
+The existing [recsam format](../../doc/sample-format.md) and
+`recs/recsam/` models already describe slots, key/velocity selection, loops,
+articulations, sustain, choke groups, crossfades, envelopes, LFOs, scoped
+controls, EQ, and independent reference pitch. Keep those musical concepts.
+Do not flatten them into thousands of primitive graph connections simply to
+make every object look identical.
+
+The new instrument document wraps a typed `sample_instrument` definition,
+exposes a performance input and named audio outputs, and references common
+assets, parameters, and events. General processing after the instrument uses
+the processor graph. Voice-specific processing stays in its voice template.
+
+## Assets and slots
+
+Replace `SampleSlot.sample` paths with asset IDs. Asset metadata owns native
+sample rate, frame count, channel layout, and encoding. A named slice owns one
+half-open range in that asset's native frames; slots reference that slice.
+Loop positions stay in the same native asset frame coordinates and must be
+contained in the selected slice. Never express sample trim points in musical
+beats or reinterpret them at the output sample rate.
+
+A slot selects keys and velocity intervals, trigger kind, articulation, and
+optional alternate-take set. Key is a selection coordinate; target pitch is
+independent. A pitch-tracked slot declares `reference_pitch_hz` and requires a
+resolved performance pitch. Unpitched percussion does not need a fictitious
+reference pitch.
+
+Instrument and slot settings retain their documented inheritance semantics:
+an omitted slot setting inherits, while an explicit default overrides.
+Preparation resolves these declarations into complete immutable voice settings.
+Do not replace every combination rule with a generic dictionary merge:
+additive gain in dB, envelope overrides, and local modulation references have
+different existing meanings. Preserve them explicitly during the first cutover.
+
+## Voice and layer behavior
+
+One performance trigger may create several voices. Distinguish a trigger limit
+from a voice limit. Before playback implementation, define both capacities and
+deterministic retirement: released voices first, then oldest trigger, with ID
+as a tie-breaker. Retirement applies the instrument's explicit fade duration.
+It must not depend on processing block size or incidental container order.
+
+Sustain retains the existing pedal and release-trigger semantics. Choking a
+group, releasing a key, stealing a voice, and stopping transport are distinct
+causes of retirement. Define which causes fire release samples; do not let an
+implementation accidentally emit a release sample for every internal removal.
+
+For multiple microphones, add linked layers only with a shared take-selection
+identity. Choose the take once, then create close/room voices from that same
+take, each with explicit channel selection, alignment offset, gain, and output.
+Independent microphone random selection would create a performance that was
+never recorded.
+
+Round-robin counters belong to named selection sets and reset at the declared
+performance start. Random behavior requires an identified algorithm and seed,
+plus reset rules independent of block size. The first usable profile may use
+deterministic ordered selection only; stochastic portability is a later feature
+until its algorithm has conformance examples.
+
+## Processing and reuse
+
+An instrument can expose `dry`, `room`, or other named outputs. A parent
+arrangement connects those explicitly. Each instrument node instance owns its
+voice/control state; two uses of the same definition do not share sustain or
+round-robin counters. Per-voice envelopes and filters run before voice mixing;
+instrument effects run after it. A shared send effect is an explicit graph node.
+
+Keep normalized performance controls independent of MIDI CC numbers and OSC
+addresses. One named `breath` control can shape a sample filter, an oscillator,
+and light intensity through explicit mappings, without teaching the sampler
+those transport protocols.
+
+## External samplers and change from today
+
+`SampleInstrument.format_version`, `instrument`, and `slots` currently form a
+standalone document. Adopt the common document header, asset references, and
+exported ports. Reuse its typed slot body and validators instead of simultaneously
+supporting old and new native roots. SFZ remains an external interchange adapter,
+not the canonical model. Its import/export should report which declarations it
+cannot represent.
+
+Existing `Processing` and `SoundSettings` represent a limited sound-processing
+vocabulary. General DSP belongs in [Processors](processors.md); the existing
+peaking EQ does not already implement arbitrary filters or synthesis. The
+[playback plan](../sample-playback.md) still describes an engine to build.
+Adopting a universal envelope does not make that stateful engine exist.
