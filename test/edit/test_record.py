@@ -32,7 +32,7 @@ sample_rate = 48000
 [[sources]]
 id = "right"
 record = "session-record.jsonl"
-channel = "device:pair:2"
+selector = { source = "device", track = "pair", channel = 1 }
 """
     )
 
@@ -73,7 +73,7 @@ sample_rate = 48000
 [[sources]]
 id = "middle"
 file = "take.wav"
-channels = [2, 3]
+channels = [1, 2]
 """
     )
 

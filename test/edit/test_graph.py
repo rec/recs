@@ -23,7 +23,10 @@ def test_graph_computes_routed_extent() -> None:
     [
         ('channels = 2', 'source width'),
         ('destination = "master"', 'Routing cycle'),
-        ('target = "clip:missing:gain"', 'Unknown automation'),
+        (
+            'target = { kind = "clip", node = "missing", parameter = "gain" }',
+            'Unknown automation',
+        ),
     ],
 )
 def test_graph_rejects_invalid_references(replacement: str, message: str) -> None:
@@ -37,7 +40,9 @@ source = "master"
 destination = "master"
 """
     else:
-        text = text.replace('target = "clip:clip:gain"', replacement)
+        text = text.replace(
+            'target = { kind = "clip", node = "clip", parameter = "gain" }', replacement
+        )
 
     with pytest.raises(RecsError, match=message):
         validate_graph(parse_edit(text), {'source': _source()})
@@ -67,7 +72,7 @@ sample_rate = 48000
 [[sources]]
 id = "source"
 record = "session-record.jsonl"
-channel = "device:track"
+selector = { source = "device", track = "track" }
 
 [[tracks]]
 id = "track"
@@ -90,7 +95,7 @@ source = "track"
 destination = "master"
 
 [[automation]]
-target = "clip:clip:gain"
+target = { kind = "clip", node = "clip", parameter = "gain" }
 points = [{ frame = 0, value = 1.0 }]
 
 [[outputs]]

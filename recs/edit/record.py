@@ -58,7 +58,7 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
             f'Source {source.id}: memory source is valid only inside a composition'
         )
     assert source.record is not None
-    assert source.channel is not None
+    assert source.selector is not None
     record_path = (edit_directory / source.record).resolve()
     if not record_path.is_file():
         raise RecsError(
@@ -68,7 +68,9 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     if record.errors:
         raise RecsError(f'Source {source.id}: ' + '; '.join(record.errors))
 
-    source_name, track_name, offset = _parse_selector(source.channel)
+    source_name = source.selector.source
+    track_name = source.selector.track
+    offset = source.selector.channel
     files = [
         f
         for f in record.files
@@ -79,7 +81,8 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     ]
     if not files:
         raise RecsError(
-            f'Source {source.id}: selector {source.channel!r} matches no finished audio'
+            f'Source {source.id}: selector {source.selector!r} '
+            'matches no finished audio'
         )
     _validate_started_files(source.id, files, record.files)
     fragments, width, sample_rate = _select_fragments(
@@ -106,7 +109,7 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
         record=record_path,
         file=None,
         session_id=record.session_id,
-        selector=source.channel,
+        selector=f'{source_name}:{track_name}',
         channels=width,
         sample_rate=sample_rate,
         timeline_end=timeline_end,
@@ -123,8 +126,8 @@ def _resolve_file_source(source: SourceSpec, edit_directory: Path) -> ResolvedSo
         info = soundfile.info(path)
     except soundfile.LibsndfileError as e:
         raise RecsError(f'Source {source.id}: cannot read {path}: {e}') from e
-    first = source.channels[0] - 1
-    if source.channels[-1] > info.channels:
+    first = source.channels[0]
+    if source.channels[-1] >= info.channels:
         raise RecsError(
             f'Source {source.id}: channel {source.channels[-1]} exceeds '
             f'file width {info.channels}'
@@ -174,22 +177,6 @@ def _validate_started_files(
             )
 
 
-def _parse_selector(selector: str) -> tuple[str, str, int | None]:
-    parts = selector.rsplit(':', 2)
-    if len(parts) < 2:
-        raise RecsError(
-            f'Invalid source selector {selector!r}; expected SOURCE:TRACK[:OFFSET]'
-        )
-    if len(parts) == 3 and parts[-1].isdigit():
-        source, track, text_offset = parts
-        offset = int(text_offset)
-        if offset < 1:
-            raise RecsError(f'Invalid channel offset in selector {selector!r}')
-        return source, track, offset
-    source, track = selector.rsplit(':', 1)
-    return source, track, None
-
-
 def _select_fragments(
     source: SourceSpec,
     files: list[session_record.FileRecord],
@@ -237,7 +224,7 @@ def _select_fragments(
         raise RecsError(f'Source {source.id}: inconsistent audio metadata')
     file_width = next(iter(widths))
     width = 1 if offset is not None else file_width
-    channel_offset = 0 if offset is None else offset - 1
+    channel_offset = 0 if offset is None else offset
     if channel_offset >= file_width:
         raise RecsError(
             f'Source {source.id}: channel offset {offset} exceeds width {file_width}'
