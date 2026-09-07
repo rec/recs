@@ -92,6 +92,8 @@ class WarningRecord(BaseModel):
     type: str = 'warning'
     timestamp: str
     message: str
+    first_timestamp: str | None = None
+    count: int | None = None
 
 
 class SessionFooter(BaseModel):

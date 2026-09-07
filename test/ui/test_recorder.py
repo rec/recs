@@ -1658,6 +1658,46 @@ def test_status_snapshot_includes_error_timestamps(
     ]
 
 
+def test_identical_warnings_are_aggregated(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    timestamps = iter([0.0, 100.0, 101.0])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: next(timestamps))
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    entries: list[session_record.Record] = []
+    rec.session.write = entries.append
+
+    rec._record_warning('Device Mic failed')
+    rec._record_warning('Device Mic failed')
+    rec._flush_warning_summaries()
+
+    assert rec.error_records() == [
+        ErrorRecord(
+            timestamp='1970-01-01T00:01:41.000Z',
+            message='Device Mic failed',
+            first_timestamp='1970-01-01T00:01:40.000Z',
+            count=2,
+        )
+    ]
+    assert entries == [
+        session_record.WarningRecord(
+            timestamp='1970-01-01T00:01:40.000Z',
+            message='Device Mic failed',
+        ),
+        session_record.WarningRecord(
+            timestamp='1970-01-01T00:01:41.000Z',
+            message='Device Mic failed',
+            first_timestamp='1970-01-01T00:01:40.000Z',
+            count=2,
+        ),
+    ]
+    assert caplog.messages == ['Device Mic failed']
+
+
 def test_control_request_sets_and_gets_track_names(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

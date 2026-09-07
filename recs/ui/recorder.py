@@ -67,6 +67,8 @@ class Recorder(Runnables):
             cfg, self.saved_tracks
         )
         self.warnings: list[ErrorRecord] = []
+        self._warning_indexes: dict[str, int] = {}
+        self._recorded_warning_counts: dict[str, int] = {}
         self.awaiting_card: ErrorRecord | None = None
         self._output_unmounted = False
         track_names = saved_settings.track_names
@@ -652,6 +654,7 @@ class Recorder(Runnables):
     def _finish_record(self) -> None:
         self._midi.close_session()
         self._osc.close_session()
+        self._flush_warning_summaries()
         timestamp = times.timestamp()
         self.session.finish(timestamp)
 
@@ -684,8 +687,20 @@ class Recorder(Runnables):
 
     def _record_warning(self, warning: str) -> None:
         timestamp = session_record.timestamp_to_json(times.timestamp())
+        if (index := self._warning_indexes.get(warning)) is not None:
+            previous = self.warnings[index]
+            self.warnings[index] = previous.model_copy(
+                update={
+                    'timestamp': timestamp,
+                    'first_timestamp': previous.first_timestamp or previous.timestamp,
+                    'count': (previous.count or 1) + 1,
+                }
+            )
+            return
         LOGGER.error('%s', warning)
+        self._warning_indexes[warning] = len(self.warnings)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
+        self._recorded_warning_counts[warning] = 1
         if not self._output_unmounted:
             self.session.write(
                 session_record.WarningRecord(
@@ -693,6 +708,23 @@ class Recorder(Runnables):
                     message=warning,
                 )
             )
+
+    def _flush_warning_summaries(self) -> None:
+        if self._output_unmounted:
+            return
+        for warning in self.warnings:
+            count = warning.count or 1
+            if count <= self._recorded_warning_counts.get(warning.message, 0):
+                continue
+            self.session.write(
+                session_record.WarningRecord(
+                    timestamp=warning.timestamp,
+                    message=warning.message,
+                    first_timestamp=warning.first_timestamp,
+                    count=count,
+                )
+            )
+            self._recorded_warning_counts[warning.message] = count
 
     def _set_awaiting_card(self, value: bool) -> None:
         self.awaiting_card = ErrorRecord(
