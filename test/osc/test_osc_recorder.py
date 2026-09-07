@@ -1,4 +1,7 @@
 import json
+import socket
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -124,6 +127,96 @@ resubscribe_period = 10
     assert finished.quantity_count == 2
     assert finished.inbound_count == 2
     assert finished.outbound_count == 0
+
+
+def test_hostname_resolution_does_not_block_recording(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        """[[nodes]]
+name = "mixer"
+host = "mixer.local"
+port = 10024
+
+[[nodes.commands]]
+path = "/xremote"
+on_start = true
+"""
+    )
+    resolution_started = threading.Event()
+    allow_resolution = threading.Event()
+
+    def getaddrinfo(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
+        resolution_started.set()
+        allow_resolution.wait()
+        return [(socket.AF_INET, socket.SOCK_DGRAM, 0, '', ('10.43.0.18', 10024))]
+
+    fake_socket = FakeSocket()
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    monkeypatch.setattr(recorder.socket, 'getaddrinfo', getaddrinfo)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'session/osc',
+        lambda warning: None,
+        lambda record: None,
+    )
+
+    osc_recorder.start()
+
+    assert resolution_started.wait(1)
+    assert fake_socket.sent == []
+    allow_resolution.set()
+    for _ in range(100):
+        osc_recorder.poll()
+        if fake_socket.sent:
+            break
+        time.sleep(0.001)
+    osc_recorder.stop()
+
+    assert fake_socket.sent == [
+        (codec.encode_message('/xremote', []), ('10.43.0.18', 10024))
+    ]
+
+
+def test_hostname_resolution_failure_becomes_osc_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        """[[nodes]]
+name = "mixer"
+host = "mixer.invalid"
+port = 10024
+
+[[nodes.polls]]
+path = "/status"
+period = 1
+"""
+    )
+
+    def getaddrinfo(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
+        raise socket.gaierror('DNS unavailable')
+
+    warnings: list[str] = []
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: FakeSocket())
+    monkeypatch.setattr(recorder.socket, 'getaddrinfo', getaddrinfo)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'session/osc',
+        warnings.append,
+        lambda record: None,
+    )
+
+    osc_recorder.start()
+    for _ in range(100):
+        osc_recorder.poll()
+        if warnings:
+            break
+        time.sleep(0.001)
+    osc_recorder.stop()
+
+    assert warnings == ['OSC node mixer resolve failed: DNS unavailable']
 
 
 def test_jsonl_compression_can_be_disabled(tmp_path: Path, monkeypatch) -> None:

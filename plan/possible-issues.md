@@ -30,13 +30,6 @@ same time. It also depends on platform-specific removable disk detection.
 The code has isolated unit tests, but it still needs Pi/X18/USB-media tests for
 full, unplugged, read-only, slow, and remounted disks while recording.
 
-### Recs must stay local when networks fail
-
-Recs itself uses local sockets, but Showco and other suite programs may wait on
-network actions or status checks. Recording must continue when Wi-Fi, Ethernet,
-DNS, remote update, or streaming fails. Local status freshness should be
-reported separately from failed network operations.
-
 ## Remaining validation
 
 1. Exercise disk switching on the Raspberry Pi with an X18 and real USB media,
