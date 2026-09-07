@@ -52,7 +52,7 @@ def check(path: Path) -> list[str]:
         errors.extend(_file_size_errors(path, file_path, file, started_records))
         errors.extend(_midi_file_errors(path, file_path, file))
     errors.extend(_frame_errors(path, record.files))
-    errors.extend(_disk_switch_errors(path, record))
+    errors.extend(_continuation_errors(path, record))
     return errors
 
 
@@ -118,7 +118,7 @@ def _midi_file_errors(
     return [f'{record_path}: {file.path} has MIDI messages but is empty']
 
 
-def _disk_switch_errors(
+def _continuation_errors(
     record_path: Path, record: session_record.SessionRecord
 ) -> list[str]:
     errors: list[str] = []
@@ -130,7 +130,14 @@ def _disk_switch_errors(
             if not source.exists():
                 errors.append(f'{record_path}: continued_from record is missing')
     for event in record.events:
-        if event.type != 'disk_switch_continued_at' or event.continued_at is None:
+        if (
+            event.type
+            not in {
+                'disk_switch_continued_at',
+                'session_continued_at',
+            }
+            or event.continued_at is None
+        ):
             continue
         if Path(event.continued_at).is_absolute():
             errors.append(f'{record_path}: continued record path must be relative')
@@ -144,7 +151,11 @@ def _disk_switch_errors(
         except OSError as e:
             errors.append(f'{record_path}: continued record cannot be read: {e}')
             continue
-        if next_record.continued_from != str(record_path):
+        if (
+            next_record.continued_from is None
+            or _file_path(continued, next_record.continued_from).resolve()
+            != record_path.resolve()
+        ):
             errors.append(f'{continued}: continued_from does not point back')
     return errors
 

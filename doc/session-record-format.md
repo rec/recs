@@ -219,6 +219,11 @@ header keeps the same `session_id` and uses `continued_from` to identify the old
 record. Before its footer, the old record contains a
 `disk_switch_continued_at` lifecycle entry naming the new record.
 
+The `new_session` protocol command uses the same reciprocal record links but
+assigns a new `session_id`. Its old record contains a `session_continued_at`
+entry naming the new record. The new record's `continued_from` points back to
+the old record.
+
 Continuation paths are relative when both records are addressable from a common
 filesystem tree. A record copied without its predecessor remains readable; the
 missing continuation is a validation warning rather than corruption of the

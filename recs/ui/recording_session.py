@@ -62,8 +62,17 @@ class RecordingSession:
         self.record_errors.extend(self.record_writer.take_errors())
         self.record_writer = None
 
-    def reset(self, started_at: float) -> None:
+    def reset(
+        self,
+        started_at: float,
+        *,
+        session_id: str | None = None,
+        continued_from: str | None = None,
+    ) -> None:
+        if session_id is not None:
+            self.session_id = session_id
         self.started_at = started_at
+        self.continued_from = continued_from
         self.files_written = set()
         self.file_end_frames = {}
         self.file_end_timestamps = {}

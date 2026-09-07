@@ -36,6 +36,9 @@ class RecordingControlTarget(Protocol):
     def mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         ...
 
+    def new_session(self) -> gui_protocol.NewSessionStarted:
+        ...
+
     def pause_recording(self, reason: str) -> gui_protocol.RecordingState:
         ...
 
@@ -158,6 +161,8 @@ class RecordingControlProtocol:
             )
         if isinstance(request, gui_protocol.Mark):
             return self.control.mark(request)
+        if isinstance(request, gui_protocol.NewSession):
+            return self.control.new_session()
         if isinstance(request, gui_protocol.PauseRecording):
             return self.control.pause_recording('pause_recording')
         if isinstance(request, gui_protocol.ReloadProfiles):

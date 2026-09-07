@@ -160,6 +160,7 @@ class Recorder(Runnables):
             self._receive_pending_updates,
             self._finish_record,
             self._card_replace,
+            self._new_session,
         )
         self._card_replacement = card_replacement.CardReplacement()
         self._recording_disk = recording_paths.mounted_disk(self.session_directory)
@@ -478,6 +479,64 @@ class Recorder(Runnables):
         self._monitor_card_replacement()
         return result
 
+    def _new_session(self) -> gui_protocol.NewSessionStarted:
+        if self._card_replacement.active:
+            raise RecsError('Cannot start a new session while awaiting a card')
+        if self.session.record_writer is None:
+            raise RecsError('Cannot start a new session without an active record')
+
+        timestamp = times.timestamp()
+        previous_record_path = self.session.record_writer.path
+        session_directory = recording_paths.session_directory(
+            self.cfg.directory.output_directory, timestamp
+        )
+        record_path = session_directory / 'session-record.jsonl'
+        self._suspend_audio_writing('new session')
+        self._midi.suspend_for_card_replace()
+        self._osc.suspend_for_card_replace()
+        self._write_record_entry(
+            session_record.EventRecord(
+                type='session_continued_at',
+                timestamp=session_record.timestamp_to_json(timestamp),
+                continued_at=_relative_record_path(record_path, previous_record_path),
+            )
+        )
+        self._finish_record()
+
+        session_id = str(uuid.uuid4())
+        self.session_start_time = timestamp
+        self.session.reset(
+            timestamp,
+            session_id=session_id,
+            continued_from=_relative_record_path(previous_record_path, record_path),
+        )
+        self._set_session_directory(session_directory)
+        self._start_record()
+        self._devices.set_writing_enabled(True)
+        return gui_protocol.NewSessionStarted(
+            type='new_session_started',
+            session_id=session_id,
+            session_directory=str(session_directory),
+            previous_record_path=str(previous_record_path),
+            record_path=str(self.session.record_writer.path),
+        )
+
+    def _suspend_audio_writing(self, operation: str) -> None:
+        self._devices.set_writing_enabled(False)
+        deadline = monotonic() + external_ipc.EXTERNAL_RESPONSE_TIMEOUT
+        while not self._devices.writing_is_suspended:
+            connections = [
+                source.connection
+                for source in self._devices.sources.values()
+                if source.is_alive
+            ]
+            if connections:
+                for conn in connection.wait(connections, timeout=POLL_TIMEOUT):
+                    self._receive_connection(cast(connection.Connection, conn))
+            if monotonic() >= deadline:
+                self._devices.set_writing_enabled(True)
+                raise RecsError(f'Timed out closing audio files for {operation}')
+
     def _replacement_disk_uuids(self) -> set[str]:
         mounts = {
             disk.path.resolve(): disk.uuid
@@ -774,3 +833,7 @@ def _summary_time(seconds: float) -> str:
     if seconds < 60:
         return f'0:{value:0>6}'
     return value
+
+
+def _relative_record_path(path: Path, record_path: Path) -> str:
+    return Path(os.path.relpath(path, record_path.parent)).as_posix()
