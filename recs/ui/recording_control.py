@@ -53,6 +53,7 @@ class RecordingControl:
         receive_pending_updates: Callable[[], None],
         finish_record: Callable[[], None],
         card_replace: Callable[[], gui_protocol.CardReplaceStarted],
+        new_session: Callable[[], gui_protocol.NewSessionStarted],
     ) -> None:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
@@ -71,6 +72,7 @@ class RecordingControl:
         self.receive_pending_updates = receive_pending_updates
         self.finish_record = finish_record
         self.card_replace_callback = card_replace
+        self.new_session_callback = new_session
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.runtime_state = RecordingRuntimeState()
         self.cfg_revision = 0
@@ -96,6 +98,9 @@ class RecordingControl:
 
     def mark(self, request: gui_protocol.Mark) -> gui_protocol.Marked:
         return recording_commands.mark(self, request)
+
+    def new_session(self) -> gui_protocol.NewSessionStarted:
+        return self.new_session_callback()
 
     def card_replace(self) -> gui_protocol.CardReplaceStarted:
         return self.card_replace_callback()

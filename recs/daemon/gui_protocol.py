@@ -6,7 +6,7 @@ from reccy.protocol import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 7
+VERSION = 8
 
 
 class Hello(ipc.Hello):
@@ -63,6 +63,10 @@ class ListDevices(BaseModel):
 
 class MutableAttributes(BaseModel):
     type: Literal['mutable_attributes']
+
+
+class NewSession(BaseModel):
+    type: Literal['new_session']
 
 
 class Mark(BaseModel):
@@ -202,6 +206,14 @@ class NoiseFloorSet(BaseModel):
     source: str
 
 
+class NewSessionStarted(BaseModel):
+    type: Literal['new_session_started']
+    session_id: str
+    session_directory: str
+    previous_record_path: str
+    record_path: str
+
+
 class ProfilesReloaded(BaseModel):
     type: Literal['profiles_reloaded']
     profiles_path: str
@@ -261,6 +273,7 @@ Request = (
     | GetTrackNames
     | ListDevices
     | MutableAttributes
+    | NewSession
     | Mark
     | PauseRecording
     | ReloadProfiles
@@ -284,6 +297,7 @@ Response = (
     | KeyLabelSet
     | Marked
     | MutableAttributesResult
+    | NewSessionStarted
     | NoiseFloorSet
     | ProfilesReloaded
     | RecordingState
@@ -313,6 +327,7 @@ API_COMMANDS = [
     'get_track_names',
     'list_devices',
     'mutable_attributes',
+    'new_session',
     'mark',
     'pause_recording',
     'reload_profiles',

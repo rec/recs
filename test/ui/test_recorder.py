@@ -1511,11 +1511,120 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 7
+    assert response.version == 8
     assert 'status_snapshot' in response.commands
     assert 'subscribe_waveforms' in response.commands
     assert 'unsubscribe_waveforms' in response.commands
+    assert 'new_session' in response.commands
     assert 'shutdown' in response.commands
+
+
+def test_new_session_links_records_and_keeps_device_timeline(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(
+        recorder.connection,
+        'wait',
+        lambda connections, timeout: [c for c in connections if c.poll()],
+    )
+    clock = [100.0]
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: clock[0])
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_record()
+    source = rec._devices.hardware['Mic']
+    source.start()
+    old_record_path = rec._record_path()
+    old_session_id = rec.session.session_id
+    old_audio_path = rec.session_directory / 'audio/old.flac'
+    old_audio_path.parent.mkdir()
+    old_audio_path.write_bytes(b'audio')
+    source.connection.messages.append(
+        SourceUpdate(
+            channels={},
+            files=[old_audio_path],
+            frames=48_000,
+            source_name='Mic',
+            file_records=[
+                SourceFile(
+                    path=old_audio_path,
+                    source_name='Mic',
+                    track_name='1',
+                    source_channels=[1],
+                    channels=1,
+                    sample_rate=48_000,
+                    bit_depth=16,
+                    start_frame=0,
+                    start_timestamp=99.0,
+                )
+            ],
+            file_end_frames={old_audio_path: 48_000},
+            file_end_timestamps={old_audio_path: 100.0},
+            frame_count=48_000,
+            writing_enabled=False,
+        )
+    )
+
+    request = FakeControlRequest(gui_protocol.NewSession(type='new_session'))
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    result = request.responses[0]
+    assert isinstance(result, gui_protocol.NewSessionStarted)
+    new_record_path = Path(result.record_path)
+    old_record = session_record.read(old_record_path)
+    new_record = session_record.read(new_record_path)
+    continuation = next(
+        event for event in old_record.events if event.type == 'session_continued_at'
+    )
+    assert result.session_id != old_session_id
+    assert source.start_count == 1
+    assert source.is_alive
+    assert rec._devices.writing_enabled
+    assert rec._devices.frames['Mic'] == 48_000
+    assert continuation.continued_at is not None
+    assert (old_record_path.parent / continuation.continued_at).resolve() == (
+        new_record_path.resolve()
+    )
+    assert new_record.continued_from is not None
+    assert (new_record_path.parent / new_record.continued_from).resolve() == (
+        old_record_path.resolve()
+    )
+
+    new_audio_path = rec.session_directory / 'audio/new.flac'
+    new_audio_path.parent.mkdir()
+    new_audio_path.write_bytes(b'audio')
+    rec._receive_update(
+        SourceUpdate(
+            channels={},
+            files=[new_audio_path],
+            frames=512,
+            source_name='Mic',
+            file_records=[
+                SourceFile(
+                    path=new_audio_path,
+                    source_name='Mic',
+                    track_name='1',
+                    source_channels=[1],
+                    channels=1,
+                    sample_rate=48_000,
+                    bit_depth=16,
+                    start_frame=48_000,
+                    start_timestamp=100.0,
+                )
+            ],
+            file_end_frames={new_audio_path: 48_512},
+            file_end_timestamps={new_audio_path: 100.01},
+            frame_count=48_512,
+        )
+    )
+    new_record = session_record.read(new_record_path)
+
+    assert new_record.files[-1].frame_count == 48_000
 
 
 def test_control_request_marks_record(

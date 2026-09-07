@@ -143,6 +143,7 @@ response return the JSON string `"ok"`.
 | `set_key_label` | `key: str`, `label: str` | `"ok"` |
 | `calibrate` | optional `channels: object` | `calibrated` |
 | `mark` | `label: str` | `"ok"` |
+| `new_session` | none | `new_session_started` |
 | `card_replace` | none | `card_replace_started` |
 | `pause_recording` | none | `"ok"` |
 | `resume_recording` | none | `"ok"` |
@@ -159,7 +160,7 @@ Call this first when a client needs to adapt to different Recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 7
+  "version": 8
 }
 ```
 
@@ -350,6 +351,32 @@ levels and the per-source noise floors that Recs applied:
 Calibration also updates `recording.channel_noise_floors`.
 
 ### Recording control
+
+`new_session` ends the current session and starts another without stopping
+capture. Recs closes the current media files and session record, creates a new
+session directory under the configured output directory, and starts a new
+session record with a new session ID. The response identifies both records:
+
+```json
+{
+  "type": "new_session_started",
+  "session_id": "8e9161e7-2890-46af-b45f-9d7186374462",
+  "session_directory": "/mnt/openloop/recs/2026-09-07 18-30-00",
+  "previous_record_path": "/mnt/openloop/recs/2026-09-07 17-00-00/session-record.jsonl",
+  "record_path": "/mnt/openloop/recs/2026-09-07 18-30-00/session-record.jsonl"
+}
+```
+
+The old record contains a `session_continued_at` entry pointing to the new
+record, and the new record header uses `continued_from` to point back to the
+old record. Both links are relative to the record containing them.
+
+Audio input remains open during the transition. Recs temporarily queues input
+blocks while it closes the old files and opens the new files, then drains them
+in order. Each device keeps its existing timeline, so the first audio file in
+the new session continues the device's sample index from the old session.
+MIDI messages and OSC packets received during the transition are likewise
+retained and written to the new session.
 
 ### Card replacement
 
