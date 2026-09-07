@@ -83,7 +83,7 @@ class Renderer:
     def _nodes(self) -> tuple[dict[str, np.ndarray], dict[str, list[FrameRange]]]:
         timeline_end = max(r.end for r in self.graph.output_extents.values())
         nodes = {
-            t.id: allocate_audio(timeline_end, t.channels, f'track {t.id}')
+            t.id: allocate_audio(timeline_end, len(t.stream.channels), f'track {t.id}')
             for t in self.edit.body.tracks
         }
         ranges: dict[str, list[FrameRange]] = {t.id: [] for t in self.edit.body.tracks}
@@ -123,7 +123,9 @@ class Renderer:
             routes[route.destination].append(route)
         for bus_id in self.graph.bus_order:
             bus = buses[bus_id]
-            block = allocate_audio(timeline_end, bus.channels, f'bus {bus.id}')
+            block = allocate_audio(
+                timeline_end, len(bus.stream.channels), f'bus {bus.id}'
+            )
             observed: list[FrameRange] = []
             for route in routes[bus_id]:
                 gains = gain_values(
@@ -158,8 +160,8 @@ class Renderer:
             timeline_end
             * itemsize
             * (
-                sum(t.channels for t in self.edit.body.tracks)
-                + sum(b.channels for b in self.edit.body.buses)
+                sum(len(t.stream.channels) for t in self.edit.body.tracks)
+                + sum(len(b.stream.channels) for b in self.edit.body.buses)
             )
         )
         clip_temporary = max(

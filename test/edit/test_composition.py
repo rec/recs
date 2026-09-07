@@ -87,7 +87,8 @@ def test_composition_executes_each_edit_from_the_previous_session(
     assert 'path' not in first_output
     assert 'format' not in first_output
     assert 'subtype' not in first_output
-    assert canonical.stages[1].edit['body']['outputs'][0]['format'] == 'wav'
+    assert canonical.stages[0].edit['destinations'] == []
+    assert canonical.stages[1].edit['destinations'][0]['format'] == 'wav'
 
     rendered, rate = soundfile.read(
         destination / 'audio/edit-device-voice.wav',

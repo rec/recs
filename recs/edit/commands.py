@@ -25,6 +25,7 @@ from recs.model.arrangement import (
     TrackSpec,
 )
 from recs.model.references import ParameterTarget, RecordSelector
+from recs.model.streams import AudioType, FileDestination
 from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
@@ -127,38 +128,39 @@ def complete_or_generate_tracks(
     )
     generated = _dictionary(document['body'], 'Invalid arrangement body')
     overlay = {k: v for k, v in recipe.items() if k not in {'extends', '_command'}}
+    defaults: dict[str, object] = {}
     if outputs := overlay.pop('outputs', None):
         if not isinstance(outputs, list) or len(outputs) != 1:
             raise RecsError('Generated commands accept one [[outputs]] defaults table')
         defaults = _dictionary(outputs[0], 'Invalid [[outputs]] defaults table')
-        generated_outputs = generated.get('outputs')
-        if not isinstance(generated_outputs, list):
-            raise RecsError('Generated command has invalid outputs')
-        generated['outputs'] = [
-            _merge(_dictionary(o, 'Generated command has invalid output'), defaults)
-            for o in generated_outputs
-        ]
-    generated_outputs = generated.get('outputs')
-    if not isinstance(generated_outputs, list):
-        raise RecsError('Generated command has invalid outputs')
-    overridden_outputs: list[dict[str, object]] = []
-    for value in generated_outputs:
-        output = _dictionary(value, 'Generated command has invalid output')
+    destination_defaults = {
+        k: defaults.pop(k) for k in ('path', 'format', 'subtype') if k in defaults
+    }
+    for field in ('normalize', 'gain'):
+        if (value := getattr(options, field)) is not None:
+            defaults[field] = value
+    generated_outputs = generated['outputs']
+    assert isinstance(generated_outputs, list)
+    generated['outputs'] = [
+        _merge(_dictionary(o, 'Invalid output'), defaults) for o in generated_outputs
+    ]
+    destinations = document['destinations']
+    assert isinstance(destinations, list)
+    resolved_destinations: list[dict[str, object]] = []
+    for value in destinations:
+        destination = _dictionary(value, 'Invalid destination')
+        destination.update(destination_defaults)
         if options.format is not None:
-            output['format'] = options.format
-            output['path'] = str(
-                Path(str(output['path'])).with_suffix(f'.{options.format}')
-            )
+            destination['format'] = options.format
             if options.subtype is None:
-                output.pop('subtype', None)
+                destination.pop('subtype', None)
         if options.subtype is not None:
-            output['subtype'] = options.subtype
-        if options.normalize is not None:
-            output['normalize'] = options.normalize
-        if options.gain is not None:
-            output['gain'] = options.gain
-        overridden_outputs.append(output)
-    generated['outputs'] = overridden_outputs
+            destination['subtype'] = options.subtype
+        destination['path'] = str(
+            Path(str(destination['path'])).with_suffix(f".{destination['format']}")
+        )
+        resolved_destinations.append(destination)
+    document['destinations'] = resolved_destinations
     document['body'] = _merge(generated, overlay)
     return ArrangementDocument.model_validate(document)
 
@@ -433,7 +435,15 @@ def _generate(
         )
         track_id = 'stitch' if operation == CommandKind.stitch else identity
         if operation != CommandKind.stitch:
-            output_tracks.append(TrackSpec(id=track_id, channels=input_track.channels))
+            output_tracks.append(
+                TrackSpec(
+                    id=track_id,
+                    stream=AudioType(
+                        timebase='audio',
+                        channels=[f'channel-{i}' for i in range(input_track.channels)],
+                    ),
+                )
+            )
         for range_index, (source_start, source_end) in enumerate(ranges):
             clips.append(
                 ClipSpec(
@@ -456,33 +466,35 @@ def _generate(
                 OutputSpec(
                     id=identity,
                     source=track_id,
-                    path=Path(f'audio/{identity}.{output_format}'),
-                    format=output_format,
-                    subtype=format_subtype,
                 )
             )
     if operation == CommandKind.stitch:
         widths = {t.channels for t in selected}
         if len(widths) != 1:
             raise RecsError('Stitch inputs must have matching channel widths')
-        output_tracks = [TrackSpec(id='stitch', channels=next(iter(widths)))]
+        output_tracks = [
+            TrackSpec(
+                id='stitch',
+                stream=AudioType(
+                    timebase='audio',
+                    channels=[f'channel-{i}' for i in range(next(iter(widths)))],
+                ),
+            )
+        ]
         outputs = [
             OutputSpec(
                 id='stitch',
                 source='stitch',
-                path=Path(f'audio/stitch.{output_format}'),
-                format=output_format,
-                subtype=format_subtype,
             )
         ]
     buses: list[BusSpec] = []
     routes: list[RouteSpec] = []
     automation: list[AutomationSpec] = []
     if operation == CommandKind.mix:
-        widths = {t.channels for t in output_tracks}
+        widths = {len(t.stream.channels) for t in output_tracks}
         if len(widths) != 1:
             raise RecsError('Mix inputs must have matching channel widths')
-        buses = [BusSpec(id='master', channels=next(iter(widths)))]
+        buses = [BusSpec(id='master', stream=output_tracks[0].stream)]
         if route_gains and len(route_gains) != len(output_tracks):
             raise RecsError('Mix requires one --route-gain for each selected channel')
         gains = route_gains or [1.0] * len(output_tracks)
@@ -522,15 +534,21 @@ def _generate(
             OutputSpec(
                 id='mix',
                 source='master',
-                path=Path(f'audio/mix.{output_format}'),
-                format=output_format,
-                subtype=format_subtype,
             )
         ]
     return ArrangementDocument(
         id='edit',
         name='Audio edit',
         timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+        destinations=[
+            FileDestination(
+                port=o.id,
+                path=Path(f'audio/{o.id}.{output_format}'),
+                format=output_format,
+                subtype=format_subtype,
+            )
+            for o in outputs
+        ],
         body=Arrangement(
             timebase='audio',
             sources=sources,

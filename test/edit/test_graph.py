@@ -32,7 +32,9 @@ def test_graph_computes_routed_extent() -> None:
 def test_graph_rejects_invalid_references(replacement: str, message: str) -> None:
     text = _edit()
     if replacement == 'channels = 2':
-        text = text.replace('channels = 1', replacement, 1)
+        text = text.replace(
+            'channels = ["channel-0"]', 'channels = ["channel-0", "channel-1"]', 1
+        )
     elif replacement == 'destination = "master"':
         text += """
 [[body.routes]]
@@ -82,11 +84,11 @@ selector = { source = "device", track = "track" }
 
 [[body.tracks]]
 id = "track"
-channels = 1
+stream = { timebase = "audio", channels = ["channel-0"] }
 
 [[body.buses]]
 id = "master"
-channels = 1
+stream = { timebase = "audio", channels = ["channel-0"] }
 
 [[body.clips]]
 id = "clip"
@@ -107,6 +109,9 @@ points = [{ frame = 0, value = 1.0 }]
 [[body.outputs]]
 id = "output"
 source = "master"
+
+[[destinations]]
+port = "output"
 path = "audio/output.wav"
 format = "wav"
 """

@@ -107,7 +107,7 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
 
     assert edit.body.sources[0].selector is not None
     assert edit.body.sources[0].selector.channel == 1
-    assert edit.body.tracks[0].channels == 1
+    assert edit.body.tracks[0].stream.channels == ['channel-0']
 
 
 def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
@@ -134,7 +134,7 @@ def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
 
     assert [s.file for s in edit.body.sources] == [second.resolve(), first.resolve()]
     assert [c.timeline_start for c in edit.body.clips] == [0, 48_000]
-    assert [o.path.as_posix() for o in edit.body.outputs] == ['audio/stitch.flac']
+    assert [d.path.as_posix() for d in edit.destinations] == ['audio/stitch.flac']
 
 
 def test_split_expands_file_channels(tmp_path: Path) -> None:
@@ -144,7 +144,7 @@ def test_split_expands_file_channels(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [path], EditOptions())
 
     assert [s.channels for s in edit.body.sources] == [[0], [1]]
-    assert [t.channels for t in edit.body.tracks] == [1, 1]
+    assert [len(t.stream.channels) for t in edit.body.tracks] == [1, 1]
 
 
 def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:

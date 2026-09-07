@@ -23,11 +23,11 @@ selector = { source = "X18", track = "1-2" }
 
 [[body.tracks]]
 id = "voice"
-channels = 2
+stream = { timebase = "audio", channels = ["channel-0", "channel-1"] }
 
 [[body.buses]]
 id = "master"
-channels = 2
+stream = { timebase = "audio", channels = ["channel-0", "channel-1"] }
 
 [[body.clips]]
 id = "opening"
@@ -53,6 +53,9 @@ points = [
 [[body.outputs]]
 id = "mix"
 source = "master"
+
+[[destinations]]
+port = "mix"
 path = "audio/mix.flac"
 format = "flac"
 subtype = "pcm_24"
