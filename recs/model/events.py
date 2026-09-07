@@ -16,7 +16,7 @@ class Event(Model):
 
 class MidiEvent(Event):
     kind: Literal['midi'] = 'midi'
-    data: list[int] = Field(min_length=1)
+    data: list[Annotated[int, Field(strict=True)]] = Field(min_length=1)
 
     @field_validator('data')
     @classmethod

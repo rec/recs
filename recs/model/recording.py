@@ -31,6 +31,13 @@ class AudioFragment(Model):
     variant_group: Identifier | None = None
 
 
+class UnmappedAudioFragment(Model):
+    asset: Identifier
+    count: int = Field(ge=0, strict=True)
+    journal_range: TickRange
+    reason: Literal['frame_count_mismatch'] = 'frame_count_mismatch'
+
+
 class AudioStream(Model):
     kind: Literal['audio'] = 'audio'
     id: Identifier
@@ -38,14 +45,25 @@ class AudioStream(Model):
     stream: AudioType
     end: int = Field(ge=0, strict=True)
     fragments: list[AudioFragment] = Field(default_factory=list)
+    unmapped_fragments: list[UnmappedAudioFragment] = Field(default_factory=list)
     gaps: list[Gap] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def timeline(self) -> Self:
         fragments = sorted(self.fragments, key=lambda f: (f.start, f.count))
+        unique(
+            [f'{f.asset}:{f.asset_start}:{f.start}' for f in fragments],
+            'fragment identities',
+        )
         for fragment in fragments:
             if fragment.start + fragment.count > self.end:
                 raise ValueError('audio fragment exceeds stream extent')
+        for fragment in self.unmapped_fragments:
+            if (
+                fragment.journal_range.start < 0
+                or fragment.journal_range.end > self.end
+            ):
+                raise ValueError('unmapped journal interval exceeds stream extent')
         for left, right in zip(fragments, fragments[1:]):
             if left.start + left.count <= right.start:
                 continue
@@ -62,9 +80,27 @@ class AudioStream(Model):
                 raise ValueError('gaps must be ordered and within the stream extent')
             if any(
                 gap.start < f.start + f.count and f.start < gap.end for f in fragments
+            ) or any(
+                gap.start < f.journal_range.end and f.journal_range.start < gap.end
+                for f in self.unmapped_fragments
             ):
                 raise ValueError('gap overlaps captured audio')
             previous = gap.end
+        intervals = sorted(
+            [(f.start, f.start + f.count) for f in fragments]
+            + [(g.start, g.end) for g in self.gaps]
+            + [
+                (f.journal_range.start, f.journal_range.end)
+                for f in self.unmapped_fragments
+            ]
+        )
+        covered = 0
+        for start, end in intervals:
+            if start > covered:
+                raise ValueError('uncaptured audio intervals must have explicit gaps')
+            covered = max(covered, end)
+        if covered != self.end:
+            raise ValueError('uncaptured audio intervals must have explicit gaps')
         return self
 
 
@@ -81,14 +117,23 @@ class EventStream(Model):
     id: Identifier
     source_id: str = Field(min_length=1)
     event_schema: Literal['midi', 'osc', 'recs_events']
+    timebase: Identifier | None = None
     fragments: list[EventFragment] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def payload_schema(self) -> Self:
+        if (self.event_schema == 'recs_events') != (self.timebase is not None):
+            raise ValueError('only native event streams declare a document timebase')
         timing = {'midi': 'smf', 'osc': 'osc_jsonl', 'recs_events': 'recs_events'}
         if any(f.timing != timing[self.event_schema] for f in self.fragments):
             raise ValueError('event fragment timing disagrees with its stream schema')
         return self
+
+
+class UnfinishedFile(Model):
+    source_id: str
+    journal_path: str
+    observed_opened_at: str
 
 
 class Recording(Model):
@@ -99,11 +144,14 @@ class Recording(Model):
     journal: Identifier
     streams: list[Annotated[AudioStream | EventStream, Field(discriminator='kind')]]
     clock_observations: list[ClockObservation] = Field(default_factory=list)
+    unfinished_files: list[UnfinishedFile] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def session_state(self) -> Self:
         if (self.state == 'sealed') != (self.ended_at is not None):
             raise ValueError('only a sealed recording has an end timestamp')
+        if self.state == 'sealed' and self.unfinished_files:
+            raise ValueError('a recording with unfinished files must remain open')
         unique([s.id for s in self.streams], 'stream IDs')
         return self
 
@@ -125,7 +173,17 @@ class RecordingDocument(Document):
         for stream in self.body.streams:
             if isinstance(stream, AudioStream) and stream.stream.timebase not in clocks:
                 raise ValueError(f'stream {stream.id} references an unknown timebase')
+            if (
+                isinstance(stream, EventStream)
+                and stream.timebase is not None
+                and stream.timebase not in clocks
+            ):
+                raise ValueError(f'stream {stream.id} references an unknown timebase')
             if any(f.asset not in assets for f in stream.fragments):
+                raise ValueError(f'stream {stream.id} references an unknown asset')
+            if isinstance(stream, AudioStream) and any(
+                f.asset not in assets for f in stream.unmapped_fragments
+            ):
                 raise ValueError(f'stream {stream.id} references an unknown asset')
         for observation in self.body.clock_observations:
             if (
