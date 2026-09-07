@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from recs.edit.schema import canonical_toml, parse_edit
+from recs.edit.schema import parse_edit
 from recs.model.arrangement import ArrangementDocument
+from recs.model.codec import document_toml
 from recs.model.streams import AudioType
 
 
@@ -16,7 +17,7 @@ def test_documented_arrangement_separates_ports_from_destinations() -> None:
     document = parse_edit(text[1])
     assert document.body.outputs[0].id == document.destinations[0].port
     assert 'path' not in document.body.outputs[0].model_dump()
-    assert parse_edit(canonical_toml(document)) == document
+    assert parse_edit(document_toml(document)) == document
     assert ArrangementDocument.model_json_schema()['properties']['body']
 
 

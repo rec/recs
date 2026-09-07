@@ -3,8 +3,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from recs.edit.schema import canonical_toml, parse_edit, parse_partial_edit
+from recs.edit.schema import parse_edit, parse_partial_edit
 from recs.model.arrangement import ArrangementDocument
+from recs.model.codec import document_toml
 
 COMPLETE_EDIT = """
 format = "recs"
@@ -62,11 +63,11 @@ subtype = "pcm_24"
 """
 
 
-def test_complete_edit_round_trips_through_canonical_toml() -> None:
+def test_complete_edit_round_trips_through_document_toml() -> None:
     edit = parse_edit(COMPLETE_EDIT)
 
     assert edit.body.sources[0].record == Path('../session-record.jsonl')
-    assert parse_edit(canonical_toml(edit)) == edit
+    assert parse_edit(document_toml(edit)) == edit
 
 
 def test_direct_file_source_round_trips() -> None:
@@ -80,7 +81,7 @@ def test_direct_file_source_round_trips() -> None:
 
     assert edit.body.sources[0].file == Path('../take.wav')
     assert edit.body.sources[0].channels == [0, 1]
-    assert parse_edit(canonical_toml(edit)) == edit
+    assert parse_edit(document_toml(edit)) == edit
 
 
 @pytest.mark.parametrize(

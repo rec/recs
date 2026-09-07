@@ -12,6 +12,7 @@ from pydantic import (
 from recs.base.types import Format, Subtype
 from recs.model.arrangement import ArrangementDocument, Interpolation, NormalizeMode
 from recs.model.base import Identifier
+from recs.model.codec import parse_document
 from recs.model.references import ParameterTarget, RecordSelector
 
 
@@ -127,13 +128,11 @@ class PartialEditSpec(BaseModel, frozen=True):
 
 
 def parse_edit(text: str) -> ArrangementDocument:
-    return ArrangementDocument.model_validate(tomlkit.parse(text))
+    value = parse_document(text)
+    if not isinstance(value, ArrangementDocument):
+        raise ValueError('edit input must be an arrangement document')
+    return value
 
 
 def parse_partial_edit(text: str) -> PartialEditSpec:
     return PartialEditSpec.model_validate(tomlkit.parse(text))
-
-
-def canonical_toml(value: ArrangementDocument) -> str:
-    data = value.model_dump(mode='json', exclude_none=True)
-    return tomlkit.dumps(data)
