@@ -39,6 +39,8 @@ timebase = "audio"
 id = "right"
 record = "session-record.jsonl"
 selector = { source = "device", track = "pair", channel = 1 }
+
+
 """
     )
 
@@ -86,6 +88,8 @@ timebase = "audio"
 id = "middle"
 file = "take.wav"
 channels = [1, 2]
+
+
 """
     )
 

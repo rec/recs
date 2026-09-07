@@ -38,8 +38,8 @@ def validate_graph(
     _unique('output', [o.id for o in edit.body.outputs])
     _unique('automation target', [a.target for a in edit.body.automation])
 
-    track_widths = {t.id: t.channels for t in edit.body.tracks}
-    bus_widths = {b.id: b.channels for b in edit.body.buses}
+    track_widths = {t.id: len(t.stream.channels) for t in edit.body.tracks}
+    bus_widths = {b.id: len(b.stream.channels) for b in edit.body.buses}
     overlap = set(track_widths) & set(bus_widths)
     if overlap:
         raise RecsError(f'Track and bus IDs collide: {sorted(overlap)}')

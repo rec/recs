@@ -397,20 +397,7 @@ def _canonical_stage(
             }
         )
     else:
-        edit = edit.model_copy(
-            update={
-                'body': edit.body.model_copy(
-                    update={
-                        'outputs': [
-                            o.model_copy(
-                                update={'path': None, 'format': None, 'subtype': None}
-                            )
-                            for o in edit.body.outputs
-                        ]
-                    }
-                )
-            }
-        )
+        edit = edit.model_copy(update={'destinations': []})
     return edit.model_dump(mode='json', exclude_none=True)
 
 

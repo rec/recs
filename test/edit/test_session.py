@@ -66,7 +66,7 @@ selector = { source = "device", track = "voice" }
 
 [[body.tracks]]
 id = "voice"
-channels = 1
+stream = { timebase = "audio", channels = ["channel-0"] }
 
 [[body.clips]]
 id = "voice-clip"
@@ -79,6 +79,9 @@ timeline_start = 0
 [[body.outputs]]
 id = "voice"
 source = "voice"
+
+[[destinations]]
+port = "voice"
 path = "audio/voice.wav"
 format = "wav"
 subtype = "float"

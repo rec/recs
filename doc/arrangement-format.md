@@ -23,7 +23,7 @@ channels = [0]
 
 [[body.tracks]]
 id = "speech"
-channels = 1
+stream = { timebase = "audio", channels = ["channel-0"] }
 
 [[body.clips]]
 id = "opening"
@@ -36,11 +36,18 @@ timeline_start = 0
 [[body.outputs]]
 id = "main"
 source = "speech"
+
+[[destinations]]
+port = "main"
 path = "audio/speech.wav"
 format = "wav"
 ```
 
 The first audio profile has one physical timebase with an integer sample rate.
+Tracks and buses expose a sampled audio type, full-scale amplitude units, and
+ordered channel names. File paths and encodings live in `destinations`, outside
+the arrangement body. A render requires exactly one destination per exported
+output; an intermediate arrangement can have none.
 Clip ranges remain native half-open sample-frame intervals. Mismatched source
 rates require explicit conversion and are currently rejected by preparation.
 The pure `convert_tick` operation converts exact positions and never resamples
