@@ -1183,7 +1183,7 @@ def test_record_records_source_frame_counts(
     ]
 
 
-@pytest.mark.parametrize('field', ['dry_run', 'silence_preview'])
+@pytest.mark.parametrize('field', ['dry_run', 'calibrate', 'silence_preview'])
 def test_preview_modes_do_not_write_record(
     field: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -1195,9 +1195,11 @@ def test_preview_modes_do_not_write_record(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(**{field: True}, include=['Mic'], silent=True))
 
+    rec._start_record()
     rec._finish_record()
 
     assert not record_path(rec).exists()
+    assert not rec._midi.session_directory.exists()
 
 
 def test_silence_preview_report_recommends_thresholds(

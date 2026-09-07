@@ -46,13 +46,6 @@ network actions or status checks. Recording must continue when Wi-Fi, Ethernet,
 DNS, remote update, or streaming fails. Local status freshness should be
 reported separately from failed network operations.
 
-### Dry-run, calibration, and silence-preview share recording paths
-
-`ChannelWriter` treats dry run, calibration, and silence preview as
-`do_not_record`, while source processes and much of the normal recording
-lifecycle still run. This reuse is pragmatic, but these modes have different
-goals and can obscure which parts of the recording pipeline are active.
-
 ## Suggested remediation order
 
 1. Add disk-stall observability: write latency, callback queue high-water marks,
