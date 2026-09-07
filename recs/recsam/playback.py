@@ -1,9 +1,8 @@
 """Sample mappings, traversal settings, and modulation-source definitions."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, StrictBool, model_validator
-from typing_extensions import Self
 
 from . import base, enums
 

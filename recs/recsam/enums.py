@@ -1,8 +1,6 @@
 """Names serialized in recsam TOML documents."""
 
-from enum import auto
-
-from strenum import StrEnum
+from enum import StrEnum, auto
 
 
 class Direction(StrEnum):

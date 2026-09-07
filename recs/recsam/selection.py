@@ -1,7 +1,8 @@
 """Alternate takes, choking, sustain, and articulation switches."""
 
+from typing import Self
+
 from pydantic import Field, StrictBool, model_validator
-from typing_extensions import Self
 
 from . import enums
 from .base import Bipolar, Identifier, Key, Model, PositiveSeconds, UnitInterval, unique

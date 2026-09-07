@@ -5,10 +5,9 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, override
 
 from numpy.typing import NDArray
-from overrides import override
 from soundfile import SoundFile
 from threa import Runnable
 

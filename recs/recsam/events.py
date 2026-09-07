@@ -1,9 +1,8 @@
 """Frame-timed performance events; hosts adapt MIDI, OSC, or direct callers."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
-from typing_extensions import Self
 
 from . import base, enums
 

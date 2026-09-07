@@ -5,7 +5,7 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty, Queue
 from time import monotonic, sleep
-from typing import Any, NamedTuple, TypeVar, cast
+from typing import Any, NamedTuple, cast
 
 import numpy as np
 from pydantic import BaseModel
@@ -33,7 +33,6 @@ POLL_TIMEOUT = 0.05
 MAX_MERGED_WARNINGS = 64
 MAX_MERGED_FILES = 512
 MAX_MERGED_WAVEFORM_BATCHES = 5
-_N = TypeVar('_N', int, float)
 
 
 class BufferStats(BaseModel):
@@ -840,14 +839,14 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
     )
 
 
-def _merge_track_state_values(
+def _merge_track_state_values[N: (int, float)](
     first: SourceUpdate,
     second: SourceUpdate,
-    first_values: dict[str, _N] | None,
-    second_values: dict[str, _N] | None,
-    first_default: _N | None,
-    second_default: _N | None,
-) -> dict[str, _N] | None:
+    first_values: dict[str, N] | None,
+    second_values: dict[str, N] | None,
+    first_default: N | None,
+    second_default: N | None,
+) -> dict[str, N] | None:
     result = dict(first_values or {})
     if first_default is not None:
         for name in first.channels:
@@ -897,10 +896,10 @@ def _merge_waveform_batches(
     return batches
 
 
-def _merge_file_map(
-    first: dict[Path, _N] | None,
-    second: dict[Path, _N] | None,
-) -> dict[Path, _N]:
+def _merge_file_map[N: (int, float)](
+    first: dict[Path, N] | None,
+    second: dict[Path, N] | None,
+) -> dict[Path, N]:
     combined = (first or {}) | (second or {})
     keys = list(combined)[-MAX_MERGED_FILES:]
     return {k: combined[k] for k in keys}

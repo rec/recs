@@ -4,14 +4,13 @@ import warnings
 from functools import cached_property
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated, Self, cast
 
 import soundfile
 import tyro
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from reccy.configuration import units
 from reccy.runtime import logging
-from typing_extensions import Self
 
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE

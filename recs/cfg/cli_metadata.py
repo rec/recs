@@ -1,5 +1,3 @@
-from typing import TypeVar
-
 from reccy.configuration import tyro, units
 from tyro.constructors import PrimitiveConstructorSpec
 
@@ -7,13 +5,11 @@ from recs.base import types
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import FORMATS, SDTYPES, SUBTYPES
 
-_T = TypeVar('_T')
 
-
-def _prefix_spec(
-    values: PrefixDict[_T], metavar: str, *, trim_dots: bool = False
-) -> PrimitiveConstructorSpec[_T]:
-    def parse(args: list[str]) -> _T:
+def _prefix_spec[T](
+    values: PrefixDict[T], metavar: str, *, trim_dots: bool = False
+) -> PrimitiveConstructorSpec[T]:
+    def parse(args: list[str]) -> T:
         value = args[0].strip()
         if trim_dots:
             value = value.strip('.')

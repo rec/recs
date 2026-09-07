@@ -1,11 +1,9 @@
 import math
 from functools import cached_property
-from typing import Generic, TypeVar, cast
+from typing import Self, cast
 
 from pydantic import BaseModel, ConfigDict, model_validator
-from typing_extensions import Self
 
-T = TypeVar('T', float, int)
 NO_SCALE = ('noise_floor', 'record_everything')
 
 
@@ -19,7 +17,7 @@ def amplitude_to_db(amp: float) -> float:
     return float('inf')
 
 
-class TimeSettings(BaseModel, Generic[T]):
+class TimeSettings[T: (float, int)](BaseModel):
     """Amounts of time are specified as seconds in the input but converted
     to samples when we find out the sample rate
     """
