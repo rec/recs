@@ -129,8 +129,9 @@ entries are not lost when the current disk is close to full.
 The daemon GUI socket is a private GUI transport. External clients should use
 the public Recs RPC endpoints documented in `doc/recs_protocol.md`.
 
-Recs is intended to have at most one active control client. A future change
-should reject additional clients instead of adding multiclient coordination.
+Public control connections carry one request each. Recs queues only one
+outstanding public control request; another request received before that one
+finishes is rejected instead of introducing multiclient coordination.
 
 Control request handlers should not mutate recorder state directly from IPC
 threads. They queue requests for the recorder loop and wait for the recorder loop
@@ -163,5 +164,6 @@ The architecture still has known rough edges:
 - `RecordingControl` still owns several control subdomains.
 - `SourceRecorder` combines realtime input buffering, writing, calibration, and
   source-control handling.
-- Single-client enforcement is intended but not yet implemented.
+- Only one public control request can be outstanding, while sequential clients
+  remain valid because each connection carries one request.
 - Raspberry Pi CPU and memory limits still need hardware measurement.

@@ -38,7 +38,7 @@ declared operations. DSP may exceed audio full scale internally; clipping or
 limiting belongs to the output contract, not every intermediate array.
 
 A fragment connects asset frame zero or another asset offset to a native
-timeline position and frame count. The recording manifest describes missing
+timeline position and frame count. The session record describes missing
 intervals. Filling an audio gap with zero for listening does not turn lost
 samples into measured silence.
 

@@ -112,12 +112,13 @@ disk switches. Each JSON object within it is a record entry.
 
 ### Session
 
-A session is one logical recording run. It has one session record containing all
-enabled media and may have continuation records in multiple output directories
-when automatic disk switching is used.
+A session is one logical recording run. It has one or more linked session
+records indexing all enabled media. Automatic disk switching continues the same
+session ID in a new record; the `new_session` protocol command creates a new
+session ID and links the old and new records.
 
 ### Control client
 
-A control client is the single GUI or local process allowed to send runtime
-control requests to a recorder. Recs is intended to have at most one active
-control client.
+A control client is a GUI or local process that sends runtime requests to the
+recorder. Public RPC connections carry one request each. Only one public
+request may be outstanding at a time; sequential clients are valid.
