@@ -13,8 +13,8 @@ from recs.edit.materialized import MaterializedAudio
 from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
-from recs.edit.schema import canonical_toml
 from recs.model.arrangement import ArrangementDocument
+from recs.model.codec import document_toml
 from recs.ui import session_record
 
 
@@ -48,7 +48,7 @@ def execute_edit(
     canonical = prepared.edit
     rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
     return write_session(
-        canonical_toml(canonical),
+        document_toml(canonical),
         canonical,
         prepared.graph,
         rendered,
