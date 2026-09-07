@@ -34,7 +34,7 @@ def test_midi_recording_is_enabled_by_default(mock_devices: None) -> None:
     assert cfg.midi.record_midi
     assert cfg.midi.midi_include == []
     assert cfg.midi.midi_exclude == []
-    assert cfg.midi.midi_timing == MidiTiming.mido
+    assert cfg.midi.midi_timing == MidiTiming.system
 
 
 def test_midi_config_can_be_flattened(mock_devices: None) -> None:

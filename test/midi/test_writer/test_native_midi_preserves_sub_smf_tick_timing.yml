@@ -1,0 +1,21 @@
+- data:
+  - 144
+  - 60
+  - 64
+  kind: midi
+  ordinal: 0
+  tick: 100000
+- data:
+  - 144
+  - 60
+  - 64
+  kind: midi
+  ordinal: 1
+  tick: 200000
+- data:
+  - 144
+  - 60
+  - 64
+  kind: midi
+  ordinal: 2
+  tick: 300000

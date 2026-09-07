@@ -1,9 +1,13 @@
 from pathlib import Path
+from time import monotonic_ns
 
 import mido
+import pytest
 
 from recs.cfg.cfg import Cfg
-from recs.midi.recorder import MidiRecorder
+from recs.midi import recorder
+from recs.midi.recorder import MidiPacket, MidiRecorder
+from recs.model.events import MidiEvent
 from recs.ui.session_record import Record
 
 
@@ -13,12 +17,12 @@ class FakePort:
         self.error = error
         self.closed = False
 
-    def iter_pending(self) -> list[mido.Message]:
+    def iter_pending(self) -> list[MidiPacket]:
         if self.error:
             raise self.error
         messages = self.messages
         self.messages = []
-        return messages
+        return [MidiPacket(m, monotonic_ns()) for m in messages]
 
     def close(self) -> None:
         self.closed = True
@@ -64,9 +68,9 @@ def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
     assert records[2].type == 'file_finished'
     assert records[2].media_type == 'midi'
     assert records[2].quantity_count == 1
-    assert records[2].midi_port == 'Launchkey'
-    saved = mido.MidiFile(records[2].path)
-    assert saved.tracks[0][2].type == 'note_on'
+    assert records[2].source == 'Launchkey'
+    saved = MidiEvent.model_validate_json(Path(records[2].path).read_text())
+    assert saved.data == [144, 60, 64]
 
 
 def test_midi_recorder_writes_messages_received_during_card_replacement(
@@ -91,9 +95,9 @@ def test_midi_recorder_writes_messages_received_during_card_replacement(
     recorder.open_session(tmp_path / 'new')
     recorder.close_session()
 
-    path = next((tmp_path / 'new').glob('*.mid'))
-    saved = mido.MidiFile(path)
-    assert saved.tracks[0][2].type == 'note_on'
+    path = next((tmp_path / 'new').glob('*.jsonl'))
+    saved = MidiEvent.model_validate_json(path.read_text())
+    assert saved.data == [144, 60, 64]
 
 
 def test_midi_recorder_ignores_missing_backend_without_selected_input(
@@ -189,9 +193,10 @@ def test_midi_recorder_records_port_failure(tmp_path: Path) -> None:
     assert records[0].type == 'midi_source_started'
     assert records[1].type == 'file_started'
     assert records[2].type == 'file_finished'
-    assert records[3].type == 'midi_source_failed'
-    assert records[3].source == 'Launchkey'
-    assert records[3].value == 'lost input'
+    assert records[3].type == 'clock_observation'
+    assert records[4].type == 'midi_source_failed'
+    assert records[4].source == 'Launchkey'
+    assert records[4].value == 'lost input'
 
 
 def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
@@ -231,14 +236,16 @@ def test_midi_recorder_reopens_a_reconnected_port(tmp_path: Path) -> None:
         'midi_source_started',
         'file_started',
         'file_finished',
+        'clock_observation',
         'midi_source_failed',
         'midi_source_started',
         'file_started',
         'file_finished',
+        'clock_observation',
     ]
-    paths = [path.name for path in tmp_path.glob('*.mid')]
+    paths = [path.name for path in tmp_path.glob('*.jsonl')]
     assert len(paths) == 2
-    assert any(path.endswith('-2.mid') for path in paths)
+    assert any(path.endswith('-2.jsonl') for path in paths)
 
 
 def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> None:
@@ -266,6 +273,7 @@ def test_midi_recorder_stops_a_port_missing_from_discovery(tmp_path: Path) -> No
         'midi_source_started',
         'file_started',
         'file_finished',
+        'clock_observation',
         'midi_source_stopped',
     ]
     assert records[-1].reason == 'disconnected'
@@ -328,3 +336,46 @@ def test_midi_recorder_rate_limits_unavailable_backend_warnings(tmp_path: Path) 
     recorder.poll()
 
     assert len(warnings) == 2
+
+
+def test_callback_timestamps_survive_queue_delay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tick = [1000]
+    monkeypatch.setattr(recorder, 'monotonic_ns', lambda: tick[0])
+    monkeypatch.setattr(mido, 'open_input', lambda name, callback: FakePort())
+    port = recorder.CallbackPort('keys')
+    port.capture(mido.Message('note_on', note=60))
+    tick[0] = 1250
+    port.capture(mido.Message('note_off', note=60))
+    tick[0] = 999999
+    packets = port.iter_pending()
+    assert [p.received_tick for p in packets] == [1000, 1250]
+    assert [p.message.bytes() for p in packets] == [[144, 60, 64], [128, 60, 64]]
+    assert port.iter_pending() == []
+    port.close()
+
+
+@pytest.mark.parametrize('stop', [False, True])
+def test_session_close_saves_queued_midi(tmp_path: Path, stop: bool) -> None:
+    records: list[Record] = []
+    port = FakePort(mido.Message('note_off', note=60))
+    capture = MidiRecorder(
+        Cfg(output_directory=str(tmp_path)),
+        session_directory=tmp_path,
+        warning=lambda message: None,
+        write_entry=records.append,
+        input_names=lambda: ['keys'],
+        open_input=lambda name: port,
+    )
+    capture.start()
+    if stop:
+        capture.stop()
+    else:
+        capture.close_session()
+    finished = next(r for r in records if r.type == 'file_finished')
+    assert finished.quantity_count == 1
+    event = MidiEvent.model_validate_json(Path(finished.path).read_text())
+    assert event.data == [128, 60, 64]
+    if not stop:
+        capture.stop()

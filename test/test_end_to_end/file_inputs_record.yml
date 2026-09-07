@@ -18,6 +18,7 @@ files:
     start: 0
   bit_depth: 32
   channels: 1
+  clock_id: clock:test/testdata/file_inputs/mono.wav
   format: wav
   frame_count: 48000
   media_type: audio
@@ -35,6 +36,7 @@ files:
     start: 0
   bit_depth: 32
   channels: 2
+  clock_id: clock:test/testdata/file_inputs/stereo.wav
   format: wav
   frame_count: 48000
   media_type: audio

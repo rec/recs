@@ -1,12 +1,12 @@
 # Recs: a common language for things that happen in time
 
-Status: architecture proposal with initial implementation, 7 September 2026.
+Status: architecture proposal with stages 1 and 2 implemented, 7 September 2026.
 The implemented subset is documented in the
 [arrangement format](../../doc/arrangement-format.md) and
 [recording/sequence format](../../doc/recording-format.md). The broader domain
 designs below remain proposals, not a claim of universal playback. See the
 [implementation status](how-to.md#implementation-status) for the exact stopping
-point after session-reader cutover. Backward compatibility is not a requirement.
+point after native capture and session-reader cutover. Backward compatibility is not a requirement.
 
 Recs should record, edit, compose, and play time-varying quantities and events.
 Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,

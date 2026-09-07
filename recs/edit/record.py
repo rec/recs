@@ -96,6 +96,10 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     clocks = [
         t for _, d, s in selected for t in d.timebases if t.id == s.stream.timebase
     ]
+    if len({t.id for t in clocks}) != 1:
+        raise RecsError(
+            f'Source {source.id}: independent capture clocks require explicit alignment'
+        )
     if any(t.rate.denominator != 1 for t in clocks):
         raise RecsError(
             f'Source {source.id}: this renderer requires integer audio sample rates'

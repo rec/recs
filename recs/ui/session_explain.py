@@ -114,7 +114,13 @@ def explain_daemon() -> ExplanationReport:
 def _no_file_explanations(
     record: session_record.SessionRecord,
 ) -> list[Explanation]:
-    if any(f.type == 'file_started' for f in record.files):
+    discarded = {
+        (f.stream_id, f.path) for f in record.files if f.type == 'file_discarded'
+    }
+    if any(
+        f.type == 'file_started' and (f.stream_id, f.path) not in discarded
+        for f in record.files
+    ):
         return [
             Explanation(
                 reason='files started but did not finish',

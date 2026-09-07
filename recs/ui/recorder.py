@@ -228,6 +228,12 @@ class Recorder(Runnables):
                     if isinstance(source.source, FileSource)
                     else None,
                 )
+            for path in update.finished_files or []:
+                self.session.record_file_finished(path)
+            for path in update.discarded_files or []:
+                self.session.record_file_discarded(path)
+            for timeline in update.timelines or []:
+                self.session.write(timeline)
         if update.track_layout is not None:
             self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
             self.state.set_track_names(self._control.track_names)
@@ -794,10 +800,7 @@ class Recorder(Runnables):
 
     def _write_record_entry(
         self,
-        record: session_record.EventRecord
-        | session_record.FileRecord
-        | session_record.SessionFooter
-        | session_record.WarningRecord,
+        record: session_record.Record,
     ) -> None:
         if self._output_unmounted:
             return

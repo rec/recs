@@ -16,6 +16,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
 from recs.model.recording import AudioSpan
+from recs.model.time import Rate, Timebase
 from recs.ui import (
     disk_space,
     disk_space_controller,
@@ -54,7 +55,12 @@ def use_temporary_working_directory(
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text().splitlines()]
+    # These tests inspect operational events; native clock evidence has separate tests.
+    return [
+        r
+        for e in path.read_text().splitlines()
+        if (r := json.loads(e))['type'] != 'clock_observation'
+    ]
 
 
 def record_path(rec: Recorder) -> Path:
@@ -1036,6 +1042,7 @@ def test_live_input_record_names_source(
             'type': 'file_started',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
             'source': 'Mic',
             'format': 'wav',
             'path': 'audio/mic.wav',
@@ -1049,6 +1056,7 @@ def test_live_input_record_names_source(
             'type': 'file_finished',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
             'source': 'Mic',
             'format': 'wav',
             'path': 'audio/mic.wav',
@@ -1080,30 +1088,41 @@ def test_recorder_writes_one_record_for_all_media(
     )
     rec._start_record()
 
-    for medium, name, format in (
-        ('audio', 'take.wav', 'wav'),
-        ('midi', 'keys.mid', 'smf'),
-        ('osc', 'x18.jsonl', 'jsonl'),
+    for medium, name in (
+        ('audio', 'take.wav'),
+        ('midi', 'keys.jsonl'),
+        ('osc', 'x18.jsonl'),
     ):
         path = rec.session_directory / medium / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
-        rec.session.write(
-            session_record.FileRecord(
-                type='file_finished',
-                media_type=medium,
-                timestamp='now',
-                stream_id=f'{medium}:test',
-                format=format,
-                path=path.as_posix(),
-            )
+        values = dict(
+            type='file_finished',
+            timestamp='now',
+            stream_id=f'{medium}:test',
+            path=path.as_posix(),
         )
+        if medium == 'audio':
+            entry = session_record.AudioFileRecord(
+                **values, format='wav', clock_id='audio'
+            )
+        else:
+            entry = session_record.EventFileRecord(
+                **values,
+                media_type=medium,
+                format='recs_events',
+                timebase=Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+                start_tick=0,
+                end_tick=0,
+                timing_source='host_monotonic',
+            )
+        rec.session.write(entry)
     rec._finish_record()
 
     records = read_jsonl(record_path(rec))
     assert [record['path'] for record in records if 'path' in record] == [
         'audio/take.wav',
-        'midi/keys.mid',
+        'midi/keys.jsonl',
         'osc/x18.jsonl',
     ]
     assert not list(rec.session_directory.glob('*/*-record.jsonl'))
@@ -1155,6 +1174,7 @@ def test_record_records_source_frame_counts(
             'type': 'file_started',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
             'source': 'Mic',
             'format': 'wav',
             'frame_count': 256,
@@ -1175,6 +1195,7 @@ def test_record_records_source_frame_counts(
             'type': 'file_finished',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
             'source': 'Mic',
             'format': 'wav',
             'frame_count': 768,
@@ -2280,7 +2301,7 @@ def test_record_records_key_events(
 
     rec._receive_key_events()
     records = read_jsonl(record_path(rec))
-    assert records[1:] == [
+    assert [r for r in records if r['type'].startswith('key_')] == [
         {
             'timestamp': '1970-01-01T00:01:42.000Z',
             'type': 'key_pressed',

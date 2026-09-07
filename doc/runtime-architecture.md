@@ -49,9 +49,11 @@ path = "/xremote"
 resubscribe_period = 10
 ```
 
-JSONL compression is enabled by default per node. It omits fields unchanged
-from the preceding record with the same `kind`; set `jsonl_compression = false`
-for a node that needs complete records on every line.
+OSC capture uses the common native event JSONL. Each line contains complete raw
+packet bytes, decoded values or errors, endpoint, direction, monotonic tick,
+and ordinal. Rotation and volume changes preserve ordering without requiring
+compression state from another file. The former `jsonl_compression` option
+has been removed.
 
 Successful subscriptions are not written to JSONL by default. This avoids
 filling an X18 log with keepalive traffic; failed sends and all received packets

@@ -250,8 +250,8 @@ class Midi(BaseModel):
 
     midi_timing: Annotated[
         MidiTiming,
-        tyro.conf.arg(help='MIDI timing source: mido or system'),
-    ] = MidiTiming.mido
+        tyro.conf.arg(help='MIDI timing: system callback clock, or mido source deltas'),
+    ] = MidiTiming.system
 
 
 class Osc(BaseModel):

@@ -530,6 +530,9 @@ class ReconfiguredWriter:
         self.file_end_frames: dict[object, int] = {}
         self.file_end_timestamps: dict[object, float] = {}
         self.file_spans: dict[Path, list[object]] = {}
+        self.finished_files: set[Path] = set()
+        self.discarded_files: set[Path] = set()
+        self.observed_ranges: list[object] = []
         self.stopped = False
         self.active = Active.active
 

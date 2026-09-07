@@ -26,11 +26,29 @@ class MidiEvent(Event):
         return value
 
 
+class OscMessage(Model):
+    path: str
+    types: str
+    args: list[str | int | float | bool | None]
+
+
+class OscDecodeError(Model):
+    error: str
+
+
+class Endpoint(Model):
+    host: str
+    port: int = Field(ge=0, le=65535)
+
+
 class OscEvent(Event):
     kind: Literal['osc'] = 'osc'
     data_b64: str
     direction: Literal['in', 'out']
     source_time: str | None = None
+    endpoint: Endpoint | None = None
+    decoded: list[OscMessage | OscDecodeError] = Field(default_factory=list)
+    reason: str | None = None
 
     @field_validator('data_b64')
     @classmethod
