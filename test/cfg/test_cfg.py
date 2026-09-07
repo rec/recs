@@ -222,17 +222,17 @@ def test_gui_defaults_to_all_key_events(monkeypatch: pytest.MonkeyPatch) -> None
     c = Cfg(gui=True)
 
     assert c.keys.record_keys == RecordKeys.all
-    assert c.keys.record_key_all_apps is True
+    assert c.keys.record_key_all_apps is False
 
 
-def test_terminal_defaults_to_all_key_events_when_pynput_is_available(
+def test_terminal_defaults_to_local_key_presses_when_pynput_is_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(cfg, '_pynput_available', lambda: True)
 
     c = Cfg()
 
-    assert c.keys.record_keys == RecordKeys.all
+    assert c.keys.record_keys == RecordKeys.press
     assert c.keys.record_key_all_apps is False
 
 
@@ -247,10 +247,35 @@ def test_terminal_without_pynput_defaults_to_key_presses(
     assert c.keys.record_key_all_apps is False
 
 
-def test_terminal_without_pynput_rejects_all_key_events(
+def test_terminal_rejects_all_key_events_without_explicit_global_capture(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: True)
+
+    with pytest.raises(ValidationError, match='requires explicit'):
+        Cfg(record_keys=RecordKeys.all)
+
+
+def test_terminal_accepts_explicit_global_key_capture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: True)
+
+    c = Cfg(record_keys=RecordKeys.all, record_key_all_apps=True)
+
+    assert c.keys.record_keys == RecordKeys.all
+    assert c.keys.record_key_all_apps is True
+
+
+def test_global_key_capture_requires_pynput(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cfg, '_pynput_available', lambda: False)
 
-    with pytest.raises(ValidationError, match='record_keys cannot be all'):
-        Cfg(record_keys=RecordKeys.all)
+    with pytest.raises(ValidationError, match='requires pynput'):
+        Cfg(record_key_all_apps=True)
+
+
+def test_gui_rejects_global_key_capture(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cfg, '_pynput_available', lambda: True)
+
+    with pytest.raises(ValidationError, match='unavailable with the GUI'):
+        Cfg(gui=True, record_key_all_apps=True)

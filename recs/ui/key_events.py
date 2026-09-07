@@ -120,7 +120,7 @@ def make_key_recorder(
     record_keys = cfg.keys.record_keys
     if cfg.console.gui or record_keys in (None, RecordKeys.none):
         return NullKeyRecorder()
-    if cfg.keys.record_key_all_apps or record_keys == RecordKeys.all:
+    if cfg.keys.record_key_all_apps:
         return PynputKeyRecorder(record_keys)
     return TerminalKeyRecorder()
 

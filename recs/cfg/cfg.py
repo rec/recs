@@ -362,7 +362,9 @@ class Key(BaseModel):
 
     record_key_all_apps: Annotated[
         bool | None,
-        tyro.conf.arg(help='Record key events from all applications when supported'),
+        tyro.conf.arg(
+            help='Record key events from all applications; must be explicitly enabled'
+        ),
     ] = None
 
     @field_validator('key_label')
@@ -718,19 +720,18 @@ class Cfg(BaseModel):
 
         if self.console.gui:
             record_keys = record_keys or RecordKeys.all
-            if record_key_all_apps is None:
-                record_key_all_apps = True
-        elif _pynput_available():
-            record_keys = record_keys or RecordKeys.all
-            if record_key_all_apps is None:
-                record_key_all_apps = record_keys != RecordKeys.all
+            record_key_all_apps = record_key_all_apps or False
+            if record_key_all_apps:
+                raise ValueError('record_key_all_apps is unavailable with the GUI')
         else:
             record_keys = record_keys or RecordKeys.press
-            if record_keys == RecordKeys.all:
-                raise ValueError('record_keys cannot be all without pynput')
-            if record_key_all_apps:
-                raise ValueError('record_key_all_apps must be False without pynput')
-            record_key_all_apps = False
+            record_key_all_apps = record_key_all_apps or False
+            if record_key_all_apps and not _pynput_available():
+                raise ValueError('record_key_all_apps requires pynput')
+            if record_keys == RecordKeys.all and not record_key_all_apps:
+                raise ValueError(
+                    'record_keys=all requires explicit record_key_all_apps=True'
+                )
 
         keys = self.keys.model_copy(
             update={
