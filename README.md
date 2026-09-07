@@ -99,6 +99,25 @@ Configuration accepts explicit units, for example `--quiet-before-start 250ms`,
 `--longest-file-time '2 h'`, and `--minimum-free-space 1GiB`. Bare numbers keep
 their existing units. See [Configuration Units](doc/configuration-units.md).
 
+### Named recording setups
+
+A recording setup stores a complete configuration together with saved track
+names and mono/stereo layouts. Recs options for `save` and `use` follow `--`:
+
+```console
+recs profile save x18-show -- --include xr18 --formats flac
+recs profile use x18-show -- --output-directory /mnt/openloop/recs
+recs profile list
+recs profile show x18-show
+recs profile delete x18-show
+```
+
+Use a saved setup directly with `recs --profile x18-show`. Daemon installation
+accepts the same option: `recs daemon install --profile x18-show`.
+
+Recording setups are distinct from the per-device defaults supplied through
+`--profiles` below.
+
 ### Per-device noise floors
 
 `--noise-floor` sets the global threshold for starting and stopping recordings.

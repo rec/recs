@@ -17,7 +17,7 @@ from . import settings
 from .cfg import FLAT_FIELDS, Cfg
 
 
-def run_cli(cfg: Cfg) -> None:
+def run_cli(cfg: Cfg, loaded_settings: settings.LoadedSettings | None = None) -> None:
     daemon_mode = gui_ipc.daemon_mode_enabled()
     try:
         if daemon_mode:
@@ -32,7 +32,7 @@ def run_cli(cfg: Cfg) -> None:
                 raise RecsError('recs daemon is not running')
             gui_ipc.run_remote_gui(metadata, cfg)
         else:
-            loaded = settings.load(cfg, cli_overrides(sys.argv[1:]))
+            loaded = loaded_settings or settings.load(cfg, cli_overrides(sys.argv[1:]))
             if loaded.cfg.save_settings:
                 Recorder(loaded.cfg, loaded).run()
             else:
