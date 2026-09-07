@@ -8,7 +8,8 @@ within the current Recs architecture.
 
 Related documents:
 
-- [Recsam Instrument Format](../doc/sample-format.md): proposed TOML representation.
+- [Recsam Instrument Format](../doc/sample-format.md): implemented TOML schema
+  and Pydantic models.
 - [Remaining Recsam Format Work](sample-format.md): candidate features awaiting
   review.
 - `recs/edit/`: the existing session-to-session editing framework.
