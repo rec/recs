@@ -121,7 +121,8 @@ def main(args: list[str] | None = None) -> int:
     for output in complete.body.outputs:
         start = output.start or 0
         end = output.end if output.end is not None else 'arrangement end'
-        print(f'Output: {output.path} ({output.format}, frames {start}:{end})')
+        target = next(d for d in complete.destinations if d.port == output.id)
+        print(f'Output: {target.path} ({target.format}, frames {start}:{end})')
     session.execute_edit(complete, command_path.parent, destination)
     return 0
 

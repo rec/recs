@@ -9,10 +9,11 @@ from pydantic import (
     model_validator,
 )
 
-from ..base.types import Format, Subtype
+from ..base.types import Format
 from .base import Identifier
 from .document import Document
 from .references import ParameterTarget, RecordSelector
+from .streams import AudioType, FileDestination
 from .time import Timebase
 
 
@@ -75,14 +76,14 @@ class SourceSpec(BaseModel, frozen=True):
 
 class TrackSpec(BaseModel, frozen=True):
     id: Identifier
-    channels: int = Field(gt=0)
+    stream: AudioType
 
     model_config = ConfigDict(extra='forbid')
 
 
 class BusSpec(BaseModel, frozen=True):
     id: Identifier
-    channels: int = Field(gt=0)
+    stream: AudioType
     gain: float = 1.0
 
     model_config = ConfigDict(extra='forbid')
@@ -143,9 +144,6 @@ class AutomationSpec(BaseModel, frozen=True):
 class OutputSpec(BaseModel, frozen=True):
     id: Identifier
     source: Identifier
-    path: Path | None = None
-    format: Format | None = None
-    subtype: Subtype | None = None
     start: int | None = Field(default=None, ge=0)
     end: int | None = Field(default=None, gt=0)
     normalize: NormalizeMode = NormalizeMode.none
@@ -178,10 +176,15 @@ class ArrangementDocument(Document):
     kind: Literal['arrangement'] = 'arrangement'
     timebases: list[Timebase] = Field(min_length=1, max_length=1)
     body: Arrangement
+    destinations: list[FileDestination] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def audio_clock(self) -> Self:
         clock = self.timebases[0]
+        if any(
+            n.stream.timebase != clock.id for n in [*self.body.tracks, *self.body.buses]
+        ):
+            raise ValueError('audio port references an unknown timebase')
         if self.body.timebase != clock.id:
             raise ValueError('arrangement references an unknown timebase')
         if clock.rate.denominator != 1:

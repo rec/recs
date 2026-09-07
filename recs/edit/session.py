@@ -85,12 +85,10 @@ def write_session(
         sync=True,
     )
     try:
+        destinations = {d.port: d for d in edit.destinations}
         for output in edit.body.outputs:
-            if output.path is None or output.format is None:
-                raise RecsError(
-                    f'Output {output.id}: final output requires path and format'
-                )
-            path = destination / output.path
+            target = destinations[output.id]
+            path = destination / target.path
             stream_id = f'audio:edit:{output.id}'
             frame_range = graph.output_extents[output.id]
             channels = graph.widths[output.source]
@@ -99,9 +97,9 @@ def write_session(
                 media_type='audio',
                 timestamp=_timestamp(datetime.now(timezone.utc)),
                 stream_id=stream_id,
-                format=output.format,
+                format=target.format,
                 frame_count=frame_range.start,
-                path=output.path.as_posix(),
+                path=target.path.as_posix(),
                 source='edit',
                 track_name=output.id,
                 source_channels=list(range(1, channels + 1)),
@@ -111,7 +109,7 @@ def write_session(
             writer.write(started)
             audio = rendered[output.id]
             fp = open_output(
-                output,
+                target,
                 path,
                 audio.channels,
                 audio.sample_rate,
