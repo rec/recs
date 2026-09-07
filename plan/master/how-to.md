@@ -1,8 +1,75 @@
 # How to build the common model
 
-Part of the [master proposal](master.md). This is an implementation sequence,
-not permission to change runtime code as part of the documentation task.
+Part of the [master proposal](master.md). The user subsequently authorized the
+preparation work up to, but excluding, switching production session readers.
 Additional work beyond the prompt: None.
+
+## Implementation status
+
+The preparation is implemented in Recs. The supported subset has pure common
+models, exact rational physical timebases, sealed assets, common event envelopes,
+structured source and parameter references, and typed audio ports. Audio editing
+now uses the common arrangement document, with file destinations separate from
+public outputs. Existing rendered-audio regression behavior is retained.
+
+Recording and sequence documents have a common parser, TOML serializer, and
+generated JSON Schema through `document_schema()`. The explicit
+`recs session migrate` converter prepares version 3 sessions independently of
+production readers. See the [implemented recording format](../../doc/recording-format.md)
+for complete examples, defaults, verification, and conversion instructions.
+
+The code commits, each tested and pushed, are:
+
+| Commit | Change |
+| --- | --- |
+| `0fbf7a9` | Add shared time, asset, and event models |
+| `45c7247` | Use structured references in recs/edit |
+| `fad4d32` | Move audio arrangements into common Recs documents |
+| `ce79588` | Separate arrangement audio ports from file destinations |
+| `56cf634` | Add recording and sequence document profiles |
+| `67ea823` | Add verified session migration before reader cutover |
+
+Both user-selected production sessions have new metadata and byte-identical
+journal snapshots. All referenced media hashes were checked again after writing;
+every audio payload was decoded. Media and original journals were not changed.
+
+| Session | Payloads | Decoded audio frames, summed across files | Unresolved audio placements |
+| --- | --- | ---: | ---: |
+| [Short](<../../2026-09-04 14-56-53/recording.toml>) | Five empty MIDI files | 0 | 0 |
+| [Full](<../../2026-09-04 15-01-57/recording.toml>) | 56 FLAC files and five empty MIDI files | 1,061,479,424 | 39 |
+
+The [full verification report](<../../2026-09-04 15-01-57/migration/report.json>)
+lists every mismatch. The old writer computes `quantity_count` as the difference
+between timeline endpoints. That is not always the number of frames actually
+stored, notably when quiet samples are discarded while a file remains open.
+The historical journal does not identify those interior omissions. The new
+`unmapped_fragments` records therefore preserve actual payload counts and old
+journal ranges separately. They do not invent silence locations, stretch audio,
+or treat those files as precisely aligned captures.
+
+The original media remains local operational data. The metadata and journal
+snapshots are checked in as migration evidence; checking out this repository
+alone does not download the production audio.
+
+Verification at this stopping point: 914 tests pass, plus Ruff, formatting,
+type checking, pyupgrade, and diff checks. Both saved production candidates
+also passed a second independent payload/hash verification. Hardware capture
+and live playback were not run.
+
+### Next boundary: session-reader cutover
+
+Production session writing, browsing, export, and the editor's session source
+resolver still use version 3. No reader automatically selects `recording.toml`.
+The remaining stage 2 work below must establish precise fragment lifecycle
+records, native MIDI capture timing, continuation handling, and common-document
+export, then switch those consumers coherently. A renderer must reject streams
+with unresolved placement until an explicit placement decision has been made;
+historical audio cannot acquire missing timing evidence through conversion.
+
+Arrangements currently retain file paths, legacy session selectors, and internal
+materialized sources at their preparation boundary. General document dependency
+packaging, nested reusable mixes, musical beat clocks, drift fitting, instruments,
+DSP graphs, and the sibling application cutovers remain later roadmap work.
 
 ## Baseline and proposed ownership
 
@@ -197,9 +264,9 @@ pushes for requested edits, and pre-commit verification for Python/data changes:
 pytest, targeted Ruff fixes, formatting, type checking, and pyupgrade. Use the
 current repository commands and configured Python version when executing them.
 
-For this documentation-only task, check local links, TOML example syntax,
-internal consistency, and `git diff --check`. Do not run the application or
-Python test suite, since no Python code or application data changes.
+For documentation-only changes, check local links, TOML example syntax, internal
+consistency, and `git diff --check`. Python and application-data changes require
+the verification steps above.
 
 ## Existing plans to reconcile when implementing
 
