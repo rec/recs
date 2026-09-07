@@ -5,6 +5,7 @@ import soundfile
 
 from recs.edit.schema import NormalizeMode, parse_edit
 from recs.edit.session import execute_edit, prepare_edit
+from recs.model.references import RecordSelector
 from recs.ui import session_record
 
 
@@ -54,7 +55,7 @@ sample_rate = 48000
 [[sources]]
 id = "voice-source"
 record = "session-record.jsonl"
-channel = "device:voice"
+selector = { source = "device", track = "voice" }
 
 [[tracks]]
 id = "voice"
@@ -116,7 +117,7 @@ subtype = "float"
                 edit.sources[0].model_copy(
                     update={
                         'record': Path('session-record.jsonl'),
-                        'channel': 'edit:voice',
+                        'selector': RecordSelector(source='edit', track='voice'),
                     }
                 )
             ]

@@ -1,10 +1,9 @@
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Literal, Self
 
 import tomlkit
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -12,6 +11,8 @@ from pydantic import (
 )
 
 from recs.base.types import Format, Subtype
+from recs.model.base import Identifier
+from recs.model.references import ParameterTarget, RecordSelector
 
 
 class Interpolation(StrEnum):
@@ -34,21 +35,10 @@ class CommandKind(StrEnum):
     mix = auto()
 
 
-def identifier(value: str) -> str:
-    if not value or not value[0].islower():
-        raise ValueError('must start with a lowercase letter')
-    if any(not (c.islower() or c.isdigit() or c in '-_') for c in value):
-        raise ValueError('must contain only lowercase letters, numbers, - or _')
-    return value
-
-
-Identifier = Annotated[str, AfterValidator(identifier)]
-
-
 class SourceSpec(BaseModel, frozen=True):
     id: Identifier
     record: Path | None = None
-    channel: str | None = None
+    selector: RecordSelector | None = None
     file: Path | None = None
     memory: str | None = None
     channels: list[int] = Field(default_factory=list)
@@ -64,15 +54,15 @@ class SourceSpec(BaseModel, frozen=True):
         if sum(locations) != 1:
             raise ValueError('source requires exactly one of record, file, or memory')
         if self.record is not None:
-            if self.channel is None:
-                raise ValueError('record source requires channel')
+            if self.selector is None:
+                raise ValueError('record source requires selector')
             if self.channels:
                 raise ValueError(
                     'channels are only allowed for file and memory sources'
                 )
         else:
-            if self.channel is not None:
-                raise ValueError('channel is only allowed for record sources')
+            if self.selector is not None:
+                raise ValueError('selector is only allowed for record sources')
             if self.input_format is not None:
                 raise ValueError('input_format is only allowed for record sources')
             if not self.channels:
@@ -80,10 +70,10 @@ class SourceSpec(BaseModel, frozen=True):
             if (
                 self.channels
                 != list(range(self.channels[0], self.channels[0] + len(self.channels)))
-                or self.channels[0] < 1
+                or self.channels[0] < 0
             ):
                 raise ValueError(
-                    'file source channels must be consecutive and positive'
+                    'file source channels must be consecutive and nonnegative'
                 )
         return self
 
@@ -139,7 +129,7 @@ class AutomationPoint(BaseModel, frozen=True):
 
 
 class AutomationSpec(BaseModel, frozen=True):
-    target: str
+    target: ParameterTarget
     interpolation: Interpolation = Interpolation.linear
     points: list[AutomationPoint] = Field(min_length=1)
 
@@ -195,7 +185,7 @@ class EditSpec(BaseModel, frozen=True):
 class PartialSourceSpec(BaseModel, frozen=True):
     id: Identifier | None = None
     record: Path | None = None
-    channel: str | None = None
+    selector: RecordSelector | None = None
     file: Path | None = None
     memory: str | None = None
     channels: list[int] | None = None
@@ -247,7 +237,7 @@ class PartialAutomationPoint(BaseModel, frozen=True):
 
 
 class PartialAutomationSpec(BaseModel, frozen=True):
-    target: str | None = None
+    target: ParameterTarget | None = None
     interpolation: Interpolation | None = None
     points: list[PartialAutomationPoint] | None = None
 

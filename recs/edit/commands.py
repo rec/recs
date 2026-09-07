@@ -25,6 +25,7 @@ from recs.edit.schema import (
     parse_edit,
     parse_partial_edit,
 )
+from recs.model.references import ParameterTarget, RecordSelector
 from recs.ui import session_record
 
 
@@ -290,11 +291,17 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
         if len(widths) != 1 or len(rates) != 1:
             raise RecsError(f'Inconsistent audio metadata for {selector} in {path}')
         label = f'{input_id}:{selector}' if qualify else selector
+        source_name, track_name = files[0].source, files[0].track_name
+        assert source_name is not None and track_name is not None
         result.append(
             InputTrack(
                 label=label,
                 selectors=[label],
-                source=SourceSpec(id='source', record=path, channel=selector),
+                source=SourceSpec(
+                    id='source',
+                    record=path,
+                    selector=RecordSelector(source=source_name, track=track_name),
+                ),
                 channels=next(iter(widths)),
                 sample_rate=next(iter(rates)),
                 frame_count=max(
@@ -315,9 +322,7 @@ def _file_track(path: Path, input_id: str) -> InputTrack:
     return InputTrack(
         label=input_id,
         selectors=[input_id],
-        source=SourceSpec(
-            id='source', file=path, channels=list(range(1, info.channels + 1))
-        ),
+        source=SourceSpec(id='source', file=path, channels=list(range(info.channels))),
         channels=info.channels,
         sample_rate=info.samplerate,
         frame_count=info.frames,
@@ -361,8 +366,12 @@ def _mono_track(track: InputTrack, channel: int, label: str) -> InputTrack:
         )
     source = track.source
     if source.record is not None:
-        assert source.channel is not None
-        source = source.model_copy(update={'channel': f'{source.channel}:{channel}'})
+        assert source.selector is not None
+        source = source.model_copy(
+            update={
+                'selector': source.selector.model_copy(update={'channel': channel - 1})
+            }
+        )
     else:
         source = source.model_copy(update={'channels': [source.channels[channel - 1]]})
     return track.model_copy(
@@ -481,7 +490,9 @@ def _generate(
                 raise RecsError('--crossfade must be greater than zero')
             automation = [
                 AutomationSpec(
-                    target=f'route:{routes[0].source}->master:gain',
+                    target=ParameterTarget(
+                        kind='route', node=routes[0].source, destination='master'
+                    ),
                     interpolation=Interpolation.equal_power,
                     points=[
                         AutomationPoint(frame=0, value=routes[0].gain),
@@ -489,7 +500,9 @@ def _generate(
                     ],
                 ),
                 AutomationSpec(
-                    target=f'route:{routes[1].source}->master:gain',
+                    target=ParameterTarget(
+                        kind='route', node=routes[1].source, destination='master'
+                    ),
                     interpolation=Interpolation.equal_power,
                     points=[
                         AutomationPoint(frame=0, value=0),

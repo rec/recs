@@ -473,7 +473,7 @@ def _stage_session(
                 source=SourceSpec(
                     id='source',
                     memory=key,
-                    channels=list(range(1, audio.channels + 1)),
+                    channels=list(range(audio.channels)),
                 ),
                 channels=audio.channels,
                 sample_rate=sample_rate,

@@ -22,6 +22,7 @@ from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.schema import EditSpec, SourceSpec
+from recs.model.references import RecordSelector
 from recs.ui import session_record
 
 HISTOGRAM_BIN_DB = 0.1
@@ -604,7 +605,22 @@ def _resolve_record_sources(
         identity = _unique_track_id(selector, used)
         used.append(identity)
         track_ids[selector] = identity
-        specs.append(SourceSpec(id=identity, record=record_path, channel=selector))
+        file = next(
+            f for f in finished if f'{f.source}:{f.track_name}' == bases[selector]
+        )
+        assert file.source is not None and file.track_name is not None
+        channel = (
+            None if selector == bases[selector] else int(selector.rsplit(':', 1)[1]) - 1
+        )
+        specs.append(
+            SourceSpec(
+                id=identity,
+                record=record_path,
+                selector=RecordSelector(
+                    source=file.source, track=file.track_name, channel=channel
+                ),
+            )
+        )
     edit = EditSpec(schema_version=1, sample_rate=sample_rate, sources=specs)
     resolved = resolve_sources(edit, record_path.parent)
     return (

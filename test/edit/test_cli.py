@@ -72,7 +72,7 @@ def test_dry_run_accepts_direct_audio_file(
 
     output = capsys.readouterr().out
     assert 'file = "../voice.wav"' in output
-    assert 'channels = [1]' in output
+    assert 'channels = [0]' in output
     assert sorted(p.name for p in tmp_path.iterdir()) == ['voice.wav']
 
 
