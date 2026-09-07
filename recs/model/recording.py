@@ -45,6 +45,8 @@ class AudioStream(Model):
     kind: Literal['audio'] = 'audio'
     id: Identifier
     source_id: str = Field(min_length=1)
+    source_name: str | None = None
+    track_name: str | None = None
     stream: AudioType
     end: int = Field(ge=0, strict=True)
     fragments: list[AudioFragment] = Field(default_factory=list)
@@ -148,6 +150,8 @@ class Recording(Model):
     streams: list[Annotated[AudioStream | EventStream, Field(discriminator='kind')]]
     clock_observations: list[ClockObservation] = Field(default_factory=list)
     unfinished_files: list[UnfinishedFile] = Field(default_factory=list)
+    continued_from: str | None = None
+    continued_at: list[str] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def session_state(self) -> Self:

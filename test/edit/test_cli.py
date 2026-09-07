@@ -11,16 +11,17 @@ from recs.edit.cli import EditCli, main
 from recs.model.arrangement import Arrangement, ArrangementDocument
 from recs.model.codec import document_toml
 from recs.model.time import Rate, Timebase
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 
 def test_edit_cli_parses_inputs_and_authored_times() -> None:
     cfg = tyro.cli(
         EditCli,
-        args=['session-record.jsonl', '--start', '250ms', '--end', '1.5s'],
+        args=['recording.toml', '--start', '250ms', '--end', '1.5s'],
     )
 
-    assert cfg.inputs == [Path('session-record.jsonl')]
+    assert cfg.inputs == [Path('recording.toml')]
     assert cfg.start == 0.25
     assert cfg.end == 1.5
 
@@ -100,7 +101,7 @@ def test_edit_renders_direct_audio_file(
     )
     assert sample_rate == 48_000
     np.testing.assert_allclose(rendered, audio, atol=2**-23)
-    assert (tmp_path / 'result/session-record.jsonl').is_file()
+    assert (tmp_path / 'result/recording.toml').is_file()
 
 
 def test_composition_cli_dry_run_accepts_reserved_and_direct_forms(
@@ -108,9 +109,12 @@ def test_composition_cli_dry_run_accepts_reserved_and_direct_forms(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    record_path = tmp_path / 'session-record.jsonl'
-    writer = session_record.SessionRecordWriter(record_path, started_at='start')
+    record_path = tmp_path / 'recording.toml'
+    writer = session_record.SessionRecordWriter(
+        (record_path).with_name('session-record.jsonl'), started_at='start'
+    )
     writer.close()
+    finalize_recording(writer.path)
     composition_path = tmp_path / 'composition.toml'
     composition_path.write_text('schema_version = 1\nkind = "composition"\n')
     monkeypatch.chdir(tmp_path)

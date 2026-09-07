@@ -994,7 +994,7 @@ def test_open_folder_uses_platform_file_manager(
     assert commands == [['open', str(tmp_path)]]
 
 
-def test_live_input_record_omits_source(
+def test_live_input_record_names_source(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
@@ -1036,6 +1036,7 @@ def test_live_input_record_omits_source(
             'type': 'file_started',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'source': 'Mic',
             'format': 'wav',
             'path': 'audio/mic.wav',
             'track_name': '1',
@@ -1048,6 +1049,7 @@ def test_live_input_record_omits_source(
             'type': 'file_finished',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'source': 'Mic',
             'format': 'wav',
             'path': 'audio/mic.wav',
             'track_name': '1',
@@ -1153,6 +1155,7 @@ def test_record_records_source_frame_counts(
             'type': 'file_started',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'source': 'Mic',
             'format': 'wav',
             'frame_count': 256,
             'path': 'audio/mic.wav',
@@ -1172,6 +1175,7 @@ def test_record_records_source_frame_counts(
             'type': 'file_finished',
             'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
+            'source': 'Mic',
             'format': 'wav',
             'frame_count': 768,
             'path': 'audio/mic.wav',
@@ -2035,7 +2039,7 @@ def test_empty_template_output_directory_record_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_record()
 
-    assert Path('sessions/2026-06-23/2026-06-23 20-34-10/session-record.jsonl').exists()
+    assert Path('sessions/2026/06/23/2026-06-23 20-34-10/session-record.jsonl').exists()
 
 
 def test_default_output_directory_uses_session_timestamp(

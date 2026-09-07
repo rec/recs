@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from recs.base import times
+from recs.cfg import path_pattern
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_ipc
 from recs.misc import legal_filename
@@ -166,7 +167,7 @@ def formatted_output_directory(output_directory: str, timestamp: float) -> Path:
     ts = datetime.fromtimestamp(timestamp)
     try:
         return legal_filename.legal_path(
-            Path(ts.strftime(output_directory).format(**path_times(ts)))
+            Path(ts.strftime(output_directory).format(**path_pattern.path_times(ts)))
         )
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
@@ -207,20 +208,3 @@ def open_folder(path: Path) -> None:
     }
     command = commands.get(sys.platform, ['xdg-open', str(path)])
     subprocess.run(command, check=False)
-
-
-def path_times(ts: datetime) -> dict[str, str]:
-    return {
-        'date': ts.strftime('%Y%m%d'),
-        'ddate': ts.strftime('%Y-%m-%d'),
-        'dtime': ts.strftime('%H:%M:%S'),
-        'hour': ts.strftime('%H'),
-        'minute': ts.strftime('%M'),
-        'month': ts.strftime('%m'),
-        'sdate': ts.strftime('%Y-%m-%d'),
-        'second': ts.strftime('%S'),
-        'stime': ts.strftime('%H-%M-%S'),
-        'time': ts.strftime('%H%M%S'),
-        'timestamp': ts.isoformat(),
-        'year': ts.strftime('%Y'),
-    }

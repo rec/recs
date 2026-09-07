@@ -6,10 +6,18 @@ ordered event sequences. TOML is the document syntax; `format = "recs"`,
 `document_schema()` function generates JSON Schema for all three kinds.
 The [arrangement format](arrangement-format.md) describes audio editing.
 
-This is the preparation stage before changing session readers. Existing
-recorders, browsing, export, and the editor's session resolver still use the
-version 3 session journal. Creating `recording.toml` does not change which
-format those readers select.
+`recording.toml` is the content index used by session browsing, checking,
+export, and the editor's session resolver. Recording shutdown and successful
+audio edits finalize this document beside their version 3 capture journal.
+The journal remains append-only operational evidence for diagnostics and
+recovery. Content readers require the common document; they do not fall back
+to historical journals. Convert old sessions explicitly before opening them.
+
+Finalization hashes finished assets and checks audio metadata and native spans.
+It never overwrites an existing document. A failed finalization leaves the
+journal and media available; the recorder reports the error, and the next
+recovery scan reports the missing document even if the journal has a footer.
+`recs record check` performs the fuller payload verification described below.
 
 ## Recording fields
 
@@ -24,6 +32,7 @@ format those readers select.
 | `body.streams` | Typed audio or event streams, each with a local ID and original opaque `source_id` |
 | `body.clock_observations` | Optional source/session tick observations with uncertainty and timing source; no automatic drift fit |
 | `body.unfinished_files` | Original stream ID, original journal path, and observed opening timestamp; these are evidence, not verified asset references |
+| `body.continued_from`, `continued_at` | Previous and following `recording.toml` paths, resolved relative to this document; they may cross volume roots |
 
 Audio streams have an `AudioType`, native `end` frame, captured fragments, and
 explicit gaps. A fragment references an asset and records `asset_start`, stream
@@ -34,13 +43,20 @@ must cover the declared extent without a gap intersecting captured audio.
 Exact alternate encodings may overlap only with the same explicit
 `variant_group`; other overlapping captures are invalid.
 
+Optional audio `source_name` and `track_name` retain human-facing selectors.
+When absent, selection uses the opaque `source_id` and local stream `id`
+respectively; it does not split source IDs on punctuation. New audio capture
+records exact spans through silence trimming. Several fragments may reference
+different offsets in the same file, so the renderer seeks to `asset_start`
+before placing each fragment on the native timeline.
+
 When a historical file's actual frame count differs from its journal span,
 `unmapped_fragments` preserves its asset, decoded `count`, original
 `journal_range`, and reason `frame_count_mismatch`. That journal range is
 evidence of the old observation, not a mapping of individual samples. Such a
 recording can contain fully verified files while its timeline is unresolved.
-A future timeline renderer must reject those streams until placement is
-explicitly resolved. It must not stretch the file or guess where gaps belong.
+The timeline renderer rejects those streams until placement is explicitly
+resolved. It does not stretch the file or guess where gaps belong.
 
 Event streams declare `event_schema` and ordered fragments. Each fragment has
 an asset, `event_count`, and matching `timing`:
@@ -164,12 +180,36 @@ production reader.
 A malformed final JSON line may be preserved as interrupted evidence, making
 the candidate open. Invalid complete records and corruption in the middle are
 errors. Unfinished files are listed but never claimed as verified payloads.
-This converter accepts a single self-contained session. It rejects continuation
-chains, including exported chains; their conversion belongs to the later
-session cutover. It does not follow paths across mounted volumes automatically.
+Convert each segment of a historical continuation chain separately. The
+converter translates its continuation filenames to `recording.toml`, retaining
+the relative directory links. It does not migrate other volumes automatically;
+all linked documents must exist before reading or exporting the chain.
 
 Historical gaps receive reason `unknown`; wall-clock shutdown time does not
 establish trailing sample extent. Each historical audio stream retains its
 own native clock. MIDI timestamps already quantized into SMF cannot be made
 more precise by conversion. Raw native MIDI timing, cross-device clock mapping,
-and production journal/reader/export cutover remain subsequent work.
+and a fully typed native capture journal remain subsequent work.
+
+## Reading, checking, and portable export
+
+```sh
+recs session show /path/to/session
+recs record check /path/to/session/recording.toml
+recs session export /path/to/session/recording.toml /path/to/export
+```
+
+The checker follows continuations, verifies asset hashes and byte lengths,
+decodes audio, and counts events. Open recordings and unresolved audio placement
+produce explicit diagnostics. Browsing reports these states without decoding
+all audio; its warnings and control markers come from the referenced journal.
+`recs explain /path/to/session/session-record.jsonl` still examines operational
+evidence directly, including captures that have not finalized.
+
+Export requires sealed documents and verifies every asset before copying.
+It includes all linked segments, rewrites common-document continuation paths,
+and verifies copied assets. Original journal bytes remain unchanged as evidence.
+The result starts at `recording.toml`; additional segments live under `sessions/`.
+Moving the exported directory preserves media references and native frame gaps.
+Export can preserve unresolved historical recordings, but it does not resolve
+their timing. The editor requires sealed, fully mapped selected audio streams.

@@ -48,6 +48,7 @@ CASES = (
 def test_end_to_end(name, cfg, event_count, mock_mp, mock_devices, monkeypatch):
     test_case = RecsRunner(cfg, monkeypatch, event_count)
     test_case.run()
+    assert not test_case.state.error, test_case.state.error
 
     events = sorted(test_case.events())
     events = [(int(o * 1_000_000), s.channels) for o, s in events]

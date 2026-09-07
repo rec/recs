@@ -24,10 +24,11 @@ from recs.model.arrangement import (
     SourceSpec,
     TrackSpec,
 )
+from recs.model.recording import AudioStream
 from recs.model.references import ParameterTarget, RecordSelector
 from recs.model.streams import AudioType, FileDestination
 from recs.model.time import Rate, Timebase
-from recs.ui import session_record
+from recs.recording.read import read_recording_chain
 
 
 class SessionRecordRequired(RecsError):
@@ -174,9 +175,9 @@ def select_tracks(tracks: list[InputTrack], selectors: list[str]) -> list[InputT
 
 
 def latest_record(cwd: Path) -> Path:
-    records = list(cwd.rglob('session-record.jsonl'))
+    records = list(cwd.rglob('recording.toml'))
     if not records:
-        raise RecsError(f'No session-record.jsonl found below {cwd}')
+        raise RecsError(f'No recording.toml found below {cwd}')
     return max(records, key=lambda p: p.stat().st_mtime)
 
 
@@ -227,7 +228,7 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
         path = value.resolve()
         if path.is_file():
             if (
-                path.name != 'session-record.jsonl'
+                path.name != 'recording.toml'
                 and path.suffix.lower() not in AUDIO_SUFFIXES
             ):
                 raise RecsError(f'Unsupported edit input file: {path}')
@@ -235,7 +236,7 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
             continue
         if not path.is_dir():
             raise RecsError(f'Edit input does not exist: {path}')
-        if (record := path / 'session-record.jsonl').is_file():
+        if (record := path / 'recording.toml').is_file():
             result.append(record)
             continue
         media = sorted(
@@ -243,7 +244,7 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
             for p in path.iterdir()
             if p.is_file() and p.suffix.lower() in AUDIO_SUFFIXES
         )
-        records = sorted(path.rglob('session-record.jsonl'))
+        records = sorted(path.rglob('recording.toml'))
         if media and records:
             raise RecsError(f'Edit input directory mixes media and sessions: {path}')
         if media:
@@ -264,10 +265,10 @@ def _input_tracks(paths: list[Path]) -> list[InputTrack]:
     identifiers: list[str] = []
     qualify = len(paths) > 1
     for path in paths:
-        name = path.parent.name if path.name == 'session-record.jsonl' else path.stem
+        name = path.parent.name if path.name == 'recording.toml' else path.stem
         input_id = _unique_identifier(name, identifiers)
         identifiers.append(input_id)
-        if path.name == 'session-record.jsonl':
+        if path.name == 'recording.toml':
             result.extend(_record_tracks(path, input_id, qualify))
         else:
             result.append(_file_track(path, input_id))
@@ -277,32 +278,36 @@ def _input_tracks(paths: list[Path]) -> list[InputTrack]:
 
 
 def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]:
-    record = session_record.read(path)
-    if record.errors:
-        raise RecsError('; '.join(record.errors))
-    finished = [
-        f
-        for f in record.files
-        if f.type == 'file_finished'
-        and f.media_type == 'audio'
-        and f.source is not None
-        and f.track_name is not None
-        and f.sample_rate is not None
-        and f.channels is not None
-        and f.frame_count is not None
-        and f.quantity_count is not None
+    records = read_recording_chain(path)
+    streams = [
+        (d, s) for _, d in records for s in d.body.streams if isinstance(s, AudioStream)
     ]
+    names = list(
+        dict.fromkeys(
+            ((s.source_name or s.source_id), (s.track_name or s.id)) for _, s in streams
+        )
+    )
     result: list[InputTrack] = []
-    selectors = list(dict.fromkeys(f'{f.source}:{f.track_name}' for f in finished))
-    for selector in selectors:
-        files = [f for f in finished if f'{f.source}:{f.track_name}' == selector]
-        widths = {f.channels for f in files}
-        rates = {f.sample_rate for f in files}
+    for source_name, track_name in names:
+        selected = [
+            (d, s)
+            for d, s in streams
+            if (s.source_name or s.source_id, s.track_name or s.id)
+            == (source_name, track_name)
+        ]
+        widths = {len(s.stream.channels) for _, s in selected}
+        rates = {
+            t.rate.numerator
+            for d, s in selected
+            for t in d.timebases
+            if t.id == s.stream.timebase and t.rate.denominator == 1
+        }
         if len(widths) != 1 or len(rates) != 1:
-            raise RecsError(f'Inconsistent audio metadata for {selector} in {path}')
+            raise RecsError(
+                f'Inconsistent audio metadata for {source_name}:{track_name} in {path}'
+            )
+        selector = f'{source_name}:{track_name}'
         label = f'{input_id}:{selector}' if qualify else selector
-        source_name, track_name = files[0].source, files[0].track_name
-        assert source_name is not None and track_name is not None
         result.append(
             InputTrack(
                 label=label,
@@ -314,9 +319,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
                 ),
                 channels=next(iter(widths)),
                 sample_rate=next(iter(rates)),
-                frame_count=max(
-                    f.frame_count for f in files if f.frame_count is not None
-                ),
+                frame_count=max(s.end for _, s in selected),
             )
         )
     if not result:

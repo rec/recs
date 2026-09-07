@@ -2,9 +2,11 @@
 
 ## Purpose
 
-A Recs session record is the canonical index and lifecycle history for one
-recording session. It can describe any time-based medium without embedding the
-medium's quantity data in the record itself.
+A Recs session journal is the append-only lifecycle history for one recording
+session. On completion, it supplies evidence for the canonical
+[`recording.toml` content index](recording-format.md). Browsing, checking,
+export, and editing use that common document; diagnostics and recovery still
+inspect the journal, including while a recording is incomplete.
 
 The record is named `session-record.jsonl`. It is stored at the root of a
 session directory beside the media directory tree:
@@ -132,6 +134,7 @@ Optional fields:
 | `sample_rate` | integer | Audio sample rate in frames per second |
 | `bit_depth` | integer | Stored audio bits per sample |
 | `quantity_count` | integer | Samples, messages, packets, or frames represented |
+| `audio_spans` | array of objects | Finished audio's native `start`, payload `asset_start`, and stored frame `count` for each contiguous span |
 | `timing_source` | string | Clock used within the data file |
 | `midi_port` | string | MIDI input port name |
 | `osc_node` | string | Configured OSC node name |
@@ -156,7 +159,12 @@ use `track_name` for the configured or canonical logical track and
 `source_channels` for its exact ordered hardware channels. `channels` is the
 number of channels in the file; `sample_rate` and `bit_depth` describe its PCM
 representation. Metadata MAY include speaker positions and codec settings.
-Exact sample timing and samples remain in the audio file.
+Samples remain in the audio file. Finished audio records include `audio_spans`
+to locate samples precisely after silence suppression: payload offsets cover
+the file consecutively while native positions can have gaps. `quantity_count`
+is the sum of stored span counts. Older journals computed it from native
+endpoints, which can disagree with stored frames; explicit conversion retains
+that discrepancy as unresolved placement rather than guessing silence locations.
 
 ### MIDI
 

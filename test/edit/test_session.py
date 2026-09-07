@@ -7,6 +7,7 @@ from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
 from recs.model.arrangement import NormalizeMode
 from recs.model.references import RecordSelector
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 
@@ -16,9 +17,11 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     audio = np.linspace(-0.5, 0.5, 48_000, dtype=np.float32)[:, np.newaxis]
     source_path = source_directory / 'take.wav'
     soundfile.write(source_path, audio, 48_000, subtype='FLOAT')
-    record_path = source_directory / 'session-record.jsonl'
+    record_path = source_directory / 'recording.toml'
     writer = session_record.SessionRecordWriter(
-        record_path, started_at='start', session_id='input-session'
+        (record_path).with_name('session-record.jsonl'),
+        started_at='start',
+        session_id='input-session',
     )
     values = {
         'media_type': 'audio',
@@ -48,6 +51,7 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     )
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
+    finalize_recording(writer.path)
     edit = parse_edit(
         """
 format = "recs"
@@ -61,7 +65,7 @@ timebase = "audio"
 
 [[body.sources]]
 id = "voice-source"
-record = "session-record.jsonl"
+record = "recording.toml"
 selector = { source = "device", track = "voice" }
 
 [[body.tracks]]
@@ -92,9 +96,7 @@ subtype = "float"
     prepared = prepare_edit(edit, source_directory, destination)
 
     assert not destination.exists()
-    assert prepared.edit.body.sources[0].record == Path(
-        '../source/session-record.jsonl'
-    )
+    assert prepared.edit.body.sources[0].record == Path('../source/recording.toml')
 
     output_record = execute_edit(edit, source_directory, destination)
 
@@ -104,7 +106,7 @@ subtype = "float"
     np.testing.assert_array_equal(rendered, audio)
     assert sample_rate == 48_000
     assert (destination / 'edit.toml').is_file()
-    result = session_record.read(output_record)
+    result = session_record.read(output_record.with_name('session-record.jsonl'))
     assert result.application == {'name': 'recs edit'}
     assert [f.type for f in result.files] == ['file_started', 'file_finished']
     assert result.files[-1].source == 'edit'
@@ -130,7 +132,7 @@ subtype = "float"
                     'sources': [
                         edit.body.sources[0].model_copy(
                             update={
-                                'record': Path('session-record.jsonl'),
+                                'record': Path('recording.toml'),
                                 'selector': RecordSelector(
                                     source='edit', track='voice'
                                 ),

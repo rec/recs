@@ -2,8 +2,9 @@
 
 Implemented initial profile of the [master format](../plan/master/master.md).
 The native audio-edit document is now a Recs document with an arrangement body.
-Old flat edit documents are no longer accepted. Session input and output still
-use the existing version 3 session journal until the separate reader cutover.
+Old flat edit documents are no longer accepted. Session inputs use
+`recording.toml`; successful renders finalize a new recording document beside
+the generated media and operational journal.
 
 ```toml
 format = "recs"
@@ -53,11 +54,15 @@ rates require explicit conversion and are currently rejected by preparation.
 The pure `convert_tick` operation converts exact positions and never resamples
 audio. Musical time and generalized DSP remain later capabilities.
 
-Source channel indices are zero-based. A session source uses `record` plus
+Source channel indices are zero-based. A session source uses
+`record = "session/recording.toml"` plus
 `selector = { source = "device", track = "voice", channel = 0 }`; omit the
 selector's channel to select the complete track. Source and track names may
 contain colons without becoming ambiguous. CLI channel selectors retain their
 existing human-facing numbering and are resolved before saving the document.
+The resolver follows recording continuations, verifies selected asset hashes,
+and retains native gaps and offsets within files. Open recordings and selected
+streams with unresolved historical placement are rejected.
 
 Automation targets are structured tables, such as
 `{ kind = "clip", node = "opening", parameter = "gain" }`. A route target also

@@ -105,6 +105,7 @@ def materialize_source(source: ResolvedSource) -> MaterializedAudio:
             fragment.start,
             fragment.end,
             fragment.channel_offset,
+            fragment.asset_start,
             samples,
         )
     ranges = merge_ranges(
@@ -161,10 +162,12 @@ def _read_fragment(
     start: int,
     end: int,
     channel_offset: int,
+    asset_start: int,
     destination: np.ndarray,
 ) -> None:
     try:
         with soundfile.SoundFile(path) as fp:
+            fp.seek(asset_start)
             frames = end - start
             if channel_offset == 0 and fp.channels == source.channels:
                 data = fp.read(

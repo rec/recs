@@ -1,6 +1,11 @@
 from pathlib import Path
 
+from pydantic import ValidationError
+from soundfile import SoundFileError
+
+from recs.base.errors import RecsError
 from recs.model.recording import AudioSpan
+from recs.recording.finalize import finalize_recording
 from recs.ui import recording_paths, session_record
 from recs.ui.source_recorder import SourceFile
 
@@ -61,6 +66,10 @@ class RecordingSession:
             )
         )
         self.record_writer.close()
+        try:
+            finalize_recording(self.record_writer.path)
+        except (OSError, RecsError, SoundFileError, ValidationError) as error:
+            self.record_errors.append(f'Cannot finalize recording: {error}')
         self.record_errors.extend(self.record_writer.take_errors())
         self.record_writer = None
 
@@ -105,7 +114,7 @@ class RecordingSession:
             format=file.path.suffix.removeprefix('.').lower(),
             frame_count=file.start_frame,
             path=file.path.as_posix(),
-            source=source,
+            source=source or file.source_name,
             track_name=file.track_name,
             source_channels=file.source_channels,
             channels=file.channels,
@@ -119,13 +128,12 @@ class RecordingSession:
         if self.record_writer is not None:
             if isinstance(entry, session_record.FileRecord):
                 path = Path(entry.path)
-                if path.is_absolute():
-                    entry = entry.model_copy(
-                        update={
-                            'path': path.relative_to(
-                                self.record_writer.path.parent
-                            ).as_posix()
-                        }
-                    )
+                entry = entry.model_copy(
+                    update={
+                        'path': path.resolve()
+                        .relative_to(self.record_writer.path.resolve().parent)
+                        .as_posix()
+                    }
+                )
             self.record_writer.write(entry)
             self.record_errors.extend(self.record_writer.take_errors())
