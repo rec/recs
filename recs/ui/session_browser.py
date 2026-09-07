@@ -4,9 +4,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from ..base.errors import RecsError
+from ..model.recording import AudioStream, EventStream
+from ..recording.read import read_recording
 from . import session_record
 
-RECORD_GLOB = 'session-record.jsonl'
+RECORD_GLOB = 'recording.toml'
 
 
 class SessionSummary(BaseModel):
@@ -23,6 +26,8 @@ class SessionSummary(BaseModel):
     midi_files: int = 0
     midi_messages: int = 0
     total_bytes: int
+    state: str
+    unresolved_audio_files: int = 0
     warnings: list[str] = Field(default_factory=list)
     disk_events: int = 0
     markers: int = 0
@@ -59,79 +64,77 @@ def scan(root: Path) -> list[SessionSummary]:
 def summarize(path: Path) -> SessionSummary | None:
     if path.match(RECORD_GLOB):
         path = path.parent
-    records = _records(path)
-    if not records:
+    record_path = path / RECORD_GLOB
+    if not record_path.is_file():
         return None
-    primary = records[0]
-    finished = [
-        file
-        for record_path, record in records
-        for file in record.files
-        if file.type == 'file_finished'
-    ]
-    audio = [f for f in finished if f.media_type == 'audio']
-    midi = [f for f in finished if f.media_type == 'midi']
-    paths = [
-        _file_path(record_path, file.path)
-        for record_path, record in records
-        for file in record.files
-        if file.type == 'file_finished'
-    ]
+    try:
+        document = read_recording(record_path)
+    except RecsError:
+        return None
+    body = document.body
+    assets = {a.id: a for a in document.assets}
+    audio = [s for s in body.streams if isinstance(s, AudioStream)]
+    events = [s for s in body.streams if isinstance(s, EventStream)]
+    audio_assets = {
+        f.asset for s in audio for f in [*s.fragments, *s.unmapped_fragments]
+    }
+    event_assets = {f.asset for s in events for f in s.fragments}
+    media = audio_assets | event_assets
+    try:
+        journal = session_record.read(path / assets[body.journal].path)
+    except OSError as error:
+        journal = None
+        warnings = [f'Cannot read capture diagnostics: {error}']
+    else:
+        warnings = journal.warnings + journal.errors
+    unresolved = sum(len(s.unmapped_fragments) for s in audio)
+    if unresolved:
+        warnings.append(f'{unresolved} audio files have unresolved timeline placement')
+    if body.unfinished_files:
+        warnings.append(f'{len(body.unfinished_files)} files are unfinished')
     return SessionSummary(
         path=path.as_posix(),
-        started_at=primary[1].started_at,
-        ended_at=primary[1].ended_at,
-        duration=primary[1].duration_seconds,
-        output_directories=sorted({p.parent.as_posix() for p in paths}),
-        devices=sorted({f.source for f in audio if f.source}),
+        started_at=body.started_at,
+        ended_at=body.ended_at,
+        duration=body.observed_duration_seconds,
+        output_directories=sorted(
+            {(path / assets[a].path).parent.as_posix() for a in media}
+        ),
+        devices=sorted({s.source_name or s.source_id for s in audio}),
         tracks=sorted(
+            {f'{s.source_name or s.source_id}:{s.track_name or s.id}' for s in audio}
+        ),
+        midi_ports=sorted(
             {
-                f'{f.source or "unknown"}:{f.track_name}'
-                for f in audio
-                if f.track_name is not None
+                s.source_id.removeprefix('midi:')
+                for s in events
+                if s.event_schema == 'midi'
             }
         ),
-        midi_ports=_midi_ports(midi),
-        files=len(finished),
-        audio_files=len(audio),
-        midi_files=len(midi),
-        midi_messages=sum(f.quantity_count or 0 for f in midi),
-        total_bytes=sum(p.stat().st_size for p in paths if p.exists()),
-        warnings=primary[1].warnings + primary[1].errors,
-        disk_events=sum(1 for e in primary[1].events if e.type.startswith('disk_')),
-        markers=sum(
-            1 for event in primary[1].events if event.type in {'key_pressed', 'mark'}
+        files=len(media),
+        audio_files=len(audio_assets),
+        midi_files=len(
+            {f.asset for s in events if s.event_schema == 'midi' for f in s.fragments}
         ),
-        continued_from=primary[1].continued_from,
-        continued_at=[
-            event.continued_at
-            for event in primary[1].events
-            if event.type in {'disk_switch_continued_at', 'session_continued_at'}
-            and event.continued_at is not None
-        ],
+        midi_messages=sum(
+            f.event_count
+            for s in events
+            if s.event_schema == 'midi'
+            for f in s.fragments
+        ),
+        total_bytes=sum(assets[a].byte_length for a in media),
+        warnings=warnings,
+        state=body.state,
+        unresolved_audio_files=unresolved,
+        disk_events=sum(e.type.startswith('disk_') for e in journal.events)
+        if journal
+        else 0,
+        markers=sum(e.type in {'key_pressed', 'mark'} for e in journal.events)
+        if journal
+        else 0,
+        continued_from=body.continued_from,
+        continued_at=body.continued_at,
     )
-
-
-def _records(path: Path) -> list[tuple[Path, session_record.SessionRecord]]:
-    records: list[tuple[Path, session_record.SessionRecord]] = []
-    for record_path in sorted(path.glob(RECORD_GLOB)):
-        try:
-            record = session_record.read(record_path)
-        except OSError:
-            continue
-        if record.started_at:
-            records.append((record_path, record))
-    return records
-
-
-def _midi_ports(files: list[session_record.FileRecord]) -> list[str]:
-    names: set[str] = set()
-    for file in files:
-        if file.midi_port is not None:
-            names.add(file.midi_port)
-        elif file.source is not None:
-            names.add(file.source)
-    return sorted(names)
 
 
 def _show(argv: list[str]) -> int:
@@ -166,6 +169,8 @@ def _print_summary(value: SessionSummary) -> None:
     print(f'started_at: {value.started_at}')
     print(f'ended_at: {value.ended_at or ""}')
     print(f'duration: {value.duration if value.duration is not None else ""}')
+    print(f'state: {value.state}')
+    print(f'unresolved_audio_files: {value.unresolved_audio_files}')
     print(f'files: {value.files}')
     print(f'audio_files: {value.audio_files}')
     print(f'midi_files: {value.midi_files}')
@@ -182,7 +187,3 @@ def _print_summary(value: SessionSummary) -> None:
         print(f'continued_from: {value.continued_from}')
     for path in value.continued_at:
         print(f'continued_at: {path}')
-
-
-def _file_path(record_path: Path, path: str) -> Path:
-    return record_path.parent / Path(path)

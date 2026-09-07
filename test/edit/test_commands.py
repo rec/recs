@@ -8,6 +8,7 @@ from recs.base.errors import RecsError
 from recs.base.types import Format
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
 from recs.edit.options import EditOptions
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 
@@ -174,8 +175,10 @@ def test_directory_with_multiple_sessions_is_rejected(tmp_path: Path) -> None:
         directory = tmp_path / name
         directory.mkdir()
         session_record.SessionRecordWriter(
-            directory / 'session-record.jsonl', started_at='start'
+            (directory / 'recording.toml').with_name('session-record.jsonl'),
+            started_at='start',
         ).close()
+        finalize_recording(directory / 'session-record.jsonl')
     recipe, _ = resolve_command('clip', tmp_path)
 
     with pytest.raises(RecsError, match='contains multiple session records'):
@@ -203,9 +206,12 @@ def test_session_directories_use_qualified_selectors(tmp_path: Path) -> None:
 
 
 def _record(directory: Path) -> Path:
-    path = directory / 'session-record.jsonl'
-    writer = session_record.SessionRecordWriter(path, started_at='start')
+    path = directory / 'recording.toml'
+    writer = session_record.SessionRecordWriter(
+        (path).with_name('session-record.jsonl'), started_at='start'
+    )
     for source, track in [('device', 'pair'), ('room', 'pair')]:
+        _audio(directory / f'{source}.wav', channels=2)
         values = {
             'media_type': 'audio',
             'stream_id': f'audio:{source}:1-2',
@@ -232,7 +238,9 @@ def _record(directory: Path) -> Path:
                 **values,
             )
         )
+    writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
+    finalize_recording(writer.path)
     return path
 
 

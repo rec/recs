@@ -19,7 +19,7 @@ timebase = "audio"
 
 [[body.sources]]
 id = "voice-source"
-record = "../session-record.jsonl"
+record = "../recording.toml"
 selector = { source = "X18", track = "1-2" }
 
 [[body.tracks]]
@@ -66,14 +66,13 @@ subtype = "pcm_24"
 def test_complete_edit_round_trips_through_document_toml() -> None:
     edit = parse_edit(COMPLETE_EDIT)
 
-    assert edit.body.sources[0].record == Path('../session-record.jsonl')
+    assert edit.body.sources[0].record == Path('../recording.toml')
     assert parse_edit(document_toml(edit)) == edit
 
 
 def test_direct_file_source_round_trips() -> None:
     text = COMPLETE_EDIT.replace(
-        'record = "../session-record.jsonl"\n'
-        'selector = { source = "X18", track = "1-2" }',
+        'record = "../recording.toml"\n' 'selector = { source = "X18", track = "1-2" }',
         'file = "../take.wav"\nchannels = [0, 1]',
     )
 
@@ -97,8 +96,7 @@ def test_direct_file_source_round_trips() -> None:
 )
 def test_source_requires_one_complete_location(source: str) -> None:
     text = COMPLETE_EDIT.replace(
-        'record = "../session-record.jsonl"\n'
-        'selector = { source = "X18", track = "1-2" }',
+        'record = "../recording.toml"\n' 'selector = { source = "X18", track = "1-2" }',
         source,
     )
 

@@ -1,214 +1,99 @@
 from pathlib import Path
 
-from recs.ui import session_record_check
+import pytest
+
+from recs.model.codec import document_toml
+from recs.model.recording import EventFragment, EventStream
+from recs.recording.files import sealed_asset
+from recs.recording.finalize import finalize_recording
+from recs.recording.read import read_recording
+from recs.ui import session_record, session_record_check
 
 
-def test_record_check_accepts_existing_finished_files(tmp_path: Path) -> None:
-    audio = tmp_path / 'take.wav'
-    audio.touch()
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+@pytest.fixture
+def recording(tmp_path: Path) -> Path:
+    writer = session_record.SessionRecordWriter(
+        tmp_path / 'session-record.jsonl', started_at='start'
     )
+    writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
+    writer.close()
+    return finalize_recording(writer.path)
 
-    assert session_record_check.check(record) == []
+
+def test_record_check_accepts_verified_recording(recording: Path) -> None:
+    assert session_record_check.check(recording) == []
 
 
-def test_record_check_reports_missing_files(tmp_path: Path) -> None:
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"missing.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+def test_record_check_detects_changed_journal(recording: Path) -> None:
+    with recording.with_name('session-record.jsonl').open('a') as target:
+        target.write('{}\n')
+    assert 'Asset bytes disagree' in session_record_check.check(recording)[0]
+
+
+def test_record_check_reports_missing_asset(recording: Path) -> None:
+    journal = recording.with_name('session-record.jsonl')
+    journal.rename(journal.with_name('moved.jsonl'))
+    assert 'No such file' in session_record_check.check(recording)[0]
+
+
+def test_record_check_reports_corrupt_midi_payload(recording: Path) -> None:
+    path = recording.parent / 'bad.mid'
+    path.write_bytes(b'MThd')
+    document = read_recording(recording)
+    value = document.model_copy(
+        update={
+            'assets': document.assets
+            + [sealed_asset(path, path.parent, 'midi', 'smf')],
+            'body': document.body.model_copy(
+                update={
+                    'streams': [
+                        EventStream(
+                            id='midi',
+                            source_id='port',
+                            event_schema='midi',
+                            fragments=[
+                                EventFragment(asset='midi', event_count=0, timing='smf')
+                            ],
+                        )
+                    ]
+                }
+            ),
+        }
     )
+    recording.write_text(document_toml(value))
+    errors = session_record_check.check(recording)
+    assert len(errors) == 1
+    assert 'EOFError' in errors[0]
+    assert str(recording) in errors[0]
 
-    assert session_record_check.check(record) == [f'{record}: missing file missing.wav']
 
-
-def test_record_check_rejects_absolute_file_paths(tmp_path: Path) -> None:
-    audio = tmp_path / 'take.wav'
-    audio.touch()
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        f'{{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"{audio}"}}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+def test_record_check_reports_open_recording(recording: Path) -> None:
+    document = read_recording(recording)
+    value = document.model_copy(
+        update={
+            'body': document.body.model_copy(update={'state': 'open', 'ended_at': None})
+        }
     )
-
-    assert session_record_check.check(record) == [
-        f'{record}: file path must be relative: {audio}'
-    ]
+    recording.write_text(document_toml(value))
+    assert 'recording is open' in session_record_check.check(recording)[0]
 
 
-def test_record_check_rejects_file_paths_outside_session(tmp_path: Path) -> None:
-    outside = tmp_path / 'outside.wav'
-    outside.touch()
-    session = tmp_path / 'session'
-    session.mkdir()
-    record = session / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_finished","media_type":"audio",'
-        '"stream_id":"audio:test:1","format":"wav","timestamp":"end",'
-        '"path":"../outside.wav"}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+def test_record_check_reports_broken_continuation(recording: Path) -> None:
+    document = read_recording(recording)
+    value = document.model_copy(
+        update={
+            'body': document.body.model_copy(
+                update={'continued_at': ['missing/recording.toml']}
+            )
+        }
     )
-
-    assert session_record_check.check(record) == [
-        f'{record}: file path escapes session: ../outside.wav'
-    ]
+    recording.write_text(document_toml(value))
+    assert 'missing/recording.toml' in session_record_check.check(recording)[0]
 
 
-def test_record_check_rejects_absolute_continuation_paths(tmp_path: Path) -> None:
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start",'
-        '"continued_from":"/outside/session-record.jsonl"}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: continued_from must be relative'
-    ]
-
-
-def test_record_check_reports_unknown_fields(tmp_path: Path) -> None:
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start","unknown":true}\n'
-    )
-
-    errors = session_record_check.check(record)
-    assert any('Extra inputs are not permitted' in e for e in errors)
-
-
-def test_record_check_reports_unfinished_files(tmp_path: Path) -> None:
-    audio = tmp_path / 'take.wav'
-    audio.touch()
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: missing footer',
-        f'{record}: unfinished file {audio.as_posix()}',
-    ]
-
-
-def test_record_check_reports_file_that_finishes_before_it_starts(
-    tmp_path: Path,
-) -> None:
-    audio = tmp_path / 'take.wav'
-    audio.write_bytes(b'0' * 100)
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32,'
-        '"frame_count":100}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track_name":"1","source_channels":[1],"channels":1,'
-        '"sample_rate":48000,"bit_depth":32,'
-        '"frame_count":50}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: take.wav finishes before it starts'
-    ]
-
-
-def test_record_check_reports_nonmonotonic_track_frames(tmp_path: Path) -> None:
-    first = tmp_path / 'first.wav'
-    second = tmp_path / 'second.wav'
-    first.touch()
-    second.touch()
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"a","path":"first.wav",'
-        '"source":"Mic","track_name":"1","source_channels":[1],'
-        '"channels":1,"sample_rate":48000,'
-        '"bit_depth":32,"frame_count":200}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"b","path":"second.wav",'
-        '"source":"Mic","track_name":"1","source_channels":[1],'
-        '"channels":1,"sample_rate":48000,'
-        '"bit_depth":32,"frame_count":100}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: frame count moved backwards for audio:test:1'
-    ]
-
-
-def test_record_check_reports_implausibly_small_file(tmp_path: Path) -> None:
-    audio = tmp_path / 'take.wav'
-    audio.write_bytes(b'0' * 10)
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
-        '"track_name":"1-2","source_channels":[1,2],"channels":2,'
-        '"sample_rate":48000,"bit_depth":32,'
-        '"frame_count":0}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
-        '"track_name":"1-2","source_channels":[1,2],"channels":2,'
-        '"sample_rate":48000,"bit_depth":32,'
-        '"frame_count":48000}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: take.wav is smaller than 48000 frames at 2 channels/32 bits'
-    ]
-
-
-def test_record_check_reports_empty_midi_file_with_messages(tmp_path: Path) -> None:
-    midi = tmp_path / 'keys.mid'
-    midi.touch()
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_finished","media_type":"midi","stream_id":"midi:test","format":"smf","timestamp":"end",'
-        '"path":"keys.mid","quantity_count":3,"midi_port":"Launchkey"}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{record}: keys.mid has MIDI messages but is empty'
-    ]
-
-
-def test_record_check_reports_broken_disk_switch_link(tmp_path: Path) -> None:
-    continued = tmp_path / 'next.jsonl'
-    continued.write_text(
-        '{"type":"header","version":3,"started_at":"later",'
-        '"continued_from":"wrong.jsonl"}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-    record = tmp_path / 'session-record.jsonl'
-    record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"disk_switch_continued_at","timestamp":"switch",'
-        '"continued_at":"next.jsonl"}\n'
-        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
-    )
-
-    assert session_record_check.check(record) == [
-        f'{continued}: continued_from does not point back'
-    ]
+@pytest.mark.parametrize(
+    'value', ['not TOML', 'format = "unknown"\nkind = "recording"']
+)
+def test_record_check_reports_invalid_document(recording: Path, value: str) -> None:
+    recording.write_text(value)
+    assert 'Cannot read recording' in session_record_check.check(recording)[0]

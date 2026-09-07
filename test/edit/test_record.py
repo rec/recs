@@ -12,18 +12,24 @@ from recs.edit.materialized import (
 )
 from recs.edit.record import resolve_sources
 from recs.edit.schema import parse_edit
+from recs.recording.finalize import finalize_recording
 from recs.ui.session_record import FileRecord, SessionFooter, SessionRecordWriter
 
 
 def test_source_resolution_preserves_gaps_and_selects_mono_offset(
     tmp_path: Path,
 ) -> None:
-    record_path = tmp_path / 'session-record.jsonl'
-    writer = SessionRecordWriter(record_path, started_at='start', session_id='session')
+    record_path = tmp_path / 'recording.toml'
+    writer = SessionRecordWriter(
+        (record_path).with_name('session-record.jsonl'),
+        started_at='start',
+        session_id='session',
+    )
     _write_audio_fragment(writer, tmp_path, 'first.wav', 0, 48_000)
     _write_audio_fragment(writer, tmp_path, 'second.wav', 96_000, 144_000)
     writer.write(SessionFooter(ended_at='end', duration_seconds=3))
     writer.close()
+    finalize_recording(writer.path)
     edit = parse_edit(
         """
 format = "recs"
@@ -37,7 +43,7 @@ timebase = "audio"
 
 [[body.sources]]
 id = "right"
-record = "session-record.jsonl"
+record = "recording.toml"
 selector = { source = "device", track = "pair", channel = 1 }
 
 

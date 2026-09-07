@@ -4,6 +4,8 @@ import tomlkit
 from pydantic import BaseModel, Field
 from reccy.runtime import logging
 
+from ..base.errors import RecsError
+from ..recording.read import read_recording
 from . import recording_paths, session_record
 
 REPORT_FILE = 'recs-recovery-report.toml'
@@ -48,13 +50,14 @@ class RecoveryReport(BaseModel, frozen=True):
     sources: list[SourceReport] = Field(default_factory=list)
     tracks: list[TrackReport] = Field(default_factory=list)
     disk: DiskReport | None = None
+    finalization_error: str | None = None
 
 
 def report_unfinished_sessions(root: Path) -> list[Path]:
     if not root.exists():
         return []
     reports: list[Path] = []
-    for record_path in sorted(root.rglob('session-record*.jsonl')):
+    for record_path in sorted(root.rglob('session-record.jsonl')):
         try:
             report = recovery_report(record_path)
         except OSError as e:
@@ -75,8 +78,16 @@ def report_unfinished_sessions(root: Path) -> list[Path]:
 
 def recovery_report(path: Path) -> RecoveryReport | None:
     records, errors = session_record.read_entries(path)
+    finalization_error = None
     if any(isinstance(record, session_record.SessionFooter) for record in records):
-        return None
+        try:
+            document = read_recording(path.with_name('recording.toml'))
+        except RecsError as error:
+            finalization_error = str(error)
+        else:
+            if document.body.state == 'sealed':
+                return None
+            finalization_error = 'Recording document remains open'
     header = next(
         (
             record
@@ -111,6 +122,7 @@ def recovery_report(path: Path) -> RecoveryReport | None:
         sources=_source_reports(records),
         tracks=_track_reports(files, open_files, missing_files),
         disk=_disk_report(records),
+        finalization_error=finalization_error,
     )
 
 
@@ -225,6 +237,8 @@ def _summary(report: RecoveryReport) -> str:
         counts.append(_count(len(report.missing_files), 'missing file'))
     if report.parse_errors:
         counts.append(_count(len(report.parse_errors), 'parse error'))
+    if report.finalization_error:
+        counts.append('recording finalization incomplete')
     details = ', '.join(counts) if counts else 'no open files'
     return f'Unfinished session, {details}'
 
@@ -248,4 +262,6 @@ def _toml(report: RecoveryReport) -> str:
     }
     if report.disk is not None:
         values['disk'] = report.disk.model_dump(exclude_none=True)
+    if report.finalization_error is not None:
+        values['finalization_error'] = report.finalization_error
     return tomlkit.dumps(values)

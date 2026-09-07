@@ -11,8 +11,13 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
 from recs.cfg.track import Track
+from recs.edit.materialized import materialize_source
+from recs.edit.record import resolve_sources
+from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from recs.model.recording import AudioStream
-from recs.recording.migrate import prepare_migration
+from recs.model.references import RecordSelector
+from recs.model.time import Rate, Timebase
+from recs.recording.finalize import prepare_recording
 from recs.ui.recording_session import RecordingSession
 from recs.ui.source_recorder import SourceFileEvents
 
@@ -65,18 +70,32 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
         events.spans([writer]),
     )
     session.finish(1700000005.0)
-    document, _ = prepare_migration(journal)
+    document, _ = prepare_recording(journal)
     stream = document.body.streams[0]
     assert isinstance(stream, AudioStream)
     assert stream.unmapped_fragments == []
     assert sum(f.count for f in stream.fragments) == len(samples)
     assert [(g.start, g.end) for g in stream.gaps] == [(48000, 144000)]
-    restored = np.zeros((240000, 1))
-    for span in spans:
-        restored[span.start : span.start + span.count] = samples[
-            span.asset_start : span.asset_start + span.count
-        ]
-    soundfile.write(tmp_path / 'restored.wav', restored, 48000, subtype='DOUBLE')
+    edit = ArrangementDocument(
+        id='test',
+        name='Test',
+        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        body=Arrangement(
+            timebase='audio',
+            sources=[
+                SourceSpec(
+                    id='take',
+                    record=tmp_path / 'recording.toml',
+                    selector=RecordSelector(source='Mic', track='1'),
+                )
+            ],
+        ),
+    )
+    resolved = resolve_sources(edit, tmp_path)['take']
+    restored = materialize_source(resolved)
+    soundfile.write(
+        tmp_path / 'restored.wav', restored.samples, 48000, subtype='DOUBLE'
+    )
     actual, _ = soundfile.read(tmp_path / 'restored.wav')
     np.testing.assert_allclose(
         actual, np.concatenate([tone, np.zeros(144000), tone]), atol=1e-7

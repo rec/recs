@@ -6,7 +6,7 @@ The implemented subset is documented in the
 [recording/sequence format](../../doc/recording-format.md). The broader domain
 designs below remain proposals, not a claim of universal playback. See the
 [implementation status](how-to.md#implementation-status) for the exact stopping
-point before session-reader cutover. Backward compatibility is not a requirement.
+point after session-reader cutover. Backward compatibility is not a requirement.
 
 Recs should record, edit, compose, and play time-varying quantities and events.
 Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,

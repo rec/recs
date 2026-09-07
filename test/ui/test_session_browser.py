@@ -1,6 +1,11 @@
 import json
 from pathlib import Path
 
+from recs.model import recording
+from recs.model.codec import document_toml
+from recs.model.streams import AudioType
+from recs.model.time import Rate, Timebase
+from recs.recording.files import sealed_asset
 from recs.ui import session_browser
 
 
@@ -44,11 +49,13 @@ def test_session_browser_lists_session_records_as_json(
             'midi_files': 1,
             'midi_messages': 3,
             'total_bytes': 8,
+            'state': 'sealed',
+            'unresolved_audio_files': 0,
             'warnings': ['quiet'],
             'disk_events': 1,
             'markers': 2,
             'continued_from': None,
-            'continued_at': ['next/session-record.jsonl'],
+            'continued_at': ['next/recording.toml'],
         }
     ]
 
@@ -56,10 +63,24 @@ def test_session_browser_lists_session_records_as_json(
 def test_session_browser_ignores_invalid_records(tmp_path: Path) -> None:
     directory = tmp_path / 'session'
     directory.mkdir(parents=True)
-    record = directory / 'session-record.jsonl'
+    record = directory / 'recording.toml'
     record.write_text('{')
 
     assert session_browser.scan(tmp_path) == []
+
+
+def test_missing_journal_preserves_summary_with_diagnostic_warning(
+    tmp_path: Path,
+) -> None:
+    session = _record(tmp_path)
+    (session / 'session-record.jsonl').rename(session / 'moved-journal.jsonl')
+
+    summary = session_browser.summarize(session)
+
+    assert summary is not None
+    assert summary.audio_files == 1
+    assert summary.midi_messages == 3
+    assert summary.warnings[0].startswith('Cannot read capture diagnostics:')
 
 
 def test_session_browser_shows_one_session(
@@ -101,4 +122,49 @@ def _record(tmp_path: Path) -> Path:
         '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1.5}\n'
     )
+    value = recording.RecordingDocument(
+        id='take',
+        name='Take',
+        assets=[
+            sealed_asset(session / p, session, i, e)
+            for p, i, e in (
+                ('session-record.jsonl', 'journal', 'recs-session-v3'),
+                ('audio/take.wav', 'audio', 'wav'),
+                ('midi/keys.mid', 'midi', 'smf'),
+            )
+        ],
+        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        body=recording.Recording(
+            state='sealed',
+            started_at='start',
+            ended_at='end',
+            observed_duration_seconds=1.5,
+            journal='journal',
+            continued_at=['next/recording.toml'],
+            streams=[
+                recording.AudioStream(
+                    id='mic',
+                    source_id='audio:Mic:1',
+                    source_name='Mic',
+                    track_name='1',
+                    end=48000,
+                    stream=AudioType(timebase='audio', channels=['mono']),
+                    fragments=[
+                        recording.AudioFragment(asset='audio', start=0, count=48000)
+                    ],
+                ),
+                recording.EventStream(
+                    id='midi',
+                    source_id='midi:Launchkey',
+                    event_schema='midi',
+                    fragments=[
+                        recording.EventFragment(
+                            asset='midi', event_count=3, timing='smf'
+                        )
+                    ],
+                ),
+            ],
+        ),
+    )
+    (session / 'recording.toml').write_text(document_toml(value))
     return session

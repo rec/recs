@@ -53,7 +53,7 @@ destination = "master"
 def _source() -> ResolvedSource:
     return ResolvedSource(
         id='source',
-        record=Path('session-record.jsonl'),
+        record=Path('recording.toml'),
         file=None,
         session_id='source-session',
         selector='device:track',
@@ -79,7 +79,7 @@ timebase = "audio"
 
 [[body.sources]]
 id = "source"
-record = "session-record.jsonl"
+record = "recording.toml"
 selector = { source = "device", track = "track" }
 
 [[body.tracks]]

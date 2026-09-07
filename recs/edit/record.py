@@ -5,8 +5,12 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.base.types import Format
+from recs.model import recording
 from recs.model.arrangement import ArrangementDocument, SourceSpec
-from recs.ui import session_record
+from recs.model.assets import Asset
+from recs.model.recording import AudioStream
+from recs.recording.files import sealed_asset
+from recs.recording.read import read_recording_chain
 
 
 class AudioFragment(BaseModel, frozen=True):
@@ -15,6 +19,7 @@ class AudioFragment(BaseModel, frozen=True):
     end: int
     channels: int
     channel_offset: int = 0
+    asset_start: int = 0
 
     model_config = ConfigDict(extra='forbid')
 
@@ -67,55 +72,111 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
         raise RecsError(
             f'Source {source.id}: session record does not exist: {record_path}'
         )
-    record = session_record.read(record_path)
-    if record.errors:
-        raise RecsError(f'Source {source.id}: ' + '; '.join(record.errors))
-
-    source_name = source.selector.source
-    track_name = source.selector.track
-    offset = source.selector.channel
-    files = [
-        f
-        for f in record.files
-        if f.type == 'file_finished'
-        and f.media_type == 'audio'
-        and f.source == source_name
-        and f.track_name == track_name
+    records = read_recording_chain(record_path)
+    selected = [
+        (p, d, s)
+        for p, d in records
+        for s in d.body.streams
+        if isinstance(s, AudioStream)
+        and (s.source_name or s.source_id) == source.selector.source
+        and (s.track_name or s.id) == source.selector.track
     ]
-    if not files:
+    if not selected:
         raise RecsError(
-            f'Source {source.id}: selector {source.selector!r} '
-            'matches no finished audio'
+            f'Source {source.id}: selector {source.selector!r} matches no audio stream'
         )
-    _validate_started_files(source.id, files, record.files)
-    fragments, width, sample_rate = _select_fragments(
-        source, files, record_path.parent, offset
-    )
-    timeline_end = max(f.end for f in fragments)
-    timeline_end = max(
-        timeline_end,
-        max(
-            (
-                f.frame_count or 0
-                for f in record.files
-                if f.type == 'file_finished'
-                and f.media_type == 'audio'
-                and f.source == source_name
-            ),
-            default=0,
-        ),
-    )
-    if record.duration_seconds is not None:
-        timeline_end = max(timeline_end, round(record.duration_seconds * sample_rate))
+    if any(s.unmapped_fragments for _, _, s in selected):
+        raise RecsError(
+            f'Source {source.id}: timeline placement is unresolved; '
+            'recorded samples cannot be placed automatically'
+        )
+    if any(d.body.state != 'sealed' for _, d, _ in selected):
+        raise RecsError(f'Source {source.id}: recording is still open')
+    widths = {len(s.stream.channels) for _, _, s in selected}
+    clocks = [
+        t for _, d, s in selected for t in d.timebases if t.id == s.stream.timebase
+    ]
+    if any(t.rate.denominator != 1 for t in clocks):
+        raise RecsError(
+            f'Source {source.id}: this renderer requires integer audio sample rates'
+        )
+    rates = {t.rate.numerator for t in clocks}
+    if len(widths) != 1 or len(rates) != 1:
+        raise RecsError(f'Source {source.id}: inconsistent audio metadata')
+    file_width = next(iter(widths))
+    rate = next(iter(rates))
+    offset = source.selector.channel
+    if offset is not None and offset >= file_width:
+        raise RecsError(
+            f'Source {source.id}: channel offset {offset} exceeds width {file_width}'
+        )
+    width = 1 if offset is not None else file_width
+    variants: dict[
+        tuple[int, int], list[tuple[Path, Asset, recording.AudioFragment]]
+    ] = {}
+    for path, document, stream in selected:
+        assets = {a.id: a for a in document.assets}
+        for fragment in stream.fragments:
+            variants.setdefault(
+                (fragment.start, fragment.start + fragment.count), []
+            ).append((path.parent, assets[fragment.asset], fragment))
+    fragments: list[AudioFragment] = []
+    verified: set[Path] = set()
+    for (start, end), choices in sorted(variants.items()):
+        if source.input_format is not None:
+            choices = [c for c in choices if c[1].encoding == source.input_format]
+        else:
+            for encoding in Format:
+                if preferred := [c for c in choices if c[1].encoding == encoding]:
+                    choices = preferred
+                    break
+        if len(choices) != 1:
+            raise RecsError(
+                f'Source {source.id}: ambiguous variants for frames {start}:{end}'
+            )
+        directory, asset, span = choices[0]
+        path = directory / asset.path
+        if path not in verified:
+            actual = sealed_asset(path, directory, asset.id, asset.encoding)
+            if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
+                raise RecsError(
+                    f'Source {source.id}: asset bytes disagree with recording: '
+                    f'{asset.path}'
+                )
+            verified.add(path)
+        info = soundfile.info(path)
+        if (
+            info.channels != file_width
+            or info.samplerate != rate
+            or span.asset_start + span.count > info.frames
+        ):
+            raise RecsError(
+                f'Source {source.id}: file metadata disagrees with recording: '
+                f'{asset.path}'
+            )
+        fragments.append(
+            AudioFragment(
+                path=path,
+                start=start,
+                end=end,
+                channels=width,
+                channel_offset=offset or 0,
+                asset_start=span.asset_start,
+            )
+        )
+    if any(a.end > b.start for a, b in zip(fragments, fragments[1:])):
+        raise RecsError(
+            f'Source {source.id}: overlapping source ranges across recordings'
+        )
     return ResolvedSource(
         id=source.id,
         record=record_path,
         file=None,
-        session_id=record.session_id,
-        selector=f'{source_name}:{track_name}',
+        session_id=records[0][1].id,
+        selector=f'{source.selector.source}:{source.selector.track}',
         channels=width,
-        sample_rate=sample_rate,
-        timeline_end=timeline_end,
+        sample_rate=rate,
+        timeline_end=max(s.end for _, _, s in selected),
         fragments=fragments,
     )
 
@@ -154,131 +215,3 @@ def _resolve_file_source(source: SourceSpec, edit_directory: Path) -> ResolvedSo
             )
         ],
     )
-
-
-def _validate_started_files(
-    source_id: str,
-    finished: list[session_record.FileRecord],
-    all_files: list[session_record.FileRecord],
-) -> None:
-    started = [f for f in all_files if f.type == 'file_started']
-    for file in finished:
-        if file.frame_count is None or file.quantity_count is None:
-            raise RecsError(f'Source {source_id}: incomplete range for {file.path}')
-        matches = [
-            f
-            for f in started
-            if f.path == file.path
-            and f.stream_id == file.stream_id
-            and f.frame_count is not None
-            and f.frame_count == file.frame_count - file.quantity_count
-        ]
-        if len(matches) != 1:
-            raise RecsError(
-                f'Source {source_id}: {file.path} has {len(matches)} matching '
-                'file_started records'
-            )
-
-
-def _select_fragments(
-    source: SourceSpec,
-    files: list[session_record.FileRecord],
-    record_directory: Path,
-    offset: int | None,
-) -> tuple[list[AudioFragment], int, int]:
-    variants: dict[tuple[int, int], list[session_record.FileRecord]] = {}
-    for file in files:
-        if (
-            file.frame_count is None
-            or file.quantity_count is None
-            or file.channels is None
-            or file.sample_rate is None
-        ):
-            raise RecsError(
-                f'Source {source.id}: incomplete audio metadata for {file.path}'
-            )
-        start = file.frame_count - file.quantity_count
-        if start < 0:
-            raise RecsError(f'Source {source.id}: invalid frame range for {file.path}')
-        variants.setdefault((start, file.frame_count), []).append(file)
-
-    ranges = sorted(variants)
-    if any(a[1] > b[0] for a, b in zip(ranges, ranges[1:], strict=False)):
-        raise RecsError(f'Source {source.id}: overlapping source file ranges: {ranges}')
-
-    selected: list[session_record.FileRecord] = []
-    for frame_range in ranges:
-        choices = variants[frame_range]
-        if source.input_format is not None:
-            choices = [f for f in choices if f.format == source.input_format]
-        else:
-            choices = _preferred_variants(choices)
-        if len(choices) != 1:
-            names = ', '.join(f.path for f in variants[frame_range])
-            raise RecsError(
-                f'Source {source.id}: ambiguous variants for frames '
-                f'{frame_range[0]}:{frame_range[1]}: {names}'
-            )
-        selected.append(choices[0])
-
-    widths = {f.channels for f in selected}
-    rates = {f.sample_rate for f in selected}
-    if len(widths) != 1 or len(rates) != 1:
-        raise RecsError(f'Source {source.id}: inconsistent audio metadata')
-    file_width = next(iter(widths))
-    width = 1 if offset is not None else file_width
-    channel_offset = 0 if offset is None else offset
-    if channel_offset >= file_width:
-        raise RecsError(
-            f'Source {source.id}: channel offset {offset} exceeds width {file_width}'
-        )
-
-    fragments = [
-        AudioFragment(
-            path=_contained_file(record_directory, f.path, source.id),
-            start=frame_range[0],
-            end=frame_range[1],
-            channels=width,
-            channel_offset=channel_offset,
-        )
-        for frame_range, f in zip(ranges, selected, strict=False)
-    ]
-    for fragment in fragments:
-        try:
-            info = soundfile.info(fragment.path)
-        except soundfile.LibsndfileError as e:
-            raise RecsError(
-                f'Source {source.id}: cannot read {fragment.path}: {e}'
-            ) from e
-        expected_frames = fragment.end - fragment.start
-        if (
-            info.frames != expected_frames
-            or info.channels != file_width
-            or info.samplerate != next(iter(rates))
-        ):
-            raise RecsError(
-                f'Source {source.id}: file metadata disagrees with record: '
-                f'{fragment.path}'
-            )
-    return fragments, width, next(iter(rates))
-
-
-def _preferred_variants(
-    choices: list[session_record.FileRecord],
-) -> list[session_record.FileRecord]:
-    for format in Format:
-        result = [f for f in choices if f.format == format]
-        if result:
-            return result
-    return choices
-
-
-def _contained_file(directory: Path, value: str, source_id: str) -> Path:
-    path = (directory / value).resolve()
-    if not path.is_relative_to(directory.resolve()):
-        raise RecsError(
-            f'Source {source_id}: audio path escapes record directory: {value}'
-        )
-    if not path.is_file():
-        raise RecsError(f'Source {source_id}: audio file does not exist: {path}')
-    return path

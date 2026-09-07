@@ -14,6 +14,7 @@ from recs.edit.composition import (
     parse_composition,
     resolve_composition,
 )
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 
@@ -75,7 +76,7 @@ def test_composition_executes_each_edit_from_the_previous_session(
 
     result = execute_composition(value, composition_path, record_path, destination)
 
-    assert result == destination / 'session-record.jsonl'
+    assert result == destination / 'recording.toml'
     assert not (destination / '001-clip').exists()
     assert not (destination / '002-clip').exists()
     assert not (destination / 'commands').exists()
@@ -97,7 +98,7 @@ def test_composition_executes_each_edit_from_the_previous_session(
     )
     np.testing.assert_array_equal(rendered, audio)
     assert rate == 48_000
-    final_record = session_record.read(result)
+    final_record = session_record.read(result.with_name('session-record.jsonl'))
     assert final_record.files[-1].source == 'edit'
     assert final_record.files[-1].track_name == 'edit-device-voice'
 
@@ -167,7 +168,7 @@ def test_composition_summary_resolves_stages_without_writing(
     assert 'Intermediate media: memory only' in summary
     assert 'Materialized audio: 192000 bytes' in summary
     assert 'Estimated peak materialized audio:' in summary
-    assert f'Result: {destination / "session-record.jsonl"}' in summary
+    assert f'Result: {destination / "recording.toml"}' in summary
     assert not destination.exists()
 
 
@@ -229,7 +230,7 @@ def test_canonical_composition_runs_without_command_discovery(
     rendered, rate = soundfile.read(
         second / 'audio/edit-device-voice.wav', dtype='float32', always_2d=True
     )
-    assert result == second / 'session-record.jsonl'
+    assert result == second / 'recording.toml'
     assert rate == 48_000
     np.testing.assert_array_equal(rendered, audio)
 
@@ -260,9 +261,11 @@ def _record(directory: Path) -> tuple[Path, np.ndarray]:
     source.mkdir()
     audio = np.linspace(-0.5, 0.5, 48_000, dtype=np.float32)[:, np.newaxis]
     soundfile.write(source / 'voice.wav', audio, 48_000, subtype='FLOAT')
-    record_path = source / 'session-record.jsonl'
+    record_path = source / 'recording.toml'
     writer = session_record.SessionRecordWriter(
-        record_path, started_at='start', session_id='input'
+        (record_path).with_name('session-record.jsonl'),
+        started_at='start',
+        session_id='input',
     )
     values = {
         'media_type': 'audio',
@@ -292,6 +295,7 @@ def _record(directory: Path) -> tuple[Path, np.ndarray]:
     )
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
+    finalize_recording(writer.path)
     return record_path, audio
 
 

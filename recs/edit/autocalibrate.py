@@ -17,6 +17,7 @@ from reccy.configuration.tyro import unit_spec
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
+from recs.edit.commands import input_tracks
 from recs.edit.graph import FrameRange as ObservedFrameRange
 from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
@@ -24,6 +25,7 @@ from recs.edit.record import ResolvedSource, resolve_sources
 from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from recs.model.references import RecordSelector
 from recs.model.time import Rate, Timebase
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 HISTOGRAM_BIN_DB = 0.1
@@ -380,7 +382,7 @@ def write_autocalibrate_session(
         sync=True,
     )
     writer.close()
-    return writer.path
+    return finalize_recording(writer.path)
 
 
 def level_windows(
@@ -558,22 +560,8 @@ def _resolve_record_sources(
 ) -> tuple[dict[str, ResolvedSource], dict[str, str], int]:
     if not record_path.is_file():
         raise RecsError(f'Session record does not exist: {record_path}')
-    record = session_record.read(record_path)
-    if record.errors:
-        raise RecsError('; '.join(record.errors))
-    finished = [
-        f
-        for f in record.files
-        if f.type == 'file_finished'
-        and f.media_type == 'audio'
-        and f.source is not None
-        and f.track_name is not None
-        and f.sample_rate is not None
-        and f.channels is not None
-        and f.frame_count is not None
-        and f.quantity_count is not None
-    ]
-    available = list(dict.fromkeys(f'{f.source}:{f.track_name}' for f in finished))
+    tracks = input_tracks([record_path])
+    available = [t.label for t in tracks]
     if not available:
         raise RecsError(f'No finished audio in {record_path}')
     selectors = requested or available
@@ -591,11 +579,7 @@ def _resolve_record_sources(
                 + ', '.join(available)
             )
         bases[selector] = base
-    sample_rates = {
-        f.sample_rate
-        for f in finished
-        if f'{f.source}:{f.track_name}' in bases.values()
-    }
+    sample_rates = {t.sample_rate for t in tracks if t.label in bases.values()}
     if len(sample_rates) != 1:
         raise RecsError(f'Selected tracks have mixed sample rates: {sample_rates}')
     sample_rate = next(iter(sample_rates))
@@ -606,10 +590,8 @@ def _resolve_record_sources(
         identity = _unique_track_id(selector, used)
         used.append(identity)
         track_ids[selector] = identity
-        file = next(
-            f for f in finished if f'{f.source}:{f.track_name}' == bases[selector]
-        )
-        assert file.source is not None and file.track_name is not None
+        track = next(t for t in tracks if t.label == bases[selector])
+        assert track.source.selector is not None
         channel = (
             None if selector == bases[selector] else int(selector.rsplit(':', 1)[1]) - 1
         )
@@ -618,7 +600,9 @@ def _resolve_record_sources(
                 id=identity,
                 record=record_path,
                 selector=RecordSelector(
-                    source=file.source, track=file.track_name, channel=channel
+                    source=track.source.selector.source,
+                    track=track.source.selector.track,
+                    channel=channel,
                 ),
             )
         )

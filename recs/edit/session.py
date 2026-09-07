@@ -15,6 +15,7 @@ from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
 from recs.model.arrangement import ArrangementDocument
 from recs.model.codec import document_toml
+from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
 
@@ -154,7 +155,7 @@ def write_session(
         sync=True,
     )
     writer.close()
-    return writer.path
+    return finalize_recording(writer.path)
 
 
 def canonical_edit(
