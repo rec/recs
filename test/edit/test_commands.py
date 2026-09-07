@@ -105,7 +105,8 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
         EditOptions(channel=['device:pair:2'], format=Format.wav),
     )
 
-    assert edit.sources[0].channel == 'device:pair:2'
+    assert edit.sources[0].selector is not None
+    assert edit.sources[0].selector.channel == 1
     assert edit.tracks[0].channels == 1
 
 
@@ -142,7 +143,7 @@ def test_split_expands_file_channels(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [path], EditOptions())
 
-    assert [s.channels for s in edit.sources] == [[1], [2]]
+    assert [s.channels for s in edit.sources] == [[0], [1]]
     assert [t.channels for t in edit.tracks] == [1, 1]
 
 
@@ -153,7 +154,7 @@ def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [path], EditOptions(channel=['pair:2']))
 
     assert len(edit.sources) == 1
-    assert edit.sources[0].channels == [2]
+    assert edit.sources[0].channels == [1]
 
 
 def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
@@ -197,7 +198,8 @@ def test_session_directories_use_qualified_selectors(tmp_path: Path) -> None:
 
     assert len(edit.sources) == 1
     assert edit.sources[0].record == records[1].resolve()
-    assert edit.sources[0].channel == 'device:pair'
+    assert edit.sources[0].selector is not None
+    assert edit.sources[0].selector.track == 'pair'
 
 
 def _record(directory: Path) -> Path:

@@ -133,11 +133,11 @@ def select_audio(value: MaterializedAudio, start: int, end: int) -> Materialized
 def select_channels(value: MaterializedAudio, channels: list[int]) -> MaterializedAudio:
     if not channels or channels != list(range(channels[0], channels[-1] + 1)):
         raise ValueError('Materialized channels must be consecutive')
-    if channels[0] < 1 or channels[-1] > value.channels:
+    if channels[0] < 0 or channels[-1] >= value.channels:
         raise ValueError(
             f'Channel selection exceeds width {value.channels}: {channels}'
         )
-    samples = value.samples[:, channels[0] - 1 : channels[-1]]
+    samples = value.samples[:, channels[0] : channels[-1] + 1]
     return MaterializedAudio(
         samples, value.sample_rate, value.start_frame, value.observed_ranges
     )

@@ -12,7 +12,7 @@ sample_rate = 48000
 [[sources]]
 id = "voice-source"
 record = "../session-record.jsonl"
-channel = "X18:1-2"
+selector = { source = "X18", track = "1-2" }
 
 [[tracks]]
 id = "voice"
@@ -36,7 +36,7 @@ destination = "master"
 gain = 0.5
 
 [[automation]]
-target = "route:voice->master:gain"
+target = { kind = "route", node = "voice", parameter = "gain", destination = "master" }
 interpolation = "linear"
 points = [
   { frame = 0, value = 0.0 },
@@ -61,14 +61,15 @@ def test_complete_edit_round_trips_through_canonical_toml() -> None:
 
 def test_direct_file_source_round_trips() -> None:
     text = COMPLETE_EDIT.replace(
-        'record = "../session-record.jsonl"\nchannel = "X18:1-2"',
-        'file = "../take.wav"\nchannels = [1, 2]',
+        'record = "../session-record.jsonl"\n'
+        'selector = { source = "X18", track = "1-2" }',
+        'file = "../take.wav"\nchannels = [0, 1]',
     )
 
     edit = parse_edit(text)
 
     assert edit.sources[0].file == Path('../take.wav')
-    assert edit.sources[0].channels == [1, 2]
+    assert edit.sources[0].channels == [0, 1]
     assert parse_edit(canonical_toml(edit)) == edit
 
 
@@ -78,13 +79,16 @@ def test_direct_file_source_round_trips() -> None:
         '',
         'record = "record.jsonl"',
         'file = "take.wav"',
-        'record = "record.jsonl"\nchannel = "device:track"\nfile = "take.wav"',
+        'record = "record.jsonl"\n'
+        'selector = { source = "device", track = "track" }\nfile = "take.wav"',
         'file = "take.wav"\nchannels = [1, 3]',
     ],
 )
 def test_source_requires_one_complete_location(source: str) -> None:
     text = COMPLETE_EDIT.replace(
-        'record = "../session-record.jsonl"\nchannel = "X18:1-2"', source
+        'record = "../session-record.jsonl"\n'
+        'selector = { source = "X18", track = "1-2" }',
+        source,
     )
 
     with pytest.raises(ValidationError):

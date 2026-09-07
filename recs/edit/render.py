@@ -14,6 +14,7 @@ from recs.edit.materialized import (
 )
 from recs.edit.record import ResolvedSource
 from recs.edit.schema import EditSpec, NormalizeMode, OutputSpec
+from recs.model.references import ParameterTarget
 
 
 class Renderer:
@@ -99,7 +100,7 @@ class Renderer:
             source_end = source_start + overlap_end - overlap_start
             source_samples = _source_samples(source, source_start, source_end)
             gains = gain_values(
-                automation.get(f'clip:{clip.id}:gain'),
+                automation.get(ParameterTarget(kind='clip', node=clip.id)),
                 clip.gain,
                 overlap_start,
                 overlap_end - overlap_start,
@@ -126,7 +127,13 @@ class Renderer:
             observed: list[FrameRange] = []
             for route in routes[bus_id]:
                 gains = gain_values(
-                    automation.get(f'route:{route.source}->{route.destination}:gain'),
+                    automation.get(
+                        ParameterTarget(
+                            kind='route',
+                            node=route.source,
+                            destination=route.destination,
+                        )
+                    ),
                     route.gain,
                     0,
                     timeline_end,
@@ -134,7 +141,10 @@ class Renderer:
                 block += nodes[route.source] * gains[:, np.newaxis]
                 observed.extend(ranges[route.source])
             block *= gain_values(
-                automation.get(f'bus:{bus.id}:gain'), bus.gain, 0, timeline_end
+                automation.get(ParameterTarget(kind='bus', node=bus.id)),
+                bus.gain,
+                0,
+                timeline_end,
             )[:, np.newaxis]
             nodes[bus_id] = block
             ranges[bus_id] = merge_ranges(observed)

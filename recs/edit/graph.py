@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.edit.schema import EditSpec
+from recs.model.references import ParameterTarget
 
 
 class AudioDescription(Protocol):
@@ -102,8 +103,8 @@ def validate_graph(
     return EditGraph(widths=widths, output_extents=output_extents, bus_order=bus_order)
 
 
-def _unique(kind: str, values: list[str]) -> None:
-    duplicates = sorted({v for v in values if values.count(v) > 1})
+def _unique[T](kind: str, values: list[T]) -> None:
+    duplicates = sorted({v for v in values if values.count(v) > 1}, key=str)
     if duplicates:
         raise RecsError(f'Duplicate {kind} IDs: {duplicates}')
 
@@ -134,22 +135,18 @@ def _bus_order(
 
 
 def _validate_target(
-    target: str,
+    target: ParameterTarget,
     clip_ids: set[str],
     route_ids: set[tuple[str, str]],
     bus_ids: set[str],
 ) -> None:
-    parts = target.split(':')
-    if len(parts) != 3 or parts[2] != 'gain':
-        raise RecsError(f'Unsupported automation target {target!r}')
-    kind, identity, _ = parts
+    kind, identity = target.kind, target.node
     valid = False
     if kind == 'clip':
         valid = identity in clip_ids
     elif kind == 'bus':
         valid = identity in bus_ids
-    elif kind == 'route' and '->' in identity:
-        source, destination = identity.split('->', 1)
-        valid = (source, destination) in route_ids
+    elif kind == 'route':
+        valid = (identity, target.destination) in route_ids
     if not valid:
         raise RecsError(f'Unknown automation target {target!r}')

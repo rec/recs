@@ -111,7 +111,7 @@ def main(args: list[str] | None = None) -> int:
     print(f'Media types: {", ".join(complete.media_types)}')
     print(f'Sample rate: {complete.sample_rate}')
     source_names = [
-        str(s.channel or f'{s.file}:{"-".join(str(c) for c in s.channels)}')
+        str(s.selector or f'{s.file}:{"-".join(str(c + 1) for c in s.channels)}')
         for s in complete.sources
     ]
     print(f'Channels: {", ".join(source_names)}')
