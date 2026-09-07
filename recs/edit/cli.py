@@ -108,17 +108,17 @@ def main(args: list[str] | None = None) -> int:
     print(
         'Inputs: ' + (', '.join(str(p) for p in input_paths) or 'declared by edit TOML')
     )
-    print(f'Media types: {", ".join(complete.media_types)}')
-    print(f'Sample rate: {complete.sample_rate}')
+    print(f'Media types: {", ".join(complete.body.media_types)}')
+    print(f'Sample rate: {complete.timebases[0].rate.numerator}')
     source_names = [
         str(s.selector or f'{s.file}:{"-".join(str(c + 1) for c in s.channels)}')
-        for s in complete.sources
+        for s in complete.body.sources
     ]
     print(f'Channels: {", ".join(source_names)}')
-    print(f'Tracks: {", ".join(t.id for t in complete.tracks)}')
-    print(f'Buses: {", ".join(b.id for b in complete.buses) or "none"}')
+    print(f'Tracks: {", ".join(t.id for t in complete.body.tracks)}')
+    print(f'Buses: {", ".join(b.id for b in complete.body.buses) or "none"}')
     print(f'Output session: {destination}')
-    for output in complete.outputs:
+    for output in complete.body.outputs:
         start = output.start or 0
         end = output.end if output.end is not None else 'arrangement end'
         print(f'Output: {output.path} ({output.format}, frames {start}:{end})')

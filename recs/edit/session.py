@@ -13,12 +13,13 @@ from recs.edit.materialized import MaterializedAudio
 from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
-from recs.edit.schema import EditSpec, canonical_toml
+from recs.edit.schema import canonical_toml
+from recs.model.arrangement import ArrangementDocument
 from recs.ui import session_record
 
 
 class PreparedEdit(BaseModel, frozen=True):
-    edit: EditSpec
+    edit: ArrangementDocument
     sources: dict[str, ResolvedSource]
     graph: EditGraph
 
@@ -26,11 +27,12 @@ class PreparedEdit(BaseModel, frozen=True):
 
 
 def prepare_edit(
-    edit: EditSpec, edit_directory: Path, destination: Path
+    edit: ArrangementDocument, edit_directory: Path, destination: Path
 ) -> PreparedEdit:
-    if len(edit.media_types) != 1 or edit.media_types[0] != 'audio':
+    if len(edit.body.media_types) != 1 or edit.body.media_types[0] != 'audio':
         raise RecsError(
-            f'This editor supports only media_types = ["audio"]: {edit.media_types}'
+            'This editor supports only media_types = ["audio"]: '
+            f'{edit.body.media_types}'
         )
     sources = resolve_sources(edit, edit_directory)
     graph = validate_graph(edit, sources)
@@ -39,7 +41,9 @@ def prepare_edit(
     return PreparedEdit(edit=canonical, sources=sources, graph=graph)
 
 
-def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Path:
+def execute_edit(
+    edit: ArrangementDocument, edit_directory: Path, destination: Path
+) -> Path:
     prepared = prepare_edit(edit, edit_directory, destination)
     canonical = prepared.edit
     rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
@@ -55,7 +59,7 @@ def execute_edit(edit: EditSpec, edit_directory: Path, destination: Path) -> Pat
 
 def write_session(
     edit_text: str,
-    edit: EditSpec,
+    edit: ArrangementDocument,
     graph: EditGraph,
     rendered: dict[str, MaterializedAudio],
     destination: Path,
@@ -81,7 +85,7 @@ def write_session(
         sync=True,
     )
     try:
-        for output in edit.outputs:
+        for output in edit.body.outputs:
             if output.path is None or output.format is None:
                 raise RecsError(
                     f'Output {output.id}: final output requires path and format'
@@ -102,7 +106,7 @@ def write_session(
                 track_name=output.id,
                 source_channels=list(range(1, channels + 1)),
                 channels=channels,
-                sample_rate=edit.sample_rate,
+                sample_rate=edit.timebases[0].rate.numerator,
             )
             writer.write(started)
             audio = rendered[output.id]
@@ -156,12 +160,12 @@ def write_session(
 
 
 def canonical_edit(
-    edit: EditSpec,
+    edit: ArrangementDocument,
     sources: Mapping[str, ResolvedSource | MaterializedAudio],
     destination: Path,
-) -> EditSpec:
+) -> ArrangementDocument:
     replacements = []
-    for source in edit.sources:
+    for source in edit.body.sources:
         resolved = sources[source.id]
         if isinstance(resolved, MaterializedAudio):
             replacements.append(source)
@@ -174,7 +178,9 @@ def canonical_edit(
             value = path
         field = 'record' if resolved.record is not None else 'file'
         replacements.append(source.model_copy(update={field: value}))
-    return edit.model_copy(update={'sources': replacements})
+    return edit.model_copy(
+        update={'body': edit.body.model_copy(update={'sources': replacements})}
+    )
 
 
 def _resolution_metadata(

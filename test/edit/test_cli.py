@@ -8,7 +8,9 @@ import tyro
 
 from recs.edit import commands, session
 from recs.edit.cli import EditCli, main
-from recs.edit.schema import EditSpec, canonical_toml
+from recs.edit.schema import canonical_toml
+from recs.model.arrangement import Arrangement, ArrangementDocument
+from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
 
@@ -40,7 +42,14 @@ def test_dry_run_prints_only_canonical_toml(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    edit = EditSpec(schema_version=1, sample_rate=48_000)
+    edit = ArrangementDocument(
+        id='edit',
+        name='Audio edit',
+        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        body=Arrangement(
+            timebase='audio',
+        ),
+    )
     recipe = edit.model_dump(mode='json')
     command_path = tmp_path / 'command.toml'
     monkeypatch.setattr(

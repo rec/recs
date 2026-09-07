@@ -4,7 +4,7 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
-from recs.edit.schema import EditSpec
+from recs.model.arrangement import ArrangementDocument
 from recs.model.references import ParameterTarget
 
 
@@ -29,24 +29,24 @@ class FrameRange(BaseModel, frozen=True):
 
 
 def validate_graph(
-    edit: EditSpec, sources: Mapping[str, AudioDescription]
+    edit: ArrangementDocument, sources: Mapping[str, AudioDescription]
 ) -> EditGraph:
-    _unique('source', [s.id for s in edit.sources])
-    _unique('track', [t.id for t in edit.tracks])
-    _unique('bus', [b.id for b in edit.buses])
-    _unique('clip', [c.id for c in edit.clips])
-    _unique('output', [o.id for o in edit.outputs])
-    _unique('automation target', [a.target for a in edit.automation])
+    _unique('source', [s.id for s in edit.body.sources])
+    _unique('track', [t.id for t in edit.body.tracks])
+    _unique('bus', [b.id for b in edit.body.buses])
+    _unique('clip', [c.id for c in edit.body.clips])
+    _unique('output', [o.id for o in edit.body.outputs])
+    _unique('automation target', [a.target for a in edit.body.automation])
 
-    track_widths = {t.id: t.channels for t in edit.tracks}
-    bus_widths = {b.id: b.channels for b in edit.buses}
+    track_widths = {t.id: t.channels for t in edit.body.tracks}
+    bus_widths = {b.id: b.channels for b in edit.body.buses}
     overlap = set(track_widths) & set(bus_widths)
     if overlap:
         raise RecsError(f'Track and bus IDs collide: {sorted(overlap)}')
     widths = track_widths | bus_widths
 
     clip_extents: dict[str, int] = dict.fromkeys(track_widths, 0)
-    for clip in edit.clips:
+    for clip in edit.body.clips:
         source = sources.get(clip.source)
         if source is None:
             raise RecsError(f'Clip {clip.id}: unknown source {clip.source}')
@@ -68,8 +68,8 @@ def validate_graph(
             clip.timeline_start + clip.source_end - clip.source_start,
         )
 
-    destinations: dict[str, list[str]] = {b.id: [] for b in edit.buses}
-    for route in edit.routes:
+    destinations: dict[str, list[str]] = {b.id: [] for b in edit.body.buses}
+    for route in edit.body.routes:
         if route.source not in widths:
             raise RecsError(f'Route has unknown source {route.source}')
         if route.destination not in bus_widths:
@@ -85,14 +85,14 @@ def validate_graph(
     for bus in bus_order:
         extents[bus] = max((extents[s] for s in destinations[bus]), default=0)
 
-    clip_ids = {c.id for c in edit.clips}
-    route_ids = {(r.source, r.destination) for r in edit.routes}
+    clip_ids = {c.id for c in edit.body.clips}
+    route_ids = {(r.source, r.destination) for r in edit.body.routes}
     bus_ids = set(bus_widths)
-    for automation in edit.automation:
+    for automation in edit.body.automation:
         _validate_target(automation.target, clip_ids, route_ids, bus_ids)
 
     output_extents: dict[str, FrameRange] = {}
-    for output in edit.outputs:
+    for output in edit.body.outputs:
         if output.source not in widths:
             raise RecsError(f'Output {output.id}: unknown source {output.source}')
         start = output.start or 0

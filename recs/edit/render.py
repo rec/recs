@@ -13,14 +13,14 @@ from recs.edit.materialized import (
     merge_ranges,
 )
 from recs.edit.record import ResolvedSource
-from recs.edit.schema import EditSpec, NormalizeMode, OutputSpec
+from recs.model.arrangement import ArrangementDocument, NormalizeMode, OutputSpec
 from recs.model.references import ParameterTarget
 
 
 class Renderer:
     def __init__(
         self,
-        edit: EditSpec,
+        edit: ArrangementDocument,
         sources: Mapping[str, ResolvedSource | MaterializedAudio],
         graph: EditGraph,
         materializer: SourceMaterializer | None = None,
@@ -50,7 +50,7 @@ class Renderer:
     def _outputs(self) -> dict[str, MaterializedAudio]:
         nodes, ranges = self._nodes()
         result: dict[str, MaterializedAudio] = {}
-        for output in self.edit.outputs:
+        for output in self.edit.body.outputs:
             frame_range = self.graph.output_extents[output.id]
             samples = nodes[output.source][frame_range.start : frame_range.end]
             scale = output.gain
@@ -66,7 +66,7 @@ class Renderer:
             observed = _intersect_ranges(ranges[output.source], frame_range)
             result[output.id] = MaterializedAudio(
                 np.asarray(samples, dtype=np.float32),
-                self.edit.sample_rate,
+                self.edit.timebases[0].rate.numerator,
                 frame_range.start,
                 observed,
             )
@@ -84,11 +84,11 @@ class Renderer:
         timeline_end = max(r.end for r in self.graph.output_extents.values())
         nodes = {
             t.id: allocate_audio(timeline_end, t.channels, f'track {t.id}')
-            for t in self.edit.tracks
+            for t in self.edit.body.tracks
         }
-        ranges: dict[str, list[FrameRange]] = {t.id: [] for t in self.edit.tracks}
-        automation = {a.target: a for a in self.edit.automation}
-        for clip in self.edit.clips:
+        ranges: dict[str, list[FrameRange]] = {t.id: [] for t in self.edit.body.tracks}
+        automation = {a.target: a for a in self.edit.body.automation}
+        for clip in self.edit.body.clips:
             clip_start = clip.timeline_start
             clip_end = clip_start + clip.source_end - clip.source_start
             overlap_start = max(0, clip_start)
@@ -117,9 +117,9 @@ class Renderer:
                 )
             )
 
-        buses = {b.id: b for b in self.edit.buses}
-        routes = {b.id: [] for b in self.edit.buses}
-        for route in self.edit.routes:
+        buses = {b.id: b for b in self.edit.body.buses}
+        routes = {b.id: [] for b in self.edit.body.buses}
+        for route in self.edit.body.routes:
             routes[route.destination].append(route)
         for bus_id in self.graph.bus_order:
             bus = buses[bus_id]
@@ -158,8 +158,8 @@ class Renderer:
             timeline_end
             * itemsize
             * (
-                sum(t.channels for t in self.edit.tracks)
-                + sum(b.channels for b in self.edit.buses)
+                sum(t.channels for t in self.edit.body.tracks)
+                + sum(b.channels for b in self.edit.body.buses)
             )
         )
         clip_temporary = max(
@@ -167,20 +167,20 @@ class Renderer:
                 (c.source_end - c.source_start)
                 * (2 * self.sources[c.source].channels + 1)
                 * itemsize
-                for c in self.edit.clips
+                for c in self.edit.body.clips
             ),
             default=0,
         )
         route_temporary = max(
             (
                 timeline_end * (self.graph.widths[r.source] + 1) * itemsize
-                for r in self.edit.routes
+                for r in self.edit.body.routes
             ),
             default=0,
         )
         persistent_outputs = 0
         peak = sources + nodes + max(clip_temporary, route_temporary)
-        for output in self.edit.outputs:
+        for output in self.edit.body.outputs:
             frame_range = self.graph.output_extents[output.id]
             size = (
                 (frame_range.end - frame_range.start)

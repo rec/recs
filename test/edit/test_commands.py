@@ -90,9 +90,9 @@ def test_builtins_generate_complete_arrangements(
         EditOptions(format=Format.wav),
     )
 
-    assert len(edit.sources) == source_count
-    assert len(edit.outputs) == output_count
-    assert len(edit.buses) == bus_count
+    assert len(edit.body.sources) == source_count
+    assert len(edit.body.outputs) == output_count
+    assert len(edit.body.buses) == bus_count
 
 
 def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
@@ -105,9 +105,9 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
         EditOptions(channel=['device:pair:2'], format=Format.wav),
     )
 
-    assert edit.sources[0].selector is not None
-    assert edit.sources[0].selector.channel == 1
-    assert edit.tracks[0].channels == 1
+    assert edit.body.sources[0].selector is not None
+    assert edit.body.sources[0].selector.channel == 1
+    assert edit.body.tracks[0].channels == 1
 
 
 def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
@@ -120,9 +120,9 @@ def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
         EditOptions(route_gain=[0.75, 0.5], crossfade=0.25),
     )
 
-    assert [r.gain for r in edit.routes] == [0.75, 0.5]
-    assert len(edit.automation) == 2
-    assert edit.automation[0].points[-1].frame == 12_000
+    assert [r.gain for r in edit.body.routes] == [0.75, 0.5]
+    assert len(edit.body.automation) == 2
+    assert edit.body.automation[0].points[-1].frame == 12_000
 
 
 def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
@@ -132,9 +132,9 @@ def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [second, first], EditOptions())
 
-    assert [s.file for s in edit.sources] == [second.resolve(), first.resolve()]
-    assert [c.timeline_start for c in edit.clips] == [0, 48_000]
-    assert [o.path.as_posix() for o in edit.outputs] == ['audio/stitch.flac']
+    assert [s.file for s in edit.body.sources] == [second.resolve(), first.resolve()]
+    assert [c.timeline_start for c in edit.body.clips] == [0, 48_000]
+    assert [o.path.as_posix() for o in edit.body.outputs] == ['audio/stitch.flac']
 
 
 def test_split_expands_file_channels(tmp_path: Path) -> None:
@@ -143,8 +143,8 @@ def test_split_expands_file_channels(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [path], EditOptions())
 
-    assert [s.channels for s in edit.sources] == [[0], [1]]
-    assert [t.channels for t in edit.tracks] == [1, 1]
+    assert [s.channels for s in edit.body.sources] == [[0], [1]]
+    assert [t.channels for t in edit.body.tracks] == [1, 1]
 
 
 def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:
@@ -153,8 +153,8 @@ def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [path], EditOptions(channel=['pair:2']))
 
-    assert len(edit.sources) == 1
-    assert edit.sources[0].channels == [1]
+    assert len(edit.body.sources) == 1
+    assert edit.body.sources[0].channels == [1]
 
 
 def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
@@ -166,7 +166,7 @@ def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [directory], EditOptions())
 
-    assert [s.file for s in edit.sources] == [first.resolve(), second.resolve()]
+    assert [s.file for s in edit.body.sources] == [first.resolve(), second.resolve()]
 
 
 def test_directory_with_multiple_sessions_is_rejected(tmp_path: Path) -> None:
@@ -196,10 +196,10 @@ def test_session_directories_use_qualified_selectors(tmp_path: Path) -> None:
         EditOptions(channel=['two:device:pair']),
     )
 
-    assert len(edit.sources) == 1
-    assert edit.sources[0].record == records[1].resolve()
-    assert edit.sources[0].selector is not None
-    assert edit.sources[0].selector.track == 'pair'
+    assert len(edit.body.sources) == 1
+    assert edit.body.sources[0].record == records[1].resolve()
+    assert edit.body.sources[0].selector is not None
+    assert edit.body.sources[0].selector.track == 'pair'
 
 
 def _record(directory: Path) -> Path:

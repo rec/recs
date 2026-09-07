@@ -83,11 +83,11 @@ def test_composition_executes_each_edit_from_the_previous_session(
     assert [e.command for e in canonical.edits] == ['clip', 'clip']
     assert len(canonical.resolved_commands) == 2
     assert len(canonical.stages) == 2
-    first_output = canonical.stages[0].edit['outputs'][0]
+    first_output = canonical.stages[0].edit['body']['outputs'][0]
     assert 'path' not in first_output
     assert 'format' not in first_output
     assert 'subtype' not in first_output
-    assert canonical.stages[1].edit['outputs'][0]['format'] == 'wav'
+    assert canonical.stages[1].edit['body']['outputs'][0]['format'] == 'wav'
 
     rendered, rate = soundfile.read(
         destination / 'audio/edit-device-voice.wav',
@@ -107,7 +107,9 @@ def test_composition_resolves_every_command_before_creating_output(
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
     record_path, _ = _record(tmp_path)
     complete = tmp_path / 'complete.toml'
-    complete.write_text('schema_version = 1\nsample_rate = 48000\n')
+    from test.edit.test_schema import COMPLETE_EDIT
+
+    complete.write_text(COMPLETE_EDIT)
     composition_path = tmp_path / 'compose.toml'
     composition_path.write_text(
         _composition_text(('clip', 'device:voice'))

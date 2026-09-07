@@ -5,14 +5,16 @@ import soundfile
 from recs.base.errors import RecsError
 from recs.base.types import Format
 from recs.edit.graph import EditGraph
-from recs.edit.schema import EditSpec, OutputSpec
+from recs.model.arrangement import ArrangementDocument, OutputSpec
 
 
-def validate_outputs(edit: EditSpec, graph: EditGraph, destination: Path) -> None:
+def validate_outputs(
+    edit: ArrangementDocument, graph: EditGraph, destination: Path
+) -> None:
     if destination.exists():
         raise RecsError(f'Output session directory already exists: {destination}')
     paths: list[Path] = []
-    for output in edit.outputs:
+    for output in edit.body.outputs:
         if output.path is None or output.format is None:
             raise RecsError(
                 f'Output {output.id}: final output requires path and format'

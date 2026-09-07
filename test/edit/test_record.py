@@ -26,10 +26,16 @@ def test_source_resolution_preserves_gaps_and_selects_mono_offset(
     writer.close()
     edit = parse_edit(
         """
-schema_version = 1
-sample_rate = 48000
+format = "recs"
+version = 1
+kind = "arrangement"
+id = "edit"
+name = "Audio edit"
+timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+[body]
+timebase = "audio"
 
-[[sources]]
+[[body.sources]]
 id = "right"
 record = "session-record.jsonl"
 selector = { source = "device", track = "pair", channel = 1 }
@@ -67,10 +73,16 @@ def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
     soundfile.write(path, np.zeros((48_000, 4)), 48_000, subtype='FLOAT')
     edit = parse_edit(
         """
-schema_version = 1
-sample_rate = 48000
+format = "recs"
+version = 1
+kind = "arrangement"
+id = "edit"
+name = "Audio edit"
+timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+[body]
+timebase = "audio"
 
-[[sources]]
+[[body.sources]]
 id = "middle"
 file = "take.wav"
 channels = [1, 2]
