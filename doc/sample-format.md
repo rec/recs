@@ -2,9 +2,11 @@
 
 ## Status And Scope
 
-Recsam is a proposed format, not an implemented playback feature or an existing
-industry standard. It describes one playable instrument: the sample files,
-which keys and velocities select them, and how each selected sample plays.
+Recsam is an implemented declarative format with Pydantic models in
+`recs/recsam/` and SFZ import and export in `recs/recsam/sfz.py`. It is not an
+implemented playback feature or an industry standard. It describes one
+playable instrument: the sample files, which keys and velocities select them,
+and how each selected sample plays.
 
 A UTF-8 TOML file named `sample-instrument.toml` holds the definition. Audio
 stays in separate referenced files. One instrument can contain any number of
@@ -17,10 +19,12 @@ media; this document defines audio instrument behavior within that larger
 system. Future media-specific playback semantics require a format revision,
 not silently reinterpreting these audio fields.
 
-The format is declarative. It cannot import Python, run shell commands, load
-plugins, or depend on an installed sampler's opaque preset state. Clear names,
-explicit units, and defined composition rules take precedence over matching
-SFZ opcode names or syntax.
+The format is declarative. The current code validates parsed TOML through the
+models but does not yet provide a dedicated instrument-file CLI or TOML loader
+and writer. It cannot import Python, run shell commands, load plugins, or depend
+on an installed sampler's opaque preset state. Clear names, explicit units, and
+defined composition rules take precedence over matching SFZ opcode names or
+syntax.
 
 Duration and frequency declarations also accept explicit unit strings, such as
 `attack_seconds = "10ms"` and `frequency_hz = "2.4kHz"`. Validation converts them

@@ -59,7 +59,7 @@ sidecar formats rather than inventing a universal binary container:
 | Payload | Initial storage |
 | --- | --- |
 | Audio samples | WAV/FLAC or another explicitly supported codec, with decoded frame metadata |
-| Dense numeric control or pixel arrays | Non-object NPY arrays, with semantic axes, unit, layout, and clock in the manifest |
+| Dense numeric control or pixel arrays | Non-object NPY arrays, with semantic axes, unit, layout, and clock in the recording document |
 | Recorded events and raw packets | UTF-8 JSONL with the shared event schema; binary fields use base64 |
 | Small authored curves and sequences | Inline typed TOML records |
 | Plugin-specific state | Opaque asset with implementation identity and declared encoding |

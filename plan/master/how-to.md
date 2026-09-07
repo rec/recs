@@ -7,9 +7,8 @@ Additional work beyond the prompt: None.
 ## Baseline and proposed ownership
 
 The inventory below comes from local source inspection on 7 September 2026.
-Recs HEAD at inspection was `6e79423` (`Add daemon status watch`). Sibling
-repositories were inspected in their current working trees, so recheck the
-named symbols when starting implementation. Existing format models are not
+Sibling repositories were inspected in their current working trees, so recheck
+the named symbols when starting implementation. Existing format models are not
 evidence that playback or cross-application execution has been implemented.
 
 Place pure format definitions in proposed `recs/model/` modules for documents,
@@ -211,7 +210,3 @@ This master proposal broadens their scope, including generic processing,
 shared assets, and tuning dependencies. Reconcile the relevant documents and
 remove superseded restrictions when implementing those changes; this task
 does not silently rewrite their existing specifications.
-
-An older `plan/editing-tools.md` appeared in project history, but is absent from
-the inspected tree. Use the actual `recs/edit/` implementation as the current
-baseline, not the historical proposal as evidence of missing functionality.

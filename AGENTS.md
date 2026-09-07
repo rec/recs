@@ -8,7 +8,7 @@ This document provides project-specific context for AI agents working in this re
 out quiet, and stores the results in named, organized files.
 
 ## 2. Core Tech Stack
-- **Language:** Python 3.12
+- **Language:** Python 3.13
 - **Environment Management:** uv
 - **Key Dependencies:** pydantic, numpy, tyro, sounddevice, soundfile
 

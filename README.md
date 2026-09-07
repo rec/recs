@@ -1,108 +1,77 @@
-#  🎬 recs: the Universal Recorder 🎬
+# recs: the Universal Recorder
 
-## Why should there be a record button at all?
+Recs continuously records audio, MIDI, OSC, and key events into timestamped
+sessions. Audio can be recorded continuously or split around quiet passages.
+Every session has one `session-record.jsonl` that indexes its media files and
+records source, configuration, disk, and control events.
 
-A long time ago, I asked myself, "Why is there a record button and the possibility
-of missing a take? Why not record everything?"
+The recorder is designed to run unattended. It discovers selected audio and
+MIDI devices after startup, resumes when devices return, monitors free space,
+and can continue a session on another removable disk.
 
-I sometimes play music, and I have mixed bands live, and I wanted a program that would
-simply record everything at all times which I didn't have to stop and start, that I
-could run completely separately from my other music programs.
+## Requirements And Installation
 
-Separately, I wanted to digitize a huge number of cassettes and LPs, so I wanted
-a program that ran in the background and recorded everything except silence, so I just
-play the music into the machine, and have it divided into pieces
+Recs requires Python 3.13 or newer and the system libraries required by
+PortAudio and libsndfile.
 
-Nothing like that existed so I wrote it.
-
-## `recs`:  the Universal Recorder
-
-`recs` is a CLI  program that records any or every audio input on your machine, intelligently filters
-out quiet, and stores the results in named, organized files.
-
-Free, open-source, configurable, light on CPU and memory, and bulletproof
-
-### Bulletproof?
-
-It's not difficult to record some audio. Writing a program that runs continuously and
-records audio even as real-world things happen is considerably harder.
-
-It is impossible to prevent all loss, but considerable ingenuity and pulling of cables
-has been used to mitigate and minimize this through software.  See Appendix A.
-
-### Universal?
-
-It is a "Universal Recorder" because the plan to be able to record all streams of data:
-audio is simply the start.
-
-I have already [written code](https://github.com/rec/litoid) to do this for MIDI and DMX
-- it works well but it isn't productionized, and I'll be folding that in in due time,
-but most of the difficulty and most of the value in this first step is the audio, so I
-have focused on just audio for this first release!
-
-It might be that video is also incorporated in the far future, but the tooling is just
-not there for Python yet, and it would be much too heavy to sit in the background all
-the time and almost be forgotten about, so you could call it an Almost Universal
-Recorder if you liked.
-
-### Installation
-
-`recs` is a standard Python package. Use `pip install recs`, `uv tool install
-recs`, or your favorite package manager.
-
-To test, type `recs --info`, which prints JSON describing the input devices
-you have. Here's a snippet from my machine:
-
-```
-[
-    {
-        "name": "FLOW 8 (Recording)",
-        "index": 1,
-        "hostapi": 0,
-        "max_input_channels": 10,
-        "max_output_channels": 4,
-        "default_low_input_latency": 0.01,
-        "default_low_output_latency": 0.004354166666666667,
-        "default_high_input_latency": 0.1,
-        "default_high_output_latency": 0.0136875,
-        "default_samplerate": 48000.0
-    },
-    {
-        "name": "USB PnP Sound Device",
-        "index": 2,
-        ...
-    },
-    ...
-]
+```console
+uv tool install recs
 ```
 
-### Basic Usage
+Use `pip install recs` if you manage Python environments with pip.
 
-Pick your nicest terminal program, go to a favorite directory with some free space, and
-type:
+List available audio devices without starting a recording:
 
+```console
+recs --info
 ```
+
+## Recording
+
+Run Recs with no arguments to record available audio inputs in the current
+directory:
+
+```console
 recs
 ```
 
-`recs` will start recording all the active audio channels into your current directory
-and display the results in the terminal.
+By default, Recs records audio as FLAC, records MIDI inputs, and omits quiet
+audio between files. A run creates a timestamped session directory:
 
-What "active" means can be customized rather a lot, but by default when a channel becomes
-too quiet for more than a short time, it stops recording, and will start a new recording
-automatically when the channel receives a signal.
+```text
+2026-09-07 20-15-15/
+  session-record.jsonl
+  audio/
+    1-2 + 20260907-201515.flac
+  midi/
+    Launchkey-20260907-201515.mid
+  osc/
+    X18.jsonl
+```
 
-Some care is taken to preserve the quiet before the start or after the end of a
-recording to prevent abrupt transitions.
+Select inputs and an output root with ordinary recording options:
 
-Configuration accepts explicit units, for example `--quiet-before-start 250ms`,
-`--longest-file-time '2 h'`, and `--minimum-free-space 1GiB`. Bare numbers keep
-their existing units. See [Configuration Units](doc/configuration-units.md).
+```console
+recs --include xr18 --output-directory /mnt/openloop/recs
+```
 
-### Named recording setups
+The output directory is the root for sessions. Recs computes each session
+directory below it; that computed path is not configuration and is not saved.
+An output-directory pattern may include time and source placeholders.
 
-A recording setup stores a complete configuration together with saved track
-names and mono/stereo layouts. Recs options for `save` and `use` follow `--`:
+Use `--record-everything` to keep audio files open through quiet passages.
+MIDI silence costs no storage and does not segment MIDI files. Configure OSC
+nodes with `--osc-nodes /path/to/nodes.toml`.
+
+Configuration values accept explicit units, for example
+`--quiet-before-start 250ms`, `--longest-file-time '2 h'`, and
+`--minimum-free-space 1GiB`. See
+[Configuration Units](doc/configuration-units.md).
+
+## Recording Setups
+
+A named setup stores a complete recording configuration together with track
+names and mono/stereo layouts. Options for `save` and `use` follow `--`:
 
 ```console
 recs profile save x18-show -- --include xr18 --formats flac
@@ -112,44 +81,87 @@ recs profile show x18-show
 recs profile delete x18-show
 ```
 
-Use a saved setup directly with `recs --profile x18-show`. Daemon installation
-accepts the same option: `recs daemon install --profile x18-show`.
+Start with a saved setup using `recs --profile x18-show`. Install the daemon
+with the same setup using `recs daemon install --profile x18-show`.
 
-Recording setups are distinct from the per-device defaults supplied through
-`--profiles` below.
+Per-device JSON profiles are separate from named recording setups. Pass them
+with `--profiles` to override settings such as the noise floor for a matching
+device:
 
-### Per-device noise floors
-
-`--noise-floor` sets the global threshold for starting and stopping recordings.
-To override it for one input device, pass a JSON profile file with `--profiles`:
-
-```
+```json
 {
-    "MacBook Pro Microphone": {
-        "noise_floor": 60
-    },
-    "FLOW 8 (Recording)": {
-        "recording": {
-            "noise_floor": 75
-        }
+  "MacBook Pro Microphone": {
+    "noise_floor": 60
+  },
+  "FLOW 8 (Recording)": {
+    "recording": {
+      "noise_floor": 75
     }
+  }
 }
 ```
 
-The device-specific value wins for that input. Inputs without a matching profile
-keep the global `--noise-floor` value, or the default if none was supplied.
+## Daemon And Control
 
+Recs can install and manage a per-user background service:
 
-#### Appendix A: Failure modes
+```console
+recs daemon install --output-directory /mnt/openloop/recs
+recs daemon status
+recs daemon restart
+recs daemon stop
+recs daemon uninstall
+```
 
-1. Hardware crash or power loss
-2. Segfault or similar C/C++ errors
+Inspect and control a running daemon locally:
 
+```console
+recs watch
+recs control status
+recs control disk
+recs control mark "solo starts"
+recs control pause
+recs control resume
+recs control card-replace
+```
 
-The aim is to be as bulletproof as possible. The pre-beta existing as I write this
-(2023/11/19) seems to handle harder cases like hybernation well, and can
-detect if a  device goes offline and report it.
+The complete local RPC and event interface, including live waveforms and the
+`new_session` command, is documented in [Recs Protocol](doc/recs_protocol.md).
 
-`recs` polls devices while it runs and can start recording again when a matching
-device comes back online. Hardware and driver failures can still lose audio, but
-the recorder is designed to keep the session alive where possible.
+## Sessions And Editing
+
+Inspect, validate, explain, and export recordings without starting the
+recorder:
+
+```console
+recs sessions /path/to/recordings
+recs session show /path/to/session
+recs record check /path/to/session/session-record.jsonl
+recs explain /path/to/session/session-record.jsonl
+recs session export /path/to/session/session-record.jsonl /path/to/export
+```
+
+`recs edit` reads TOML edit definitions or installed edit commands and writes a
+new session directory containing generated media, the resolved `edit.toml`, and
+a new session record. Each installed edit command provides Tyro-generated
+`--help`.
+
+Before opening a new record, Recs scans the configured output root for
+unfinished sessions. Each one receives a `recs-recovery-report.toml` beside its
+session record, and Recs logs a one-line summary with the report path.
+
+Recsam provides Pydantic models for the Recs sample-instrument format and SFZ
+import/export with explicit reporting of unsupported features. Audio playback
+of Recsam instruments is not implemented yet.
+
+## Reference Documentation
+
+- [Glossary](doc/glossary.md)
+- [Runtime Architecture](doc/runtime-architecture.md)
+- [Session Record Format](doc/session-record-format.md)
+- [Recs Protocol](doc/recs_protocol.md)
+- [Configuration Units](doc/configuration-units.md)
+- [Recsam Instrument Format](doc/sample-format.md)
+
+Current unfinished design work is kept under `plan/`. Historical reviews and
+completed plans are deliberately not retained as product documentation.

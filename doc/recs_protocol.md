@@ -115,7 +115,7 @@ There are two independent versions:
 - `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the Recs payload version. It is
-  currently `7` and is returned by `capabilities`.
+  currently `8` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
