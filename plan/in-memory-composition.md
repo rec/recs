@@ -1,418 +1,326 @@
-# In-Memory Edit Composition
+# In-Memory Edit Graphs
 
 ## Goal
 
-Change composed edits so that all selected source audio and every non-final
-result are materialized as NumPy arrays in memory. A composition performs its
-complete sequence of edits over those arrays and writes only the final session
-to disk.
+Extend in-memory composition from a linear sequence into a directed acyclic
+graph of edits. A graph may branch one result into several independent edits
+and may combine several edited results in a later edit. For example, two edits
+of the original session may be separate logical branches and a third edit may
+mix their outputs.
 
-The initial implementation deliberately favors simplicity over support for
-recordings larger than RAM. Use `np.ndarray` with `float32` samples throughout.
-Do not add streaming, temporary files, memory mapping, chunk caches, or a
-pluggable tensor backend yet.
+Every intermediate remains a `float32` NumPy array or array view. Only the
+declared result is encoded and written as a new session.
 
-Standalone edits retain their current CLI, files, and session semantics, but
-use the same materialized-array renderer before writing their output.
+This plan covers the graph work that remains. Materialized source loading, the
+complete-array renderer, linear in-memory composition, materialized
+autocalibration, final-only session output, and basic memory reporting already
+exist and are not repeated here.
 
-## Composition Semantics
+## Graph Semantics
 
-A composition becomes one in-memory audio calculation:
-
-```text
-source files -> NumPy arrays -> child 1 -> child 2 -> ... -> final encoder
-```
-
-Only the final child has an encoded representation. Every earlier boundary is
-an unencoded `float32` array. This avoids intermediate file I/O and
-generational codec loss, and normalization can inspect and scale an already
-materialized result without rerendering its inputs.
-
-An explicitly requested `format` or `subtype` on a non-final composition step
-must be rejected. Ignoring it would be misleading, while honoring it would
-require an encode/decode boundary. Recipe-provided paths and encoding defaults
-are storage policy rather than processing semantics for non-final children;
-the compiler discards them after using their output IDs and channel widths to
-define the next virtual session. The final step's format, subtype, and paths
-remain effective.
-
-Options that change samples or timing remain effective at every stage. These
-include clipping, stitching, splitting, mixing, gain, routing, automation,
-normalization, and autocalibration.
-
-This replaces disk-backed child execution inside compositions. Do not add a
-second composition mode or silently fall back to intermediate files when
-memory is insufficient.
-
-## Materialized Audio
-
-Add an ordinary runtime class in `recs/edit/materialized.py`:
-
-```python
-class MaterializedAudio:
-    samples: np.ndarray
-    sample_rate: int
-    start_frame: int
-    observed_ranges: list[FrameRange]
-```
-
-`samples` always has shape `(frames, channels)`, dtype `float32`, and C-contiguous
-storage unless it is a deliberate NumPy view. `start_frame` maps array index
-zero to the source-session timeline. `observed_ranges` contains sorted,
-non-overlapping half-open source-frame ranges.
-
-The array covers the complete extent from `start_frame` through its final
-frame. Fill unobserved gaps with zero, but never infer from those zeroes that
-audio was observed. Silence analysis, output segmentation, and session-record
-ranges must consult `observed_ranges` and preserve gaps as gaps.
-
-Keep this an ordinary class rather than a Pydantic data class because it owns a
-large mutable runtime array and is never serialized. Persisted edit and session
-descriptions remain frozen Pydantic data classes.
-
-Provide these public operations:
-
-- Materialize a selected track from existing session fragments.
-- Select one or more channels as a view where NumPy permits it.
-- Select a frame interval as a view while intersecting observed ranges.
-- Concatenate explicitly stitched ranges into a new array and new timeline.
-- Allocate a zeroed result for mixing or routing.
-- Apply gain, automation, normalization, and limiting.
-- Release an owned array when the pipeline no longer references it.
-
-Do not hide allocations inside overloaded arithmetic. Edit operations should
-make it apparent when they return a view and when they allocate storage.
-
-## Virtual Sessions
-
-Add frozen `MaterializedTrack` and `MaterializedSession` descriptions around
-the runtime arrays. A track carries the logical identity expected by later edit
-selection:
-
-- source name and track name;
-- stream ID;
-- sample rate and channel count;
-- timeline extent and observed ranges;
-- its `MaterializedAudio` runtime object.
-
-A materialized session contains a session ID, duration, tracks, and provenance.
-It has no paths or file records because its media has not been written.
-
-Replace command generation's assumption that every input is a
-`session-record.jsonl` path with a typed session-input boundary:
-
-- `RecordedSessionInput` describes an existing record before its selected
-  tracks are loaded.
-- `MaterializedSessionInput` describes an intermediate in-memory session.
-
-Both expose the same track inventory and selector rules. Move shared
-`SOURCE:TRACK[:OFFSET]` selection to this boundary so recorded and materialized
-sessions reject ambiguity, mixed rates, missing tracks, and invalid offsets in
-the same way.
-
-Command generation should consume track descriptors from this interface.
-During composition, bind generated source IDs directly to materialized tracks
-rather than creating fake paths to nonexistent session records.
-
-## Loading Sources
-
-Resolve the complete composition before loading audio. Determine every source
-record, selected track, channel width, and maximum timeline extent first.
-
-Load each distinct source track at most once. If several children or selectors
-use the same source channels, share the original array or NumPy views rather
-than decoding duplicate copies. Decode source files directly into their final
-positions in a preallocated `float32` array; do not accumulate Python lists of
-blocks and concatenate them afterward.
-
-Record the observed ranges while loading. Parallel encodings and overlapping
-fragments retain the existing resolver's validation and format-selection
-rules. Close every decoder immediately after its fragment has been copied.
-
-Source arrays are read-only by default. An operation may mutate an array in
-place only when pipeline liveness proves that it is the sole remaining owner
-and no canonical source or sibling output refers to it. Otherwise it must
-allocate a result. This prevents one child from changing another child's input
-through a shared view.
-
-## Array Renderer
-
-Refactor `Renderer` so it renders each graph node to a complete
-`MaterializedAudio` result rather than rendering file-sized blocks. It receives
-materialized sources and evaluates the graph in topological order:
-
-1. Place clips into complete track arrays.
-2. Apply clip gain and automation.
-3. Route tracks and buses into newly allocated destination arrays.
-4. Apply bus and route gain automation.
-5. Produce each output as a view when it only selects an interval, or as a new
-   array when scaling or layout requires one.
-6. Apply output limiting or normalization directly to the complete output.
-
-Normalization computes `np.max(np.abs(samples))` once, then scales the same
-materialized array. It does not render its source again. When an output has a
-single owner, scale in place; otherwise copy before scaling.
-
-Replace the existing bounded renderer completely after its regression tests pass.
-Standalone and composed arrangement edits must use this one array renderer; do
-not retain parallel block and array implementations. Standalone edits pass the
-result directly to their existing session materializer, while compositions pass
-it to the next stage.
-
-## Autocalibration
-
-Adapt autocalibration to analyze `MaterializedAudio` arrays. Window-level
-calculations operate on array slices and skip windows crossing unobserved
-ranges. The first sustained silence still fixes one threshold for the complete
-session.
-
-After interval detection, retain each output region as a view where practical.
-A segmented logical track may therefore own a list of array views plus its
-source timeline ranges rather than concatenating separated regions. A later
-edit reads those views as one materialized track while preserving the omitted
-gaps. Concatenate only when an edit explicitly requests stitching.
-
-Resolved thresholds are stored in the canonical composition. No intermediate
-audio or child session record is written.
-
-## Pipeline Compilation And Execution
-
-Split composition into three phases.
-
-### 1. Preflight
-
-1. Validate the input record and resolve every command file.
-2. Reject explicit encoding options on every non-final step.
-3. Generate each child's logical edit against the preceding session inventory.
-4. Validate graphs, selectors, channel widths, frame ranges, and operations.
-5. Calculate conservative array shapes and a peak-memory estimate.
-6. Fail before creating the destination if an operation cannot run over
-   materialized arrays.
-
-Autocalibration output ranges are not known until analysis. Estimate their
-memory using the complete selected input extent. Prefer an overestimate to a
-plan that can exceed its reported maximum.
-
-### 2. Materialization
-
-1. Decode each required source track once into a `float32` array.
-2. Execute children in declaration order.
-3. Construct a `MaterializedSession` from each child's logical outputs.
-4. Track ownership and remaining consumers for every array.
-5. Release arrays immediately after their final consumer finishes.
-6. Keep the final arrays and resolved analysis results for encoding.
-
-Execution remains deterministic and single-threaded initially. NumPy may use
-its own optimized native loops, but Recs must not add multiprocessing or
-parallel stage execution in this change.
-
-### 3. Final Output
-
-Only after preflight and all prerequisite analysis succeed, create the
-destination. Write the resolved composition to `edit.toml`, create one session
-record, and encode the final arrays. Send slices of the final arrays to
-SoundFile so the encoder does not require another complete output copy.
-
-Zero-child composition remains the identity and returns the original record
-without loading or writing audio. A one-child composition uses the array path
-and materializes its result once.
-
-Initially support only built-in audio arrangement commands and
-autocalibration. Reject MIDI, OSC, external, stateful, nondeterministic, or
-otherwise unsupported operations before loading source audio.
-
-## Memory Accounting
-
-Calculate and report memory in bytes using actual array shapes:
+A composition is a graph of named edit nodes:
 
 ```text
-bytes = frames * channels * 4
+                         -> vocal cleanup --\
+original session arrays                         -> mix -> final encoder
+                         -> room processing --/
 ```
 
-The preflight estimate must include:
+Each node has a stable ID, one edit command, one or more input node IDs, and
+that command's ordinary edit options.
 
-- distinct decoded source arrays;
-- simultaneously live intermediate arrays;
-- mix, routing, concatenation, and scaling outputs;
-- copies required because a source or view has multiple owners;
-- conservative autocalibration outputs;
-- small analysis arrays and metadata where material.
+The reserved node ID `root` denotes the original input session. An edit node
+may consume `root`, another edit node, or several edit nodes. A node with
+several inputs sees one virtual session containing the tracks produced by all
+of them.
 
-Views contribute no sample storage but keep their owner alive. The liveness
-calculation must therefore retain a base array until every dependent view is
-dead. Report both total source size and estimated peak live memory in dry-run
-output.
+The composition declares exactly one `result`. A non-empty graph writes that
+node's outputs as the final session. Every other node must be an ancestor of
+the result; reject disconnected work rather than evaluating and discarding it.
+A graph with no edits has `result = "root"` and retains the existing identity
+behavior without creating a destination.
 
-Do not select a fixed default memory limit in this implementation. Catch
-`MemoryError`, close all resources, and report the estimate and failed
-allocation. The estimate allows the user to decide whether a composition is
-appropriate for the machine. An operating-system allocation failure may still
-terminate the process, which is an accepted limitation of this initial
-array-first design.
+Dependencies, not declaration order, determine execution order. Reject:
 
-For scale, one hour of 18-channel, 48 kHz `float32` audio occupies about
-12.4 GB. Views are cheap, but several live mixed or transformed copies can
-exceed a 64 GB machine.
+- duplicate or reserved edit IDs;
+- unknown input IDs;
+- direct or indirect cycles;
+- an edit that depends on itself;
+- `result = "root"` when edit nodes are present;
+- nodes that cannot reach the result;
+- explicit encoding options on any node except the result.
 
-## Canonical Composition And Provenance
+## Composition Format
 
-The composition output is one ordinary final session:
+Replace the implicit linear `[[edits]]` sequence with an explicit graph schema.
+This is an incompatible representation and therefore uses schema version 2;
+do not keep both implicit and explicit dependency semantics in the same
+schema.
+
+```toml
+schema_version = 2
+kind = "composition"
+result = "master"
+
+[[edits]]
+id = "vocals"
+command = "clip"
+inputs = ["root"]
+channel = ["x18:voice"]
+
+[[edits]]
+id = "room"
+command = "clip"
+inputs = ["root"]
+channel = ["x18:room"]
+
+[[edits]]
+id = "master"
+command = "mix"
+inputs = ["vocals", "room"]
+channel = ["vocals:*", "room:*"]
+format = "flac"
+subtype = "pcm_24"
+```
+
+Canonical `edit.toml` stores nodes in deterministic topological order, using
+the node ID as the secondary ordering key when several nodes are ready. It
+stores each resolved command and generated edit beside its node rather than in
+positionally matched lists. This prevents reordering from changing the
+association between a node, its recipe, and its resolved edit.
+
+Suggested persisted shape:
+
+```toml
+[[edits]]
+id = "vocals"
+command = "clip"
+inputs = ["root"]
+
+[edits.resolved]
+# Flattened command recipe.
+
+[edits.edit]
+# Complete generated edit with intermediate encoding fields omitted.
+```
+
+Validate the exact nesting with `tomlkit` before implementation so generated
+TOML remains readable. The canonical form must not depend on command discovery
+when replayed.
+
+## Virtual Input Sessions
+
+Give each graph node a `MaterializedSession` result. A one-input edit receives
+that session directly. For a multi-input edit, construct a read-only virtual
+session inventory without copying sample arrays.
+
+Tracks from an upstream node use that node ID as their source name and retain
+their output track name. Selectors therefore use `NODE:TRACK`, and
+`NODE:*` selects every compatible track from that node. In the example, the
+`master` mix receives tracks under the `vocals` and `room` source names.
+
+This namespace prevents collisions when two branches both produce an output
+named `main`. Preserve stream IDs and source provenance separately from the
+selector-facing node namespace.
+
+Do not implicitly include the original session or a sibling branch. A node
+receives exactly the sessions listed in `inputs`. A node that needs both an
+edited branch and untouched original tracks lists both the branch ID and
+`root`.
+
+The merged inventory is a logical view only. It must not concatenate arrays,
+change timelines, or fill omitted media. Existing edit-class behavior remains:
+an audio edit consumes audio tracks and omits media types it does not support.
+
+## Graph Compilation
+
+Compile the complete graph before loading audio or creating the destination:
+
+1. Parse and validate node identities and dependency edges.
+2. Resolve and flatten every command recipe.
+3. Topologically order the nodes deterministically.
+4. Build each node's virtual input inventory from predecessor output
+   descriptors.
+5. Generate and validate every node's logical edit.
+6. Determine output identities, channel widths, frame extents, and sample
+   rates.
+7. Reject unsupported media, operations, selectors, and non-result encoding.
+8. Calculate array consumers and a conservative peak-memory estimate.
+
+Some analysis edits, including autocalibration, cannot know their exact output
+ranges before reading samples. Represent their compile-time outputs
+conservatively and replace them with resolved ranges during execution. Record
+the resolved analysis values in the canonical node.
+
+Compilation must not rely on list order beyond deterministic tie-breaking. A
+node may be declared before its dependencies.
+
+## Execution And Parallelism
+
+Execute nodes in deterministic topological order. Logical branches are
+parallel in the graph even if the first implementation evaluates ready nodes
+one at a time. This supports fan-out and fan-in, including a mix whose inputs
+are two independently edited branches.
+
+Maintain a consumer count for every materialized node result:
+
+- source arrays and branch outputs are read-only while shared;
+- a node may use a view without copying when its operation permits;
+- an operation may mutate in place only when it has the sole remaining owner;
+- retain an array base until every dependent view has been consumed;
+- release a node result immediately after its final consumer completes.
+
+The shared `SourceMaterializer` remains graph-wide so two branches selecting
+the same recorded source decode it once. Branch-local mutations must never
+alter that cached source or a sibling branch.
+
+Keep ready-node boundaries explicit enough for later concurrent execution, but
+do not add threads or processes initially. Concurrent execution would need a
+memory reservation for all simultaneously running nodes, deterministic failure
+selection, cancellation, and control over native NumPy thread pools. It is a
+later optimization, not required for graph semantics.
+
+## Memory Planning
+
+Replace the current linear stage estimate with graph liveness accounting. The
+estimate must include:
+
+- each distinct decoded source array;
+- every predecessor retained across a fan-out;
+- simultaneous inputs retained for a fan-in;
+- each node's track, bus, route, concatenation, scaling, and analysis arrays;
+- copies required because arrays have sibling consumers;
+- final result arrays retained for encoding.
+
+Count storage by base-array identity so views do not add bytes, while extending
+the lifetime of their base. Simulate the deterministic execution order and
+report the maximum live storage after every allocation and release.
+
+For each node, retain both its output storage and the renderer's temporary peak.
+The graph peak is the maximum of current live graph storage plus that node's
+temporary requirement. Autocalibration uses the complete selected extent as a
+conservative estimate until its retained ranges are known.
+
+Do not add a fixed memory limit or a disk-backed fallback. On `MemoryError`,
+report the planned peak and the allocation that failed, then release all graph
+references.
+
+## Final Output And Provenance
+
+Only the result node may specify output paths, format, and subtype. Once every
+ancestor has completed successfully, write one destination containing:
 
 ```text
-2026-09-06 11-30-00 edit/
-  edit.toml
-  session-record.jsonl
-  audio/
-    ...
+edit.toml
+session-record.jsonl
+audio/
+  ...
 ```
 
-Its `edit.toml` stores every resolved logical stage, including selectors,
-timing, routing, gain, automation, normalization, output track IDs, and
-autocalibration thresholds. Store paths and encoding settings only for the
-final stage. Give stages and intermediate tracks stable IDs so later stages do
-not refer to nonexistent child directories.
+The canonical composition records:
 
-Original record and file sources retain canonical source references. The final
-session's `edit_started` event points to the root `edit.toml` and adds only
-execution facts not duplicated there. File events describe final media only.
-There are no intermediate session records, file events, or numbered child
-directories.
+- the original session record;
+- every node ID and dependency edge;
+- every flattened command recipe;
+- every resolved generated edit;
+- resolved analysis values;
+- the result node and its encoding policy.
 
-## Failure Handling
+Intermediate nodes have no paths or encoding claims. The session record points
+to the root `edit.toml` and contains file events only for result-node media.
+Execution facts such as measured peak memory belong in `edit_started`, not in
+the declarative graph.
 
-Fail without creating the destination when command resolution, selector
-resolution, graph validation, memory estimation, or autocalibration analysis
-fails. Always release references to materialized arrays and close any source
-decoders.
-
-Once final encoding begins, retain existing truthful partial-session behavior:
-write final file events as work starts and finishes, append a warning on
-failure where possible, and leave completed final files intact. There are no
-intermediate sessions to preserve or roll back.
-
-Do not retry with disk-backed intermediates after allocation failure.
+If result encoding fails, retain the existing truthful partial-session
+behavior. Failures before encoding must not create the destination.
 
 ## Dry Run
 
-Dry run performs command resolution, graph compilation, shape calculation,
-memory estimation, and autocalibration analysis. Autocalibration requires
-loading its selected audio, so dry run may allocate source arrays, but it writes
-no destination.
+Update composition dry-run output to describe the graph rather than a numbered
+linear sequence. Report:
 
-Report:
-
-- the original input record;
-- each stage, selected inputs, and logical outputs;
-- frame extents, observed ranges, and channel widths;
-- source-array memory and estimated peak live memory;
-- allocations versus views for each stage;
-- resolved autocalibration thresholds;
+- the original input record and result node;
+- every node's command, dependencies, selected inputs, and logical outputs;
+- deterministic execution order;
+- frame extents, observed ranges where known, channel widths, and sample rates;
+- arrays shared between branches;
+- per-node output storage and temporary peak;
+- releases after final consumers and estimated graph peak;
+- resolved autocalibration values when analysis is required;
 - final format, subtype, paths, and duration;
 - confirmation that no intermediate media will be written.
 
-Release all dry-run arrays before returning.
-
-## NumPy First, Other Storage Later
-
-Use direct NumPy operations in the initial implementation. Keep edit operations
-as explicit functions taking and returning `MaterializedAudio`; do not create a
-generic tensor API solely for a possible future Torch port.
-
-A later Torch implementation can replace the array operations after the
-resource and output comparisons in
-[Human And Experimental Verification](human.md). `torch.compile` may fuse
-substantial DSP graphs, but simple gain, slicing, and copying are often limited
-by memory bandwidth.
-
-Likewise, a later memory-mapped implementation can change selected owned arrays
-to `np.memmap`. The initial ownership, shape, liveness, and observed-range
-metadata should remain applicable, but memory mapping is not part of this
-change.
+Dry run may load arrays required for analysis but writes no destination and
+releases all arrays before returning.
 
 ## Implementation Order
 
-1. Add `MaterializedAudio`, exact source loading, views, observed-range
-   handling, and ownership tests.
-2. Add session-input track inventory and selector resolution for recorded and
-   materialized sessions.
-3. Add conservative shape, liveness, and peak-memory planning.
-4. Replace the renderer with complete-array execution for standalone and
-   composed arrangement edits, including mixing, automation, limiting, and
-   normalization.
-5. Compile ordinary composition children into materialized sessions and remove
-   disk-backed child execution.
-6. Adapt autocalibration to analyze arrays and expose retained regions as
-   materialized views.
-7. Materialize only the final session and replace composition provenance and
-   canonical TOML accordingly.
-8. Add dry-run allocation and memory reporting, plus resource cleanup on every
-   exit path.
-9. Run the complete verification sequence and compare final samples with
-   equivalent standalone lossless edit chains at exact frame boundaries.
+1. Replace the composition schema with stable node IDs, explicit `inputs`, one
+   `result`, and node-local resolved command and edit data.
+2. Add graph validation and deterministic topological ordering.
+3. Namespace materialized track inventories by predecessor node and merge
+   multi-input inventories without copying arrays.
+4. Compile every node before materialization, including conservative analysis
+   descriptors and result-only encoding validation.
+5. Add graph-wide consumer counts, base-array liveness, and peak-memory
+   planning.
+6. Execute fan-out and fan-in nodes over the existing array renderer and
+   materialized autocalibration path.
+7. Write canonical graph provenance and encode only the declared result node.
+8. Replace linear dry-run reporting with dependency, sharing, liveness, and
+   graph-memory reporting.
+9. Run the complete automated verification sequence.
 
-Keep each implementation commit independently passing. Once the array renderer
-handles all existing operations, remove the old block renderer in the same
-commit so there is only one execution path.
+Keep each implementation commit independently passing.
 
 ## Tests
 
 Use 48 kHz WAV fixtures at least one second long for audio tests.
 
-1. Materialize segmented mono, stereo, and multichannel tracks into exact
-   `float32` arrays.
-2. Preserve source gaps as unobserved ranges even though their array cells are
-   zero.
-3. Verify channel and frame selections use views and retain correct base-array
-   ownership.
-4. Verify mutations are forbidden while arrays or views have multiple owners.
-5. Verify source files are decoded once when reused by several selectors or
-   stages.
-6. Render clip, stitch, split, mix, routing, gain, and automation as complete
-   arrays with exact sample results.
-7. Normalize and limit without rerendering upstream arrays.
-8. Verify array liveness releases each allocation after its final consumer and
-   that peak measured storage does not exceed the estimate.
-9. Compose several ordinary edits without creating intermediate directories or
-   files.
-10. Run autocalibration over an upstream array and feed its retained views into
-    a later edit.
-11. Preserve gaps and timeline positions through every stage and in final file
-    records.
-12. Verify multiple tracks and outputs retain stable selector identities.
-13. Reject explicit non-final `format` or `subtype` before loading audio or
-    creating the destination.
-14. Reject unsupported media and operations before loading audio.
-15. Verify canonical `edit.toml` contains resolved stages and thresholds but no
-    intermediate paths or encoding claims.
-16. Verify the final session record contains only final media and points to the
-    canonical composition.
-17. Verify dry run reports memory and writes nothing, including when it must
-    load arrays for autocalibration.
-18. Inject preflight, allocation, analysis, and final-write failures and verify
-    resource cleanup and truthful destination state.
-19. Verify zero-child identity and one-child composition behavior.
-20. Compare the final encoded samples against equivalent standalone lossless
-    edit chains within the final subtype's precision.
+1. Parse, canonicalize, and replay a graph without command discovery.
+2. Reject duplicate, reserved, unknown, cyclic, disconnected, and invalid
+   result nodes before loading audio.
+3. Execute nodes correctly when their declaration order differs from their
+   topological order.
+4. Fan one source into two edits and mix those two results in a third edit,
+   comparing exact samples with the equivalent standalone operations.
+5. Merge predecessor inventories without copying arrays and resolve
+   `NODE:TRACK` selectors without collisions.
+6. Decode a recorded source once when several branches consume it.
+7. Prove that one branch cannot mutate a source or output observed by another
+   branch.
+8. Retain a shared result until its final consumer, then release its base array.
+9. Verify measured peak storage does not exceed the graph estimate for fan-out
+   and fan-in cases.
+10. Run autocalibration in one branch and consume its resolved materialized
+    output in a later fan-in node.
+11. Preserve gaps, timelines, channel layouts, stream provenance, and stable
+    selector identities through branches.
+12. Reject encoding options on every non-result node before creating the
+    destination.
+13. Verify canonical `edit.toml` contains the full graph and no intermediate
+    paths or encoding claims.
+14. Verify the final session record contains only result-node media.
+15. Verify graph dry run reports dependencies, sharing, releases, and peak
+    memory while writing nothing.
+16. Inject compile, allocation, analysis, and final-write failures and verify
+    cleanup and truthful destination state.
+17. Verify the zero-node identity graph creates no destination.
 
 ## Acceptance Criteria
 
-- A non-empty composition writes exactly one final session and no intermediate
-  media or session records.
-- Selected source tracks are decoded once and held as `float32` NumPy arrays.
-- Every intermediate result is an array or array view, never a file-backed
-  temporary or replayable stream.
-- Normalization scans and scales its materialized input without recomputing
-  upstream edits.
-- Views, ownership, and liveness avoid unnecessary copies and release dead
-  arrays promptly.
-- Dry run reports a conservative peak-memory estimate.
-- Explicit non-final encoding requests fail instead of being ignored.
-- Source gaps, timeline positions, channel layouts, and selector identities
-  remain correct.
-- Canonical composition TOML fully describes logical stages and final encoding
-  without references to nonexistent child files.
-- Standalone edit output and session behavior remain unchanged, while its
-  rendering also uses materialized arrays.
+- Compositions support arbitrary acyclic fan-out and fan-in, not only a linear
+  previous-stage chain.
+- A mix or other edit can consume the materialized results of two or more
+  predecessor edits.
+- Node IDs provide stable, unambiguous selectors and provenance.
+- Every command and graph edge is resolved before source audio is loaded.
+- Shared recorded sources are decoded once and cannot be mutated by a branch.
+- Consumer-based liveness releases arrays after their final graph use.
+- Dry run reports a conservative graph-wide peak-memory estimate.
+- Only the declared result node is encoded or represented by file events.
+- Canonical TOML completely describes and can replay the graph without command
+  discovery.
 
 ## Additional work beyond the prompt
 
