@@ -6,25 +6,7 @@ This is the ranked product backlog for the five most valuable unfinished Recs
 features. Completed work and ideas superseded by Showco or existing Recs tools
 have been removed.
 
-## 1. Named Recording Setups
-
-Add named setup profiles covering device selection, aliases, track layout,
-noise floors, formats, output patterns, and marker labels:
-
-```console
-recs profile save rehearsal
-recs profile use x18-show
-recs daemon install --profile x18-show
-```
-
-Profiles should round-trip through the existing `Cfg` and track-settings models.
-Applying a profile must validate its layout against detected hardware and fail
-without partially changing the active setup.
-
-This consolidates the narrower track-layout-preset idea and removes repetitive,
-error-prone setup before recordings.
-
-## 2. Daemon Status Watch
+## 1. Daemon Status Watch
 
 Add an event-driven terminal client for a running daemon:
 
@@ -41,7 +23,7 @@ another recording process.
 This provides a lightweight diagnostic path when Showco is unavailable and is
 especially useful over SSH.
 
-## 3. SFZ Export
+## 2. SFZ Export
 
 Implement deterministic best-effort serialization from recsam to SFZ, with
 complete diagnostics for fields that SFZ cannot represent. A completely
@@ -52,7 +34,7 @@ The detailed design and acceptance criteria are in [SFZ Export](sfz-write.md).
 This closes the interoperability loop for existing sample libraries and makes
 recsam safer to adopt as an editable intermediate format.
 
-## 4. Offline Recsam Playback
+## 3. Offline Recsam Playback
 
 Implement the recsam playback engine first as deterministic offline rendering
 from performance events into a new Recs session. Establish slot selection,

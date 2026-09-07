@@ -28,6 +28,10 @@ def run() -> int:
             from recs.daemon.control_cli import main
 
             return main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'profile':
+            from recs.cfg import setup_profiles
+
+            return setup_profiles.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
             from recs.ui.gui_child import main
 
@@ -67,8 +71,17 @@ def run() -> int:
             from recs.edit.cli import main
 
             return main(sys.argv[2:])
-        cfg = tyro.cli(cli.CliCfg, prog='recs', description=cli.HELP)
-        run_cli.run_cli(cfg)
+        from recs.cfg import setup_profiles
+
+        profile, arguments = setup_profiles.profile_argument(sys.argv[1:])
+        if profile is None:
+            cfg = tyro.cli(
+                cli.CliCfg, args=arguments, prog='recs', description=cli.HELP
+            )
+            run_cli.run_cli(cfg)
+        else:
+            loaded = setup_profiles.configured(profile, arguments)
+            run_cli.run_cli(loaded.cfg, loaded)
         return 0
 
     except KeyboardInterrupt:
