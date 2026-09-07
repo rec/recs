@@ -3,10 +3,10 @@ name = "recs"
 version = "0.12.5"
 description = "🎙 The Universal Recorder 🎙"
 authors = [{ name = "Tom Ritchford", email = "tom@swirly.com" }]
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 readme = "README.md"
 license = "MIT"
-classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
 dependencies = [
     "numpy",
     "rich",
@@ -67,7 +67,7 @@ authors = ["Tom Ritchford <tom@swirly.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.13"
 
 [tool.uv]
 exclude-newer = "1 week"
