@@ -106,7 +106,7 @@ def summarize(path: Path) -> SessionSummary | None:
         continued_at=[
             event.continued_at
             for event in primary[1].events
-            if event.type == 'disk_switch_continued_at'
+            if event.type in {'disk_switch_continued_at', 'session_continued_at'}
             and event.continued_at is not None
         ],
     )

@@ -238,6 +238,7 @@ def response(
         'get_track_names',
         'list_devices',
         'mutable_attributes',
+        'new_session',
         'subscribe_waveforms',
         'status_snapshot',
         'unsubscribe_waveforms',
