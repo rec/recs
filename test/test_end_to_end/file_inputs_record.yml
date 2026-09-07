@@ -12,7 +12,11 @@ events:
   track: 1-2
   type: track_started
 files:
-- bit_depth: 32
+- audio_spans:
+  - asset_start: 0
+    count: 48000
+    start: 0
+  bit_depth: 32
   channels: 1
   format: wav
   frame_count: 48000
@@ -25,7 +29,11 @@ files:
   - 1
   stream_id: audio:test/testdata/file_inputs/mono.wav:1
   track_name: '1'
-- bit_depth: 32
+- audio_spans:
+  - asset_start: 0
+    count: 48000
+    start: 0
+  bit_depth: 32
   channels: 2
   format: wav
   frame_count: 48000

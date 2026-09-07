@@ -28,6 +28,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
+from recs.model.recording import AudioSpan
 
 POLL_TIMEOUT = 0.05
 MAX_MERGED_WARNINGS = 64
@@ -69,6 +70,7 @@ class SourceUpdate(NamedTuple):
     waveform_batches: list[WaveformBatchData] | None = None
     writing_enabled: bool | None = None
     write_error: str | None = None
+    file_spans: dict[Path, list[AudioSpan]] | None = None
 
 
 class SourceFailure(NamedTuple):
@@ -283,6 +285,7 @@ class SourceFileEvents:
         self.file_counts = [0] * len(writers)
         self.pending_file_end_frames: dict[Path, int] = {}
         self.pending_file_end_timestamps: dict[Path, float] = {}
+        self.pending_file_spans: dict[Path, list[AudioSpan]] = {}
 
     def reset_writers(self, writers: Sequence['ChannelWriter']) -> None:
         self.file_counts = [0] * len(writers)
@@ -291,6 +294,7 @@ class SourceFileEvents:
         for writer in writers:
             self.pending_file_end_frames.update(writer.file_end_frames)
             self.pending_file_end_timestamps.update(writer.file_end_timestamps)
+            self.pending_file_spans.update(writer.file_spans)
 
     def new_files(
         self, writers: Sequence['ChannelWriter'], bit_depth: int
@@ -328,6 +332,13 @@ class SourceFileEvents:
             p: frame for w in writers for p, frame in w.file_end_frames.items()
         }
         self.pending_file_end_frames = {}
+        return result
+
+    def spans(self, writers: Sequence['ChannelWriter']) -> dict[Path, list[AudioSpan]]:
+        result = self.pending_file_spans | {
+            p: list(s) for w in writers for p, s in w.file_spans.items()
+        }
+        self.pending_file_spans = {}
         return result
 
     def end_timestamps(self, writers: Sequence['ChannelWriter']) -> dict[Path, float]:
@@ -518,6 +529,7 @@ class SourceControlApplier:
                         recorder.channel_writers
                     ),
                     file_records=file_records,
+                    file_spans=recorder.file_events.spans(recorder.channel_writers),
                     frames=0,
                     source_name=recorder.source.key,
                     writing_enabled=False,
@@ -648,6 +660,24 @@ class SourceRecorder(Runnables):
                 update = self.buffer.get(block=False)
                 self.control.receive()
                 self._receive_update(update)
+        files, records = self.file_events.new_files(
+            self.channel_writers, self.sample_bit_depth
+        )
+        self.update_transport.publish(
+            SourceUpdate(
+                channels={},
+                files=files,
+                frames=0,
+                source_name=self.source.key,
+                file_records=records,
+                file_end_frames=self.file_events.end_frames(self.channel_writers),
+                file_end_timestamps=self.file_events.end_timestamps(
+                    self.channel_writers
+                ),
+                file_spans=self.file_events.spans(self.channel_writers),
+                frame_count=self.buffer.timeline_frames,
+            )
+        )
 
     def set_waveforms_enabled(self, enabled: bool) -> None:
         if enabled == self.waveforms_enabled:
@@ -764,6 +794,7 @@ class SourceRecorder(Runnables):
                 buffer_warnings=buffer_warnings,
                 file_records=file_records,
                 file_end_frames=file_end_frames,
+                file_spans=self.file_events.spans(self.channel_writers),
                 file_end_timestamps=file_end_timestamps,
                 frame_count=u.end_frame,
                 track_state_frames=dict.fromkeys(msgs, u.end_frame),
@@ -817,6 +848,7 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
         buffer_warnings=_merge_warnings(first.buffer_warnings, second.buffer_warnings),
         file_records=[r for r in file_records.values() if r.path in file_paths],
         file_end_frames=_merge_file_map(first.file_end_frames, second.file_end_frames),
+        file_spans=_merge_file_map(first.file_spans, second.file_spans),
         file_end_timestamps=_merge_file_map(
             first.file_end_timestamps, second.file_end_timestamps
         ),
@@ -896,7 +928,7 @@ def _merge_waveform_batches(
     return batches
 
 
-def _merge_file_map[N: (int, float)](
+def _merge_file_map[N](
     first: dict[Path, N] | None,
     second: dict[Path, N] | None,
 ) -> dict[Path, N]:

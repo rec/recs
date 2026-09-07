@@ -18,6 +18,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.misc import counter, file_list
+from recs.model.recording import AudioSpan
 
 from .block import Block, Blocks
 from .file_opener import FileOpener
@@ -35,6 +36,11 @@ ITEMSIZE = {
 }
 
 BLOCK_FUZZ = 2
+
+
+class TimedBlock(Block):
+    start_frame: int
+    timestamp: float
 
 
 class ChannelWriter(Runnable):
@@ -76,7 +82,7 @@ class ChannelWriter(Runnable):
         self.noise_floor = _noise_floor(cfg, track)
         self.track_names: SourceTrackNames = {}
 
-        self._blocks = Blocks()
+        self._blocks = Blocks[TimedBlock]()
         self._lock = Lock()
 
         if track.source.format is None or 'formats' in cfg.model_fields_set:
@@ -92,6 +98,7 @@ class ChannelWriter(Runnable):
         self.file_end_timestamps: dict[Path, float] = {}
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
+        self.file_spans: dict[Path, list[AudioSpan]] = {}
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
         self.longest_file_frames = _longest_file_frames(times)
 
@@ -181,8 +188,7 @@ class ChannelWriter(Runnable):
                     Path(sf.name).unlink()
                 self._discard_file(Path(sf.name))
 
-    def _open(self, offset: int) -> Sequence[SoundFile]:
-        timestamp = self.timestamp + offset / self.track.source.samplerate
+    def _open(self, start_frame: int, timestamp: float) -> Sequence[SoundFile]:
         date = datetime.fromtimestamp(timestamp).isoformat()
         index = 1 + len(self.files_written)
         metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
@@ -201,11 +207,11 @@ class ChannelWriter(Runnable):
             )
         sfs = [o.create(metadata, path) for o in self.openers]
         paths = [Path(sf.name) for sf in sfs]
-        start_frame = self.timeline_frame + offset
         self.file_start_frames.update(dict.fromkeys(paths, start_frame))
         self.file_start_timestamps.update(dict.fromkeys(paths, timestamp))
         self.file_end_frames.update(dict.fromkeys(paths, start_frame))
         self.file_end_timestamps.update(dict.fromkeys(paths, timestamp))
+        self.file_spans.update({p: [] for p in paths})
         self.files_written.extend(paths)
         return sfs
 
@@ -215,6 +221,7 @@ class ChannelWriter(Runnable):
         self.file_start_timestamps.pop(path, None)
         self.file_end_frames.pop(path, None)
         self.file_end_timestamps.pop(path, None)
+        self.file_spans.pop(path, None)
 
     def _receive_block(
         self,
@@ -231,8 +238,7 @@ class ChannelWriter(Runnable):
         previous_timestamp = self.timestamp
         dt = timestamp - previous_timestamp
         self.timestamp = timestamp
-        if timeline_frame:
-            self.timeline_frame = timeline_frame
+        self.timeline_frame = timeline_frame or self.timeline_frame + len(block)
         self._volume.accumulate(block)
 
         if self.write_audio and (self._sfs or not self.stopped):
@@ -245,7 +251,13 @@ class ChannelWriter(Runnable):
             ):
                 self._write_and_close()
 
-            self._blocks.append(block)
+            self._blocks.append(
+                TimedBlock(
+                    block=block.block,
+                    start_frame=self.timeline_frame - len(block),
+                    timestamp=timestamp - len(block) / self.track.source.samplerate,
+                )
+            )
 
             if should_record:
                 if not self._sfs:  # Record some quiet before the first block
@@ -292,14 +304,8 @@ class ChannelWriter(Runnable):
 
         self._close()
 
-    def _write_blocks(self, blox: Iterable[Block]) -> None:
-        blocks = list(blox)
-
-        # The last block in the list ends at self.timestamp so
-        # we keep track of the sample offset before that
-        offset = -sum(len(b) for b in blocks)
-
-        for b in blocks:
+    def _write_blocks(self, blox: Iterable[TimedBlock]) -> None:
+        for b in blox:
             # Check if this block will overrun the file size or length
             remains: list[int] = []
 
@@ -313,16 +319,28 @@ class ChannelWriter(Runnable):
             if remains and min(remains) <= len(b):
                 self._close()
 
-            self._sfs = self._sfs or self._open(offset)
+            self._sfs = self._sfs or self._open(b.start_frame, b.timestamp)
             for sf in self._sfs:
                 start = time.monotonic()
                 sf.write(b.block)
                 self.max_write_seconds = max(
                     self.max_write_seconds, time.monotonic() - start
                 )
-            offset += len(b)
-            end_frame = self.timeline_frame + offset
-            end_timestamp = self.timestamp + offset / self.track.source.samplerate
+                spans = self.file_spans[Path(sf.name)]
+                if spans and spans[-1].start + spans[-1].count == b.start_frame:
+                    spans[-1] = spans[-1].model_copy(
+                        update={'count': spans[-1].count + len(b)}
+                    )
+                else:
+                    spans.append(
+                        AudioSpan(
+                            asset_start=self.frames_in_file,
+                            start=b.start_frame,
+                            count=len(b),
+                        )
+                    )
+            end_frame = b.start_frame + len(b)
+            end_timestamp = b.timestamp + len(b) / self.track.source.samplerate
             self.file_end_frames.update(
                 dict.fromkeys((Path(sf.name) for sf in self._sfs), end_frame)
             )

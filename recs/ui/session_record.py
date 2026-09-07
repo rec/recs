@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from recs.model.recording import AudioSpan
+
 
 class SessionHeader(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -84,6 +86,7 @@ class FileRecord(BaseModel):
     outbound_count: int | None = None
     decode_error_count: int | None = None
     metadata: dict[str, object] | None = None
+    audio_spans: list[AudioSpan] | None = None
 
 
 class WarningRecord(BaseModel):

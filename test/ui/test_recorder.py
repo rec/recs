@@ -15,6 +15,7 @@ from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.model.recording import AudioSpan
 from recs.ui import (
     disk_space,
     disk_space_controller,
@@ -1138,6 +1139,7 @@ def test_record_records_source_frame_counts(
                 )
             ],
             file_end_frames={path: 768},
+            file_spans={path: [AudioSpan(start=256, count=512)]},
             frame_count=1024,
         )
     )
@@ -1179,6 +1181,7 @@ def test_record_records_source_frame_counts(
             'sample_rate': 48_000,
             'bit_depth': 64,
             'quantity_count': 512,
+            'audio_spans': [{'asset_start': 0, 'start': 256, 'count': 512}],
         },
     ]
 

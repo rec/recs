@@ -194,7 +194,7 @@ def prepare_migration(
                     raise RecsError(
                         f'Audio has no native frame interval: {finished.path}'
                     )
-                if (
+                if not finished.audio_spans and (
                     finished.frame_count - started.frame_count
                     != finished.quantity_count
                 ):
@@ -222,7 +222,23 @@ def prepare_migration(
                         finished.source_channels or started.source_channels,
                     )
                 )
-                if info.frames == finished.quantity_count:
+                if finished.audio_spans:
+                    offset = 0
+                    for span in finished.audio_spans:
+                        if span.asset_start != offset:
+                            raise RecsError(
+                                f'Audio spans do not cover the payload: {asset.path}'
+                            )
+                        offset += span.count
+                    if offset != info.frames or offset != finished.quantity_count:
+                        raise RecsError(
+                            f'Audio span count disagrees with payload: {asset.path}'
+                        )
+                    audio.extend(
+                        AudioFragment(asset=asset.id, **s.model_dump())
+                        for s in finished.audio_spans
+                    )
+                elif info.frames == finished.quantity_count:
                     audio.append(
                         AudioFragment(
                             asset=asset.id, start=started.frame_count, count=info.frames

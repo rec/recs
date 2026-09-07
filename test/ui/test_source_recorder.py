@@ -529,6 +529,7 @@ class ReconfiguredWriter:
         self.session_directory = session_directory
         self.file_end_frames: dict[object, int] = {}
         self.file_end_timestamps: dict[object, float] = {}
+        self.file_spans: dict[Path, list[object]] = {}
         self.stopped = False
         self.active = Active.active
 
@@ -579,6 +580,8 @@ class OneMessageControlConnection:
 
 
 class IdleInputBuffer:
+    timeline_frames = 0
+
     def __init__(self, cfg: Cfg, samplerate: float) -> None:
         self.cfg = cfg
         self.samplerate = samplerate
