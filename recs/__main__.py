@@ -20,6 +20,10 @@ def run() -> int:
             from recs.daemon.cli import main
 
             return main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'preflight':
+            from recs.daemon.preflight import main
+
+            return main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
             from recs.ui.gui_child import main
 
