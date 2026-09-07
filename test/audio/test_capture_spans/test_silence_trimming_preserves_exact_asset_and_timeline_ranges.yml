@@ -1,0 +1,6 @@
+- asset_start: 0
+  count: 48000
+  start: 0
+- asset_start: 48000
+  count: 96000
+  start: 144000

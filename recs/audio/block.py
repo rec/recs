@@ -78,11 +78,11 @@ class Block(BaseModel):
         return np.sqrt(b.mean(0))
 
 
-class Blocks(BaseModel):
-    blocks: list[Block] = Field(default_factory=list)
+class Blocks[T: Block](BaseModel):
+    blocks: list[T] = Field(default_factory=list)
     duration: int = 0
 
-    def append(self, block: Block) -> None:
+    def append(self, block: T) -> None:
         self.blocks.append(block)
         self.duration += len(block)
 
@@ -90,7 +90,7 @@ class Blocks(BaseModel):
         self.duration = 0
         self.blocks.clear()
 
-    def clip(self, sample_length: int, from_start: bool) -> Sequence[Block]:
+    def clip(self, sample_length: int, from_start: bool) -> Sequence[T]:
         clipped = []
         assert sample_length >= 0
         while self.duration > sample_length:
@@ -98,5 +98,5 @@ class Blocks(BaseModel):
             self.duration -= len(clipped[-1])
         return clipped
 
-    def __getitem__(self, i: int) -> Block:
+    def __getitem__(self, i: int) -> T:
         return self.blocks[i]
