@@ -44,6 +44,10 @@ def run() -> int:
 
             return session_browser.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'session':
+            if len(sys.argv) > 2 and sys.argv[2] == 'export':
+                from recs.ui import session_export
+
+                return session_export.main(sys.argv[3:])
             from recs.ui import session_browser
 
             return session_browser.main(sys.argv[2:])
