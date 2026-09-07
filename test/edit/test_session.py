@@ -36,12 +36,17 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
         'bit_depth': 32,
     }
     writer.write(
-        session_record.FileRecord(
-            type='file_started', timestamp='start', frame_count=0, **values
+        session_record.AudioFileRecord(
+            clock_id='audio',
+            type='file_started',
+            timestamp='start',
+            frame_count=0,
+            **values,
         )
     )
     writer.write(
-        session_record.FileRecord(
+        session_record.AudioFileRecord(
+            clock_id='audio',
             type='file_finished',
             timestamp='end',
             frame_count=48_000,

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from recs.ui import session_record
-from recs.ui.session_record import EventRecord, FileRecord, SessionRecordWriter
+from recs.ui.session_record import AudioFileRecord, EventRecord, SessionRecordWriter
 
 
 def test_session_record_writer_batches_fsync(
@@ -50,7 +50,7 @@ def test_session_record_writer_reports_fsync_errors(
 def test_session_record_reader_ignores_truncated_final_line(tmp_path: Path) -> None:
     record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"header","version":4,"started_at":"start"}\n'
         '{"type":"key_pressed","timestamp":"event","key":"g"}\n'
         '{"type":'
     )
@@ -67,7 +67,7 @@ def test_session_record_reader_ignores_truncated_final_line(tmp_path: Path) -> N
 def test_session_record_reader_reports_bad_nonfinal_line(tmp_path: Path) -> None:
     record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"header","version":4,"started_at":"start"}\n'
         '{"type":\n'
         '{"type":"key_pressed","timestamp":"event","key":"g"}\n'
     )
@@ -83,11 +83,11 @@ def test_session_record_reader_reports_bad_nonfinal_line(tmp_path: Path) -> None
 def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start"}\n'
-        '{"type":"file_started","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
+        '{"type":"header","version":4,"started_at":"start"}\n'
+        '{"type":"file_started","media_type":"audio","clock_id":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"start","path":"take.wav",'
         '"track_name":"1","source_channels":[1],"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
-        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
+        '{"type":"file_finished","media_type":"audio","clock_id":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"end","path":"take.wav",'
         '"track_name":"1","source_channels":[1],"channels":1,'
         '"sample_rate":48000,"bit_depth":32}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
@@ -96,7 +96,8 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     result = session_record.read(record)
 
     assert result.files == [
-        FileRecord(
+        AudioFileRecord(
+            clock_id='audio',
             type='file_started',
             media_type='audio',
             timestamp='start',
@@ -109,7 +110,8 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
             sample_rate=48_000,
             bit_depth=32,
         ),
-        FileRecord(
+        AudioFileRecord(
+            clock_id='audio',
             type='file_finished',
             media_type='audio',
             timestamp='end',
@@ -127,10 +129,10 @@ def test_session_record_reader_keeps_file_lifecycle(tmp_path: Path) -> None:
     assert result.duration_seconds == 1
 
 
-def test_session_record_reader_accepts_user_defined_media(tmp_path: Path) -> None:
+def test_session_record_reader_rejects_untyped_media(tmp_path: Path) -> None:
     record = tmp_path / 'session-record.jsonl'
     record.write_text(
-        '{"type":"header","version":3,"started_at":"start",'
+        '{"type":"header","version":4,"started_at":"start",'
         '"metadata":{"venue":"hall"}}\n'
         '{"type":"file_finished","timestamp":"end",'
         '"stream_id":"org.example.motion:stage","media_type":'
@@ -143,5 +145,5 @@ def test_session_record_reader_accepts_user_defined_media(tmp_path: Path) -> Non
     result = session_record.read(record)
 
     assert result.metadata == {'venue': 'hall'}
-    assert result.files[0].media_type == 'org.example.motion-capture'
-    assert result.files[0].metadata == {'components': ['x', 'y', 'z']}
+    assert result.files == []
+    assert 'media_type' in result.errors[0]

@@ -19,6 +19,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.misc import counter, file_list
 from recs.model.recording import AudioSpan
+from recs.model.time import TickRange
 
 from .block import Block, Blocks
 from .file_opener import FileOpener
@@ -99,6 +100,10 @@ class ChannelWriter(Runnable):
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
         self.file_spans: dict[Path, list[AudioSpan]] = {}
+        self.observed_ranges: list[TickRange] = []
+        self.finished_files: set[Path] = set()
+        self.discarded_files: set[Path] = set()
+        self.discarded_spans: list[AudioSpan] = []
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
         self.longest_file_frames = _longest_file_frames(times)
 
@@ -181,6 +186,7 @@ class ChannelWriter(Runnable):
                 sf.frames and sf.frames >= self.times.shortest_file_time
             ):
                 sf.close()
+                self.finished_files.add(Path(sf.name))
             else:
                 with contextlib.suppress(OSError, RuntimeError):
                     sf.close()
@@ -216,6 +222,8 @@ class ChannelWriter(Runnable):
         return sfs
 
     def _discard_file(self, path: Path) -> None:
+        self.discarded_files.add(path)
+        self.discarded_spans.extend(self.file_spans.get(path, []))
         self.files_written.remove_path(path)
         self.file_start_frames.pop(path, None)
         self.file_start_timestamps.pop(path, None)
@@ -242,6 +250,15 @@ class ChannelWriter(Runnable):
         self._volume.accumulate(block)
 
         if self.write_audio and (self._sfs or not self.stopped):
+            begin = self.timeline_frame - len(block)
+            if self.observed_ranges and self.observed_ranges[-1].end == begin:
+                self.observed_ranges[-1] = TickRange(
+                    start=self.observed_ranges[-1].start, end=self.timeline_frame
+                )
+            elif len(block):
+                self.observed_ranges.append(
+                    TickRange(start=begin, end=self.timeline_frame)
+                )
             expected_dt = len(block) / self.track.source.samplerate
 
             if (

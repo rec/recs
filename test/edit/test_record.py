@@ -13,7 +13,7 @@ from recs.edit.materialized import (
 from recs.edit.record import resolve_sources
 from recs.edit.schema import parse_edit
 from recs.recording.finalize import finalize_recording
-from recs.ui.session_record import FileRecord, SessionFooter, SessionRecordWriter
+from recs.ui.session_record import AudioFileRecord, SessionFooter, SessionRecordWriter
 
 
 def test_source_resolution_preserves_gaps_and_selects_mono_offset(
@@ -145,10 +145,17 @@ def _write_audio_fragment(
         'bit_depth': 32,
     }
     writer.write(
-        FileRecord(type='file_started', timestamp='start', frame_count=start, **values)
+        AudioFileRecord(
+            clock_id='audio',
+            type='file_started',
+            timestamp='start',
+            frame_count=start,
+            **values,
+        )
     )
     writer.write(
-        FileRecord(
+        AudioFileRecord(
+            clock_id='audio',
             type='file_finished',
             timestamp='end',
             frame_count=end,

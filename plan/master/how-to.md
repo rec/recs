@@ -1,12 +1,11 @@
 # How to build the common model
 
-Part of the [master proposal](master.md). After the preparation checkpoint,
-the user authorized continuing with the session-reader cutover.
+Part of the [master proposal](master.md). The user authorized completing stage 2 after the preparation and reader-cutover checkpoints.
 Additional work beyond the prompt: None.
 
 ## Implementation status
 
-The preparation and session-reader cutover are implemented in Recs. The supported
+Stages 1 and 2 are implemented in Recs. The supported
 subset has pure common models, exact rational physical timebases, sealed assets, common event envelopes,
 structured source and parameter references, and typed audio ports. Audio editing
 now uses the common arrangement document, with file destinations separate from
@@ -20,7 +19,7 @@ checking, export, and session-source resolution consume it. See the
 [implemented recording format](../../doc/recording-format.md)
 for complete examples, defaults, verification, and conversion instructions.
 
-The code commits, each tested and pushed, are:
+The earlier checkpoint commits, each tested and pushed, are:
 
 | Commit | Change |
 | --- | --- |
@@ -32,6 +31,7 @@ The code commits, each tested and pushed, are:
 | `67ea823` | Add verified session migration before reader cutover |
 | `805fe33` | Save both production conversions and the preparation checkpoint |
 | `26f78a5` | Preserve exact audio spans through capture and silence trimming |
+| `d5420c9` | Switch session readers and export to common recording documents |
 
 Both user-selected production sessions have new metadata and byte-identical
 journal snapshots. All referenced media hashes were checked again after writing;
@@ -68,9 +68,10 @@ hash and byte length. Both original journals still match their preserved
 snapshots. The editor's rejection of an unresolved production stream was also
 checked without rendering or changing production media.
 
-### Current boundary: common session readers and export
+### Current boundary: stage 2 complete
 
-The version 3 append-only journal remains capture evidence. Finalization builds
+New captures write the version 4 typed append-only journal. Version 3 evidence
+is isolated in the explicit historical converter and preserved-journal reader. Finalization builds
 typed streams and sealed assets after writers close. Exact audio span offsets
 survive buffering and silence trimming, so new captures do not repeat the
 historical interior-gap ambiguity. Session readers require `recording.toml`;
@@ -84,11 +85,37 @@ hashes, retaining original journal bytes. Recovery reports missing finalized
 documents even when the capture journal already has a footer. Diagnostics can
 still inspect the operational journal directly with `recs explain`.
 
-Stage 2 is not yet complete: native MIDI timing before SMF quantization, common
-native OSC capture events, explicit clock observations, and a fully typed
-capture journal remain. Existing MIDI/OSC payloads retain their original timing
-representations. Current gap reasons remain `unknown` when the evidence does
-not distinguish silence suppression from other omissions.
+Stage 2 now includes:
+
+- Typed audio/event file lifecycle, audio timeline observations, and clock records.
+- MIDI timestamps taken in the input callback before queueing, with optional
+  exact accumulation of supplied Mido deltas; MIDI-file quantization is export only.
+- Native OSC and key events with explicit temporal extents and stable ordinals.
+  Raw OSC bytes survive decoding failures and each payload line stands alone.
+- Known audio gaps distinguished as silence suppression, missing native ranges,
+  or short-capture discard; unobserved intervals remain unknown.
+- Immediate finished-file evidence, explicit short-file discard, and stopped
+  capture finalization that retains interrupted files and torn tails as partial.
+- Persistent event clocks/order across rotation and volume replacement, including
+  events buffered while the next volume is unavailable.
+- Shared device clocks across tracks, with distinct capture identities after reconnects. Their clock observations
+  remain inspectable; editing across independent clocks requires explicit alignment.
+
+The combined acceptance test captures audio, MIDI, and OSC, rotates event files,
+changes volumes with queued events, exports the chain, moves the originals away,
+verifies payloads, and renders the audio gaps unchanged. Separate tests cover
+interrupted and discarded files, native key events, and sub-SMF-tick MIDI timing.
+Queued MIDI is drained on shutdown and volume changes; real-time MIDI remains
+in native storage and is reported as unsupported by SMF export.
+These are file-based tests with fake input sources; physical capture and live
+playout have not been exercised. Clock drift fitting and physical latency
+calibration are not implied by these observations.
+
+Stage 2 verification: 924 tests pass, plus Ruff, formatting, type checking,
+pyupgrade, and diff checks. Both production recordings were verified again:
+all asset hashes and byte lengths match, all audio decodes, and both original
+journals match their preserved snapshots. The full recording's 39 unresolved
+historical placements remain explicit and are rejected by the editor.
 
 Arrangements currently retain file paths, structured source/track selectors, and internal
 materialized sources at their preparation boundary. General document dependency
@@ -123,13 +150,13 @@ repository or duplicate the model in every application.
 | [Edit schema](../../recs/edit/schema.py) | `EditSpec`, audio channels, frame clips, gain routes, string automation targets, output encoding | Common arrangement body; named timebases, typed ports, structured addresses; separate exported ports from run destinations |
 | [Edit record resolution](../../recs/edit/record.py) | `ResolvedSource`, `AudioFragment`, session selectors, native-rate matching | Resolve typed recording streams/assets; keep native fragments and gap behavior; explicit conversion nodes for mismatched rates |
 | [Composition](../../recs/edit/composition.py) | `CompositionEdit`, command recipes, materialized stages | Compile authored operations to nested arrangements/derived assets; retain recipe history as provenance |
-| [Session records](../../recs/ui/session_record.py) | Header v3, file lifecycle, optional media-specific fields, operational events | Typed recording journal, stream descriptors, clock observations, and finalized recording documents |
+| [Session records](../../recs/ui/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
 | [Session export](../../recs/ui/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common documents/assets and preserve timeline gaps |
 | [Recsam instrument](../../recs/recsam/instrument.py) | `SampleInstrument`, `Instrument`, `SampleSlot`, musical validation | Common root/interface and shared assets; retain specialized slot semantics |
 | [Recsam events](../../recs/recsam/events.py) | `Trigger`, `Release`, `ControlChange` | One shared performance family plus common time/ordinal envelope |
 | [Recsam controls](../../recs/recsam/controls.py), [processing](../../recs/recsam/processing.py), [playback](../../recs/recsam/playback.py) | Polarity/defaults, EQ, envelopes, LFOs, loops, pitch mapping | Common parameter identities/units; preserve voice behavior and native-frame ranges; general DSP through processor contracts |
 | [Recsam SFZ](../../recs/recsam/sfz.py) | External sample-format adapter | Target the new instrument body; preserve explicit unsupported-feature reporting |
-| [MIDI writer](../../recs/midi/writer.py), [OSC recorder](../../recs/osc/recorder.py) | SMF recording and packet-oriented JSONL capture | Native-timed raw capture plus optional semantic projections; SMF becomes export |
+| [MIDI writer](../../recs/midi/writer.py), [OSC recorder](../../recs/osc/recorder.py) | Native-timed common event JSONL | Implemented; SMF is explicit export and OSC retains raw bytes alongside decoded values |
 | [Lyte show](../../../lyte/lyte/show.py) | `ShowFile`, Python factory lookup, animation/mixer graph | Common graph definitions and installed implementation bindings |
 | [Lyte installation](../../../lyte/lyte/installation.py) | Twinkly/DMX targets, pixel/DMX programs, output driver interface | Common definition references plus physical bindings; retain driver implementations |
 | [Lyte DMX](../../../lyte/lyte/dmx.py), [Art-Net](../../../lyte/lyte/artnet.py) | Typed categories/values, patch addresses, universe packet encoding | Reusable fixture profiles separate from patch/transport; explicit numbering and quantization |
@@ -187,9 +214,9 @@ actual resampling. Do not claim universal media support at this stage.
 
 ### 2. Adopt recording descriptors and common events
 
-Partially implemented: common recording readers, finalization, exact audio
-spans, continuation handling, and portable export are in place. The remaining
-native event and clock work below is required before this whole stage passes.
+Implemented. The acceptance cases below are covered by local file and fake-input
+tests. The native journal and event format are documented in
+[Capture journal format](../../doc/session-record-format.md).
 
 Refactor the session journal writer/readers and export path together. Retain
 file lifecycle and diagnostic truth while adding typed streams, native timing,

@@ -14,7 +14,7 @@ from ..base.errors import RecsError
 from ..model.assets import Asset
 from ..model.base import Model
 from ..model.events import StoredEvent
-from ..model.recording import AudioFragment, AudioStream, RecordingDocument
+from ..model.recording import AudioFragment, AudioStream, EventStream, RecordingDocument
 
 
 class Verification(Model):
@@ -101,51 +101,7 @@ def verify_recording(document: RecordingDocument, root: Path) -> Verification:
             unresolved_audio_files += len(stream.unmapped_fragments)
             gap_frames += sum(g.end - g.start for g in stream.gaps)
             continue
-        decompress = Decompress(key='kind')
-        previous: tuple[int, int] | None = None
-        ordinals: set[int] = set()
-        event_adapter = TypeAdapter(StoredEvent)
-        for fragment in stream.fragments:
-            path = paths[fragment.asset]
-            if fragment.timing == 'smf':
-                count = sum(
-                    not m.is_meta for t in mido.MidiFile(path).tracks for m in t
-                )
-            elif fragment.timing == 'osc_jsonl':
-                count = 0
-                with path.open() as source:
-                    for line in source:
-                        value = json.loads(line)
-                        if not isinstance(value, dict) or not isinstance(
-                            value.get('kind'), str
-                        ):
-                            raise RecsError(f'Invalid OSC record in {path}')
-                        record = next(decompress([value]))
-                        if record['kind'] == 'osc':
-                            data = record.get('data_b64')
-                            if not isinstance(data, str):
-                                raise RecsError(f'OSC packet bytes missing in {path}')
-                            base64.b64decode(data, validate=True)
-                            count += 1
-            else:
-                count = 0
-                with path.open() as source:
-                    for line in source:
-                        event = event_adapter.validate_json(line)
-                        position = event.tick, event.ordinal
-                        if (
-                            previous is not None and position < previous
-                        ) or event.ordinal in ordinals:
-                            raise RecsError(
-                                'Native events are out of order or repeat '
-                                f'an ordinal: {path}'
-                            )
-                        previous = position
-                        ordinals.add(event.ordinal)
-                        count += 1
-            if count != fragment.event_count:
-                raise RecsError(f'Event count disagrees with the recording: {path}')
-            event_count += count
+        event_count += verify_events(stream, paths)
     return Verification(
         asset_count=len(assets),
         byte_count=sum(a.byte_length for a in document.assets),
@@ -154,3 +110,62 @@ def verify_recording(document: RecordingDocument, root: Path) -> Verification:
         gap_frames=gap_frames,
         unresolved_audio_files=unresolved_audio_files,
     )
+
+
+def verify_events(stream: EventStream, paths: dict[str, Path]) -> int:
+    event_count = 0
+    decompress = Decompress(key='kind')
+    previous: tuple[int, int] | None = None
+    ordinals: set[int] = set()
+    event_adapter = TypeAdapter(StoredEvent)
+    for fragment in stream.fragments:
+        path = paths[fragment.asset]
+        if fragment.timing == 'smf':
+            count = sum(not m.is_meta for t in mido.MidiFile(path).tracks for m in t)
+        elif fragment.timing == 'osc_jsonl':
+            count = 0
+            with path.open() as source:
+                for line in source:
+                    value = json.loads(line)
+                    if not isinstance(value, dict) or not isinstance(
+                        value.get('kind'), str
+                    ):
+                        raise RecsError(f'Invalid OSC record in {path}')
+                    record = next(decompress([value]))
+                    if record['kind'] == 'osc':
+                        data = record.get('data_b64')
+                        if not isinstance(data, str):
+                            raise RecsError(f'OSC packet bytes missing in {path}')
+                        base64.b64decode(data, validate=True)
+                        count += 1
+        else:
+            count = 0
+            with path.open() as source:
+                for line in source:
+                    event = event_adapter.validate_json(line)
+                    if (
+                        fragment.start is None
+                        or fragment.end is None
+                        or not fragment.start <= event.tick < fragment.end
+                    ):
+                        raise RecsError(f'Event lies outside fragment extent: {path}')
+                    if (
+                        stream.event_kind is not None
+                        and event.kind != stream.event_kind
+                    ):
+                        raise RecsError(f'Event kind disagrees with stream: {path}')
+                    position = event.tick, event.ordinal
+                    if (
+                        previous is not None and position < previous
+                    ) or event.ordinal in ordinals:
+                        raise RecsError(
+                            'Native events are out of order or repeat '
+                            f'an ordinal: {path}'
+                        )
+                    previous = position
+                    ordinals.add(event.ordinal)
+                    count += 1
+        if count != fragment.event_count:
+            raise RecsError(f'Event count disagrees with the recording: {path}')
+        event_count += count
+    return event_count

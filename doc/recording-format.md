@@ -8,7 +8,7 @@ The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
 export, and the editor's session resolver. Recording shutdown and successful
-audio edits finalize this document beside their version 3 capture journal.
+audio edits finalize this document beside their version 4 capture journal.
 The journal remains append-only operational evidence for diagnostics and
 recovery. Content readers require the common document; they do not fall back
 to historical journals. Convert old sessions explicitly before opening them.
@@ -38,7 +38,7 @@ Audio streams have an `AudioType`, native `end` frame, captured fragments, and
 explicit gaps. A fragment references an asset and records `asset_start`, stream
 `start`, and `count`. All are nonnegative integer frames; `asset_start` defaults
 to zero. Gaps are half-open intervals with a reason: `unknown`,
-`silence_suppressed`, `input_overflow`, or `disconnected`. The fragments and gaps
+`silence_suppressed`, `input_overflow`, `short_capture`, or `disconnected`. The fragments and gaps
 must cover the declared extent without a gap intersecting captured audio.
 Exact alternate encodings may overlap only with the same explicit
 `variant_group`; other overlapping captures are invalid.
@@ -58,8 +58,11 @@ recording can contain fully verified files while its timeline is unresolved.
 The timeline renderer rejects those streams until placement is explicitly
 resolved. It does not stretch the file or guess where gaps belong.
 
-Event streams declare `event_schema` and ordered fragments. Each fragment has
-an asset, `event_count`, and matching `timing`:
+Event streams declare `event_schema` and ordered fragments. Native captures also
+set `event_kind` to `midi`, `osc`, or `key`. Each fragment has an asset,
+`event_count`, and matching `timing`. Native fragments require `start` and `end`
+in the stream timebase: a half-open stored-event range, empty only when the
+count is zero. Counts never substitute for duration:
 
 | Schema | Timing | Interpretation |
 | --- | --- | --- |
@@ -71,7 +74,13 @@ External MIDI and OSC streams do not claim a document timebase. Their observed
 opening timestamp and timing-source label can be retained separately. Native
 event JSONL uses the same event records as sequences below, one complete record
 per line. Verification checks ordering and unique ordinals across fragments.
-This does not yet replace the production MIDI or OSC writers.
+Production MIDI, OSC, and key capture now write this common event representation.
+MIDI defaults to host monotonic callback timestamps; the optional Mido-delta
+mode requires meaningful deltas from the source. OSC retains raw packets,
+decoded values or errors, direction, endpoint, and stable ordinals. Every JSONL
+line is complete, independent of prior file compression state. See the
+[capture journal format](session-record-format.md) for precise clock semantics,
+recovery, and explicit MIDI-file export.
 
 A complete valid empty recording document follows. The example's journal is
 an empty asset solely to keep its hash independently reproducible; migration
@@ -113,7 +122,8 @@ MIDI records contain raw byte integers. OSC records preserve `data_b64`, an
 `in`/`out` direction, and optionally a source time; an undecodable OSC payload
 can still be retained. Key records contain `key`, `press`/`release` action,
 optional text, modifiers, and a repeat flag. These are stored events, not yet a
-universal performance engine or a live keyboard hook.
+universal performance engine. Recs also captures its observed key transitions
+through the same event model.
 
 ```toml
 format = "recs"
@@ -188,8 +198,9 @@ all linked documents must exist before reading or exporting the chain.
 Historical gaps receive reason `unknown`; wall-clock shutdown time does not
 establish trailing sample extent. Each historical audio stream retains its
 own native clock. MIDI timestamps already quantized into SMF cannot be made
-more precise by conversion. Raw native MIDI timing, cross-device clock mapping,
-and a fully typed native capture journal remain subsequent work.
+more precise by conversion. New captures retain native timing and measured clock observations. Fitted
+cross-device alignment remains later work; migration cannot recover missing
+historical observations.
 
 ## Reading, checking, and portable export
 
@@ -197,6 +208,7 @@ and a fully typed native capture journal remain subsequent work.
 recs session show /path/to/session
 recs record check /path/to/session/recording.toml
 recs session export /path/to/session/recording.toml /path/to/export
+recs session export-midi /path/to/session/recording.toml midi:keys take.mid
 ```
 
 The checker follows continuations, verifies asset hashes and byte lengths,
@@ -213,3 +225,10 @@ The result starts at `recording.toml`; additional segments live under `sessions/
 Moving the exported directory preserves media references and native frame gaps.
 Export can preserve unresolved historical recordings, but it does not resolve
 their timing. The editor requires sealed, fully mapped selected audio streams.
+
+For a stopped version 4 capture that did not finalize, run
+`recs session finalize /path/to/session`. Complete finished fragments are
+verified; torn final lines and unfinished files remain explicitly open. Existing
+outputs are never replaced. A new capture process has a new audio clock identity;
+volume changes within that process retain it. Editing across independent capture
+clocks requires an explicit alignment decision.

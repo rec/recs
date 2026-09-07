@@ -1,22 +1,19 @@
+"""Read-only v3 evidence for explicit migration and preserved journals."""
+
 import json
-import os
-import time
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from recs.model.base import Identifier
-from recs.model.recording import AudioSpan, Gap
-from recs.model.time import ClockObservation, Timebase
+from recs.model.recording import AudioSpan
 
 
 class SessionHeader(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'header'
-    version: Literal[4] = 4
+    version: Literal[3] = 3
     started_at: str
     session_id: str | None = None
     continued_from: str | None = None
@@ -64,59 +61,31 @@ class EventRecord(BaseModel):
     metadata: dict[str, object] | None = None
 
 
-class FileRecord(BaseModel, frozen=True):
-    type: Literal['file_started', 'file_finished', 'file_discarded']
+class FileRecord(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    type: str
+    media_type: str
     timestamp: str
     stream_id: str
     format: str
+    frame_count: int | None = None
     path: str
-    source: str | None = None
-    quantity_count: int | None = Field(default=None, ge=0, strict=True)
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class AudioFileRecord(FileRecord, frozen=True):
-    media_type: Literal['audio'] = 'audio'
-    clock_id: Identifier
-    frame_count: int | None = Field(default=None, ge=0, strict=True)
     track_name: str | None = None
     source_channels: list[int] | None = None
-    channels: int | None = Field(default=None, gt=0)
-    sample_rate: int | None = Field(default=None, gt=0)
+    channels: int | None = None
+    sample_rate: int | None = None
     bit_depth: int | None = None
+    source: str | None = None
+    quantity_count: int | None = Field(default=None, ge=0)
+    timing_source: str | None = None
+    midi_port: str | None = None
+    osc_node: str | None = None
+    inbound_count: int | None = None
+    outbound_count: int | None = None
+    decode_error_count: int | None = None
+    metadata: dict[str, object] | None = None
     audio_spans: list[AudioSpan] | None = None
-
-
-class EventFileRecord(FileRecord, frozen=True):
-    media_type: Literal['midi', 'osc', 'key']
-    timebase: Timebase
-    start_tick: int = Field(strict=True)
-    end_tick: int | None = Field(default=None, strict=True)
-    timing_source: str
-
-
-class ClockRecord(BaseModel, frozen=True):
-    type: Literal['clock_observation'] = 'clock_observation'
-    timebases: list[Timebase]
-    observation: ClockObservation
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class AudioTimelineRecord(BaseModel, frozen=True):
-    type: Literal['audio_timeline'] = 'audio_timeline'
-    stream_id: str
-    clock_id: Identifier
-    source: str
-    track_name: str
-    sample_rate: int = Field(gt=0)
-    source_channels: list[int]
-    start: int = Field(ge=0, strict=True)
-    end: int = Field(ge=0, strict=True)
-    gaps: list[Gap]
-
-    model_config = ConfigDict(extra='forbid')
 
 
 class WarningRecord(BaseModel):
@@ -148,79 +117,12 @@ class SessionRecord(BaseModel):
     ended_at: str | None = None
     duration_seconds: float | None = None
     events: list[EventRecord] = Field(default_factory=list)
-    files: list[
-        Annotated[AudioFileRecord | EventFileRecord, Field(discriminator='media_type')]
-    ] = Field(default_factory=list)
+    files: list[FileRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
 
-Record = (
-    EventRecord
-    | AudioFileRecord
-    | EventFileRecord
-    | ClockRecord
-    | AudioTimelineRecord
-    | SessionFooter
-    | SessionHeader
-    | WarningRecord
-)
-
-
-class SessionRecordWriter:
-    def __init__(
-        self,
-        path: Path,
-        started_at: str,
-        session_id: str | None = None,
-        continued_from: str | None = None,
-        application: dict[str, str] | None = None,
-        metadata: dict[str, object] | None = None,
-        sync_interval: float = 1.0,
-    ) -> None:
-        self.path = _available_path(path)
-        self.path.parent.mkdir(exist_ok=True, parents=True)
-        self.fp = self.path.open('a')
-        self.sync_interval = sync_interval
-        self.last_sync = float('-inf')
-        self.errors: list[str] = []
-        self.write(
-            SessionHeader(
-                started_at=started_at,
-                session_id=session_id,
-                continued_from=continued_from,
-                application=application,
-                metadata=metadata,
-            ),
-            sync=True,
-        )
-
-    def write(
-        self,
-        entry: Record,
-        *,
-        sync: bool = False,
-    ) -> None:
-        self.fp.write(entry.model_dump_json(exclude_none=True) + '\n')
-        self.fp.flush()
-        if sync or time.monotonic() - self.last_sync >= self.sync_interval:
-            self.sync()
-
-    def close(self) -> None:
-        self.sync()
-        self.fp.close()
-
-    def sync(self) -> None:
-        try:
-            os.fsync(self.fp.fileno())
-        except OSError as e:
-            self.errors.append(f'Cannot sync record {self.path}: {e}')
-        else:
-            self.last_sync = time.monotonic()
-
-    def take_errors(self) -> list[str]:
-        errors, self.errors = self.errors, []
-        return errors
+Record = EventRecord | FileRecord | SessionFooter | SessionHeader | WarningRecord
 
 
 def read(path: Path) -> SessionRecord:
@@ -236,25 +138,13 @@ def read(path: Path) -> SessionRecord:
         ended_at=footer.ended_at if footer else None,
         duration_seconds=footer.duration_seconds if footer else None,
         events=[e for e in entries if isinstance(e, EventRecord)],
-        files=[e for e in entries if isinstance(e, AudioFileRecord | EventFileRecord)],
+        files=[e for e in entries if isinstance(e, FileRecord)],
         warnings=[e.message for e in entries if isinstance(e, WarningRecord)],
         errors=errors,
     )
 
 
-def read_entries(path: Path) -> tuple[list[Record], list[str]]:
-    return _read_entries(path)
-
-
-def timestamp_to_json(timestamp: float) -> str:
-    return (
-        datetime.fromtimestamp(timestamp, timezone.utc)
-        .isoformat(timespec='milliseconds')
-        .replace('+00:00', 'Z')
-    )
-
-
-def _read_entries(
+def read_entries(
     path: Path,
 ) -> tuple[list[Record], list[str]]:
     entries: list[Record] = []
@@ -288,16 +178,8 @@ def _parse_entry(
     record_type = data.get('type')
     if record_type == 'header':
         return SessionHeader.model_validate(data)
-    if record_type in {'file_finished', 'file_started', 'file_discarded'}:
-        return TypeAdapter(
-            Annotated[
-                AudioFileRecord | EventFileRecord, Field(discriminator='media_type')
-            ]
-        ).validate_python(data)
-    if record_type == 'clock_observation':
-        return ClockRecord.model_validate(data)
-    if record_type == 'audio_timeline':
-        return AudioTimelineRecord.model_validate(data)
+    if record_type in {'file_finished', 'file_started'}:
+        return FileRecord.model_validate(data)
     if record_type == 'footer':
         return SessionFooter.model_validate(data)
     if record_type == 'warning':
@@ -305,15 +187,3 @@ def _parse_entry(
     if isinstance(record_type, str):
         return EventRecord.model_validate(data)
     raise ValueError('record line is missing a string type')
-
-
-def _available_path(path: Path) -> Path:
-    if not path.exists():
-        return path
-
-    index = 1
-    while True:
-        candidate = path.with_stem(f'{path.stem}-{index}')
-        if not candidate.exists():
-            return candidate
-        index += 1
