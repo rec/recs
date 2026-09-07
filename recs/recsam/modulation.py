@@ -1,9 +1,8 @@
 """Typed curves: each input exposes only the fields meaningful for that input."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, StrictInt, model_validator
-from typing_extensions import Self
 
 from . import enums
 from .base import Identifier, Model, Number, Seconds

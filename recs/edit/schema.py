@@ -1,6 +1,6 @@
-from enum import auto
+from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import tomlkit
 from pydantic import (
@@ -10,8 +10,6 @@ from pydantic import (
     Field,
     model_validator,
 )
-from strenum import StrEnum
-from typing_extensions import Self
 
 from recs.base.types import Format, Subtype
 

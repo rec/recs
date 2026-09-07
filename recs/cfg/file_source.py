@@ -1,8 +1,8 @@
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal, cast, override
 
 import soundfile
-from overrides import override
 from threa import HasThread, Runnable
 
 from recs.base.types import Format, SdType, Subtype
@@ -42,7 +42,8 @@ class FileSource(Source):
             try:
                 with self._stream() as fp:
                     timestamp = 0
-                    for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT, dtype=sdtype):
+                    dtype = cast(Literal['float32', 'int32', 'int16'], sdtype)
+                    for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT, dtype=dtype):
                         block = to_matrix(block)
                         for i in range(BLOCKCOUNT):
                             array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE]

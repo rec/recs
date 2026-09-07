@@ -1,7 +1,8 @@
 """Independent processing scopes and their local source/target references."""
 
+from typing import Self
+
 from pydantic import Field, model_validator
-from typing_extensions import Self
 
 from . import enums
 from .base import Frequency, Identifier, Model, Number, Positive, unique

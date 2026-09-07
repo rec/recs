@@ -1,11 +1,10 @@
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing_extensions import Self
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, session

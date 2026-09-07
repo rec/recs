@@ -3,7 +3,6 @@ import subprocess
 import threading
 import time
 from queue import Empty, Queue
-from typing import TypeVar
 
 from reccy.device import DeviceDict
 from threa import HasThread
@@ -14,7 +13,6 @@ from recs.cfg import device
 STREAM_TIMEOUT = device.DEVICE_QUERY_TIMEOUT
 RESTART_BACKOFF_SECONDS = 1.0
 MAX_RESTART_BACKOFF_SECONDS = 30.0
-_T = TypeVar('_T')
 
 
 class DevicePoller(HasThread):
@@ -145,7 +143,7 @@ class DeviceQueryStream:
                 continue
 
 
-def _put_latest(queue: Queue[_T], value: _T) -> None:
+def _put_latest[T](queue: Queue[T], value: T) -> None:
     try:
         while True:
             queue.get_nowait()

@@ -1,10 +1,9 @@
 import json
 import subprocess
 from collections.abc import Callable, Sequence
-from typing import Any, cast
+from typing import Any, cast, override
 
 import numpy as np
-from overrides import override
 from reccy.device import DeviceDict, device_key
 from threa import Runnable, Wrapper
 

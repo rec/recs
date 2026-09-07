@@ -1,9 +1,4 @@
-from typing import TypeVar
-
-T = TypeVar('T')
-
-
-class PrefixDict(dict[str, T]):
+class PrefixDict[T](dict[str, T]):
     def __getitem__(self, key: str) -> T:
         try:
             return super().__getitem__(key)

@@ -5,7 +5,7 @@ import uuid
 from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import numpy as np
 import soundfile
@@ -14,7 +14,6 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from reccy.configuration import units
 from reccy.configuration.tyro import unit_spec
-from typing_extensions import Self
 
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
