@@ -8,8 +8,8 @@ import tyro
 
 from recs.edit import commands, session
 from recs.edit.cli import EditCli, main
-from recs.edit.schema import canonical_toml
 from recs.model.arrangement import Arrangement, ArrangementDocument
+from recs.model.codec import document_toml
 from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
@@ -37,7 +37,7 @@ def test_edit_cli_inputs_are_optional() -> None:
     assert cfg.inputs == []
 
 
-def test_dry_run_prints_only_canonical_toml(
+def test_dry_run_prints_only_document_toml(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -64,7 +64,7 @@ def test_dry_run_prints_only_canonical_toml(
 
     assert main(['command', '--dry-run']) == 0
 
-    assert capsys.readouterr().out == canonical_toml(edit)
+    assert capsys.readouterr().out == document_toml(edit)
     assert list(tmp_path.iterdir()) == []
 
 

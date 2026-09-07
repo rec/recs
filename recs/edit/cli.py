@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, composition, session
 from recs.edit.options import EditOptions
-from recs.edit.schema import CommandKind, canonical_toml
+from recs.edit.schema import CommandKind
+from recs.model.codec import document_toml
 from recs.ui import recording_paths
 
 
@@ -102,7 +103,7 @@ def main(args: list[str] | None = None) -> int:
     )
     if cfg.dry_run:
         prepared = session.prepare_edit(complete, command_path.parent, destination)
-        print(canonical_toml(prepared.edit), end='')
+        print(document_toml(prepared.edit), end='')
         return 0
     print(f'Command: {command} ({command_path})')
     print(
