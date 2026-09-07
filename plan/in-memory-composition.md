@@ -318,10 +318,11 @@ Use direct NumPy operations in the initial implementation. Keep edit operations
 as explicit functions taking and returning `MaterializedAudio`; do not create a
 generic tensor API solely for a possible future Torch port.
 
-A later Torch implementation can replace the array operations after profiling.
-`torch.compile` may fuse substantial DSP graphs, but simple gain, slicing, and
-copying are often limited by memory bandwidth, so speedups must be measured
-rather than assumed.
+A later Torch implementation can replace the array operations after the
+resource and output comparisons in
+[Human And Experimental Verification](human.md). `torch.compile` may fuse
+substantial DSP graphs, but simple gain, slicing, and copying are often limited
+by memory bandwidth.
 
 Likewise, a later memory-mapped implementation can change selected owned arrays
 to `np.memmap`. The initial ownership, shape, liveness, and observed-range

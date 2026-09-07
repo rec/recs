@@ -584,10 +584,6 @@ renderer methods.
     the implementation must not read a complete file into one array.
 17. Verify `clip`, `stitch`, `split`, and `mix` generate canonical arrangements
     and use the same renderer as an explicit edit TOML.
-18. Run manual checks with actual Recs sessions containing silence-induced gaps,
-    stereo tracks, an 18-channel arrangement, overlapping clips, stems, and a
-    crossfade. Import results into the target DAW and confirm channel order,
-    alignment, and audible transitions.
 
 ## Implementation Order
 
@@ -609,9 +605,10 @@ renderer methods.
 8. Add bounded output gain, limiting, normalization, and equal-power curves.
 9. Add remaining supported Recs formats, validating channel capacity and subtype
    through the active `soundfile` backend.
-10. Run the full Recs suite, then manual multitrack, stem, and mix DAW validation.
-11. After the Recs tools are in daily use, retire `~/code/fmix` separately. Do
-    not delete or change it as part of this issue.
+10. Run the full Recs suite.
+11. Retire `~/code/fmix` separately after the readiness check in
+    [Human And Experimental Verification](human.md). Do not delete or change it
+    as part of this issue.
 
 ## Additional Work Beyond The Prompt
 
