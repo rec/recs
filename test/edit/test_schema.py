@@ -3,26 +3,33 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from recs.edit.schema import EditSpec, canonical_toml, parse_edit, parse_partial_edit
+from recs.edit.schema import canonical_toml, parse_edit, parse_partial_edit
+from recs.model.arrangement import ArrangementDocument
 
 COMPLETE_EDIT = """
-schema_version = 1
-sample_rate = 48000
+format = "recs"
+version = 1
+kind = "arrangement"
+id = "edit"
+name = "Audio edit"
+timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+[body]
+timebase = "audio"
 
-[[sources]]
+[[body.sources]]
 id = "voice-source"
 record = "../session-record.jsonl"
 selector = { source = "X18", track = "1-2" }
 
-[[tracks]]
+[[body.tracks]]
 id = "voice"
 channels = 2
 
-[[buses]]
+[[body.buses]]
 id = "master"
 channels = 2
 
-[[clips]]
+[[body.clips]]
 id = "opening"
 source = "voice-source"
 track = "voice"
@@ -30,12 +37,12 @@ source_start = 0
 source_end = 48000
 timeline_start = 0
 
-[[routes]]
+[[body.routes]]
 source = "voice"
 destination = "master"
 gain = 0.5
 
-[[automation]]
+[[body.automation]]
 target = { kind = "route", node = "voice", parameter = "gain", destination = "master" }
 interpolation = "linear"
 points = [
@@ -43,7 +50,7 @@ points = [
   { frame = 48000, value = 0.5 },
 ]
 
-[[outputs]]
+[[body.outputs]]
 id = "mix"
 source = "master"
 path = "audio/mix.flac"
@@ -55,7 +62,7 @@ subtype = "pcm_24"
 def test_complete_edit_round_trips_through_canonical_toml() -> None:
     edit = parse_edit(COMPLETE_EDIT)
 
-    assert edit.sources[0].record == Path('../session-record.jsonl')
+    assert edit.body.sources[0].record == Path('../session-record.jsonl')
     assert parse_edit(canonical_toml(edit)) == edit
 
 
@@ -68,8 +75,8 @@ def test_direct_file_source_round_trips() -> None:
 
     edit = parse_edit(text)
 
-    assert edit.sources[0].file == Path('../take.wav')
-    assert edit.sources[0].channels == [0, 1]
+    assert edit.body.sources[0].file == Path('../take.wav')
+    assert edit.body.sources[0].channels == [0, 1]
     assert parse_edit(canonical_toml(edit)) == edit
 
 
@@ -97,7 +104,7 @@ def test_source_requires_one_complete_location(source: str) -> None:
 
 def test_complete_edit_rejects_unknown_versions_and_fields() -> None:
     with pytest.raises(ValidationError):
-        parse_edit(COMPLETE_EDIT.replace('schema_version = 1', 'schema_version = 2'))
+        parse_edit(COMPLETE_EDIT.replace('version = 1', 'version = 2'))
     with pytest.raises(ValidationError):
         parse_edit(COMPLETE_EDIT + '\nplugin = "danger.py"\n')
 
@@ -135,5 +142,5 @@ def test_edit_models_are_frozen() -> None:
     edit = parse_edit(COMPLETE_EDIT)
 
     with pytest.raises(ValidationError):
-        edit.sample_rate = 44_100
-    assert isinstance(edit, EditSpec)
+        edit.timebases[0].rate.numerator = 44_100
+    assert isinstance(edit, ArrangementDocument)

@@ -35,7 +35,7 @@ def test_graph_rejects_invalid_references(replacement: str, message: str) -> Non
         text = text.replace('channels = 1', replacement, 1)
     elif replacement == 'destination = "master"':
         text += """
-[[routes]]
+[[body.routes]]
 source = "master"
 destination = "master"
 """
@@ -66,23 +66,29 @@ def _source() -> ResolvedSource:
 
 def _edit() -> str:
     return """
-schema_version = 1
-sample_rate = 48000
+format = "recs"
+version = 1
+kind = "arrangement"
+id = "edit"
+name = "Audio edit"
+timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+[body]
+timebase = "audio"
 
-[[sources]]
+[[body.sources]]
 id = "source"
 record = "session-record.jsonl"
 selector = { source = "device", track = "track" }
 
-[[tracks]]
+[[body.tracks]]
 id = "track"
 channels = 1
 
-[[buses]]
+[[body.buses]]
 id = "master"
 channels = 1
 
-[[clips]]
+[[body.clips]]
 id = "clip"
 source = "source"
 track = "track"
@@ -90,15 +96,15 @@ source_start = 0
 source_end = 48000
 timeline_start = 0
 
-[[routes]]
+[[body.routes]]
 source = "track"
 destination = "master"
 
-[[automation]]
+[[body.automation]]
 target = { kind = "clip", node = "clip", parameter = "gain" }
 points = [{ frame = 0, value = 1.0 }]
 
-[[outputs]]
+[[body.outputs]]
 id = "output"
 source = "master"
 path = "audio/output.wav"

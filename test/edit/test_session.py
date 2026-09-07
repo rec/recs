@@ -3,8 +3,9 @@ from pathlib import Path
 import numpy as np
 import soundfile
 
-from recs.edit.schema import NormalizeMode, parse_edit
+from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
+from recs.model.arrangement import NormalizeMode
 from recs.model.references import RecordSelector
 from recs.ui import session_record
 
@@ -49,19 +50,25 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     writer.close()
     edit = parse_edit(
         """
-schema_version = 1
-sample_rate = 48000
+format = "recs"
+version = 1
+kind = "arrangement"
+id = "edit"
+name = "Audio edit"
+timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+[body]
+timebase = "audio"
 
-[[sources]]
+[[body.sources]]
 id = "voice-source"
 record = "session-record.jsonl"
 selector = { source = "device", track = "voice" }
 
-[[tracks]]
+[[body.tracks]]
 id = "voice"
 channels = 1
 
-[[clips]]
+[[body.clips]]
 id = "voice-clip"
 source = "voice-source"
 track = "voice"
@@ -69,7 +76,7 @@ source_start = 0
 source_end = 48000
 timeline_start = 0
 
-[[outputs]]
+[[body.outputs]]
 id = "voice"
 source = "voice"
 path = "audio/voice.wav"
@@ -82,7 +89,9 @@ subtype = "float"
     prepared = prepare_edit(edit, source_directory, destination)
 
     assert not destination.exists()
-    assert prepared.edit.sources[0].record == Path('../source/session-record.jsonl')
+    assert prepared.edit.body.sources[0].record == Path(
+        '../source/session-record.jsonl'
+    )
 
     output_record = execute_edit(edit, source_directory, destination)
 
@@ -113,14 +122,20 @@ subtype = "float"
     chained_destination = tmp_path / 'chained'
     chained = edit.model_copy(
         update={
-            'sources': [
-                edit.sources[0].model_copy(
-                    update={
-                        'record': Path('session-record.jsonl'),
-                        'selector': RecordSelector(source='edit', track='voice'),
-                    }
-                )
-            ]
+            'body': edit.body.model_copy(
+                update={
+                    'sources': [
+                        edit.body.sources[0].model_copy(
+                            update={
+                                'record': Path('session-record.jsonl'),
+                                'selector': RecordSelector(
+                                    source='edit', track='voice'
+                                ),
+                            }
+                        )
+                    ]
+                }
+            )
         }
     )
 
@@ -135,11 +150,15 @@ subtype = "float"
     normalized_destination = tmp_path / 'normalized'
     normalized = edit.model_copy(
         update={
-            'outputs': [
-                edit.outputs[0].model_copy(
-                    update={'normalize': NormalizeMode.normalize}
-                )
-            ]
+            'body': edit.body.model_copy(
+                update={
+                    'outputs': [
+                        edit.body.outputs[0].model_copy(
+                            update={'normalize': NormalizeMode.normalize}
+                        )
+                    ]
+                }
+            )
         }
     )
 

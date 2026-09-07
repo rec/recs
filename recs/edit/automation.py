@@ -1,6 +1,6 @@
 import numpy as np
 
-from recs.edit.schema import AutomationSpec, Interpolation
+from recs.model.arrangement import AutomationSpec, Interpolation
 
 
 def gain_values(

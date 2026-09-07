@@ -20,13 +20,9 @@ from recs.edit.options import EditOptions
 from recs.edit.output import validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
-from recs.edit.schema import (
-    CommandKind,
-    EditSpec,
-    SourceSpec,
-    parse_edit,
-    parse_partial_edit,
-)
+from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
+from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
 
@@ -88,7 +84,7 @@ class PreparedComposition:
     def __init__(
         self,
         canonical: CompositionEdit,
-        edit: EditSpec,
+        edit: ArrangementDocument,
         graph: EditGraph,
         rendered: dict[str, MaterializedAudio],
         stage_memory: list[int],
@@ -173,7 +169,7 @@ def prepare_composition(
     stages: list[ResolvedStage] = []
     stage_memory: list[int] = []
     peak_memory = 0
-    final_edit: EditSpec | None = None
+    final_edit: ArrangementDocument | None = None
     final_graph: EditGraph | None = None
     final_rendered: dict[str, MaterializedAudio] = {}
     final_autocalibration: autocalibrate.PreparedAutocalibrate | None = None
@@ -248,15 +244,15 @@ def prepare_composition(
                 or stage.operation != operation
             ):
                 raise RecsError(f'Resolved stage {index} does not match its edit')
-            edit = EditSpec.model_validate(stage.edit)
+            edit = ArrangementDocument.model_validate(stage.edit)
         else:
             edit = commands.complete_or_generate_tracks(
                 resolved_step.recipe, current_tracks, resolved_step.step
             )
-        if edit.media_types != ['audio']:
+        if edit.body.media_types != ['audio']:
             raise RecsError(
                 'Compositions support only media_types = ["audio"]: '
-                f'{edit.media_types}'
+                f'{edit.body.media_types}'
             )
         sources = _resolve_stage_sources(
             edit, resolved_step.command_path.parent, memory
@@ -268,7 +264,7 @@ def prepare_composition(
         renderer = Renderer(canonical_edit, sources, graph, materializer)
         rendered = renderer.outputs
         memory, materialized_session, current_tracks = _stage_session(
-            index, rendered, canonical_edit.sample_rate
+            index, rendered, canonical_edit.timebases[0].rate.numerator
         )
         current_bytes = _storage_bytes([t.audio for t in materialized_session.tracks])
         stage_memory.append(current_bytes)
@@ -297,7 +293,14 @@ def prepare_composition(
         }
     )
     if final_autocalibration is not None:
-        placeholder = EditSpec(schema_version=1, sample_rate=sample_rate)
+        placeholder = ArrangementDocument(
+            id='edit',
+            name='Audio edit',
+            timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+            body=Arrangement(
+                timebase='audio',
+            ),
+        )
         placeholder_graph = EditGraph(widths={}, output_extents={}, bus_order=[])
         return PreparedComposition(
             canonical,
@@ -381,7 +384,7 @@ def composition_summary(
 
 
 def _canonical_stage(
-    edit: EditSpec | autocalibrate.AutocalibrateEdit, *, final: bool
+    edit: ArrangementDocument | autocalibrate.AutocalibrateEdit, *, final: bool
 ) -> dict[str, object]:
     if final:
         return edit.model_dump(mode='json', exclude_none=True)
@@ -396,10 +399,16 @@ def _canonical_stage(
     else:
         edit = edit.model_copy(
             update={
-                'outputs': [
-                    o.model_copy(update={'path': None, 'format': None, 'subtype': None})
-                    for o in edit.outputs
-                ]
+                'body': edit.body.model_copy(
+                    update={
+                        'outputs': [
+                            o.model_copy(
+                                update={'path': None, 'format': None, 'subtype': None}
+                            )
+                            for o in edit.body.outputs
+                        ]
+                    }
+                )
             }
         )
     return edit.model_dump(mode='json', exclude_none=True)
@@ -423,15 +432,20 @@ def _validate_recipe(recipe: dict[str, object], index: int, command: str) -> Non
 
 
 def _resolve_stage_sources(
-    edit: EditSpec, directory: Path, memory: Mapping[str, MaterializedAudio]
+    edit: ArrangementDocument, directory: Path, memory: Mapping[str, MaterializedAudio]
 ) -> dict[str, ResolvedSource | MaterializedAudio]:
-    disk = [s for s in edit.sources if s.memory is None]
+    disk = [s for s in edit.body.sources if s.memory is None]
     result: dict[str, ResolvedSource | MaterializedAudio] = {}
     if disk:
         result.update(
-            resolve_sources(edit.model_copy(update={'sources': disk}), directory)
+            resolve_sources(
+                edit.model_copy(
+                    update={'body': edit.body.model_copy(update={'sources': disk})}
+                ),
+                directory,
+            )
         )
-    for source in edit.sources:
+    for source in edit.body.sources:
         if source.memory is None:
             continue
         try:
@@ -495,13 +509,17 @@ def _materialize_input_tracks(
 ) -> tuple[dict[str, MaterializedAudio], list[str]]:
     if not tracks:
         raise RecsError('Autocalibration requires at least one input track')
-    edit = EditSpec(
-        schema_version=1,
-        sample_rate=tracks[0].sample_rate,
-        sources=[
-            t.source.model_copy(update={'id': f'source-{i}'})
-            for i, t in enumerate(tracks)
-        ],
+    edit = ArrangementDocument(
+        id='edit',
+        name='Audio edit',
+        timebases=[Timebase(id='audio', rate=Rate(numerator=tracks[0].sample_rate))],
+        body=Arrangement(
+            timebase='audio',
+            sources=[
+                t.source.model_copy(update={'id': f'source-{i}'})
+                for i, t in enumerate(tracks)
+            ],
+        ),
     )
     resolved = _resolve_stage_sources(edit, Path.cwd(), memory)
     audio: dict[str, MaterializedAudio] = {}

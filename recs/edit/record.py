@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from recs.base.errors import RecsError
 from recs.base.types import Format
-from recs.edit.schema import EditSpec, SourceSpec
+from recs.model.arrangement import ArrangementDocument, SourceSpec
 from recs.ui import session_record
 
 
@@ -33,18 +33,21 @@ class ResolvedSource(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-def resolve_sources(edit: EditSpec, edit_directory: Path) -> dict[str, ResolvedSource]:
+def resolve_sources(
+    edit: ArrangementDocument, edit_directory: Path
+) -> dict[str, ResolvedSource]:
     resolved = {
-        source.id: _resolve_source(source, edit_directory) for source in edit.sources
+        source.id: _resolve_source(source, edit_directory)
+        for source in edit.body.sources
     }
     wrong_rates = [
         f'{s.id}: {s.sample_rate}'
         for s in resolved.values()
-        if s.sample_rate != edit.sample_rate
+        if s.sample_rate != edit.timebases[0].rate.numerator
     ]
     if wrong_rates:
         raise RecsError(
-            f'Edit sample rate is {edit.sample_rate}, but sources have '
+            f'Edit sample rate is {edit.timebases[0].rate.numerator}, but sources have '
             + ', '.join(wrong_rates)
         )
     return resolved

@@ -21,8 +21,9 @@ from recs.edit.graph import FrameRange as ObservedFrameRange
 from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
 from recs.edit.record import ResolvedSource, resolve_sources
-from recs.edit.schema import EditSpec, SourceSpec
+from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from recs.model.references import RecordSelector
+from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
 HISTOGRAM_BIN_DB = 0.1
@@ -621,7 +622,12 @@ def _resolve_record_sources(
                 ),
             )
         )
-    edit = EditSpec(schema_version=1, sample_rate=sample_rate, sources=specs)
+    edit = ArrangementDocument(
+        id='edit',
+        name='Audio edit',
+        timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+        body=Arrangement(timebase='audio', sources=specs),
+    )
     resolved = resolve_sources(edit, record_path.parent)
     return (
         {selector: resolved[track_ids[selector]] for selector in selectors},

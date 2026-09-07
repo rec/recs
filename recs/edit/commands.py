@@ -10,22 +10,22 @@ from reccy.configuration import units
 from recs.base.errors import RecsError
 from recs.base.types import Format, Subtype
 from recs.edit.options import EditOptions
-from recs.edit.schema import (
+from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
+from recs.model.arrangement import (
+    Arrangement,
+    ArrangementDocument,
     AutomationPoint,
     AutomationSpec,
     BusSpec,
     ClipSpec,
-    CommandKind,
-    EditSpec,
     Interpolation,
     OutputSpec,
     RouteSpec,
     SourceSpec,
     TrackSpec,
-    parse_edit,
-    parse_partial_edit,
 )
 from recs.model.references import ParameterTarget, RecordSelector
+from recs.model.time import Rate, Timebase
 from recs.ui import session_record
 
 
@@ -65,6 +65,9 @@ def resolve_command(command: str, cwd: Path) -> tuple[dict[str, object], Path]:
 
 
 def command_operation(recipe: dict[str, object]) -> CommandKind | None:
+    if recipe.get('format') == 'recs':
+        parse_edit(tomlkit.dumps(recipe))
+        return None
     partial = parse_partial_edit(tomlkit.dumps(recipe))
     return partial.command.operation if partial.command is not None else None
 
@@ -88,7 +91,7 @@ def complete_or_generate(
     recipe: dict[str, object],
     input_paths: list[Path],
     options: EditOptions,
-) -> EditSpec:
+) -> ArrangementDocument:
     text = tomlkit.dumps(recipe)
     try:
         return parse_edit(text)
@@ -99,7 +102,7 @@ def complete_or_generate(
 
 def complete_or_generate_tracks(
     recipe: dict[str, object], tracks: list[InputTrack], options: EditOptions
-) -> EditSpec:
+) -> ArrangementDocument:
     text = tomlkit.dumps(recipe)
     try:
         return parse_edit(text)
@@ -110,7 +113,7 @@ def complete_or_generate_tracks(
         raise RecsError('Partial edit command has no _command.operation')
     if not tracks:
         raise SessionRecordRequired('This edit command requires an input')
-    generated = _generate(
+    document = _generate(
         partial.command.operation,
         tracks,
         options.channel,
@@ -122,6 +125,7 @@ def complete_or_generate_tracks(
         options.route_gain,
         options.crossfade,
     )
+    generated = _dictionary(document['body'], 'Invalid arrangement body')
     overlay = {k: v for k, v in recipe.items() if k not in {'extends', '_command'}}
     if outputs := overlay.pop('outputs', None):
         if not isinstance(outputs, list) or len(outputs) != 1:
@@ -155,7 +159,8 @@ def complete_or_generate_tracks(
             output['gain'] = options.gain
         overridden_outputs.append(output)
     generated['outputs'] = overridden_outputs
-    return EditSpec.model_validate(_merge(generated, overlay))
+    document['body'] = _merge(generated, overlay)
+    return ArrangementDocument.model_validate(document)
 
 
 def input_tracks(paths: list[Path]) -> list[InputTrack]:
@@ -180,8 +185,11 @@ def _resolve_file(
         chain = ' -> '.join(str(p) for p in stack + [path])
         raise RecsError(f'Edit command inheritance cycle: {chain}')
     text = path.read_text()
-    partial = parse_partial_edit(text)
     data = dict(tomlkit.parse(text))
+    if data.get('format') == 'recs':
+        parse_edit(text)
+        return data
+    partial = parse_partial_edit(text)
     if not partial.extends:
         return data
     paths = commands.get(partial.extends, [])
@@ -519,16 +527,20 @@ def _generate(
                 subtype=format_subtype,
             )
         ]
-    return EditSpec(
-        schema_version=1,
-        sample_rate=sample_rate,
-        sources=sources,
-        tracks=output_tracks,
-        buses=buses,
-        clips=clips,
-        routes=routes,
-        automation=automation,
-        outputs=outputs,
+    return ArrangementDocument(
+        id='edit',
+        name='Audio edit',
+        timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+        body=Arrangement(
+            timebase='audio',
+            sources=sources,
+            tracks=output_tracks,
+            buses=buses,
+            clips=clips,
+            routes=routes,
+            automation=automation,
+            outputs=outputs,
+        ),
     ).model_dump(mode='json', exclude_none=True)
 
 
