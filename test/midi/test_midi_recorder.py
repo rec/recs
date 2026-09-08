@@ -3,11 +3,11 @@ from time import monotonic_ns
 
 import mido
 import pytest
+from ufor.events import MidiEvent
 
 from recs.cfg.cfg import Cfg
 from recs.midi import recorder
 from recs.midi.recorder import MidiPacket, MidiRecorder
-from recs.model.events import MidiEvent
 from recs.ui.session_record import Record
 
 

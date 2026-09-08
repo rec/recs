@@ -2,11 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import soundfile
+from ufor.arrangement import NormalizeMode
+from ufor.references import RecordSelector
 
 from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
-from recs.model.arrangement import NormalizeMode
-from recs.model.references import RecordSelector
 from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 

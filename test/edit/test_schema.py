@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from ufor.arrangement import ArrangementDocument
+from ufor.codec import document_toml
 
 from recs.edit.schema import parse_edit, parse_partial_edit
-from recs.model.arrangement import ArrangementDocument
-from recs.model.codec import document_toml
 
 COMPLETE_EDIT = """
 format = "recs"

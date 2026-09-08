@@ -13,9 +13,9 @@ import pytest
 import soundfile
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from threa import HasThread
+from ufor.encoding import Format
 
 from recs.base import times
-from recs.base.types import Format
 from recs.cfg import run_cli
 from recs.cfg.cfg import Cfg
 
@@ -238,12 +238,12 @@ class RecsRunner(BaseModel):
             raise AssertionError(self.state.error)
 
     def paths(self, root: Path | None = None) -> list[Path]:
-        return sorted((root or Path()).glob(f'**/*.{Format._default}'))
+        return sorted((root or Path()).glob(f'**/*.{Format.flac}'))
 
     def assert_matches(self, tdata: Path) -> None:
         actual = self.paths()
         relative_actual = self._relative_actual_paths(actual)
-        expected = sorted(tdata.glob(f'**/*.{Format._default}'))
+        expected = sorted(tdata.glob(f'**/*.{Format.flac}'))
 
         if not expected:
             for actual_path, relative_path in zip(actual, relative_actual, strict=True):

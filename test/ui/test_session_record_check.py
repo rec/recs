@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import pytest
+from ufor.codec import document_toml
+from ufor.recording import EventFragment, EventStream
 
-from recs.model.codec import document_toml
-from recs.model.recording import EventFragment, EventStream
 from recs.recording.files import sealed_asset
 from recs.recording.finalize import finalize_recording
 from recs.recording.read import read_recording

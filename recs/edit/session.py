@@ -6,6 +6,8 @@ from pathlib import Path
 
 import soundfile
 from pydantic import BaseModel, ConfigDict
+from ufor.arrangement import ArrangementDocument
+from ufor.codec import document_toml
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
@@ -13,8 +15,6 @@ from recs.edit.materialized import MaterializedAudio
 from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
-from recs.model.arrangement import ArrangementDocument
-from recs.model.codec import document_toml
 from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 

@@ -2,10 +2,10 @@ from pathlib import Path
 
 import mido
 from pytest_regressions.data_regression import DataRegressionFixture
+from ufor.events import MidiEvent
 
 from recs.base.types import MidiTiming
 from recs.midi.writer import MidiClock, MidiWriter
-from recs.model.events import MidiEvent
 
 
 def test_native_midi_preserves_sub_smf_tick_timing(

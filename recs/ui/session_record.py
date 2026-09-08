@@ -6,10 +6,9 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
-
-from recs.model.base import Identifier
-from recs.model.recording import AudioSpan, Gap
-from recs.model.time import ClockObservation, Timebase
+from ufor.base import Identifier
+from ufor.recording import AudioSpan, Gap
+from ufor.time import ClockObservation, Timebase
 
 
 class SessionHeader(BaseModel):

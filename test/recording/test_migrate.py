@@ -8,11 +8,11 @@ import pytest
 import soundfile
 from pytest_regressions.data_regression import DataRegressionFixture
 from reccy.protocol.jsonl import Compress
+from ufor import recording
+from ufor.codec import parse_document
+from ufor.recording import AudioStream, RecordingDocument
 
 from recs.base.errors import RecsError
-from recs.model import recording
-from recs.model.codec import parse_document
-from recs.model.recording import AudioStream, RecordingDocument
 from recs.recording import legacy
 from recs.recording.files import sealed_asset, verify_recording
 from recs.recording.legacy_finalize import prepare_legacy_recording

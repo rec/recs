@@ -4,11 +4,11 @@ from time import monotonic_ns
 
 from pydantic import ValidationError
 from soundfile import SoundFileError
+from ufor.events import KeyEvent
+from ufor.recording import AudioSpan
+from ufor.time import ClockObservation, Position, Rate, Timebase
 
 from recs.base.errors import RecsError
-from recs.model.events import KeyEvent
-from recs.model.recording import AudioSpan
-from recs.model.time import ClockObservation, Position, Rate, Timebase
 from recs.recording.events import EventWriter, host_clock_observation
 from recs.recording.finalize import finalize_recording
 from recs.ui import recording_paths, session_record

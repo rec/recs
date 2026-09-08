@@ -5,10 +5,11 @@ from pathlib import Path
 from time import monotonic_ns
 from typing import Protocol
 
+from ufor.events import MidiEvent
+from ufor.time import ClockObservation, Position, Rate, Timebase
+
 from recs.base.types import MidiTiming
 from recs.misc import legal_filename
-from recs.model.events import MidiEvent
-from recs.model.time import ClockObservation, Position, Rate, Timebase
 from recs.recording.events import EventWriter
 from recs.ui.session_record import ClockRecord
 

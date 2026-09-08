@@ -11,18 +11,11 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from reccy.configuration import units
 from reccy.runtime import logging
+from ufor.encoding import Format, Subtype
 
 from recs.base.prefix_dict import PrefixDict
 from recs.base.type_conversions import SDTYPE_TO_SUBTYPE, SUBTYPE_TO_SDTYPE
-from recs.base.types import (
-    SDTYPE,
-    Format,
-    MidiTiming,
-    Mutable,
-    RecordKeys,
-    SdType,
-    Subtype,
-)
+from recs.base.types import SDTYPE, MidiTiming, Mutable, RecordKeys, SdType
 
 from . import cli_metadata, disk_threshold, metadata, path_pattern, time_settings
 from .aliases import Aliases
@@ -196,11 +189,11 @@ class Audio(BaseModel):
         fields_set = set(self.model_fields_set)
         # Tyro marks nested Pydantic defaults as set; restore raw CLI defaults.
         if fields_set == set(type(self).model_fields):
-            if len(self.formats) > 1 and self.formats[0] == Format._default:
+            if len(self.formats) > 1 and self.formats[0] == Format.flac:
                 self.formats = self.formats[1:]
             if self.sdtype == SDTYPE and self.subtype is None:
                 fields_set.remove('sdtype')
-        self.formats = self.formats or [Format._default]
+        self.formats = self.formats or [Format.flac]
 
         if self.subtype and not soundfile.check_format(self.formats[0], self.subtype):
             raise ValueError(f'{self.formats[0]} and {self.subtype} are incompatible')

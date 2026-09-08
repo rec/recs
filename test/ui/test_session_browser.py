@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
-from recs.model import recording
-from recs.model.codec import document_toml
-from recs.model.streams import AudioType
-from recs.model.time import Rate, Timebase
+from ufor import recording
+from ufor.codec import document_toml
+from ufor.streams import AudioType
+from ufor.time import Rate, Timebase
+
 from recs.recording.files import sealed_asset
 from recs.ui import session_browser
 

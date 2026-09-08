@@ -70,7 +70,7 @@ names `destination`. Gain remains a linear amplitude multiplier. Existing
 equal-power gain interpolation retains its squared-gain formula and its base
 value before the first knot.
 
-The Pydantic definition is `recs.model.arrangement.ArrangementDocument`; its
+The Pydantic definition is `ufor.arrangement.ArrangementDocument`; its
 `model_json_schema()` describes this implemented profile. The parser and TOML
 writer are in `recs/edit/schema.py`. Authoring recipes still describe operations
 and defaults; generated arrangements use the new native document. Resolved

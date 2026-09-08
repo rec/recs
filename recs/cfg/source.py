@@ -4,8 +4,9 @@ from typing import NamedTuple
 
 import numpy as np
 from threa import Runnable
+from ufor.encoding import Format, Subtype
 
-from recs.base.types import Format, SdType, Subtype
+from recs.base.types import SdType
 from recs.cfg import hash_cmp
 
 

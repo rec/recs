@@ -1,5 +1,7 @@
+from ufor.encoding import Format, Subtype
+
 from .prefix_dict import PrefixDict
-from .types import Format, SdType, Subtype
+from .types import SdType
 
 FORMATS = PrefixDict[Format]({str(s): s for s in Format})
 SDTYPES = PrefixDict[SdType]({str(s): s for s in SdType})

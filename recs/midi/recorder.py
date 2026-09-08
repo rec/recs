@@ -6,11 +6,11 @@ from time import monotonic, monotonic_ns
 from typing import NamedTuple, Protocol, cast
 
 from threa import Runnable
+from ufor.events import MidiEvent
 
 from recs.base import times
 from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
-from recs.model.events import MidiEvent
 from recs.ui.session_record import EventRecord, Record, timestamp_to_json
 
 from . import device

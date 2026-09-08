@@ -6,8 +6,8 @@ import pytest
 import soundfile
 import tdir
 from reccy.device import DeviceDict
+from ufor.encoding import Format
 
-from recs.base.types import Format
 from recs.cfg import device
 from recs.ui import device_poller
 
@@ -54,8 +54,8 @@ def test_hardware_recording_regression(
     second = _run(monkeypatch, tmp_path / 'second')
 
     assert [path.name for path in first] == [
-        f'device-mic + 1 + 20231015-164921.{Format._default}',
-        f'device-mixer + 1-2 + 20231015-164921.{Format._default}',
+        f'device-mic + 1 + 20231015-164921.{Format.flac}',
+        f'device-mixer + 1-2 + 20231015-164921.{Format.flac}',
     ]
     assert [path.name for path in second] == [path.name for path in first]
     inputs = _input_audio()

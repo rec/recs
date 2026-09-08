@@ -3,9 +3,9 @@ from test.cfg.test_metadata import METADATA, WAV_FILE, write_metadata
 
 import pytest
 import tdir
+from ufor.encoding import Format
 
 from recs.audio.header_size import header_size
-from recs.base.types import Format
 
 TCS = {'title': 'Title', 'copyright': 'Copyright', 'software': 'Software'}
 

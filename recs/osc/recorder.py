@@ -10,11 +10,11 @@ from typing import Literal
 
 from pydantic import TypeAdapter
 from threa import Runnable
+from ufor.events import Endpoint, OscDecodeError, OscEvent, OscMessage
+from ufor.time import Rate, Timebase
 
 from recs.base import times
 from recs.cfg.cfg import Cfg
-from recs.model.events import Endpoint, OscDecodeError, OscEvent, OscMessage
-from recs.model.time import Rate, Timebase
 from recs.recording.events import EventWriter
 from recs.ui.session_record import (
     EventRecord,

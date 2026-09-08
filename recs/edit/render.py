@@ -2,6 +2,8 @@ from collections.abc import Mapping
 from functools import cached_property
 
 import numpy as np
+from ufor.arrangement import ArrangementDocument, NormalizeMode, OutputSpec
+from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
 from recs.edit.automation import gain_values
@@ -13,8 +15,6 @@ from recs.edit.materialized import (
     merge_ranges,
 )
 from recs.edit.record import ResolvedSource
-from recs.model.arrangement import ArrangementDocument, NormalizeMode, OutputSpec
-from recs.model.references import ParameterTarget
 
 
 class Renderer:

@@ -4,8 +4,9 @@ from typing import Literal, cast, override
 
 import soundfile
 from threa import HasThread, Runnable
+from ufor.encoding import Format, Subtype
 
-from recs.base.types import Format, SdType, Subtype
+from recs.base.types import SdType
 
 from .source import Source, Update, to_matrix
 
