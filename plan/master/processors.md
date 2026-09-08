@@ -5,7 +5,10 @@ transform it, and sinks consume it. These are roles determined by ports, not
 three unrelated class hierarchies.
 
 Revision, 8 September 2026: extracting and specifying Tuney's oscillator is
-stage 3 work. New audio generation and processor execution remain deferred
+stage 3 work. Its existing parameters, waveform names, gain calculation, and
+documented shape equations are now extracted into Ufor; Tuney still owns its
+existing NumPy implementation. Phase/reset and modulation state remain design
+work. New audio generation and processor execution remain deferred
 until the musical and [modulation](modulation.md) models are settled.
 
 ## Operation and instance
