@@ -3,9 +3,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile
+from ufor.encoding import Format
 
 from recs.base.errors import RecsError
-from recs.base.types import Format
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
 from recs.edit.options import EditOptions
 from recs.recording.finalize import finalize_recording

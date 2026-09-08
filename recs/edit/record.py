@@ -2,13 +2,13 @@ from pathlib import Path
 
 import soundfile
 from pydantic import BaseModel, ConfigDict
+from ufor import recording
+from ufor.arrangement import ArrangementDocument, SourceSpec
+from ufor.assets import Asset
+from ufor.encoding import Format
+from ufor.recording import AudioStream
 
 from recs.base.errors import RecsError
-from recs.base.types import Format
-from recs.model import recording
-from recs.model.arrangement import ArrangementDocument, SourceSpec
-from recs.model.assets import Asset
-from recs.model.recording import AudioStream
 from recs.recording.files import sealed_asset
 from recs.recording.read import read_recording_chain
 

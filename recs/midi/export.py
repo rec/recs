@@ -7,10 +7,10 @@ from typing import Annotated
 import mido
 import tyro
 from pydantic import BaseModel
+from ufor.events import MidiEvent
+from ufor.recording import EventStream
 
 from recs.base.errors import RecsError
-from recs.model.events import MidiEvent
-from recs.model.recording import EventStream
 from recs.recording.files import sealed_asset, verify_events
 from recs.recording.read import read_recording_chain
 

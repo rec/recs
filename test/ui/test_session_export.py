@@ -5,13 +5,13 @@ import numpy as np
 import pytest
 import soundfile
 import tomlkit
+from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from ufor.references import RecordSelector
+from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_sources
-from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
-from recs.model.references import RecordSelector
-from recs.model.time import Rate, Timebase
 from recs.recording.finalize import finalize_recording
 from recs.recording.read import read_recording_chain
 from recs.ui import session_export, session_record, session_record_check

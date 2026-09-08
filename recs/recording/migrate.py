@@ -6,9 +6,9 @@ from typing import Annotated
 
 import tyro
 from pydantic import BaseModel
+from ufor.codec import document_toml, parse_document
 
 from ..base.errors import RecsError
-from ..model.codec import document_toml, parse_document
 from .files import Verification, verify_recording
 from .legacy_finalize import prepare_legacy_recording
 

@@ -4,10 +4,10 @@ from pathlib import Path
 
 from pydantic import ValidationError
 from tomlkit.exceptions import ParseError
+from ufor.codec import parse_document
+from ufor.recording import RecordingDocument
 
 from ..base.errors import RecsError
-from ..model.codec import parse_document
-from ..model.recording import RecordingDocument
 
 
 def read_recording(path: Path) -> RecordingDocument:

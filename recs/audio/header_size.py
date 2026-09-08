@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 
-from recs.base.types import Format
+from ufor.encoding import Format
 
 
 def header_size(metadata: Mapping[str, str], format: Format) -> int:

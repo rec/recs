@@ -2,10 +2,10 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
+from ufor.arrangement import ArrangementDocument
+from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
-from recs.model.arrangement import ArrangementDocument
-from recs.model.references import ParameterTarget
 
 
 class AudioDescription(Protocol):

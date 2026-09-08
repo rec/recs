@@ -7,10 +7,10 @@ from typing import Annotated
 import tomlkit
 import tyro
 from pydantic import BaseModel
+from ufor.codec import document_toml
 
 from ..base.errors import RecsError
 from ..misc.legal_filename import legal_filename
-from ..model.codec import document_toml
 from ..recording.files import sealed_asset
 from ..recording.read import read_recording_chain
 

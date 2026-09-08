@@ -4,9 +4,10 @@ import time
 
 import soundfile
 from reccy.configuration.settings import write_json_model
+from ufor.encoding import Format
 
 from recs.base.errors import ErrorRecord, RecsError
-from recs.base.types import Format, SdType
+from recs.base.types import SdType
 from recs.cfg import device
 from recs.daemon import gui_ipc, paths
 from recs.daemon.models import DaemonStatus

@@ -8,6 +8,8 @@ from typing import Any, NamedTuple
 import pytest
 from reccy.protocol import rpc
 from threa import Runnable
+from ufor.recording import AudioSpan
+from ufor.time import Rate, Timebase
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.state import ChannelState
@@ -15,8 +17,6 @@ from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
-from recs.model.recording import AudioSpan
-from recs.model.time import Rate, Timebase
 from recs.ui import (
     disk_space,
     disk_space_controller,

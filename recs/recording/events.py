@@ -4,8 +4,9 @@ from pathlib import Path
 from time import monotonic_ns, time_ns
 from typing import Literal
 
-from recs.model.events import StoredEvent
-from recs.model.time import ClockObservation, Position, Rate, Timebase
+from ufor.events import StoredEvent
+from ufor.time import ClockObservation, Position, Rate, Timebase
+
 from recs.ui.session_record import ClockRecord, EventFileRecord, timestamp_to_json
 
 

@@ -3,20 +3,20 @@ from pathlib import Path
 import numpy as np
 import soundfile
 from pytest_regressions.data_regression import DataRegressionFixture
+from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from ufor.encoding import Format
+from ufor.recording import AudioStream
+from ufor.references import RecordSelector
+from ufor.time import Rate, Timebase
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
-from recs.base.types import Format
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
 from recs.cfg.track import Track
 from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_sources
-from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
-from recs.model.recording import AudioStream
-from recs.model.references import RecordSelector
-from recs.model.time import Rate, Timebase
 from recs.recording.finalize import prepare_recording
 from recs.ui.recording_session import RecordingSession
 from recs.ui.source_recorder import SourceFileEvents
