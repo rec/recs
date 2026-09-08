@@ -32,8 +32,10 @@ from a documented seed and algorithm. Keep authored randomness separate from
 the result of one performance, so “try another take” and “repeat this take” are
 different operations.
 
-Envelope and LFO design is immediate model work in [Modulation](modulation.md),
-including precise state and curve semantics. Granular synthesis, convolution,
+The first [modulation profile](modulation.md) now defines envelope/LFO state and
+curve semantics. Looped envelopes, random/sample-and-hold sources, and continuous
+rate ramps remain later extensions requiring their own conformance cases.
+Granular synthesis, convolution,
 time stretching, and
 physical modeling are useful later processor capabilities. Prefer binding an
 existing implementation when it meets the contract. Add a new universal
@@ -116,9 +118,9 @@ operation authored in the CLI and one authored in an editor stay interchangeable
 
 ## Suggested priority
 
-Stages 1 and 2 have established common arrangements and native capture. Next
-extract and refine Tuney's musical definitions, preserve fractional expression
-authoring and explicit repetition, and settle the envelope/LFO model. Defer
+Stages 1 and 2 have established common arrangements and native capture. Ufor
+now owns the initial musical definitions and first envelope/LFO control profile.
+Next settle the small instrument/performance contract and its route integration. Defer
 new sampler, oscillator, and other audio generation until that design is ready
 and execution work is explicitly resumed. Cross-domain and programme work can
 reuse existing recordings and engines. Improve authoring and interchange around

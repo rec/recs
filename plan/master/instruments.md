@@ -6,8 +6,9 @@ a synthesizer graph can expose the same performance interface.
 
 Revision, 8 September 2026: stage 3 extracts and improves definitions and
 performance semantics. Sampler implementation and further waveform generation
-are deferred. Resolve [Envelopes and LFOs](modulation.md) before choosing the
-small sampler contract or its implementation language.
+are deferred. The first [envelope and LFO profile](modulation.md) is now
+implemented in Ufor. The next step is the small instrument/performance contract
+consuming it; no sampler implementation language has been selected.
 
 ## Preserve the useful recsam model
 
@@ -45,10 +46,12 @@ Do not replace every combination rule with a generic dictionary merge:
 additive gain in dB, envelope overrides, and local modulation references have
 different existing meanings. Preserve them explicitly during the first cutover.
 
-The envelope/LFO redesign may intentionally replace these current rules.
-Specify each retained or changed behavior with before/after examples before
-cutover; do not freeze the present primitive modulation vocabulary merely
-because it already has data classes.
+The Ufor envelope/LFO profile intentionally changes some current rules.
+Its [cutover table](../../../ufor/doc/modulation-format.md#changes-from-recsam-and-remaining-boundaries)
+specifies segment expansion, curve translation, exact timing, retriggering,
+and phase during delay. Resolve inheritance into a complete envelope before
+constructing its Ufor definition; do not layer partial segment lists through
+a generic merge.
 
 ## Voice and layer behavior
 

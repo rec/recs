@@ -4,7 +4,8 @@ Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
 2026 the user requested a plan revision prioritizing tuning/scale and oscillator
 extraction, richer envelopes/LFOs, and deferring further waveform generation.
 The subsequent Ufor extraction is implemented; see [its handover](ufor.md).
-The envelope, LFO, and final instrument contracts remain stage 3 design work.
+The first envelope/LFO control profile is implemented in Ufor. The final
+instrument/performance contract and route integration remain stage 3 work.
 Additional work beyond the prompt: None.
 
 ## Implementation status
@@ -247,7 +248,9 @@ finite contiguous tables, repeating ratios and intervals, expression strings,
 Scala text conversion, scale naming, and oscillator parameters/equations. The
 portable grammar is documented from the stated `/` and `^` requirements; a
 separate original grammar implementation was not located. Sparse tuning maps,
-MTS byte import, phase/retrigger state, and steps 4 and 5 remain open. See
+MTS byte import and audio oscillator lifecycle integration remain open. Step 4
+now has an implemented first modulation profile with scalar conformance cases;
+the general route model is integrated with step 5, which remains open. See
 [the exact extraction boundary](ufor.md) rather than treating all of stage 3 as
 complete.
 
@@ -261,9 +264,11 @@ complete.
 3. Extract Tuney's oscillator definition, equations, and parameter behavior.
    Separate waveform shape, phase evolution, and key-scaled gain; record how
    the existing implementation can be reused later without a new renderer now.
-4. Complete the [envelope and LFO design](modulation.md), including timing,
-   curves, retrigger/release, scope, phase, and modulation combination. Existing
-   recsam fields are starting material, not an accepted final design.
+4. The first [envelope and LFO profile](modulation.md) now defines timing,
+   curves, retrigger/release, scope, phase, and modulation combination. Ufor
+   implements the documents and scalar state calculations. Loops, random
+   sources, and continuous rate ramps are explicitly deferred. Recsam adopts
+   the profile with its coherent instrument cutover in step 5.
 5. Define a small instrument/performance contract consuming those models.
    When the model is settled, cut over roots, references, adapters, and consumers
    coherently. Do not couple this extraction to sampler waveform generation.
