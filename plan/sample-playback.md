@@ -2,12 +2,19 @@
 
 ## Status And Scope
 
-This is an implementation proposal, not an implemented sampler or approval to
-implement every candidate feature. It places instrument creation and playback
-within the current Recs architecture.
+Deferred implementation proposal, revised 8 September 2026. The user has
+postponed further audio waveform generation, especially the sampler. First
+settle the small portable musical model, including Tuney's tuning/scale and
+oscillator extraction and a deeper envelope/LFO design. This document describes
+possible execution work after that gate and a separate decision to resume.
+It does not select Python, a compiled language, or a plugin SDK.
 
 Related documents:
 
+- [Master roadmap](master/how-to.md): stage 3 model work and deferred execution.
+- [Tunings and scales](master/tunings.md): finite/repeating domains and the
+  frequency/ratio minilanguage.
+- [Envelopes and LFOs](master/modulation.md): required design before playback.
 - [Recsam Instrument Format](../doc/sample-format.md): implemented TOML schema
   and Pydantic models.
 - [Remaining Recsam Format Work](sample-format.md): candidate features awaiting
@@ -19,12 +26,15 @@ materialized session-to-session edits. Sample playback still needs a new
 stateful audio engine; it is not simply another recording source or a
 collection of independent edit commands.
 
-Microtonality remains covered by its separate specification. Format and event
-models exist; playback, transport adapters, and recording-daemon changes do not.
+Microtonality belongs to the shared tuning and performance contract. Current
+format and event models exist; they do not constitute a sampler implementation.
 
 ## Separate Creation From Playback
 
 ### Instrument Creation
+
+The following audio-producing workflow is deferred too. Model work may define
+assets and slices referring to existing samples without generating new audio.
 
 An audio edit creates a playable instrument definition:
 
@@ -45,16 +55,18 @@ input media is omitted according to the editing plan's media-selection rules.
 
 ### Instrument Playback
 
-A player combines an instrument with timed performance events to produce audio.
-Start with offline rendering of recorded MIDI through an adapter. The engine
-consumes recsam Trigger, Release, and ControlChange events, not MIDI messages.
-OSC, direct sequencer events, and live hosts use the same representation.
+A later player combines an instrument with timed performance events to produce
+audio. After execution resumes, offline evaluation can establish behavior
+before a live host is added. The core consumes the shared trigger, release,
+and control contract, with MIDI, OSC, and sequencers as adapters. Python is
+not required for that core or for its first implementation.
 
 ## Proposed Sampler Subsystem
 
-The format models now live in `recs/recsam/`. Introduce `recs/sampler/` for
-playback, separate from both those models and the recording machinery. The
-runtime classes below remain proposals:
+The current instrument models live in `recs/recsam/`. Design a small sampler
+contract separate from document parsing, host wrappers, and recording machinery.
+Do not create `recs/sampler/` as an assumed Python implementation yet. The
+names below describe responsibilities, not mandatory Python runtime classes:
 
 | Class | Responsibility |
 | --- | --- |
@@ -87,8 +99,9 @@ The core consumes events at integer output-frame positions and renders bounded
 audio blocks. It has no dependency on audio devices, session-record writing, or
 the file-output policy. Asset loading is handled outside its rendering loop.
 
-Use `recs.recsam.events.PerformanceEvent` rather than defining another event
-hierarchy. Validate control names and values against the loaded instrument;
+Use the shared successor to the current `recs.recsam.events.PerformanceEvent`
+contract rather than inventing a host-specific event hierarchy. Validate control
+names and values against the loaded instrument;
 the engine additionally owns trigger-ID lifetime and release matching. Selection
 keys do not imply pitch. Hosts supply target frequencies for pitch-tracked
 samples, whose mappings declare reference frequencies.
@@ -99,7 +112,7 @@ controller numbers, zero-velocity note-on conversion, repeated-note matching,
 and MPE assignments remain in the MIDI adapter. OSC addresses remain in its
 adapter. The engine treats zero-velocity Trigger events as genuine triggers.
 
-### Offline Host First
+### Deferred Offline Host
 
 The offline host reads recorded MIDI and the instrument, converts messages
 through its adapter, schedules performance events, drives the engine, and writes
@@ -131,10 +144,11 @@ their own validation after offline correctness is established.
 
 ## Reuse Existing Recs Components
 
-Reuse the existing Pydantic/TOML conventions, Pydantic/Tyro command models,
-`reccy.logging`, and session-record reader/writer. Use the existing audio
-dependencies where suitable: `soundfile` provides block-based file I/O and
-NumPy audio arrays. See [SoundFile documentation](https://python-soundfile.readthedocs.io/en/0.13.1/).
+Recs's host can reuse its common document readers, recording finalizer, command
+models, and application logging. Pydantic, Tyro, NumPy arrays, and Python file
+I/O belong to that implementation boundary, not the portable sampler contract.
+An optional Python reference may use existing audio dependencies when rendering
+resumes. A compiled core must not need to import the Recs application.
 
 Do not subclass `SourceRecorder` or route rendered output through
 `ChannelWriter`. Those classes carry device-recording, silence-detection, and
@@ -147,6 +161,20 @@ need them. Do not build a general-purpose processing framework in advance or
 force unrelated recording classes to serve as sampler abstractions.
 
 ## DSP Backend And Resource Use
+
+Do not select a backend before the envelope/LFO and instrument contracts are
+small and concrete. Compare these later implementation choices:
+
+| Choice | Tradeoff to evaluate |
+| --- | --- |
+| Compiled core directly | A small language-neutral spec and conformance suite can avoid implementing the whole sampler twice |
+| Python reference, then compiled port | Easier exploration of state and numerical behavior, but two implementations must be maintained against shared tests |
+| Existing engine behind a binding | Saves engine work only if the retained musical and timing semantics can be represented without silent changes |
+
+A VST instrument is a possible wrapper around the core. Keep plugin parameters,
+host event translation, state persistence, and lifecycle separate from the
+musical model. Evaluate SDK, language, platform, and packaging requirements at
+that later decision; no new project or dependency is selected here.
 
 The current dependencies are not a complete sampler engine. Select a playback
 engine only after completing the sampler backend checks in
@@ -163,28 +191,44 @@ state, not a private copy of the sample. Bound rendering buffers and define a
 cache budget for large instruments. Do not assume that loading every recording into
 memory is acceptable.
 
-Avoid Python loops over individual samples for expensive DSP.
+If a Python reference is chosen, avoid Python loops over individual samples
+for expensive DSP. That consideration does not determine the core's language.
+
+## Shared Conformance Before Two Implementations
+
+Publish language-neutral documents, event streams, initial state, expected
+state transitions, and scalar pitch/control values before building a renderer.
+Include finite-table boundaries, periodic ratios, exact fractions, oscillator
+phase conventions, envelope interruption, LFO reset, and voice independence.
+Specify numeric precision and tolerances, ordering at equal times, and units.
+
+After the audio-generation pause ends, add identical asset/event fixtures for
+each implementation. Compare rendered output across block sizes, rates, and
+implementations using explicit tolerances; do not promise bit identity across
+different floating-point math libraries unless the contract requires it.
+Run the shared suite in each implementation's CI. Fix the specification or an
+incorrect implementation when they disagree instead of retaining divergent
+Python and compiled expectations. VST host behavior needs separate later tests.
 
 ## Suggested Implementation Order
 
-1. Review and trim the candidate feature list, then resolve the retained format
-   semantics and cross-feature interactions.
-2. Build file loading and asset validation around the existing recsam models,
-   then implement instrument creation in coordination with the editing framework.
-3. Select the DSP backend using
-   [Human And Experimental Verification](human.md), then build the
-   block-rendering API around the existing recsam events, preserving trigger
-   identity, pitch separation, and control precision.
-4. Implement deterministic offline MIDI rendering for the base format, producing
-   a new session record and generated audio.
-5. Add retained features incrementally, with focused behavior and audio
-   regression tests for each addition and its interactions.
-6. Verify that event timing and deterministic selection are independent of
-   render block size. Check voice limits and shared-asset memory behavior.
-7. Add live MIDI and audio hosting only after offline rendering is correct.
+1. Complete master stage 3: tuning/scale and oscillator definitions, the
+   frequency/ratio language, and the envelope/LFO redesign.
+2. Trim the instrument and sampler contract; resolve retained interactions and
+   publish language-neutral document, pitch, control, and state fixtures.
+3. Stop at the model gate. Decide separately when to resume audio generation
+   and whether to use a compiled core, Python reference/port, or existing engine.
+4. After that decision, implement asset preparation and bounded rendering with
+   the shared event contract and an offline host. Preserve trigger identity,
+   pitch separation, and control precision.
+5. Establish audio conformance across block sizes and any reference/compiled
+   implementations. Check retirement, shared-asset memory use, and modulation.
+6. Add live or VST hosting only with explicit lifecycle and timing contracts,
+   reusing the same core rather than adding a different sampler per host.
 
-Follow Recs' existing 48 kHz, at-least-one-second WAV convention for digital
-audio regression fixtures. Test rendered output and visible behavior rather
+When audio generation resumes, follow Recs' existing 48 kHz,
+at-least-one-second WAV convention for digital audio regression fixtures.
+Test rendered output and visible behavior rather
 than private implementation details. Hardware acceptance is defined in
 [Human And Experimental Verification](human.md).
 

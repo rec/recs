@@ -4,6 +4,11 @@ Part of the [master proposal](master.md). An instrument consumes performance
 events and produces named streams. A sample instrument is one realization;
 a synthesizer graph can expose the same performance interface.
 
+Revision, 8 September 2026: stage 3 extracts and improves definitions and
+performance semantics. Sampler implementation and further waveform generation
+are deferred. Resolve [Envelopes and LFOs](modulation.md) before choosing the
+small sampler contract or its implementation language.
+
 ## Preserve the useful recsam model
 
 The existing [recsam format](../../doc/sample-format.md) and
@@ -39,6 +44,11 @@ Preparation resolves these declarations into complete immutable voice settings.
 Do not replace every combination rule with a generic dictionary merge:
 additive gain in dB, envelope overrides, and local modulation references have
 different existing meanings. Preserve them explicitly during the first cutover.
+
+The envelope/LFO redesign may intentionally replace these current rules.
+Specify each retained or changed behavior with before/after examples before
+cutover; do not freeze the present primitive modulation vocabulary merely
+because it already has data classes.
 
 ## Voice and layer behavior
 
@@ -77,6 +87,20 @@ Keep normalized performance controls independent of MIDI CC numbers and OSC
 addresses. One named `breath` control can shape a sample filter, an oscillator,
 and light intensity through explicit mappings, without teaching the sampler
 those transport protocols.
+
+## Small sampler contract and later implementations
+
+First define a bounded contract for asset slices, prepared instrument settings,
+performance events, voice state, and the modulation model. Keep authoring and
+host concerns outside that core. Publish event/state examples without rendering
+audio; do not let a Python-specific class layout become the portable contract.
+
+A later implementation decision should compare a compiled core, an optional
+Python reference followed by a compiled port, and reuse of a suitable existing
+engine. A VST instrument is a possible host wrapper for the core, not the
+instrument document format. No language, plugin SDK, or Python-first engine is
+selected by this plan revision. See [Sample Playback](../sample-playback.md)
+for the deferred implementation and shared conformance requirements.
 
 ## External samplers and change from today
 
