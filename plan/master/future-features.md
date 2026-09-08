@@ -5,6 +5,11 @@ implementation work or additional fields required in every document. The first
 usable milestones are in [How to implement](how-to.md). Video remains outside
 the target even in this list.
 
+Priority revision, 8 September 2026: settle the portable tuning/scale,
+oscillator, envelope, and LFO model before adding audio waveform generation.
+Sampler rendering is deferred; the options below are not an instruction to
+resume it.
+
 ## Make the whole performance editable
 
 | Feature | What the user gains | Prerequisite and boundary |
@@ -27,10 +32,22 @@ from a documented seed and algorithm. Keep authored randomness separate from
 the result of one performance, so “try another take” and “repeat this take” are
 different operations.
 
-Granular synthesis, convolution, time stretching, richer modulation, and
+Envelope and LFO design is immediate model work in [Modulation](modulation.md),
+including precise state and curve semantics. Granular synthesis, convolution,
+time stretching, and
 physical modeling are useful later processor capabilities. Prefer binding an
 existing implementation when it meets the contract. Add a new universal
 parameter only when its meaning across implementations can actually be stated.
+
+## A Small Portable Sampler Later
+
+After the model settles, evaluate a compiled sampler core and a possible VST
+instrument wrapper. An optional Python reference followed by a port is another
+route, not a requirement. Keep one small specification and language-neutral
+conformance cases for tuning, oscillators, envelope/LFO state, event ordering,
+and voice lifecycle. Add shared audio fixtures only when waveform generation
+resumes. Portability requires explicit tolerances and shared tests, not just
+equivalent field names in two languages.
 
 ## Connect sound, gesture, and space
 
@@ -99,9 +116,13 @@ operation authored in the CLI and one authored in an editor stay interchangeable
 
 ## Suggested priority
 
-First make capture, edit, render, and replay reliable across audio and events.
-Then add one useful cross-domain interaction and a radio programme containing
-live material. Improve authoring and interchange around those working cases.
+Stages 1 and 2 have established common arrangements and native capture. Next
+extract and refine Tuney's musical definitions, preserve fractional expression
+authoring and explicit repetition, and settle the envelope/LFO model. Defer
+new sampler, oscillator, and other audio generation until that design is ready
+and execution work is explicitly resumed. Cross-domain and programme work can
+reuse existing recordings and engines. Improve authoring and interchange around
+those cases.
 Defer distributed scheduling, a large plugin catalogue, and general algorithm
 languages until the smaller system demonstrates a concrete need for them.
 

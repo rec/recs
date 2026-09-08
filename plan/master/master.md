@@ -1,6 +1,9 @@
 # Recs: a common language for things that happen in time
 
-Status: architecture proposal with stages 1 and 2 implemented, 7 September 2026.
+Status: architecture proposal with stages 1 and 2 implemented; roadmap revised
+8 September 2026. Stage 3 prioritizes the portable musical model, including
+tunings, oscillator definitions, envelopes, and LFOs. Further audio waveform
+generation, especially the sampler, is deferred until that design is settled.
 The implemented subset is documented in the
 [arrangement format](../../doc/arrangement-format.md) and
 [recording/sequence format](../../doc/recording-format.md). The broader domain
@@ -50,6 +53,7 @@ network protocol, operating system, or database.
 | [Recordings](recordings.md) | Assets, stream fragments, gaps, capture journals, and packaging |
 | [Instruments](instruments.md) | Sample instruments, voices, layers, and performance controls |
 | [Processors](processors.md) | Synthesizers, DSP, analysis, and typed processing graphs |
+| [Modulation](modulation.md) | Envelope and LFO design before new rendering engines |
 | [Arrangements](arrangements.md) | Clips, tracks, buses, automation, and nested mixes |
 | [Broadcasts](broadcasts.md) | Future programmes, live sections, live relays, and rebroadcast |
 | [Lighting](lighting.md) | Fixture state, DMX/Art-Net, pixel fields, and geometry |
@@ -143,25 +147,29 @@ reproducing a particular performance.
 
 | Application | Role in the proposed system |
 | --- | --- |
-| Recs | Own the format initially; capture, asset preparation, timeline editing, validation, offline rendering, and playback transport |
+| Recs | Current common-model implementation; capture, asset preparation, timeline editing, validation, and eventual playback transport |
 | Lyte | Lighting generators, fixture and geometry interpretation, and physical lighting outputs |
 | Streamo | Live stream input/output adapters and broadcast delivery; its existing video features stay outside this format |
 | Showco | Installation coordination, bindings, operator controls, and observable run status |
 | Tuney | Tuning/scale authoring and experiments; provide explicit pitched performance and synthesis definitions |
 
-Start shared definitions in a dependency-light `recs/model/` package. Other
-applications should consume that one implementation, without importing Recs
-recording devices or UI. Extract a standalone library only if actual dependency
-constraints require it. This ownership is proposed, not a request to restructure
-the repositories now.
+The implemented shared definitions currently live in `recs/model/`. For the
+next extraction, a small standalone format project is the recommended home for
+language-neutral specifications, examples, and a Python reference model. Settle
+its name and ownership before moving code. Recs and Tuney would consume that
+shared core; Tuney's UI and Reccy's Python application infrastructure remain
+separate. This revision changes plans only and creates no new repository.
 
 ## First useful result
 
-First round-trip an existing Recs audio edit and a recsam instrument through
-the common envelope. Then render a recorded performance through an instrument,
-route an extracted envelope to a Lyte intensity control, and archive the outputs
-and timing in one recording. Finally run a bounded radio programme with a live
-slot and reconstruct what aired. Each stage has its own acceptance gate in
+Stages 1 and 2 already cover arrangements and native capture. Next, make tuning,
+scale, oscillator, instrument, envelope, and LFO definitions portable and small,
+with language-neutral examples and scalar/state conformance cases. Design the
+sampler's interface without selecting its implementation language or producing
+new audio. Later rendering and a possible VST realization require the model
+gate to pass and a separate implementation decision. Cross-domain control and
+broadcast work can reuse existing recordings and engines. Each stage has its
+own acceptance gate in
 [How to implement](how-to.md).
 
 ## Additional work beyond the prompt

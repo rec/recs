@@ -1,6 +1,9 @@
 # How to build the common model
 
-Part of the [master proposal](master.md). The user authorized completing stage 2 after the preparation and reader-cutover checkpoints.
+Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
+2026 the user requested a plan revision prioritizing tuning/scale and oscillator
+extraction, richer envelopes/LFOs, and deferring further waveform generation.
+This revision implements no runtime code or repository extraction.
 Additional work beyond the prompt: None.
 
 ## Implementation status
@@ -129,19 +132,20 @@ Sibling repositories were inspected in their current working trees, so recheck
 the named symbols when starting implementation. Existing format models are not
 evidence that playback or cross-application execution has been implemented.
 
-Place pure format definitions in proposed `recs/model/` modules for documents,
-time, streams, assets, events, parameters, graphs, and typed domain bodies.
-Initially keep Recs as their owner. Use explicit imports from defining modules
-and no re-export layer in `__init__.py`. Depend on Pydantic and lightweight
-standard-library types; never import recording devices, GUI code, services,
-NumPy buffers, or plugin libraries merely to parse a definition.
+Implemented pure definitions currently live in `recs/model/`. A standalone
+common-format project is the recommended next home, with its name and ownership
+to be settled before code moves. Recs and Tuney should consume the same musical
+definitions without requiring either application's GUI/audio stack just to read
+a document. Reccy remains Python application infrastructure. No new repository
+or dependency is created by this planning revision.
 
-Move domain-specific reusable definitions into that package when their cutover
-is implemented. Runtime sampler state, Lyte renderers/drivers, Streamo delivery,
-Showco operational views, and Tuney's UI remain with their respective owners.
-If depending on Recs prevents a lightweight consumer installation, propose a
-separate format distribution at that point. Do not preemptively add another
-repository or duplicate the model in every application.
+Keep specifications, schemas, examples, and language-neutral conformance cases
+together with a lightweight Python model implementation. Include pure pitch
+and control mathematics where needed to interpret definitions. Runtime sampler
+state, device drivers, plugin wrappers, and application UI stay outside the
+format core. Use direct imports, no re-export layer in `__init__.py`, and no
+device, GUI, NumPy, service, or plugin dependency merely to parse a definition.
+Future language ports implement the same semantics, not Python class layouts.
 
 ## Existing structures and their replacements
 
@@ -164,7 +168,8 @@ repository or duplicate the model in every application.
 | [Streamo config](../../../streamo/streamo/config.py), [services](../../../streamo/streamo/services.py) | Audio device input and streaming-service realization | Programme stream binding alongside application-local delivery configuration; video remains outside the model |
 | [Showco models](../../../showco/showco/models.py) | Actions and status snapshots | Keep runtime status models; report common run IDs/observations without making status the content authority |
 | [Tuney timing](../../../tuney/tuney/time/char_press.py), [sequencer](../../../tuney/tuney/time/sequencer.py) | Millisecond key events and callback playback | Shared key/performance events and explicit timing conversion at the host boundary |
-| [Tuney tuning](../../../tuney/tuney/scale/tuning.py), [scale](../../../tuney/tuney/scale/scale.py), [oscillator](../../../tuney/tuney/audio/oscillator.py) | Tuning functions, note naming, waveform generation | Pure tuning documents and synthesis bindings; retain educational UI and runtime implementation locally |
+| [Tuney tuning](../../../tuney/tuney/scale/tuning.py), [scale](../../../tuney/tuney/scale/scale.py) | Tuning functions, note naming, ratio expressions, finite-table host fallback | Extract intended musical semantics in stage 3; explicit repetition and fractional notation; keep host/UI policy separate |
+| [Tuney oscillator](../../../tuney/tuney/audio/oscillator.py) | Waveforms, duty cycle, sample-position generation, key-scaled gain | Extract the definition and equations in stage 3; plan reuse of the existing implementation after the waveform-generation deferral |
 
 Sibling source links assume the repositories remain adjacent under `~/code`.
 
@@ -179,9 +184,9 @@ tooling, while TOML remains the canonical authored representation.
 Specify which fields are required and which defaults are normative. Mark
 absence as inheritance only where the domain defines inheritance, notably
 recsam slot settings. Resolve inherited values once during preparation.
-Keep all present recsam combination rules until an intentional change is
-specified with before/after examples. This proposal does not justify changing
-those rules simply to simplify serialization.
+Review existing recsam combination rules with before/after examples. Envelopes
+and LFOs are explicitly reopened for design; their existing fields are not the
+final common model. Select a small coherent profile before implementing it.
 
 Distinguish schema version from capability support. A reader may understand
 the document but lack a renderer for one operation. Do not introduce extension
@@ -230,27 +235,46 @@ truncated final journal lines and incomplete files remain visibly partial;
 volume continuations do not reset the stream timeline. Unit tests should use
 in-memory or local file observations, not live networks or hardware.
 
-### 3. Adopt instruments and implement offline performance
+### 3. Settle and extract the portable musical model
 
-Move common performance events and parameter descriptors to the shared model.
-Replace recsam's native root and path fields; update all imports, documentation,
-SFZ adapter calls, and fixtures in the same cutover. Preserve selection,
-articulation, loop, sustain, pitch, and local modulation semantics.
+This stage no longer includes sampler implementation or new audio waveform
+generation. Work in this order:
 
-Implement the stateful sampler described in the
-[existing playback plan](../sample-playback.md), using one event contract for
-offline and eventual live hosts. Before adding voice limits, linked microphone
-layers, or stochastic behavior, finalize the precise interactions identified
-in [Instruments](instruments.md). Deterministic ordered selection can come first.
+1. Settle the shared-format ownership and extraction boundary. Capture the
+   specification and language-neutral fixtures independently of Python classes.
+2. Extract Tuney's intended tuning/scale semantics: finite Hz and ratio tables,
+   repeating ratio patterns, explicit reference pitch, spelling, and selection.
+   Preserve fractional authoring and the user's frequency/ratio minilanguage
+   with `/` and `^`. Locate its grammar and reconcile it with current Tuney
+   parsing before implementing it. Specify Scala and MTS adapters explicitly.
+3. Extract Tuney's oscillator definition, equations, and parameter behavior.
+   Separate waveform shape, phase evolution, and key-scaled gain; record how
+   the existing implementation can be reused later without a new renderer now.
+4. Complete the [envelope and LFO design](modulation.md), including timing,
+   curves, retrigger/release, scope, phase, and modulation combination. Existing
+   recsam fields are starting material, not an accepted final design.
+5. Define a small instrument/performance contract consuming those models.
+   When the model is settled, cut over roots, references, adapters, and consumers
+   coherently. Do not couple this extraction to sampler waveform generation.
 
-Acceptance: render overlapping same-key triggers, sustain/release, loop exits,
-independent instrument instances, and non-default tuning without changing their
-meaning at different block sizes. Digital-audio regression fixtures write WAV
-at 48,000 Hz and last at least one second, following repository instructions.
+Acceptance: documents round-trip; exact fractions remain exact; repeating and
+finite domains differ explicitly; existing intended Tuney pitch examples agree;
+Scala and MTS mappings have defined boundaries; oscillator parameters and
+envelope/LFO event/state behavior have language-neutral cases. Numerical pitch
+and scalar-control checks are allowed; no new audio rendering is needed to
+complete this stage. Record unresolved design choices rather than guess defaults.
 
-### 4. Add processor graphs and one external implementation
+### 4. Resume execution only after the model gate
 
-Generalize the existing renderer's scheduling boundary to typed processors.
+Deferred pending completion of stage 3 and a separate decision to resume audio
+generation. Compare a compiled sampler core, an optional Python reference with
+a compiled port, and a suitable existing engine. A VST instrument may wrap the
+core later. Neither Python-first rendering nor a particular language or plugin
+SDK is selected. Define shared conformance cases before implementing either
+language, including event order, state, tuning, and modulation behavior.
+
+Use the [deferred playback plan](../sample-playback.md) for the later sampler.
+Then generalize the existing renderer's scheduling boundary to typed processors.
 Start with acyclic audio/control graphs and existing built-in operations.
 Add one concrete installed adapter with a documented parameter mapping, not
 simultaneous support for every plugin system. Keep missing implementations
@@ -261,6 +285,13 @@ values; latency alignment on parallel paths; audio-to-control timing that
 distinguishes observation time from availability; explicit rejection of
 unsupported live/offline capabilities. Adapter unit tests check mapping logic;
 actual plugin integration and live behavior require separately requested runs.
+Later sampler acceptance covers overlapping same-key triggers, sustain/release,
+loops, independent instances, and tuning across block sizes. Only after audio
+generation resumes add the 48 kHz, at-least-one-second WAV cases, with declared
+tolerances comparing reference and compiled implementations where both exist.
+
+Stages 5 through 7 may reuse existing engines and captured media; they must not
+implicitly bypass the pause on new waveform generation.
 
 ### 5. Integrate Lyte and physical control bindings
 
@@ -291,12 +322,15 @@ live input prevents a complete offline render. A recorded as-aired programme
 can be rendered without its original live endpoints. Network delivery and
 physical playout are separate integration validation, not unit-test claims.
 
-### 7. Integrate Tuney's authoring and synthesis
+### 7. Complete Tuney's host and synthesis integration
 
-Export exact tuning/scale definitions and key/performance sequences. Bind its
-oscillator behavior to the processor interface where useful. Remove duplicate
-portable event/tuning schemas when adopting the common ones, while retaining
-Tuney's application-specific presentation and learning features.
+Tuning/scale and oscillator model extraction belongs to stage 3, not this later
+stage. Complete authoring, key/performance export, and host integration around
+those shared definitions, retaining Tuney's presentation and learning features.
+Reuse or move its existing oscillator implementation under the settled contract
+when execution work resumes. Do not create duplicate portable schemas or a
+parallel waveform engine. Host note-substitution policy remains separate from
+the finite tuning tables it consumes.
 
 Acceptance: frequencies agree with existing tuning examples; milliseconds
 convert explicitly; selection keys remain independent of pitch; unsupported
@@ -330,5 +364,7 @@ The [recsam format](../../doc/sample-format.md),
 [sample-playback plan](../sample-playback.md) remain useful detailed sources.
 This master proposal broadens their scope, including generic processing,
 shared assets, and tuning dependencies. Reconcile the relevant documents and
-remove superseded restrictions when implementing those changes; this task
-does not silently rewrite their existing specifications.
+remove superseded restrictions when implementing those changes. The playback
+and remaining-format plans now explicitly defer rendering and reopen envelope
+and LFO design; implemented format documentation remains a description of
+current code until a later cutover changes it.
