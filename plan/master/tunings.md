@@ -5,6 +5,12 @@ Pitch, a tuning degree, and a sample-selection key are separate coordinates.
 Tuney's musical model is the starting point for shared definitions; its
 instrument fallback behavior does not define the portable tuning's domain.
 
+The [initial Ufor extraction](ufor.md) implements the four source forms below
+with contiguous finite tables. The noncontiguous example and broader mapping
+requirements in this proposal remain future model work. The implemented wire
+fields and expression grammar are specified in
+[Ufor's musical format](../../../ufor/doc/musical-format.md).
+
 ## Repetition is musical data
 
 Support both repeating and finite definitions, including finite frequency
