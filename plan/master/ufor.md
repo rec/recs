@@ -3,8 +3,8 @@
 The initial extraction is complete across `~/code/ufor`, Recs, and Tuney.
 The public repository is [rec/ufor](https://github.com/rec/ufor); all Git remotes
 use SSH. Recs pins a public Ufor source archive at
-`b792416b547136faf9bc8925e0a84bd52f35c780` for shared performance events and typed
-routes. Tuney retains its initial extraction pin at
+`7a6d3e44ddd194062243e4e6374f37cac5d7219e` for native instruments and pure SFZ
+conversion. Tuney retains its initial extraction pin at
 `9fa9d39f356613285e4ec5e55bdb3d894bfd8dbf`. These archives let installations and
 release builds run without GitHub SSH credentials. UV development sources use the editable
 `../ufor` checkout. Dependency changes are committed separately from code.
@@ -17,6 +17,7 @@ release builds run without GitHub SSH credentials. UV development sources use th
 | Ufor | Frequency/ratio expressions, computed tuning, finite frequency and ratio tables, repeating ratios and adjacent intervals, Scala text conversion, scale naming, accidentals, and oscillator parameters/gain |
 | Ufor | Segmented envelope and LFO documents, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
 | Ufor | Shared performance events in native sequences/JSONL; typed parameter/source/route declarations and scalar route evaluation |
+| Ufor | Native sample-instrument documents, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
 | Recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
 | Tuney | Editable configuration and UI annotations, units and broader expressions, Scala file/browser access, instrument-range wrapping, MIDI protocol delivery, and existing NumPy waveform generation |
 | Reccy | Shared Python application infrastructure, with no ownership of the portable format |
@@ -33,13 +34,14 @@ its computed/ratio/table/tuning configurations compile to Ufor definitions.
 [JSON Schema](../../../ufor/schema/documents.json), and
 [language-neutral conformance cases](../../../ufor/conformance/pitch.json)
 live with the implementation. The common codec handles recording, sequence,
-arrangement, tuning, scale, oscillator, envelope, and LFO documents. The
+arrangement, tuning, scale, oscillator, envelope, LFO and instrument documents. The
 [modulation profile](../../../ufor/doc/modulation-format.md) specifies the new
-control models and their eventual Recsam cutover. Recs now imports performance
+control models now used directly by sample instruments. Recs now imports performance
 events directly from `ufor.events`; its old `recs/recsam/events.py` is removed.
 The [instrument contract](../../../ufor/doc/instrument-format.md) specifies
-implemented route fragments and the next native instrument/SFZ cutover.
-That cutover must advance Recs's archive pin again when those native types exist.
+the implemented native instrument/SFZ cutover and its remaining preparation
+boundary. All portable Recsam definitions and pure SFZ conversion now live
+in Ufor; Recs retains only asset and SFZ file acquisition.
 
 Frequency tables never wrap. Tuney explicitly wraps keys within an instrument's
 configured range before consulting its finite definition. Ratio tables are
@@ -74,6 +76,11 @@ The performance/route milestone passes 192 Ufor tests and 865 Recs tests,
 plus those static checks. Thirty shared event tests moved from Recs into Ufor;
 Recs retains instrument-specific event validation tests. Tuney was not changed
 or retested in this milestone.
+The completed Recsam consolidation passes 306 Ufor tests and 741 Recs tests,
+plus Ruff, formatting, type checking, pyupgrade and diff checks. The wheel
+contains all 35 Python modules. Pure musical/model tests now live in Ufor;
+Recs retains SFZ file/asset integration tests, including byte-preserving import
+and symlink containment. No production media was touched in this consolidation.
 Ufor has no GitHub workflows, as requested. Automated checks do not
 claim live hardware or packaged application validation.
 
@@ -86,10 +93,11 @@ marker and version 1, so it requires no new production metadata migration.
 
 ## What remains
 
-The first envelope/LFO profile, shared performance events, and typed routes
-are implemented. Next implement the instrument contract's native root, asset
-slices, generator/source bindings, resolved settings, selection/gate/retirement
-action traces, and SFZ adapters together. Sparse tuning
+The first envelope/LFO profile, shared performance events, typed routes, native
+instrument root, slices, channel maps, source bindings and SFZ conversion are
+implemented. Next define resolved preparation settings and portable
+selection/gate/retirement action traces. These stateful components never existed
+in Recsam and are not part of the completed type consolidation. Sparse tuning
 maps, Scala keyboard mapping, MTS byte import, audio oscillator lifecycle
 integration, and richer cross-domain graphs remain future model work. No sampler engine,
 new waveform renderer, compiled-language implementation, or VST was added.

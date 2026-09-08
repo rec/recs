@@ -2,8 +2,10 @@
 
 Physical configuration values accept numbers in their existing units or strings
 with explicit units. The same validation applies to CLI options, API `set_cfg`
-values, saved settings, and per-device profiles. OSC configuration and recsam
-instrument declarations use the same duration and frequency parsers.
+values, saved settings, and per-device profiles. OSC configuration uses the
+same duration and frequency parsers. Native Ufor instrument documents instead
+use numeric magnitudes and exact rational control times; normalize application
+unit strings before constructing those models.
 
 ```sh
 recs --quiet-before-start 250ms --longest-file-time '2 h' \
@@ -21,8 +23,6 @@ recs --quiet-before-start 250ms --longest-file-time '2 h' \
 | Minimum free disk space | Integer bytes | `"500MB"`, `"1GiB"` |
 | Memory reserve | Integer decimal megabytes | `"500MB"`, `"1GB"` |
 | OSC poll and resubscribe periods | Seconds | `"250ms"`, `"10s"` |
-| Recsam envelope, smoothing, delay, and choke-fade times | Seconds | `"5ms"` |
-| Recsam sample reference pitch, EQ and LFO frequencies | Hertz | `"440Hz"`, `"2.4kHz"` |
 
 Unit strings contain a number followed by one unit name or symbol, with optional
 whitespace. Scientific notation is accepted. Unit symbols are case-sensitive:
@@ -68,8 +68,8 @@ values. Original spelling and unit choice are not preserved.
 TOML and JSON unit values must be quoted:
 
 ```toml
-[instrument.envelope]
-attack_seconds = "10ms"
+[recording]
+quiet_before_start = "250ms"
 ```
 
 Pint quantities do not enter audio processing or performance-event payloads.

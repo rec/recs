@@ -1,24 +1,11 @@
-"""Audio asset metadata needed to prepare recsam instruments."""
+"""Read and seal existing audio assets for Ufor sample instruments."""
 
 import struct
+from hashlib import file_digest
 from pathlib import Path
 
 import soundfile
-
-from . import base
-
-
-class EmbeddedLoop(base.Model):
-    start_frame: base.Frame
-    end_frame: base.Frame
-    loop_type: int = 0
-
-
-class AudioMetadata(base.Model):
-    channels: int
-    frames: base.Frame
-    embedded_loop: EmbeddedLoop | None = None
-    embedded_loop_known: bool = False
+from ufor.samples.metadata import AudioMetadata, EmbeddedLoop
 
 
 def read_audio_metadata(path: Path) -> AudioMetadata:
@@ -29,7 +16,13 @@ def read_audio_metadata(path: Path) -> AudioMetadata:
         raise ValueError(f'Cannot read SFZ sample {path}: {e}') from e
 
     wav = info.format in ('WAV', 'WAVEX')
+    with path.open('rb') as stream:
+        digest = file_digest(stream, 'sha256').hexdigest()
     return AudioMetadata(
+        sample_rate=info.samplerate,
+        encoding=f'{info.format}/{info.subtype}',
+        byte_length=path.stat().st_size,
+        sha256=digest,
         channels=info.channels,
         frames=info.frames,
         embedded_loop=_wav_loop(path) if wav else None,

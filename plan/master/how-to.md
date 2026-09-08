@@ -5,9 +5,9 @@ Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
 extraction, richer envelopes/LFOs, and deferring further waveform generation.
 The subsequent Ufor extraction is implemented; see [its handover](ufor.md).
 The first envelope/LFO control profile is implemented in Ufor. The final
-instrument root, source bindings, preparation/action traces, and SFZ cutover
-remain stage 3 work. Shared performance events and typed scalar routes are
-implemented; see the [instrument contract](../../../ufor/doc/instrument-format.md).
+instrument root, slices, channel maps, source bindings, and SFZ conversion are
+now implemented in Ufor. Preparation/action traces remain stage 3 work. Shared
+performance events and typed scalar routes are implemented; see the [instrument contract](../../../ufor/doc/instrument-format.md).
 Additional work beyond the prompt: None.
 
 ## Implementation status
@@ -161,10 +161,10 @@ Future language ports implement the same semantics, not Python class layouts.
 | [Composition](../../recs/edit/composition.py) | `CompositionEdit`, command recipes, materialized stages | Compile authored operations to nested arrangements/derived assets; retain recipe history as provenance |
 | [Session records](../../recs/ui/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
 | [Session export](../../recs/ui/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common documents/assets and preserve timeline gaps |
-| [Recsam instrument](../../recs/recsam/instrument.py) | `SampleInstrument`, `Instrument`, `SampleSlot`, musical validation | Common root/interface and shared assets; retain specialized slot semantics |
+| [Ufor instrument](../../../ufor/ufor/samples/instrument.py) | Common root, body, slots, musical validation | Implemented; Recsam definitions removed |
 | [Ufor events](../../../ufor/ufor/events.py) | `Trigger`, `Release`, `ControlChange` | Implemented common tick/ordinal envelope; Recs consumes these directly |
-| [Recsam controls](../../recs/recsam/controls.py), [processing](../../recs/recsam/processing.py), [playback](../../recs/recsam/playback.py) | Polarity/defaults, EQ, envelopes, LFOs, loops, pitch mapping | Common parameter identities/units; preserve voice behavior and native-frame ranges; general DSP through processor contracts |
-| [Recsam SFZ](../../recs/recsam/sfz.py) | External sample-format adapter | Target the new instrument body; preserve explicit unsupported-feature reporting |
+| [Ufor sample types](../../../ufor/ufor/samples/) | Controls, EQ, selection, crossfades, slices, loops, pitch mapping | Implemented with shared envelopes/LFOs/routes; generic DSP remains separate |
+| [Ufor SFZ](../../../ufor/ufor/sfz.py), [Recs file adapter](../../recs/recsam/sfz.py) | Pure conversion versus local asset acquisition | Implemented native document conversion, sealed metadata and diagnostics |
 | [MIDI writer](../../recs/midi/writer.py), [OSC recorder](../../recs/osc/recorder.py) | Native-timed common event JSONL | Implemented; SMF is explicit export and OSC retains raw bytes alongside decoded values |
 | [Lyte show](../../../lyte/lyte/show.py) | `ShowFile`, Python factory lookup, animation/mixer graph | Common graph definitions and installed implementation bindings |
 | [Lyte installation](../../../lyte/lyte/installation.py) | Twinkly/DMX targets, pixel/DMX programs, output driver interface | Common definition references plus physical bindings; retain driver implementations |
@@ -252,8 +252,9 @@ portable grammar is documented from the stated `/` and `^` requirements; a
 separate original grammar implementation was not located. Sparse tuning maps,
 MTS byte import and audio oscillator lifecycle integration remain open. Step 4
 now has an implemented first modulation profile with scalar conformance cases;
-step 5 now has shared performance events, typed routes, and an instrument
-contract. The native root/preparation/SFZ cutover remains open. See
+step 5 now has shared performance events, typed routes, the native instrument
+root, asset slices, channel maps, source bindings and pure SFZ conversion.
+Recsam consolidation is complete. Preparation/action traces remain open. See
 [the exact extraction boundary](ufor.md) rather than treating all of stage 3 as
 complete.
 
@@ -270,14 +271,13 @@ complete.
 4. The first [envelope and LFO profile](modulation.md) now defines timing,
    curves, retrigger/release, scope, phase, and modulation combination. Ufor
    implements the documents and scalar state calculations. Loops, random
-   sources, and continuous rate ramps are explicitly deferred. Recsam adopts
-   the profile with its coherent instrument cutover in step 5.
+   sources, and continuous rate ramps are explicitly deferred. Sample instruments
+   now consume the same definitions directly.
 5. The [small instrument contract](../../../ufor/doc/instrument-format.md)
-   now specifies the structure and cutover boundary. Shared performance events
-   and typed routes are implemented. Next cut over native roots, asset slices,
-   source bindings, prepared settings, and SFZ adapters coherently, with portable
-   selection/gate/retirement action traces. Do not couple this extraction to
-   sampler waveform generation.
+   implements the native root, slices, channel maps, source bindings, shared
+   events/routes and SFZ conversion. All portable Recsam types now live in Ufor.
+   Next settle prepared settings and selection/gate/retirement action traces.
+   These stateful additions remain separate from sampler waveform generation.
 
 Acceptance: documents round-trip; exact fractions remain exact; repeating and
 finite domains differ explicitly; existing intended Tuney pitch examples agree;

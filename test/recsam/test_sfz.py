@@ -1,19 +1,28 @@
 import struct
 import wave
+from fractions import Fraction
+from hashlib import sha256
+from math import sqrt
 from pathlib import Path
 
 import pytest
 from pytest_regressions.file_regression import FileRegressionFixture
-
-from recs.recsam import (
+from ufor import modulation, sfz
+from ufor.assets import AudioDescription
+from ufor.control import Scope
+from ufor.samples import (
     controls,
+    crossfade,
     enums,
     instrument,
-    modulation,
     playback,
+    processing,
     selection,
-    sfz,
 )
+from ufor.streams import AudioType
+from ufor.time import Rate, Timebase
+
+from recs.recsam.sfz import read
 
 
 def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
@@ -34,20 +43,20 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
         """,
     )
 
-    result = sfz.read(path)
+    result = read(path)
 
     assert result.complete
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
     instrument = result.instrument
-    assert instrument.instrument.sustain is not None
-    assert instrument.instrument.sustain.control == 'sustain'
-    assert instrument.instrument.controls['sustain'].default == 0
-    assert instrument.instrument.name == 'Glass keys'
-    assert len(instrument.slots) == 2
-    soft, loud = instrument.slots
+    assert instrument.body.instrument.sustain is not None
+    assert instrument.body.instrument.sustain.control == 'sustain'
+    assert instrument.body.instrument.controls['sustain'].default == 0
+    assert instrument.name == 'Glass keys'
+    assert len(instrument.body.slots) == 2
+    soft, loud = instrument.body.slots
     assert soft.id == 'region-1'
-    assert soft.sample == 'Samples/Soft glass.wav'
+    assert instrument.assets[0].path == 'Samples/Soft glass.wav'
     assert soft.name == 'Soft'
     assert soft.mapping.lowest_key == 60
     assert soft.mapping.highest_key == 63
@@ -56,28 +65,24 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert soft.mapping.maximum_velocity == 63 / 127
     assert soft.processing.volume_db == -3
     assert soft.processing.pan == -0.25
-    assert soft.modulation[0].target == 'amplitude'
-    assert soft.modulation[0].points[0].amount == 0
-    assert soft.modulation[0].points[64].amount == pytest.approx((64 / 127) ** 2)
-    assert soft.modulation[0].points[127].amount == 1
-    assert soft.envelope.attack_seconds == 0.01
-    assert soft.envelope.release_seconds == 0.4
-    assert soft.envelope.attack_shape == enums.EnvelopeShape.linear
-    assert soft.envelope.decay_shape == enums.EnvelopeShape.exponential
-    assert soft.envelope.release_shape == enums.EnvelopeShape.exponential
-    assert {
-        'attack_shape',
-        'decay_shape',
-        'release_shape',
-    } <= soft.envelope.model_fields_set
+    assert soft.modulation.routes[0].target == modulation.Target(
+        node='processing', parameter='amplitude'
+    )
+    assert soft.modulation.routes[0].points[0].amount == 0
+    assert soft.modulation.routes[0].points[64].amount == pytest.approx((64 / 127) ** 2)
+    assert soft.modulation.routes[0].points[127].amount == 1
+    assert soft.envelope.segments[1].duration == Fraction(1, 100)
+    assert soft.envelope.release[0].duration == Fraction(2, 5)
+    assert [s.curve for s in soft.envelope.segments] == [0, 0, 0, -5]
+    assert soft.envelope.release[0].curve == -5
     assert loud.mapping.lowest_key == 62
     assert loud.mapping.highest_key == 62
     assert not loud.mapping.pitch_tracking
     assert loud.processing.tuning_cents == 105
     assert loud.playback.direction == enums.Direction.backward
     assert loud.playback.mode == enums.PlaybackMode.one_shot
-    assert loud.playback.start_frame == 10
-    assert loud.playback.end_frame == 100
+    assert instrument.body.slices[1].start_frame == 10
+    assert instrument.body.slices[1].end_frame == 100
 
 
 def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
@@ -90,17 +95,17 @@ def test_read_sfz_velocity_curve_and_tracking(tmp_path: Path) -> None:
         '<region> sample=inverted.wav amp_veltrack=-100 amp_velcurve_64=1'
     )
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    normal, inverted = result.instrument.slots
+    normal, inverted = result.instrument.body.slots
 
-    normal_points = normal.modulation[0].points
+    normal_points = normal.modulation.routes[0].points
     assert normal_points[0].amount == 0.6
     assert normal_points[32].amount == 0.7
     assert normal_points[64].amount == 0.8
     assert normal_points[127].amount == 1
-    inverted_points = inverted.modulation[0].points
+    inverted_points = inverted.modulation.routes[0].points
     assert inverted_points[0].amount == 1
     assert inverted_points[64].amount == 0
     assert inverted_points[127].amount == 0
@@ -111,10 +116,10 @@ def test_read_sfz_zero_velocity_tracking_adds_no_curve(tmp_path: Path) -> None:
     _write_wav(tmp_path / 'flat.wav')
     path.write_text('<region> sample=flat.wav amp_veltrack=0')
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    assert result.instrument.slots[0].modulation == []
+    assert result.instrument.body.slots[0].modulation.routes == []
 
 
 def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
@@ -122,10 +127,10 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     _write_wav(tmp_path / 'default.wav')
     path.write_text('<region> sample=default.wav')
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    mapping = result.instrument.slots[0].mapping
+    mapping = result.instrument.body.slots[0].mapping
 
     assert mapping.lowest_key == 0
     assert mapping.highest_key == 127
@@ -148,17 +153,17 @@ def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
         """,
     )
 
-    result = sfz.read(path)
+    result = read(path)
 
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    first, second = result.instrument.slots
+    first, second = result.instrument.body.slots
     assert first.choke_group == 'sfz-group-1'
-    assert first.playback.loop is not None
-    assert first.playback.loop.start_frame == 10
-    assert first.playback.loop.end_frame == 20
-    assert first.playback.loop.mode == enums.LoopMode.until_release
-    assert first.envelope.release_seconds == 0.001
+    assert result.instrument.body.slices[0].loop is not None
+    assert result.instrument.body.slices[0].loop.start_frame == 10
+    assert result.instrument.body.slices[0].loop.end_frame == 20
+    assert result.instrument.body.slices[0].loop.mode == enums.LoopMode.until_release
+    assert first.envelope.release[0].duration == Fraction(1, 1000)
     assert second.choke_group == 'sfz-group-2'
     assert second.chokes[0].group == 'sfz-group-1'
     assert second.chokes[0].mode == enums.ChokeMode.release
@@ -173,15 +178,15 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
         '<region> sample=release.wav key=60 trigger=release amp_release=0.2'
     )
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    slot = result.instrument.slots[0]
+    slot = result.instrument.body.slots[0]
 
-    assert slot.sample == 'release.wav'
+    assert result.instrument.assets[0].path == 'release.wav'
     assert slot.trigger == enums.TriggerKind.logical_release
     assert slot.playback.mode == enums.PlaybackMode.one_shot
-    assert slot.envelope.release_seconds == 0.2
+    assert slot.envelope.release[0].duration == Fraction(1, 5)
 
 
 def test_read_sfz_distinguishes_release_triggers(tmp_path: Path) -> None:
@@ -194,14 +199,14 @@ def test_read_sfz_distinguishes_release_triggers(tmp_path: Path) -> None:
         '<region> sample=key-up.wav trigger=release_key loop_mode=no_loop'
     )
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    pedal_aware, key_up = result.instrument.slots
+    pedal_aware, key_up = result.instrument.body.slots
 
     assert pedal_aware.trigger == enums.TriggerKind.logical_release
     assert pedal_aware.playback.mode == enums.PlaybackMode.one_shot
-    assert pedal_aware.playback.loop is None
+    assert result.instrument.body.slices[0].loop is None
     assert key_up.trigger == enums.TriggerKind.release
     assert key_up.playback.mode == enums.PlaybackMode.one_shot
 
@@ -215,16 +220,16 @@ def test_read_sfz_uses_asset_layout_and_embedded_loop(tmp_path: Path) -> None:
         '<region> sample=stereo.wav pan=25 loop_mode=no_loop'
     )
 
-    result = sfz.read(path)
+    result = read(path)
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
-    mono, stereo = result.instrument.slots
+    mono, stereo = result.instrument.body.slots
 
     assert mono.processing.pan == -0.25
-    assert mono.playback.loop is not None
-    assert mono.playback.loop.start_frame == 100
-    assert mono.playback.loop.end_frame == 200
-    assert mono.playback.loop.mode == enums.LoopMode.through_release
+    assert result.instrument.body.slices[0].loop is not None
+    assert result.instrument.body.slices[0].loop.start_frame == 100
+    assert result.instrument.body.slices[0].loop.end_frame == 200
+    assert result.instrument.body.slices[0].loop.mode == enums.LoopMode.through_release
     assert stereo.processing.pan == 0
     assert stereo.processing.stereo_balance == 0.25
 
@@ -234,7 +239,38 @@ def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
     path.write_text('<region> sample=missing.wav loop_mode=no_loop')
 
     with pytest.raises(ValueError, match='Cannot read SFZ sample'):
-        sfz.read(path)
+        read(path)
+
+
+def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
+    path = tmp_path / 'source.sfz'
+    sample = tmp_path / 'sample.wav'
+    _write_wav(sample, loop=(100, 199))
+    before = sample.read_bytes()
+    path.write_text('<region> sample=sample.wav')
+    result = read(path, output_rate=96_000, output_channels=['mono'])
+    assert result.instrument is not None
+    asset = result.instrument.assets[0]
+    assert asset.byte_length == len(before)
+    assert asset.sha256 == sha256(before).hexdigest()
+    assert asset.audio.frames == 48_000
+    assert asset.audio.channels == ['mono']
+    assert asset.encoding == 'WAV/PCM_16'
+    clocks = {t.id: t.rate.numerator for t in result.instrument.timebases}
+    assert clocks[asset.audio.timebase] == 48_000
+    assert clocks[result.instrument.output.timebase] == 96_000
+    assert sample.read_bytes() == before
+
+
+def test_sfz_import_rejects_symlinks_outside_its_directory(tmp_path: Path) -> None:
+    folder = tmp_path / 'instrument'
+    folder.mkdir()
+    _write_wav(tmp_path / 'outside.wav')
+    (folder / 'linked.wav').symlink_to(tmp_path / 'outside.wav')
+    path = folder / 'source.sfz'
+    path.write_text('<region> sample=linked.wav')
+    with pytest.raises(ValueError, match='escapes the instrument directory'):
+        read(path)
 
 
 @pytest.mark.parametrize(
@@ -302,7 +338,7 @@ def test_read_sfz_reports_unimplemented_features(
     path.write_text(text)
     _write_wav(tmp_path / 'a.wav')
 
-    result = sfz.read(path)
+    result = read(path)
 
     assert not result.complete
     assert (result.instrument is not None) is has_instrument
@@ -335,7 +371,7 @@ def test_read_sfz_rejects_malformed_input(
     _write_wav(tmp_path / 'a.wav')
 
     with pytest.raises(ValueError, match=message):
-        sfz.read(path)
+        read(path)
 
 
 def test_write_sfz_is_deterministic_and_round_trips_complete_import(
@@ -348,7 +384,7 @@ def test_write_sfz_is_deterministic_and_round_trips_complete_import(
         'direction=reverse offset=10 end=999 loop_mode=one_shot '
         'ampeg_attack=0.1 ampeg_release=0.2'
     )
-    first = sfz.read(path)
+    first = read(path)
     assert first.instrument is not None
 
     exported = sfz.write(first.instrument)
@@ -356,12 +392,12 @@ def test_write_sfz_is_deterministic_and_round_trips_complete_import(
     assert exported == sfz.write(first.instrument)
     output = tmp_path / 'output.sfz'
     output.write_text(exported.contents)
-    second = sfz.read(output)
+    second = read(output)
 
     assert second.complete
     assert second.instrument is not None
-    assert second.instrument.instrument == first.instrument.instrument
-    assert second.instrument.slots == first.instrument.slots
+    assert second.instrument.body.instrument == first.instrument.body.instrument
+    assert second.instrument.body.slots == first.instrument.body.slots
 
 
 def test_write_sfz_preserves_recs_metadata(
@@ -376,7 +412,11 @@ def test_write_sfz_preserves_recs_metadata(
             name='Soft\nGlass',
             description='Slot\ndescription',
             tags=['soft', 'layer-1'],
-            sample='sample.wav',
+            slice='sample',
+            channels=[
+                processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+                for c in ['left', 'right']
+            ],
             mapping=playback.Mapping(
                 lowest_key=60,
                 highest_key=60,
@@ -391,14 +431,14 @@ def test_write_sfz_preserves_recs_metadata(
     file_regression.check(exported.contents, extension='.sfz')
     path = tmp_path / 'renamed.sfz'
     path.write_text(exported.contents)
-    restored = sfz.read(path)
+    restored = read(path)
 
     assert restored.complete
     assert restored.instrument is not None
-    assert restored.instrument.instrument.name == 'Gläss\nKeys'
-    assert restored.instrument.instrument.description == 'Instrument\ndescription'
-    assert restored.instrument.instrument.tags == ['bright', 'unicode-ä']
-    slot = restored.instrument.slots[0]
+    assert restored.instrument.name == 'Gläss\nKeys'
+    assert restored.instrument.description == 'Instrument\ndescription'
+    assert restored.instrument.tags == ['bright', 'unicode-ä']
+    slot = restored.instrument.body.slots[0]
     assert slot.id == 'glass-1'
     assert slot.name == 'Soft\nGlass'
     assert slot.description == 'Slot\ndescription'
@@ -413,47 +453,67 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
     ]
     first = instrument.SampleSlot(
         id='open',
-        sample='open.wav',
+        slice='open',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=40,
             highest_key=80,
             reference_pitch_hz=440.0,
         ),
-        playback=playback.SlotPlayback(
-            loop=playback.Loop(
-                start_frame=100,
-                end_frame=200,
-                mode=enums.LoopMode.through_release,
-            )
-        ),
         choke_group='open-hat',
         crossfades=[
-            modulation.KeyCrossfade(
+            crossfade.KeyCrossfade(
                 input=enums.Input.key,
                 direction=enums.FadeDirection.fade_in,
                 start=40,
                 end=50,
                 curve=enums.FadeCurve.equal_power,
             ),
-            modulation.KeyCrossfade(
+            crossfade.KeyCrossfade(
                 input=enums.Input.velocity,
                 direction=enums.FadeDirection.fade_out,
                 start=64 / 127,
                 end=1.0,
             ),
         ],
-        modulation=[
-            modulation.KeyModulation(
-                target='amplitude',
-                input=enums.Input.velocity,
-                operation=enums.Operation.multiply,
-                points=points,
-            )
-        ],
+        bindings=[processing.EventBinding(id='velocity', kind='velocity')],
+        modulation=modulation.Modulation(
+            sources=[
+                modulation.Source(id='velocity', scope='voice', minimum=0, maximum=1)
+            ],
+            parameters=[
+                modulation.Parameter(
+                    target=modulation.Target(node='processing', parameter='amplitude'),
+                    scope=Scope.voice,
+                    unit=modulation.Unit.ratio,
+                    minimum=0,
+                    maximum=1,
+                    default=1,
+                )
+            ],
+            routes=[
+                modulation.Route(
+                    id='velocity-gain',
+                    source='velocity',
+                    target=modulation.Target(node='processing', parameter='amplitude'),
+                    operation=modulation.Operation.multiply,
+                    unit=modulation.Unit.ratio,
+                    points=points,
+                )
+            ],
+        ),
     )
+
     second = instrument.SampleSlot(
         id='closed',
-        sample='closed.wav',
+        slice='closed',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=42,
             highest_key=42,
@@ -463,7 +523,12 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
         chokes=[selection.Choke(group='open-hat', mode=enums.ChokeMode.release)],
         trigger=enums.TriggerKind.logical_release,
     )
-    document = _instrument(slot=first).model_copy(update={'slots': [first, second]})
+    document = _instrument(
+        slots=[first, second],
+        loop=playback.Loop(
+            start_frame=100, end_frame=200, mode=enums.LoopMode.through_release
+        ),
+    )
     _write_wav(tmp_path / 'open.wav')
     _write_wav(tmp_path / 'closed.wav')
 
@@ -471,14 +536,14 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
     assert exported.complete
     path = tmp_path / 'export.sfz'
     path.write_text(exported.contents)
-    restored = sfz.read(path)
+    restored = read(path)
 
     assert restored.complete
     assert restored.instrument is not None
-    open_hat, closed_hat = restored.instrument.slots
-    assert open_hat.playback.loop == first.playback.loop
+    open_hat, closed_hat = restored.instrument.body.slots
+    assert restored.instrument.body.slices[0].loop == document.body.slices[0].loop
     assert open_hat.crossfades == first.crossfades
-    assert [p.amount for p in open_hat.modulation[0].points][64] == 0.75
+    assert [p.amount for p in open_hat.modulation.routes[0].points][64] == 0.75
     assert closed_hat.chokes[0].mode == enums.ChokeMode.release
     assert closed_hat.trigger == enums.TriggerKind.logical_release
 
@@ -486,7 +551,11 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
 def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
     bad = instrument.SampleSlot(
         id='bad',
-        sample='bad=sample.wav',
+        slice='bad',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=60,
             highest_key=60,
@@ -495,7 +564,11 @@ def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
     )
     good = instrument.SampleSlot(
         id='good',
-        sample='good.wav',
+        slice='good',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=61,
             highest_key=61,
@@ -503,7 +576,7 @@ def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
         ),
         playback=playback.SlotPlayback(direction=enums.Direction.mirror),
     )
-    document = _instrument(slot=bad).model_copy(update={'slots': [bad, good]})
+    document = _instrument(slots=[bad, good])
 
     exported = sfz.write(document)
 
@@ -513,17 +586,21 @@ def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
     assert [
         f.location.path
         for f in exported.unimplemented
-        if isinstance(f.location, sfz.RecsamLocation)
+        if isinstance(f.location, sfz.InstrumentLocation)
     ] == [
-        'slots[0].sample',
-        'slots[1].playback.direction',
+        'body.slots[0].sample',
+        'body.slots[1].playback.direction',
     ]
 
 
 def test_write_sfz_with_no_representable_slot_has_only_generated_comment() -> None:
     slot = instrument.SampleSlot(
         id='bad',
-        sample='bad=sample.wav',
+        slice='bad',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=60,
             highest_key=60,
@@ -535,8 +612,8 @@ def test_write_sfz_with_no_representable_slot_has_only_generated_comment() -> No
 
     assert not exported.complete
     assert exported.contents == '// Generated by recs\n'
-    assert isinstance(exported.unimplemented[-1].location, sfz.RecsamLocation)
-    assert exported.unimplemented[-1].location.path == 'slots'
+    assert isinstance(exported.unimplemented[-1].location, sfz.InstrumentLocation)
+    assert exported.unimplemented[-1].location.path == 'body.slots'
 
 
 def test_read_sfz_reports_unknown_recs_metadata_version(tmp_path: Path) -> None:
@@ -548,11 +625,11 @@ def test_read_sfz_reports_unknown_recs_metadata_version(tmp_path: Path) -> None:
         '<region> sample=sample.wav loop_mode=no_loop'
     )
 
-    result = sfz.read(path)
+    result = read(path)
 
     assert not result.complete
     assert result.instrument is not None
-    assert result.instrument.instrument.name == 'metadata'
+    assert result.instrument.name == 'metadata'
     assert result.unimplemented[0].reason == (
         'Recs SFZ metadata version is not implemented'
     )
@@ -563,13 +640,17 @@ def test_read_sfz_rejects_malformed_recs_metadata(tmp_path: Path) -> None:
     path.write_text('// recs:slot not-json\n<region> sample=sample.wav')
 
     with pytest.raises(ValueError, match='Malformed recs metadata'):
-        sfz.read(path)
+        read(path)
 
 
 def test_write_sfz_serializes_unsupported_control_diagnostic() -> None:
     slot = instrument.SampleSlot(
         id='slot',
-        sample='sample.wav',
+        slice='sample',
+        channels=[
+            processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
+            for c in ['left', 'right']
+        ],
         mapping=playback.Mapping(
             lowest_key=60,
             highest_key=60,
@@ -579,10 +660,14 @@ def test_write_sfz_serializes_unsupported_control_diagnostic() -> None:
     document = _instrument(slot=slot)
     document = document.model_copy(
         update={
-            'instrument': document.instrument.model_copy(
+            'body': document.body.model_copy(
                 update={
-                    'controls': {'expression': controls.Control()},
-                    'sustain': None,
+                    'instrument': document.body.instrument.model_copy(
+                        update={
+                            'controls': {'expression': controls.Control()},
+                            'sustain': None,
+                        }
+                    )
                 }
             )
         }
@@ -598,25 +683,51 @@ def test_write_sfz_serializes_unsupported_control_diagnostic() -> None:
 
 def _instrument(
     *,
-    slot: instrument.SampleSlot,
+    slot: instrument.SampleSlot | None = None,
+    slots: list[instrument.SampleSlot] | None = None,
+    loop: playback.Loop | None = None,
     instrument_name: str = 'Test',
     instrument_description: str | None = None,
     instrument_tags: list[str] | None = None,
-) -> instrument.SampleInstrument:
-    return instrument.SampleInstrument(
-        format_version=1,
-        instrument=instrument.Instrument(
-            name=instrument_name,
-            description=instrument_description,
-            tags=instrument_tags or [],
-            envelope=playback.Envelope(
-                decay_shape=enums.EnvelopeShape.exponential,
-                release_shape=enums.EnvelopeShape.exponential,
+) -> instrument.InstrumentDocument:
+    selected = slots if slots is not None else [slot] if slot is not None else []
+    return instrument.InstrumentDocument(
+        id='test',
+        name=instrument_name,
+        description=instrument_description,
+        tags=instrument_tags or [],
+        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        assets=[
+            instrument.AudioAsset(
+                id=s.slice,
+                path='bad=sample.wav' if s.slice == 'bad' else f'{s.slice}.wav',
+                encoding='WAV/PCM_16',
+                byte_length=0,
+                sha256='0' * 64,
+                audio=AudioDescription(
+                    timebase='audio', channels=['mono'], frames=48000
+                ),
+            )
+            for s in selected
+        ],
+        output=AudioType(timebase='audio', channels=['left', 'right']),
+        body=instrument.SampleInstrument(
+            instrument=instrument.Instrument(
+                envelope=sfz.amplitude_envelope({'ampeg_release': '0'}),
+                controls={'sustain': controls.Control()},
+                sustain=selection.Sustain(control='sustain'),
             ),
-            controls={'sustain': controls.Control()},
-            sustain=selection.Sustain(control='sustain'),
+            slots=selected,
+            slices=[
+                playback.Slice(
+                    id=s.slice,
+                    asset=s.slice,
+                    end_frame=48000,
+                    loop=loop if i == 0 else None,
+                )
+                for i, s in enumerate(selected)
+            ],
         ),
-        slots=[slot],
     )
 
 
