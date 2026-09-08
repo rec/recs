@@ -170,7 +170,7 @@ of Recsam instruments is not implemented yet.
 - [Audio Arrangement Documents](doc/arrangement-format.md)
 - [Recs Protocol](doc/recs_protocol.md)
 - [Configuration Units](doc/configuration-units.md)
-- [Recsam Instrument Format](doc/sample-format.md)
+- [Sample Instrument Documents](doc/sample-format.md)
 
 Current unfinished design work is kept under `plan/`. Historical reviews and
 completed plans are deliberately not retained as product documentation.

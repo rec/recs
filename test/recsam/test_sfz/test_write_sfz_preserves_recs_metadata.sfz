@@ -9,6 +9,7 @@ hikey=60
 lovel=0
 hivel=127
 pitch_keycenter=60
+end=47999
 loop_mode=no_loop
 ampeg_delay=0
 ampeg_attack=0

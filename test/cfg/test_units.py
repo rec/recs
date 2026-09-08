@@ -8,7 +8,6 @@ from reccy.configuration import units
 from recs.cfg.cfg import Cfg, Console, Recording
 from recs.cfg.cli import CliCfg
 from recs.osc.config import Poll, Subscription
-from recs.recsam import playback, processing, selection
 
 
 def test_cli_and_api_use_the_same_numeric_config_values() -> None:
@@ -127,34 +126,3 @@ def test_osc_periods_accept_units_without_changing_output_types() -> None:
     assert poll.period == 0.25
     assert subscription.resubscribe_period == 60.0
     assert poll.model_dump()['period'] == 0.25
-
-
-def test_recsam_declarations_accept_units_but_keep_numeric_values() -> None:
-    envelope = playback.Envelope.model_validate({'attack_seconds': '10ms'})
-    mapping = playback.Mapping.model_validate(
-        {
-            'lowest_key': 0,
-            'highest_key': 100,
-            'reference_pitch_hz': '0.44kHz',
-        }
-    )
-    lfo = playback.LFO.model_validate(
-        {'id': 'slow', 'frequency_hz': '5Hz', 'delay_seconds': '20ms'}
-    )
-    band = processing.EqualizerBand.model_validate(
-        {
-            'id': 'tone',
-            'frequency_hz': '2.4kHz',
-            'gain_db': 3,
-            'resonance': 1,
-        }
-    )
-    choke = selection.Choke.model_validate(
-        {'group': 'hats', 'mode': 'fade', 'fade_seconds': '5ms'}
-    )
-    assert envelope.attack_seconds == 0.01
-    assert mapping.reference_pitch_hz == 440.0
-    assert lfo.frequency_hz == 5.0
-    assert lfo.delay_seconds == 0.02
-    assert band.frequency_hz == 2400.0
-    assert choke.fade_seconds == 0.005

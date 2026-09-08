@@ -1,8 +1,8 @@
-# Remaining Recsam Format Work
+# Remaining Sample Format Work
 
 ## Scope
 
-The current recsam instrument model already specifies sustain loops,
+The current Ufor sample-instrument model specifies sustain loops,
 alternative selection, choke groups, layer crossfades, release and sustain
 samples, articulations, named live controls, modulation envelopes, LFOs,
 panning, stereo balance, and pitch bend. On 8 September 2026 the user reopened
@@ -10,7 +10,9 @@ envelopes and LFOs for deeper design before any further waveform generation.
 Other existing fields remain implementation inventory, not proof of a sampler.
 
 The sections below are unresolved additions. They require explicit approval and
-format design before changing `doc/sample-format.md` or the Pydantic models.
+format design before changing Ufor's instrument specification or models.
+The Recsam type extraction, named slices, explicit channel maps, richer
+envelopes/LFOs, and SFZ cutover are now implemented.
 Playback implementation remains separate in [Sample Playback](sample-playback.md).
 
 ## Envelopes And LFOs Come First
@@ -66,12 +68,10 @@ layer synchronization or routing.
 
 ## Named Slices
 
-Allow multiple slots to reference named half-open frame ranges in a shared audio
-asset. Slice boundaries must have one authoritative declaration and use native
-sample frames. Slots retain their own mapping, trigger, and processing values.
-
-This avoids duplicating audio and avoids repeating trim boundaries throughout
-an instrument.
+Implemented in Ufor. Slots reference named half-open native-frame ranges in
+sealed audio assets, with contained loop ranges. There is no duplicated sample
+path or trim interval on each slot. Linked microphone take selection remains
+separate future work.
 
 ## Reproducible Variation
 
@@ -99,7 +99,7 @@ remain outside this plan.
 1. Envelope/LFO design and Tuney definition extraction under master stage 3.
 2. A small instrument/performance contract with language-neutral examples.
 3. Voice limits and retriggering where needed by that retained contract.
-4. Named slices, groups, and synchronized microphone layers if retained.
+4. Groups and synchronized microphone layers if retained; named slices are implemented.
 5. Reproducible variation and filters as separately settled extensions.
 
 No step above authorizes sampler waveform generation. Choose its language,
