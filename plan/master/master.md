@@ -4,7 +4,10 @@ Status: stages 1 and 2 are implemented. The shared-format extraction into
 [Ufor](ufor.md) now covers recordings, arrangements, sequences, tunings, scales,
 and oscillator definitions. Ufor also implements the first envelope/LFO control
 profile, with exact timing and scalar conformance cases. Stage 3 still requires
-the instrument/performance contract and its modulation-route integration. Further audio waveform
+the native instrument document, source bindings, preparation, and SFZ cutover.
+Shared performance events and typed scalar routes are now implemented, with
+the [instrument contract](../../../ufor/doc/instrument-format.md) defining the
+remaining boundary. Further audio waveform
 generation, especially the sampler, is deferred until that design is settled.
 The implemented subset is documented in the
 [arrangement format](../../doc/arrangement-format.md) and
@@ -168,8 +171,9 @@ implemented boundary and remaining design work.
 
 Stages 1 and 2 already cover arrangements and native capture. Tuning, scale,
 oscillator, envelope, and LFO definitions now have portable Ufor models and
-musical or scalar/state conformance cases. Next, settle the small instrument
-and performance contract consuming them. Design the
+musical or scalar/state conformance cases. The instrument contract now includes
+shared performance events and typed routes. Next, implement the coordinated
+native instrument and SFZ cutover consuming them. Design the
 sampler's interface without selecting its implementation language or producing
 new audio. Later rendering and a possible VST realization require the model
 gate to pass and a separate implementation decision. Cross-domain control and

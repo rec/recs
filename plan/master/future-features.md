@@ -120,7 +120,8 @@ operation authored in the CLI and one authored in an editor stay interchangeable
 
 Stages 1 and 2 have established common arrangements and native capture. Ufor
 now owns the initial musical definitions and first envelope/LFO control profile.
-Next settle the small instrument/performance contract and its route integration. Defer
+Shared performance events and typed routes now accompany the instrument contract.
+Next implement its native document, preparation, and SFZ cutover. Defer
 new sampler, oscillator, and other audio generation until that design is ready
 and execution work is explicitly resumed. Cross-domain and programme work can
 reuse existing recordings and engines. Improve authoring and interchange around

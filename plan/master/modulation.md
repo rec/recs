@@ -42,10 +42,13 @@ then multiply mapped factors. Reject out-of-domain values unless an explicit
 clipping operation is present. Use stable route identities for numerical
 reduction, never list order as modulation priority.
 
-These semantics are specified; the general route data classes and parameter
-resolution belong to the instrument/processor step. Do not overload the
-existing arrangement-only parameter target or build a modulation graph engine
-as part of the scalar profile.
+These semantics are now implemented by `ufor.modulation.Modulation`, with typed
+parameter domains, scope and unit checks, explicit mappings, and scalar
+evaluation. See [routes](../../../ufor/doc/instrument-format.md#modulation-routes)
+and [portable cases](../../../ufor/conformance/routes.json). Binding source
+declarations to instrument generators and context ownership is part of the
+native instrument cutover; the existing arrangement-only parameter target
+remains separate.
 
 ## Cutover and remaining work
 
@@ -57,8 +60,8 @@ adapters report unsupported curves or lifecycle behavior explicitly.
 
 The canonical specification gives before/after mappings, including the old
 exponential curves and the changed phase behavior during LFO delay. The next
-step is the [small instrument/performance contract](instruments.md), including
-pedal/legato gate delivery, voice retirement, and routes consuming these models.
+step is the [native instrument cutover](instruments.md), including pedal/legato
+gate delivery, voice retirement, and source bindings consuming these models.
 Audio oscillator lifecycle integration must also use the phase/reset contract
 without copying a waveform engine into Ufor.
 
