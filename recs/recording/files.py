@@ -9,12 +9,12 @@ import mido
 import soundfile
 from pydantic import Field, TypeAdapter
 from reccy.protocol.jsonl import Decompress
+from ufor.assets import Asset
+from ufor.base import Model
+from ufor.events import StoredEvent
+from ufor.recording import AudioFragment, AudioStream, EventStream, RecordingDocument
 
 from ..base.errors import RecsError
-from ..model.assets import Asset
-from ..model.base import Model
-from ..model.events import StoredEvent
-from ..model.recording import AudioFragment, AudioStream, EventStream, RecordingDocument
 
 
 class Verification(Model):

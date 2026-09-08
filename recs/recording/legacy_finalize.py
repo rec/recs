@@ -5,10 +5,8 @@ import json
 from pathlib import Path
 
 import soundfile
-
-from ..base.errors import RecsError
-from ..model.assets import Asset
-from ..model.recording import (
+from ufor.assets import Asset
+from ufor.recording import (
     AudioFragment,
     AudioStream,
     EventFragment,
@@ -20,8 +18,10 @@ from ..model.recording import (
     UnfinishedFile,
     UnmappedAudioFragment,
 )
-from ..model.streams import AudioType
-from ..model.time import Rate, TickRange, Timebase
+from ufor.streams import AudioType
+from ufor.time import Rate, TickRange, Timebase
+
+from ..base.errors import RecsError
 from . import legacy
 from .files import sealed_asset
 

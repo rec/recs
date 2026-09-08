@@ -5,12 +5,12 @@ import numpy as np
 import pytest
 import soundfile
 import tyro
+from ufor.arrangement import Arrangement, ArrangementDocument
+from ufor.codec import document_toml
+from ufor.time import Rate, Timebase
 
 from recs.edit import commands, session
 from recs.edit.cli import EditCli, main
-from recs.model.arrangement import Arrangement, ArrangementDocument
-from recs.model.codec import document_toml
-from recs.model.time import Rate, Timebase
 from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 

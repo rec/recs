@@ -1,12 +1,12 @@
 from pathlib import Path
 
 import soundfile
+from ufor.arrangement import ArrangementDocument
+from ufor.encoding import Format
+from ufor.streams import FileDestination
 
 from recs.base.errors import RecsError
-from recs.base.types import Format
 from recs.edit.graph import EditGraph
-from recs.model.arrangement import ArrangementDocument
-from recs.model.streams import FileDestination
 
 
 def validate_outputs(

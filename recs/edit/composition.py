@@ -5,6 +5,8 @@ from typing import Literal, Self
 import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, session
@@ -21,8 +23,6 @@ from recs.edit.output import validate_outputs
 from recs.edit.record import ResolvedSource, resolve_sources
 from recs.edit.render import Renderer
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
-from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
-from recs.model.time import Rate, Timebase
 from recs.recording.read import read_recording_chain
 
 

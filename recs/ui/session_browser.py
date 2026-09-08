@@ -3,9 +3,9 @@ import sys
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+from ufor.recording import AudioStream, EventStream
 
 from ..base.errors import RecsError
-from ..model.recording import AudioStream, EventStream
 from ..recording import legacy
 from ..recording.read import read_recording
 from . import session_record

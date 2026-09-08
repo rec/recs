@@ -5,8 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-
-from recs.model.recording import AudioSpan
+from ufor.recording import AudioSpan
 
 
 class SessionHeader(BaseModel):

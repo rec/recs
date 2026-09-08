@@ -6,12 +6,7 @@ import soundfile
 import tomlkit
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from reccy.configuration import units
-
-from recs.base.errors import RecsError
-from recs.base.types import Format, Subtype
-from recs.edit.options import EditOptions
-from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
-from recs.model.arrangement import (
+from ufor.arrangement import (
     Arrangement,
     ArrangementDocument,
     AutomationPoint,
@@ -24,10 +19,15 @@ from recs.model.arrangement import (
     SourceSpec,
     TrackSpec,
 )
-from recs.model.recording import AudioStream
-from recs.model.references import ParameterTarget, RecordSelector
-from recs.model.streams import AudioType, FileDestination
-from recs.model.time import Rate, Timebase
+from ufor.encoding import Format, Subtype
+from ufor.recording import AudioStream
+from ufor.references import ParameterTarget, RecordSelector
+from ufor.streams import AudioType, FileDestination
+from ufor.time import Rate, Timebase
+
+from recs.base.errors import RecsError
+from recs.edit.options import EditOptions
+from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
 from recs.recording.read import read_recording_chain
 
 

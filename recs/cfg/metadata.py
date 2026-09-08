@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 
 import soundfile
+from ufor.encoding import Format
 
 from recs.base import prefix_dict
 from recs.base.errors import RecsError
-from recs.base.types import Format
 
 RECS_USES = {'date', 'software', 'tracknumber'}
 USABLE = {'album', 'artist', 'comment', 'copyright', 'genre', 'title'}

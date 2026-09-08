@@ -10,16 +10,17 @@ from typing import Any, override
 from numpy.typing import NDArray
 from soundfile import SoundFile
 from threa import Runnable
+from ufor.encoding import Format
+from ufor.recording import AudioSpan
+from ufor.time import TickRange
 
 from recs.base.state import ChannelState
-from recs.base.types import SDTYPE, Active, Format, SdType
+from recs.base.types import SDTYPE, Active, SdType
 from recs.cfg import path_pattern, time_settings, track_names
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.misc import counter, file_list
-from recs.model.recording import AudioSpan
-from recs.model.time import TickRange
 
 from .block import Block, Blocks
 from .file_opener import FileOpener

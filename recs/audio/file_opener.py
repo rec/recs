@@ -4,8 +4,8 @@ from pathlib import Path
 
 import soundfile
 from pydantic import BaseModel
+from ufor.encoding import Format, Subtype
 
-from recs.base.types import Format, Subtype
 from recs.cfg.metadata import ALLOWS_METADATA
 
 

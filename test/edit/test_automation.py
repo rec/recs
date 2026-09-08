@@ -1,7 +1,7 @@
 import numpy as np
+from ufor.arrangement import AutomationSpec
 
 from recs.edit.automation import gain_values
-from recs.model.arrangement import AutomationSpec
 
 
 def test_gain_values_hold_declared_value_before_first_point() -> None:

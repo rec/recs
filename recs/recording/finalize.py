@@ -8,11 +8,9 @@ from typing import Annotated
 import soundfile
 import tyro
 from pydantic import BaseModel
-
-from ..base.errors import RecsError
-from ..model.assets import Asset
-from ..model.codec import document_toml
-from ..model.recording import (
+from ufor.assets import Asset
+from ufor.codec import document_toml
+from ufor.recording import (
     AudioFragment,
     AudioStream,
     EventFragment,
@@ -23,8 +21,10 @@ from ..model.recording import (
     RecordingDocument,
     UnfinishedFile,
 )
-from ..model.streams import AudioType
-from ..model.time import Rate, Timebase
+from ufor.streams import AudioType
+from ufor.time import Rate, Timebase
+
+from ..base.errors import RecsError
 from ..ui import session_record
 from .files import sealed_asset, verify_events
 

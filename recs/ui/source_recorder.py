@@ -13,6 +13,8 @@ from weakref import WeakSet
 import numpy as np
 from pydantic import BaseModel
 from threa import Runnables
+from ufor.encoding import Format
+from ufor.recording import AudioSpan, Gap, GapReason
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
@@ -20,7 +22,7 @@ from recs.audio.live_waveform import LiveWaveform
 from recs.base import memory
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.state import ChannelState
-from recs.base.types import SDTYPE, Active, Format, SdType
+from recs.base.types import SDTYPE, Active, SdType
 from recs.base.waveform import (
     WaveformBatchData,
     WaveformLayoutData,
@@ -31,7 +33,6 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
-from recs.model.recording import AudioSpan, Gap, GapReason
 from recs.ui.session_record import AudioTimelineRecord
 
 POLL_TIMEOUT = 0.05

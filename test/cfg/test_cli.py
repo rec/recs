@@ -5,8 +5,9 @@ import subprocess as sp
 import pytest
 import tomllib
 import tyro
+from ufor.encoding import Format, Subtype
 
-from recs.base.types import Format, MidiTiming, SdType, Subtype
+from recs.base.types import MidiTiming, SdType
 from recs.cfg import cli
 
 

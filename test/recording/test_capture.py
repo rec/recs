@@ -6,11 +6,17 @@ import numpy as np
 import pytest
 import soundfile
 from pydantic import TypeAdapter
+from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from ufor.encoding import Format
+from ufor.events import MidiEvent, OscEvent, StoredEvent
+from ufor.recording import AudioStream, EventStream, GapReason
+from ufor.references import RecordSelector
+from ufor.time import Rate, Timebase
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.base.errors import RecsError
-from recs.base.types import Format, MidiTiming
+from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
@@ -19,11 +25,6 @@ from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_sources
 from recs.midi.export import export_midi
 from recs.midi.recorder import MidiPacket, MidiRecorder
-from recs.model.arrangement import Arrangement, ArrangementDocument, SourceSpec
-from recs.model.events import MidiEvent, OscEvent, StoredEvent
-from recs.model.recording import AudioStream, EventStream, GapReason
-from recs.model.references import RecordSelector
-from recs.model.time import Rate, Timebase
 from recs.osc import recorder
 from recs.osc.config import Node
 from recs.recording.files import verify_recording

@@ -8,12 +8,11 @@ from pydantic import (
     ConfigDict,
     Field,
 )
-
-from recs.base.types import Format, Subtype
-from recs.model.arrangement import ArrangementDocument, Interpolation, NormalizeMode
-from recs.model.base import Identifier
-from recs.model.codec import parse_document
-from recs.model.references import ParameterTarget, RecordSelector
+from ufor.arrangement import ArrangementDocument, Interpolation, NormalizeMode
+from ufor.base import Identifier
+from ufor.codec import parse_document
+from ufor.encoding import Format, Subtype
+from ufor.references import ParameterTarget, RecordSelector
 
 
 class CommandKind(StrEnum):

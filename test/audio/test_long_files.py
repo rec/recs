@@ -3,11 +3,12 @@ from test.audio.test_channel_writer import TIMES
 
 import numpy as np
 import tdir
+from ufor.encoding import Format
 
 from recs.audio import channel_writer
 from recs.audio.block import Block
 from recs.audio.file_opener import FileOpener
-from recs.base.types import Format, SdType
+from recs.base.types import SdType
 from recs.cfg.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
 

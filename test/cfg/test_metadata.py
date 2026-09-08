@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 import soundfile
 import tdir
+from ufor.encoding import Format
 
 from recs.base.errors import RecsError
-from recs.base.types import Format
 from recs.cfg import metadata
 
 CHANGED = {'license', 'software'}

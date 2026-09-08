@@ -2,8 +2,9 @@ import json
 
 import pytest
 from pydantic import ValidationError
+from ufor.encoding import Format, Subtype
 
-from recs.base.types import Format, SdType, Subtype
+from recs.base.types import SdType
 from recs.cfg import run_cli
 from recs.cfg.cfg import Cfg
 
@@ -20,7 +21,7 @@ def test_error_incompatible():
 
 
 def test_missing_subtype(capsys):
-    r = Cfg(formats=[Format._default], sdtype=SdType.int16)
+    r = Cfg(formats=[Format.flac], sdtype=SdType.int16)
     assert r.audio.subtype == Subtype.pcm_16
 
 

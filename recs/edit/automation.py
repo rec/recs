@@ -1,6 +1,5 @@
 import numpy as np
-
-from recs.model.arrangement import AutomationSpec, Interpolation
+from ufor.arrangement import AutomationSpec, Interpolation
 
 
 def gain_values(
