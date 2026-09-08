@@ -47,21 +47,20 @@ parameter domains, scope and unit checks, explicit mappings, and scalar
 evaluation. See [routes](../../../ufor/doc/instrument-format.md#modulation-routes)
 and [portable cases](../../../ufor/conformance/routes.json). Binding source
 declarations to instrument generators and context ownership is part of the
-native instrument cutover; the existing arrangement-only parameter target
+completed native instrument cutover; the existing arrangement-only parameter target
 remains separate.
 
 ## Cutover and remaining work
 
-Existing Recsam declarations still use their current fixed envelope/LFO fields.
-The new Ufor documents do not create an alternate Recsam reader. During the
-instrument cutover, resolve slot inheritance before constructing complete
-segments, replace the old declarations and their consumers together, and make
-adapters report unsupported curves or lifecycle behavior explicitly.
+Recsam now uses the shared Ufor envelope/LFO definitions. The old fixed classes
+and route hierarchy are removed. Native slot envelopes are whole overrides,
+playback inheritance survives serialization, and SFZ adapters report unsupported
+curves and behavior explicitly. There is no alternate Recsam reader.
 
 The canonical specification gives before/after mappings, including the old
 exponential curves and the changed phase behavior during LFO delay. The next
-step is the [native instrument cutover](instruments.md), including pedal/legato
-gate delivery, voice retirement, and source bindings consuming these models.
+step is [instrument preparation](instruments.md), including pedal/legato
+gate delivery, voice retirement, and portable action traces for these models.
 Audio oscillator lifecycle integration must also use the phase/reset contract
 without copying a waveform engine into Ufor.
 

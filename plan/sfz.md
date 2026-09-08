@@ -3,11 +3,12 @@
 ## Current Baseline
 
 `recs.recsam.sfz.read()` already returns `SfzReadResult`, containing a validated
-recsam instrument when one can be constructed and an ordered collection of
+native Ufor instrument when one can be constructed and an ordered collection of
 unimplemented features with source locations. The completed correctness work
 includes velocity response, asset-aware loop and channel defaults, envelope
 shape mapping, release-trigger distinctions, half-open loop endpoints, and
-basic inheritance.
+basic inheritance. Pure parsing, compilation and export now live in
+`ufor.sfz`; Recs only resolves paths and supplies measured asset metadata.
 
 The remaining goal is a lossless, well-diagnosed import of useful,
 non-vendor-specific SFZ 1 and SFZ 2 behavior. Unsupported behavior must remain
@@ -22,7 +23,7 @@ Create one registry classifying every standard header and opcode as:
 
 - supported;
 - dependent on asset metadata;
-- dependent on a new recsam model;
+- dependent on a new Ufor model;
 - dependent on an external controller binding;
 - deferred because player semantics are ambiguous; or
 - a vendor extension.
@@ -38,7 +39,7 @@ semantics remain unsupported.
 
 ## 2. Currently Representable Features
 
-Implement exact mappings that fit the existing recsam model:
+Implement exact mappings that fit the existing Ufor model:
 
 - key and velocity layer crossfades, including only curve shapes with an exact
   counterpart;
@@ -64,11 +65,11 @@ Design these independently before adding importer mappings:
   termination;
 - delayed start, repeat count, end fade, stereo width, channel position,
   channel swapping, and polarity inversion;
-- missing modulation-envelope and LFO behavior such as LFO fade-in;
+- mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
 - exact conversion between SFZ equalizer bandwidth and recsam resonance, if the
   transfer functions can be specified and tested.
 
-Do not add SFZ opcode names to recsam. Filters remain blocked on a separate
+Do not add SFZ opcode names to the native Ufor model. Filters remain blocked on a separate
 filter design.
 
 ## 4. Controller Bindings

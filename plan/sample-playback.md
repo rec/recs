@@ -63,15 +63,16 @@ not required for that core or for its first implementation.
 
 ## Proposed Sampler Subsystem
 
-The current instrument models live in `recs/recsam/`. Design a small sampler
+The portable instrument models live in `ufor/samples/`; shared control and event
+models live in Ufor too. Recsam retains only file acquisition. Design a small sampler
 contract separate from document parsing, host wrappers, and recording machinery.
 Do not create `recs/sampler/` as an assumed Python implementation yet. The
 names below describe responsibilities, not mandatory Python runtime classes:
 
 | Class | Responsibility |
 | --- | --- |
-| `SampleInstrument`, `Instrument`, `SampleSlot` | Existing recsam Pydantic models for the document, shared settings, and slots |
-| `Trigger`, `Release`, `ControlChange` | Existing frame-timed recsam event models with logical parts and trigger IDs |
+| `InstrumentDocument`, `SampleInstrument`, `Instrument`, `SampleSlot` | Implemented Ufor root, body, settings and slots, with named slices and explicit channels |
+| `Trigger`, `Release`, `ControlChange` | Implemented Ufor events with native ticks/ordinals, logical parts and trigger IDs |
 | `PreparedInstrument` | Validated assets, resolved settings, and efficient key/velocity lookup |
 | `PerformanceState` | Named controls per scope, trigger ownership, sustain, articulations, alternate-take counters, and random state |
 | `Voice` | Playback position, direction, loop state, envelope, and filter state |

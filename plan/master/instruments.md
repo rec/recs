@@ -8,14 +8,15 @@ Revision, 8 September 2026: stage 3 extracts and improves definitions and
 performance semantics. Sampler implementation and further waveform generation
 are deferred. The first [envelope and LFO profile](modulation.md) is now
 implemented in Ufor. The [instrument contract](../../../ufor/doc/instrument-format.md)
-now specifies the next native structure and implements shared performance
-events and typed scalar routes. The remaining step is the coordinated native
-root/preparation/SFZ cutover; no sampler language has been selected.
+now implements the native root, sealed assets, named slices, channel maps,
+source bindings, shared performance events and typed routes. Pure SFZ conversion
+and every portable Recsam model now live in Ufor. Preparation and performance
+action traces remain; no sampler language has been selected.
 
 ## Preserve the useful recsam model
 
-The existing [recsam format](../../doc/sample-format.md) and
-`recs/recsam/` models already describe slots, key/velocity selection, loops,
+The [Ufor sample format](../../../ufor/doc/instrument-format.md) and
+`ufor/samples/` models describe slots, key/velocity selection, loops,
 articulations, sustain, choke groups, crossfades, envelopes, LFOs, scoped
 controls, EQ, and independent reference pitch. Keep those musical concepts.
 Do not flatten them into thousands of primitive graph connections simply to
@@ -41,8 +42,8 @@ independent. A pitch-tracked slot declares `reference_pitch_hz` and requires a
 resolved performance pitch. Unpitched percussion does not need a fictitious
 reference pitch.
 
-Instrument and slot settings retain their documented inheritance semantics:
-an omitted slot setting inherits, while an explicit default overrides.
+Slot playback uses nullable overrides: omission inherits, while an explicit
+default overrides. Envelope overrides replace the complete envelope.
 Preparation resolves these declarations into complete immutable voice settings.
 Do not replace every combination rule with a generic dictionary merge:
 additive gain in dB, envelope overrides, and local modulation references have
@@ -85,8 +86,9 @@ until its algorithm has conformance examples.
 An instrument can expose `dry`, `room`, or other named outputs. A parent
 arrangement connects those explicitly. Each instrument node instance owns its
 voice/control state; two uses of the same definition do not share sustain or
-round-robin counters. Per-voice envelopes and filters run before voice mixing;
-instrument effects run after it. A shared send effect is an explicit graph node.
+round-robin counters. Both slot and instrument processing run per voice before
+mixing, preserving the original sample contract. A shared post-mix/send effect
+is a separate graph node.
 
 Keep normalized performance controls independent of MIDI CC numbers and OSC
 addresses. One named `breath` control can shape a sample filter, an oscillator,
@@ -109,15 +111,18 @@ for the deferred implementation and shared conformance requirements.
 
 ## External samplers and change from today
 
-`SampleInstrument.format_version`, `instrument`, and `slots` currently form a
-standalone document. Adopt the common document header, asset references, and
-exported ports. Reuse its typed slot body and validators instead of simultaneously
-supporting old and new native roots. SFZ remains an external interchange adapter,
-not the canonical model. Its import/export should report which declarations it
-cannot represent.
+`InstrumentDocument` is now the common root; `SampleInstrument` is its typed
+body. The former `format_version` root and Recsam model modules are removed.
+`ufor.sfz` owns pure conversion with explicit unsupported-feature diagnostics.
+Recs retains local path resolution, symlink containment, hashing, decoding and
+embedded-loop inspection. There is no parallel native format.
 
 Existing `Processing` and `SoundSettings` represent a limited sound-processing
 vocabulary. General DSP belongs in [Processors](processors.md); the existing
 peaking EQ does not already implement arbitrary filters or synthesis. The
 [playback plan](../sample-playback.md) still describes an engine to build.
 Adopting a universal envelope does not make that stateful engine exist.
+
+## Additional work beyond the prompt
+
+None.
