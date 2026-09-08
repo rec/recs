@@ -184,12 +184,18 @@ representation. These are adapter responsibilities, not alternative instrument
 schemas. Adapter configuration belongs to the host; no second instrument file
 or embedded transport binding table is required.
 
-Every event has a non-negative integer `frame` on the host's output-frame
-timeline. Hosts convert external timestamps once and preserve supplied order
-among events at the same frame. A logical `part` is an identifier, not a
-restricted channel number.
+Performance events now live in `ufor.events`. Every event has an integer `tick`
+and nonnegative integer `ordinal` on its containing sequence/stream's declared
+timebase. A 48 kHz clock provides output-frame positions; negative ticks permit
+preroll. Hosts preserve native timestamps and process equal-time events in
+ordinal order. A logical `part` is an identifier, not a restricted channel
+number. This replaces the former `frame` field; there is no compatibility
+event reader. See the [shared contract](../../ufor/doc/instrument-format.md).
+Part, trigger, and control IDs follow Ufor's common rule: start with a lowercase
+letter and continue with lowercase letters, digits, hyphens, or underscores.
+Control declarations use the same rule so every declared control is addressable.
 
-| Event kind | Fields beyond `frame` |
+| Event kind | Fields beyond `tick` and `ordinal` |
 | --- | --- |
 | `trigger` | Required `part`, `trigger_id`, integer `key`; `velocity` defaults to 1.0; optional positive `pitch_hz`; optional `controls` mapping |
 | `release` | Required `part` and `trigger_id` |

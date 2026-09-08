@@ -13,11 +13,12 @@ from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
+from ufor import base
+from ufor.events import ControlChange, PerformanceEvent, Trigger
 
 from . import enums
 from .base import Identifier, Model, Text, unique
 from .controls import Control
-from .events import ControlChange, PerformanceEvent, Trigger
 from .modulation import ControlCrossfade, ControlModulation, LayerCrossfade
 from .playback import Mapping, Playback, SlotPlayback
 from .processing import SoundSettings, spatial_bounds
@@ -32,7 +33,7 @@ class Instrument(SoundSettings):
     selections: list[Selection] = Field(default_factory=list)
     sustain: Sustain | None = None
     articulations: Articulations | None = None
-    controls: dict[Identifier, Control] = Field(default_factory=dict)
+    controls: dict[base.Identifier, Control] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def instrument_values(self) -> Self:

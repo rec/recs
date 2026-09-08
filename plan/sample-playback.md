@@ -99,8 +99,8 @@ The core consumes events at integer output-frame positions and renders bounded
 audio blocks. It has no dependency on audio devices, session-record writing, or
 the file-output policy. Asset loading is handled outside its rendering loop.
 
-Use the shared successor to the current `recs.recsam.events.PerformanceEvent`
-contract rather than inventing a host-specific event hierarchy. Validate control
+Use the implemented `ufor.events.PerformanceEvent` contract. Preserve native
+ticks and ordinals until the host resolves the engine's execution clock. Validate control
 names and values against the loaded instrument;
 the engine additionally owns trigger-ID lifetime and release matching. Selection
 keys do not imply pitch. Hosts supply target frequencies for pitch-tracked

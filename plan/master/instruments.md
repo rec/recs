@@ -7,8 +7,10 @@ a synthesizer graph can expose the same performance interface.
 Revision, 8 September 2026: stage 3 extracts and improves definitions and
 performance semantics. Sampler implementation and further waveform generation
 are deferred. The first [envelope and LFO profile](modulation.md) is now
-implemented in Ufor. The next step is the small instrument/performance contract
-consuming it; no sampler implementation language has been selected.
+implemented in Ufor. The [instrument contract](../../../ufor/doc/instrument-format.md)
+now specifies the next native structure and implements shared performance
+events and typed scalar routes. The remaining step is the coordinated native
+root/preparation/SFZ cutover; no sampler language has been selected.
 
 ## Preserve the useful recsam model
 
