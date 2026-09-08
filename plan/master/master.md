@@ -1,15 +1,17 @@
 # Recs: a common language for things that happen in time
 
-Status: architecture proposal with stages 1 and 2 implemented; roadmap revised
-8 September 2026. Stage 3 prioritizes the portable musical model, including
-tunings, oscillator definitions, envelopes, and LFOs. Further audio waveform
+Status: stages 1 and 2 are implemented. The shared-format extraction into
+[Ufor](ufor.md) now covers recordings, arrangements, sequences, tunings, scales,
+and oscillator definitions. Stage 3 still requires the envelope, LFO, and
+instrument model design. Further audio waveform
 generation, especially the sampler, is deferred until that design is settled.
 The implemented subset is documented in the
 [arrangement format](../../doc/arrangement-format.md) and
 [recording/sequence format](../../doc/recording-format.md). The broader domain
 designs below remain proposals, not a claim of universal playback. See the
-[implementation status](how-to.md#implementation-status) for the exact stopping
-point after native capture and session-reader cutover. Backward compatibility is not a requirement.
+[implementation status](how-to.md#implementation-status) and
+[Ufor handover](ufor.md) for the completed extraction and remaining work.
+Backward compatibility is not a requirement.
 
 Recs should record, edit, compose, and play time-varying quantities and events.
 Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,
@@ -147,18 +149,19 @@ reproducing a particular performance.
 
 | Application | Role in the proposed system |
 | --- | --- |
-| Recs | Current common-model implementation; capture, asset preparation, timeline editing, validation, and eventual playback transport |
+| Ufor | Common definitions, pure musical mathematics, codecs, schemas, and portable conformance cases |
+| Recs | Capture, asset preparation, timeline editing, verification, and eventual playback transport |
 | Lyte | Lighting generators, fixture and geometry interpretation, and physical lighting outputs |
 | Streamo | Live stream input/output adapters and broadcast delivery; its existing video features stay outside this format |
 | Showco | Installation coordination, bindings, operator controls, and observable run status |
 | Tuney | Tuning/scale authoring and experiments; provide explicit pitched performance and synthesis definitions |
 
-The implemented shared definitions currently live in `recs/model/`. For the
-next extraction, a small standalone format project is the recommended home for
-language-neutral specifications, examples, and a Python reference model. Settle
-its name and ownership before moving code. Recs and Tuney would consume that
-shared core; Tuney's UI and Reccy's Python application infrastructure remain
-separate. This revision changes plans only and creates no new repository.
+The implemented shared definitions live in `~/code/ufor`, published as
+[rec/ufor](https://github.com/rec/ufor). Recs and Tuney consume that shared core
+through direct imports. Tuney's UI and existing waveform generation, Recs's
+capture and file-verification operations, and Reccy's application infrastructure
+remain in their own projects. See the [extraction handover](ufor.md) for the
+implemented boundary and remaining design work.
 
 ## First useful result
 
@@ -174,4 +177,4 @@ own acceptance gate in
 
 ## Additional work beyond the prompt
 
-None. This change writes the requested plan only.
+None.

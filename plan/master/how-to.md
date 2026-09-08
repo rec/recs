@@ -3,7 +3,8 @@
 Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
 2026 the user requested a plan revision prioritizing tuning/scale and oscillator
 extraction, richer envelopes/LFOs, and deferring further waveform generation.
-This revision implements no runtime code or repository extraction.
+The subsequent Ufor extraction is implemented; see [its handover](ufor.md).
+The envelope, LFO, and final instrument contracts remain stage 3 design work.
 Additional work beyond the prompt: None.
 
 ## Implementation status
@@ -132,12 +133,13 @@ Sibling repositories were inspected in their current working trees, so recheck
 the named symbols when starting implementation. Existing format models are not
 evidence that playback or cross-application execution has been implemented.
 
-Implemented pure definitions currently live in `recs/model/`. A standalone
-common-format project is the recommended next home, with its name and ownership
-to be settled before code moves. Recs and Tuney should consume the same musical
-definitions without requiring either application's GUI/audio stack just to read
-a document. Reccy remains Python application infrastructure. No new repository
-or dependency is created by this planning revision.
+Implemented pure definitions now live in `~/code/ufor`, published as
+[rec/ufor](https://github.com/rec/ufor). Recs imports the shared document and
+encoding types directly; Tuney imports shared musical semantics through its
+application configuration adapters. Neither application is required to read a
+Ufor document. Reccy remains Python application infrastructure. The old
+`recs/model` implementations and Tuney's copied number/accidental modules have
+been removed rather than retained as compatibility shims.
 
 Keep specifications, schemas, examples, and language-neutral conformance cases
 together with a lightweight Python model implementation. Include pure pitch
@@ -239,6 +241,15 @@ in-memory or local file observations, not live networks or hardware.
 
 This stage no longer includes sampler implementation or new audio waveform
 generation. Work in this order:
+
+Steps 1 through 3 have an implemented initial extraction in Ufor. This includes
+finite contiguous tables, repeating ratios and intervals, expression strings,
+Scala text conversion, scale naming, and oscillator parameters/equations. The
+portable grammar is documented from the stated `/` and `^` requirements; a
+separate original grammar implementation was not located. Sparse tuning maps,
+MTS byte import, phase/retrigger state, and steps 4 and 5 remain open. See
+[the exact extraction boundary](ufor.md) rather than treating all of stage 3 as
+complete.
 
 1. Settle the shared-format ownership and extraction boundary. Capture the
    specification and language-neutral fixtures independently of Python classes.
