@@ -108,9 +108,11 @@ with effects are not repeated by a loop unless its execution policy allows it.
 
 ## Change from today
 
-Move the shared event envelope and performance types out of
-`recs/recsam/events.py` when adopting the model, and update every consumer.
-Do not create a second sampler-specific performance hierarchy. Preserve useful
+The performance types now live in `ufor.events`, using the common `tick` and
+`ordinal` envelope. Recs imports them directly and its former event module is
+removed. Common sequences and native JSONL share these types. The
+[instrument contract](../../../ufor/doc/instrument-format.md) records their
+scope and lifecycle boundary. Preserve useful
 MIDI and OSC capture data while replacing their unrelated timing conventions.
 Tuney's `CharPress` maps to key events; its private cached character and callback
 handles remain runtime details. Recs session operational events become typed
