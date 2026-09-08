@@ -4,6 +4,10 @@ Part of the [master proposal](master.md). Sources generate data, processors
 transform it, and sinks consume it. These are roles determined by ports, not
 three unrelated class hierarchies.
 
+Revision, 8 September 2026: extracting and specifying Tuney's oscillator is
+stage 3 work. New audio generation and processor execution remain deferred
+until the musical and [modulation](modulation.md) models are settled.
+
 ## Operation and instance
 
 An operation definition specifies typed ports, parameter semantics, state
@@ -26,6 +30,36 @@ Do not assume that similarly named operations have identical DSP. An abstract
 compressor describes intent; an exact operation contract additionally fixes its
 detector, knee, envelope equations, channel linking, and numerical behavior.
 Bind abstract intent only to a declared matching profile, and record the choice.
+
+## Extract Tuney's oscillator contract
+
+Use `tuney/audio/oscillator.py` and its existing waveform functions as the
+starting implementation evidence. Extract the definition and pure mathematical
+contract from UI annotations, callable enum members, NumPy buffer allocation,
+and application note handling. Plan reuse of the existing implementation when
+execution work resumes; do not build a second oscillator during model work.
+
+| Existing feature | Shared-model treatment |
+| --- | --- |
+| Sine | State its phase convention and output range; duty cycle has no effect |
+| Square | Define pulse width, polarity, exact transition values, and behavior at duty 0 and 1 |
+| Triangle/saw family | Preserve continuous duty/skew semantics and define rising/falling orientation from the actual equations, not just waveform names |
+| Start, length, and period | Replace implicit sample-index conventions with an explicit phase/clock contract; settle reset and phase continuity under changing frequency |
+| Key-scaled gain | Keep reference selection key and dB-per-key-interval mapping separate from oscillator Hz and waveform shape |
+
+Tuney's gain calculation currently uses twelve key steps per scaling interval.
+Do not reinterpret that as a frequency octave under an arbitrary tuning without
+an explicit decision. Its square and saw/triangle implementations are not
+band-limited; a future anti-aliased realization must declare the chosen profile
+and tolerances rather than claim identical sample values.
+
+Publish units, defaults, admissible values, equations, and state transitions.
+Keep phase evolution separate from shape evaluation so envelopes, LFOs, and
+audio oscillators can share suitable definitions without conflating their rates
+or lifetime. Reconcile these decisions with [Modulation](modulation.md).
+Stage 3 acceptance uses documents, parameter mappings, phase/state examples,
+and existing source inspection. New waveform generation and audio regression
+fixtures wait for the later execution milestone.
 
 ## Graph contract
 
@@ -61,7 +95,8 @@ authorize a hidden arbitrary conversion from audio directly to RGB.
 
 ## Feedback and latency
 
-The first scheduler supports acyclic graphs. Ordinary delay and feedback effects
+When execution resumes, the first scheduler should support acyclic graphs.
+Ordinary delay and feedback effects
 can be encapsulated operations with defined internal state; that covers many
 synthesizer patches without permitting algebraic graph loops.
 
@@ -104,11 +139,13 @@ sample-identical results on every machine.
 Reuse Recs's existing separation of graph validation, materialized audio,
 rendering, and output encoding. Generalize port types and processing nodes
 instead of adding parallel renderers to each CLI edit command. Keep recsam
-voice rendering as a specialized engine behind its common ports.
+voice rendering as a planned specialized engine behind its common ports.
 
 Lyte's `AnimationSpec`/`MixerSpec` already describe source graphs, but `impl`
 currently resolves Python factories. Move that executable lookup to installed
 bindings. Tuney's `Oscillator` currently combines waveform selection and runtime
-generation; expose its algorithm through a synthesis definition while leaving
-its tuning UI local. No new DSP engine or plugin host is implemented by this
-documentation change.
+generation; extract its specification and plan reuse of its implementation,
+while leaving its tuning UI local. A compiled engine and VST instrument wrapper
+are later options. Keep any Python reference, compiled realization, and host
+wrapper accountable to the same language-neutral cases. No new DSP engine or
+plugin host is implemented by this documentation change.

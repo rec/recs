@@ -2,15 +2,31 @@
 
 ## Scope
 
-The approved recsam instrument model already specifies sustain loops,
+The current recsam instrument model already specifies sustain loops,
 alternative selection, choke groups, layer crossfades, release and sustain
 samples, articulations, named live controls, modulation envelopes, LFOs,
-panning, stereo balance, and pitch bend. Those completed specification items
-have been removed from this plan.
+panning, stereo balance, and pitch bend. On 8 September 2026 the user reopened
+envelopes and LFOs for deeper design before any further waveform generation.
+Other existing fields remain implementation inventory, not proof of a sampler.
 
 The sections below are unresolved additions. They require explicit approval and
 format design before changing `doc/sample-format.md` or the Pydantic models.
 Playback implementation remains separate in [Sample Playback](sample-playback.md).
+
+## Envelopes And LFOs Come First
+
+Follow the [modulation design](master/modulation.md) before implementing a
+sampler or extending waveform generation. Replace the assumption that current
+ADSR-like fields and a frequency/phase LFO are sufficient with an explicit
+review of curves, timing, retrigger/release, scope, phase continuity, and route
+composition. Consider a compact segment/state model with common presets;
+settle it with examples instead of immediately adding more optional fields.
+
+Extract Tuney's tuning/scale and oscillator definitions alongside this work.
+Keep finite tuning tables distinct from repeated ratio patterns, preserve
+fractional authoring, and separate oscillator shape from phase and gain.
+The resulting sampler specification should remain small enough for a later
+compiled implementation, with an optional Python reference and shared tests.
 
 ## Voice Limits And Retriggering
 
@@ -80,11 +96,14 @@ remain outside this plan.
 
 ## Suggested Order
 
-1. Reproducible variation, because other selection features depend on it.
-2. Voice limits and retriggering, because they bound playback resources.
-3. Named groups and synchronized microphone layers together.
-4. Named slices.
-5. Filters as a separately reviewed design.
+1. Envelope/LFO design and Tuney definition extraction under master stage 3.
+2. A small instrument/performance contract with language-neutral examples.
+3. Voice limits and retriggering where needed by that retained contract.
+4. Named slices, groups, and synchronized microphone layers if retained.
+5. Reproducible variation and filters as separately settled extensions.
+
+No step above authorizes sampler waveform generation. Choose its language,
+backend, and possible VST hosting only after the model gate.
 
 ## Additional Work Beyond The Prompt
 
