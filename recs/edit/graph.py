@@ -3,6 +3,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 from ufor.arrangement import ArrangementDocument
+from ufor.interface import Address, Direction, MixBinding
 
 from recs.base.errors import RecsError
 
@@ -28,7 +29,7 @@ class FrameRange(BaseModel, frozen=True):
 
 
 def validate_graph(
-    edit: ArrangementDocument, sources: Mapping[str, AudioDescription]
+    edit: ArrangementDocument, sources: Mapping[Address, AudioDescription]
 ) -> EditGraph:
     track_widths = {t.id: len(t.stream.channels) for t in edit.body.tracks}
     bus_widths = {b.id: len(b.stream.channels) for b in edit.body.buses}
@@ -65,9 +66,22 @@ def validate_graph(
         extents[bus] = max((extents[s] for s in destinations[bus]), default=0)
 
     output_extents: dict[str, FrameRange] = {}
-    for output in edit.body.outputs:
-        start = output.start or 0
-        end = output.end if output.end is not None else extents[output.source]
+    for output in edit.ports:
+        if output.direction != Direction.output:
+            continue
+        if isinstance(output.binding, Address):
+            source = sources[output.binding]
+            output_extents[output.id] = FrameRange(
+                start=getattr(source, 'start_frame', 0), end=source.timeline_end
+            )
+            continue
+        assert isinstance(output.binding, MixBinding)
+        start = output.binding.start or 0
+        end = (
+            output.binding.end
+            if output.binding.end is not None
+            else extents[str(output.binding.track or output.binding.bus)]
+        )
         if end <= start:
             raise RecsError(f'Output {output.id}: empty frame range {start}:{end}')
         output_extents[output.id] = FrameRange(start=start, end=end)

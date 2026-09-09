@@ -98,10 +98,24 @@ format: recs
 id: test-session
 kind: recording
 name: session
+parameters: []
+ports:
+- binding:
+    channels: null
+    stream: stream-c160dbc57a502291
+  direction: output
+  id: stream-c160dbc57a502291
+  stream:
+    channels:
+    - channel-0
+    family: sampled
+    quantity: audio_amplitude
+    timebase: clock-c160dbc57a502291
+    unit: full_scale
 timebases:
 - id: clock-c160dbc57a502291
   kind: physical
   rate:
     denominator: 1
     numerator: 48000
-version: 1
+version: 2

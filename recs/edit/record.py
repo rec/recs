@@ -3,12 +3,12 @@ from pathlib import Path
 import soundfile
 from pydantic import BaseModel, ConfigDict
 from ufor import recording
-from ufor.arrangement import ArrangementDocument, SourceSpec
 from ufor.assets import Asset
 from ufor.encoding import Format
 from ufor.recording import AudioStream
 
 from recs.base.errors import RecsError
+from recs.edit.inputs import SourceSpec
 from recs.recording.files import sealed_asset
 from recs.recording.read import read_recording_chain
 
@@ -38,27 +38,13 @@ class ResolvedSource(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-def resolve_sources(
-    edit: ArrangementDocument, edit_directory: Path
-) -> dict[str, ResolvedSource]:
-    resolved = {
-        source.id: _resolve_source(source, edit_directory)
-        for source in edit.body.sources
-    }
-    wrong_rates = [
-        f'{s.id}: {s.sample_rate}'
-        for s in resolved.values()
-        if s.sample_rate != edit.timebases[0].rate.numerator
-    ]
-    if wrong_rates:
-        raise RecsError(
-            f'Edit sample rate is {edit.timebases[0].rate.numerator}, but sources have '
-            + ', '.join(wrong_rates)
-        )
-    return resolved
-
-
-def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
+def resolve_input(
+    source: SourceSpec,
+    edit_directory: Path,
+    stream_id: str | None = None,
+    selected_channels: list[int] | None = None,
+    document: recording.RecordingDocument | None = None,
+) -> ResolvedSource:
     if source.file is not None:
         return _resolve_file_source(source, edit_directory)
     if source.memory is not None:
@@ -68,16 +54,21 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
     assert source.record is not None
     assert source.selector is not None
     record_path = (edit_directory / source.record).resolve()
-    if not record_path.is_file():
+    if document is None and not record_path.is_file():
         raise RecsError(
             f'Source {source.id}: session record does not exist: {record_path}'
         )
-    records = read_recording_chain(record_path)
+    records = (
+        [(record_path, document)]
+        if document is not None
+        else read_recording_chain(record_path)
+    )
     selected = [
         (p, d, s)
         for p, d in records
         for s in d.body.streams
         if isinstance(s, AudioStream)
+        and (stream_id is None or s.id == stream_id)
         and (s.source_name or s.source_id) == source.selector.source
         and (s.track_name or s.id) == source.selector.track
     ]
@@ -109,12 +100,16 @@ def _resolve_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
         raise RecsError(f'Source {source.id}: inconsistent audio metadata')
     file_width = next(iter(widths))
     rate = next(iter(rates))
-    offset = source.selector.channel
+    offset = selected_channels[0] if selected_channels else source.selector.channel
     if offset is not None and offset >= file_width:
         raise RecsError(
             f'Source {source.id}: channel offset {offset} exceeds width {file_width}'
         )
-    width = 1 if offset is not None else file_width
+    width = (
+        len(selected_channels)
+        if selected_channels
+        else (1 if offset is not None else file_width)
+    )
     variants: dict[
         tuple[int, int], list[tuple[Path, Asset, recording.AudioFragment]]
     ] = {}

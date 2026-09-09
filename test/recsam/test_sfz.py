@@ -10,6 +10,7 @@ from pytest_regressions.file_regression import FileRegressionFixture
 from ufor import modulation, sfz
 from ufor.assets import AudioDescription
 from ufor.control import Scope
+from ufor.interface import AudioBinding, Direction, EventType, PerformanceBinding, Port
 from ufor.samples import (
     controls,
     crossfade,
@@ -258,7 +259,16 @@ def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     assert asset.encoding == 'WAV/PCM_16'
     clocks = {t.id: t.rate.numerator for t in result.instrument.timebases}
     assert clocks[asset.audio.timebase] == 48_000
-    assert clocks[result.instrument.output.timebase] == 96_000
+    assert (
+        clocks[
+            next(
+                p.stream.timebase
+                for p in result.instrument.ports
+                if p.direction == 'output'
+            )
+        ]
+        == 96_000
+    )
     assert sample.read_bytes() == before
 
 
@@ -710,7 +720,22 @@ def _instrument(
             )
             for s in selected
         ],
-        output=AudioType(timebase='audio', channels=['left', 'right']),
+        ports=[
+            Port(
+                id='audio',
+                direction=Direction.output,
+                stream=AudioType(timebase='audio', channels=['left', 'right']),
+                binding=AudioBinding(),
+            ),
+            Port(
+                id='performance',
+                direction=Direction.input,
+                stream=EventType(
+                    timebase='audio', kinds=['trigger', 'release', 'control_change']
+                ),
+                binding=PerformanceBinding(),
+            ),
+        ],
         body=instrument.SampleInstrument(
             instrument=instrument.Instrument(
                 envelope=sfz.amplitude_envelope({'ampeg_release': '0'}),

@@ -5,12 +5,14 @@ from typing import Literal, Self
 import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
+from ufor.arrangement import Arrangement, ArrangementDocument
+from ufor.interface import Address
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, session
 from recs.edit.graph import EditGraph, validate_graph
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import (
     MaterializedAudio,
     MaterializedSession,
@@ -18,9 +20,10 @@ from recs.edit.materialized import (
     SourceMaterializer,
     select_channels,
 )
+from recs.edit.nested import load_composition, resolve_sources
 from recs.edit.options import EditOptions
 from recs.edit.output import validate_outputs
-from recs.edit.record import ResolvedSource, resolve_sources
+from recs.edit.record import ResolvedSource, resolve_input
 from recs.edit.render import Renderer
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
 from recs.recording.read import read_recording_chain
@@ -254,13 +257,18 @@ def prepare_composition(
                 'Compositions support only media_types = ["audio"]: '
                 f'{edit.body.media_types}'
             )
-        sources = _resolve_stage_sources(
-            edit, resolved_step.command_path.parent, memory
+        origin = (
+            composition_path.parent
+            if value.stages
+            else resolved_step.command_path.parent
+            if resolved_step.recipe.get('kind') == 'arrangement'
+            else Path.cwd()
         )
+        sources = _resolve_stage_sources(edit, origin, memory)
         graph = validate_graph(edit, sources)
         if index == len(resolved):
             validate_outputs(edit, graph, destination)
-        canonical_edit = session.canonical_edit(edit, sources, destination)
+        canonical_edit = session.canonical_edit(edit, sources, destination, origin)
         renderer = Renderer(canonical_edit, sources, graph, materializer)
         rendered = renderer.outputs
         memory, materialized_session, current_tracks = _stage_session(
@@ -420,28 +428,42 @@ def _validate_recipe(recipe: dict[str, object], index: int, command: str) -> Non
 
 def _resolve_stage_sources(
     edit: ArrangementDocument, directory: Path, memory: Mapping[str, MaterializedAudio]
-) -> dict[str, ResolvedSource | MaterializedAudio]:
-    disk = [s for s in edit.body.sources if s.memory is None]
-    result: dict[str, ResolvedSource | MaterializedAudio] = {}
-    if disk:
-        result.update(
-            resolve_sources(
-                edit.model_copy(
-                    update={'body': edit.body.model_copy(update={'sources': disk})}
-                ),
-                directory,
-            )
-        )
-    for source in edit.body.sources:
-        if source.memory is None:
+) -> dict[Address, ResolvedSource | MaterializedAudio]:
+    result = {}
+    supplied = {}
+    disk_clips = []
+    nodes = {n.id: n for n in edit.body.nodes}
+    for clip in edit.body.clips:
+        node = nodes[clip.source.node]
+        path = Path(node.definition.path)
+        if path.parts[0] != 'prepared':
+            disk_clips.append(clip)
             continue
-        try:
-            audio = memory[source.memory]
-        except KeyError:
-            raise RecsError(
-                f'Source {source.id}: unknown materialized track {source.memory}'
-            ) from None
-        result[source.id] = select_channels(audio, source.channels)
+        key = ':'.join(path.parts[1:-1])
+        channels = [int(i) for i in path.stem.removeprefix('channels-').split('-')]
+        if key not in memory:
+            raise RecsError(f'Unknown prepared source: {key}')
+        audio = select_channels(memory[key], channels)
+        result[clip.source] = audio
+        from recs.edit.materialized import recording_definition
+
+        supplied[(directory / path).resolve()] = recording_definition(
+            audio, node.id, [f'channel-{i}' for i in channels]
+        )
+    load_composition(edit, directory, supplied=supplied)
+    if disk_clips:
+        used = {c.source.node for c in disk_clips}
+        disk = edit.model_copy(
+            update={
+                'body': edit.body.model_copy(
+                    update={
+                        'nodes': [n for n in edit.body.nodes if n.id in used],
+                        'clips': disk_clips,
+                    }
+                )
+            }
+        )
+        result.update(resolve_sources(disk, directory))
     return result
 
 
@@ -496,19 +518,14 @@ def _materialize_input_tracks(
 ) -> tuple[dict[str, MaterializedAudio], list[str]]:
     if not tracks:
         raise RecsError('Autocalibration requires at least one input track')
-    edit = ArrangementDocument(
-        id='edit',
-        name='Audio edit',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=tracks[0].sample_rate))],
-        body=Arrangement(
-            timebase='audio',
-            sources=[
-                t.source.model_copy(update={'id': f'source-{i}'})
-                for i, t in enumerate(tracks)
-            ],
-        ),
-    )
-    resolved = _resolve_stage_sources(edit, Path.cwd(), memory)
+    resolved = {}
+    for index, track in enumerate(tracks):
+        source = track.source
+        resolved[f'source-{index}'] = (
+            select_channels(memory[source.memory], source.channels)
+            if source.memory is not None
+            else resolve_input(source, Path.cwd())
+        )
     audio: dict[str, MaterializedAudio] = {}
     for index, track in enumerate(tracks):
         value = resolved[f'source-{index}']

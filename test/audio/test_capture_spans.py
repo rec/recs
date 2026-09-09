@@ -3,11 +3,9 @@ from pathlib import Path
 import numpy as np
 import soundfile
 from pytest_regressions.data_regression import DataRegressionFixture
-from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from ufor.encoding import Format
 from ufor.recording import AudioStream
 from ufor.references import RecordSelector
-from ufor.time import Rate, Timebase
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
@@ -15,8 +13,9 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
 from recs.cfg.track import Track
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import materialize_source
-from recs.edit.record import resolve_sources
+from recs.edit.record import resolve_input
 from recs.recording.finalize import prepare_recording
 from recs.ui.recording_session import RecordingSession
 from recs.ui.source_recorder import SourceFileEvents
@@ -76,22 +75,12 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     assert stream.unmapped_fragments == []
     assert sum(f.count for f in stream.fragments) == len(samples)
     assert [(g.start, g.end) for g in stream.gaps] == [(48000, 144000)]
-    edit = ArrangementDocument(
-        id='test',
-        name='Test',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
-        body=Arrangement(
-            timebase='audio',
-            sources=[
-                SourceSpec(
-                    id='take',
-                    record=tmp_path / 'recording.toml',
-                    selector=RecordSelector(source='Mic', track='1'),
-                )
-            ],
-        ),
+    edit = SourceSpec(
+        id='take',
+        record=tmp_path / 'recording.toml',
+        selector=RecordSelector(source='Mic', track='1'),
     )
-    resolved = resolve_sources(edit, tmp_path)['take']
+    resolved = resolve_input(edit, tmp_path)
     restored = materialize_source(resolved)
     soundfile.write(
         tmp_path / 'restored.wav', restored.samples, 48000, subtype='DOUBLE'

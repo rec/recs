@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import pytest
+import tomlkit
+from ufor.interface import Address
 
 from recs.edit.graph import validate_graph
 from recs.edit.record import AudioFragment, ResolvedSource
@@ -10,7 +12,7 @@ from recs.edit.schema import parse_edit
 def test_graph_computes_routed_extent() -> None:
     edit = parse_edit(_edit())
 
-    graph = validate_graph(edit, {'source': _source()})
+    graph = validate_graph(edit, {Address(node='source', port='audio'): _source()})
 
     assert graph.bus_order == ['master']
     assert graph.output_extents['output'].start == 0
@@ -41,12 +43,14 @@ source = "master"
 destination = "master"
 """
     else:
-        text = text.replace(
-            'target = { kind = "clip", node = "clip", parameter = "gain" }', replacement
-        )
+        data = tomlkit.parse(text)
+        data['body']['automation'][0]['target']['node'] = 'missing'
+        text = tomlkit.dumps(data)
 
     with pytest.raises(ValueError, match=message):
-        validate_graph(parse_edit(text), {'source': _source()})
+        validate_graph(
+            parse_edit(text), {Address(node='source', port='audio'): _source()}
+        )
 
 
 def _source() -> ResolvedSource:
@@ -68,49 +72,79 @@ def _source() -> ResolvedSource:
 def _edit() -> str:
     return """
 format = "recs"
-version = 1
+version = 2
 kind = "arrangement"
 id = "edit"
 name = "Audio edit"
-timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+
+[[timebases]]
+id = "audio"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
 [body]
 timebase = "audio"
 
-[[body.sources]]
-id = "source"
-record = "recording.toml"
-selector = { source = "device", track = "track" }
-
 [[body.tracks]]
 id = "track"
-stream = { timebase = "audio", channels = ["channel-0"] }
+
+[body.tracks.stream]
+timebase = "audio"
+channels = ["channel-0"]
 
 [[body.buses]]
 id = "master"
-stream = { timebase = "audio", channels = ["channel-0"] }
+
+[body.buses.stream]
+timebase = "audio"
+channels = ["channel-0"]
 
 [[body.clips]]
 id = "clip"
-source = "source"
 track = "track"
 source_start = 0
 source_end = 48000
 timeline_start = 0
+
+[body.clips.source]
+node = "source"
+port = "audio"
 
 [[body.routes]]
 source = "track"
 destination = "master"
 
 [[body.automation]]
-target = { kind = "clip", node = "clip", parameter = "gain" }
-points = [{ frame = 0, value = 1.0 }]
+[[body.automation.points]]
+frame = 0
+value = 1.0
 
-[[body.outputs]]
-id = "output"
-source = "master"
+[body.automation.target]
+kind = "clip"
+node = "clip"
+parameter = "gain"
+
+[[body.nodes]]
+id = "source"
+
+[body.nodes.definition]
+path = "recording.toml"
 
 [[destinations]]
 port = "output"
 path = "audio/output.wav"
 format = "wav"
+
+[[ports]]
+id = "output"
+direction = "output"
+
+[ports.stream]
+timebase = "audio"
+channels = ["channel-0"]
+
+[ports.binding]
+bus = "master"
 """

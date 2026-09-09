@@ -1,141 +1,8 @@
 format = "recs"
-version = 2
+version = 1
 id = "d0929489-3fed-4aa8-ada3-182f5923cc50"
 name = "2026-09-04 15-01-57"
-parameters = []
 kind = "recording"
-
-[[timebases]]
-id = "clock-5e226690c59de982"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[timebases]]
-id = "clock-f41eac0a041172e2"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[timebases]]
-id = "clock-4e986fb6c56c24f2"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[timebases]]
-id = "clock-1bc345f3335f1830"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[timebases]]
-id = "clock-8d60a292cd10400d"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[timebases]]
-id = "clock-3120708d92e52f5e"
-kind = "physical"
-
-[timebases.rate]
-numerator = 48000
-denominator = 1
-
-[[ports]]
-id = "stream-5e226690c59de982"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-5e226690c59de982"
-channels = ["input-1", "input-2"]
-
-[ports.binding]
-stream = "stream-5e226690c59de982"
-
-[[ports]]
-id = "stream-f41eac0a041172e2"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-f41eac0a041172e2"
-channels = ["input-3", "input-4"]
-
-[ports.binding]
-stream = "stream-f41eac0a041172e2"
-
-[[ports]]
-id = "stream-4e986fb6c56c24f2"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-4e986fb6c56c24f2"
-channels = ["input-5", "input-6"]
-
-[ports.binding]
-stream = "stream-4e986fb6c56c24f2"
-
-[[ports]]
-id = "stream-1bc345f3335f1830"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-1bc345f3335f1830"
-channels = ["input-7", "input-8"]
-
-[ports.binding]
-stream = "stream-1bc345f3335f1830"
-
-[[ports]]
-id = "stream-8d60a292cd10400d"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-8d60a292cd10400d"
-channels = ["input-9", "input-10"]
-
-[ports.binding]
-stream = "stream-8d60a292cd10400d"
-
-[[ports]]
-id = "stream-3120708d92e52f5e"
-direction = "output"
-
-[ports.stream]
-family = "sampled"
-quantity = "audio_amplitude"
-unit = "full_scale"
-timebase = "clock-3120708d92e52f5e"
-channels = ["input-1"]
-
-[ports.binding]
-stream = "stream-3120708d92e52f5e"
 
 [[assets]]
 id = "original-journal"
@@ -571,6 +438,54 @@ encoding = "flac"
 byte_length = 11583038
 sha256 = "d20b8b9040d6b1bbb97fbb5c7c8d306a500862fa3876876e228fbe583af83fe0"
 
+[[timebases]]
+id = "clock-5e226690c59de982"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-f41eac0a041172e2"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-4e986fb6c56c24f2"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-1bc345f3335f1830"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-8d60a292cd10400d"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[timebases]]
+id = "clock-3120708d92e52f5e"
+kind = "physical"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
 [body]
 state = "sealed"
 started_at = "2026-09-04T13:01:57.389Z"
@@ -579,7 +494,6 @@ observed_duration_seconds = 5900.475615978241
 journal = "original-journal"
 clock_observations = []
 unfinished_files = []
-continued_at = []
 
 [[body.streams]]
 kind = "events"
@@ -1252,106 +1166,106 @@ end = 283151872
 gaps = []
 
 [[body.streams.fragments]]
+asset = "asset-0c00a5847aa53508"
 asset_start = 0
 start = 0
 count = 16965120
-asset = "asset-0c00a5847aa53508"
 
 [[body.streams.fragments]]
+asset = "asset-994ade518c2b5545"
 asset_start = 0
 start = 16965120
 count = 14821888
-asset = "asset-994ade518c2b5545"
 
 [[body.streams.fragments]]
+asset = "asset-ef070b913d681196"
 asset_start = 0
 start = 31787008
 count = 17228800
-asset = "asset-ef070b913d681196"
 
 [[body.streams.fragments]]
+asset = "asset-f11c09cacfd581d7"
 asset_start = 0
 start = 49015808
 count = 960000
-asset = "asset-f11c09cacfd581d7"
 
 [[body.streams.fragments]]
+asset = "asset-5f907c881aadb5e4"
 asset_start = 0
 start = 49975808
 count = 7309312
-asset = "asset-5f907c881aadb5e4"
 
 [[body.streams.fragments]]
+asset = "asset-38d9756c2d9925ba"
 asset_start = 0
 start = 57285120
 count = 20095488
-asset = "asset-38d9756c2d9925ba"
 
 [[body.streams.fragments]]
+asset = "asset-2189573223f43884"
 asset_start = 0
 start = 77380608
 count = 17100288
-asset = "asset-2189573223f43884"
 
 [[body.streams.fragments]]
+asset = "asset-2520395d65c28b1e"
 asset_start = 0
 start = 94480896
 count = 10255360
-asset = "asset-2520395d65c28b1e"
 
 [[body.streams.fragments]]
+asset = "asset-7078d6f92781e423"
 asset_start = 0
 start = 132160512
 count = 15156224
-asset = "asset-7078d6f92781e423"
 
 [[body.streams.fragments]]
+asset = "asset-53b8f21f39b1b3dd"
 asset_start = 0
 start = 147316736
 count = 9808896
-asset = "asset-53b8f21f39b1b3dd"
 
 [[body.streams.fragments]]
+asset = "asset-643454ed1b8c7caa"
 asset_start = 0
 start = 157125632
 count = 2258432
-asset = "asset-643454ed1b8c7caa"
 
 [[body.streams.fragments]]
+asset = "asset-a84ffd642a07dcb9"
 asset_start = 0
 start = 159384064
 count = 19717632
-asset = "asset-a84ffd642a07dcb9"
 
 [[body.streams.fragments]]
+asset = "asset-cbda3928b4a93ea6"
 asset_start = 0
 start = 179101696
 count = 31618560
-asset = "asset-cbda3928b4a93ea6"
 
 [[body.streams.fragments]]
+asset = "asset-e79a47bdf97f4553"
 asset_start = 0
 start = 210720256
 count = 36060672
-asset = "asset-e79a47bdf97f4553"
 
 [[body.streams.fragments]]
+asset = "asset-aa87f3eb8a6390fe"
 asset_start = 0
 start = 246780928
 count = 2020352
-asset = "asset-aa87f3eb8a6390fe"
 
 [[body.streams.fragments]]
+asset = "asset-4e282f2c2f257152"
 asset_start = 0
 start = 248801280
 count = 22941184
-asset = "asset-4e282f2c2f257152"
 
 [[body.streams.fragments]]
+asset = "asset-a906fda6e411a1ec"
 asset_start = 0
 start = 271742464
 count = 11409408
-asset = "asset-a906fda6e411a1ec"
 
 [[body.streams.unmapped_fragments]]
 asset = "asset-7925f03229ff1ab8"

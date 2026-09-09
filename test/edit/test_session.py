@@ -2,12 +2,12 @@ from pathlib import Path
 
 import numpy as np
 import soundfile
-from ufor.arrangement import NormalizeMode
-from ufor.references import RecordSelector
+from ufor.interface import NormalizeMode
 
 from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
 from recs.recording.finalize import finalize_recording
+from recs.recording.read import read_recording
 from recs.ui import session_record
 
 
@@ -60,48 +60,75 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     edit = parse_edit(
         """
 format = "recs"
-version = 1
+version = 2
 kind = "arrangement"
 id = "edit"
 name = "Audio edit"
-timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+
+[[timebases]]
+id = "audio"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
+
 [body]
 timebase = "audio"
 
-[[body.sources]]
-id = "voice-source"
-record = "recording.toml"
-selector = { source = "device", track = "voice" }
-
 [[body.tracks]]
 id = "voice"
-stream = { timebase = "audio", channels = ["channel-0"] }
+
+[body.tracks.stream]
+timebase = "audio"
+channels = ["channel-0"]
 
 [[body.clips]]
 id = "voice-clip"
-source = "voice-source"
 track = "voice"
 source_start = 0
 source_end = 48000
 timeline_start = 0
 
-[[body.outputs]]
-id = "voice"
-source = "voice"
+[body.clips.source]
+node = "voice-source"
+port = "audio"
+
+[[body.nodes]]
+id = "voice-source"
+
+[body.nodes.definition]
+path = "recording.toml"
 
 [[destinations]]
 port = "voice"
 path = "audio/voice.wav"
 format = "wav"
 subtype = "float"
+
+[[ports]]
+id = "voice"
+direction = "output"
+
+[ports.stream]
+timebase = "audio"
+channels = ["channel-0"]
+
+[ports.binding]
+track = "voice"
 """
     )
+    source_document = read_recording(record_path)
+    raw = edit.model_dump()
+    raw['body']['clips'][0]['source']['port'] = source_document.ports[0].id
+    raw['body']['tracks'][0]['stream'] = source_document.ports[0].stream.model_dump()
+    raw['ports'][0]['stream'] = source_document.ports[0].stream.model_dump()
+    edit = type(edit).model_validate(raw)
     destination = tmp_path / 'edited'
 
     prepared = prepare_edit(edit, source_directory, destination)
 
     assert not destination.exists()
-    assert prepared.edit.body.sources[0].record == Path('../source/recording.toml')
+    assert prepared.edit.body.nodes[0].definition.path == '../source/recording.toml'
 
     output_record = execute_edit(edit, source_directory, destination)
 
@@ -121,7 +148,7 @@ subtype = "float"
     assert result.ended_at is not None
     assert result.events[0].metadata == {
         'sources': {
-            'voice-source': {
+            f'root/voice-source/{source_document.ports[0].id}': {
                 'session_id': 'input-session',
                 'files': [source_path.as_posix()],
             }
@@ -130,24 +157,13 @@ subtype = "float"
     }
 
     chained_destination = tmp_path / 'chained'
-    chained = edit.model_copy(
-        update={
-            'body': edit.body.model_copy(
-                update={
-                    'sources': [
-                        edit.body.sources[0].model_copy(
-                            update={
-                                'record': Path('recording.toml'),
-                                'selector': RecordSelector(
-                                    source='edit', track='voice'
-                                ),
-                            }
-                        )
-                    ]
-                }
-            )
-        }
-    )
+    exported = read_recording(destination / 'recording.toml')
+    raw = edit.model_dump()
+    raw['body']['nodes'][0]['definition']['path'] = 'recording.toml'
+    raw['body']['clips'][0]['source']['port'] = exported.ports[0].id
+    raw['body']['tracks'][0]['stream'] = exported.ports[0].stream.model_dump()
+    raw['ports'][0]['stream'] = exported.ports[0].stream.model_dump()
+    chained = type(edit).model_validate(raw)
 
     execute_edit(chained, destination, chained_destination)
 
@@ -158,19 +174,9 @@ subtype = "float"
     assert chained_rate == 48_000
 
     normalized_destination = tmp_path / 'normalized'
-    normalized = edit.model_copy(
-        update={
-            'body': edit.body.model_copy(
-                update={
-                    'outputs': [
-                        edit.body.outputs[0].model_copy(
-                            update={'normalize': NormalizeMode.normalize}
-                        )
-                    ]
-                }
-            )
-        }
-    )
+    raw = edit.model_dump()
+    raw['ports'][0]['binding']['normalize'] = NormalizeMode.normalize
+    normalized = type(edit).model_validate(raw)
 
     execute_edit(normalized, source_directory, normalized_destination)
 

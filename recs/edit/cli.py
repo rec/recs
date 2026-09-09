@@ -6,6 +6,7 @@ from typing import Annotated
 import tyro
 from pydantic import BaseModel, ConfigDict, Field
 from ufor.codec import document_toml
+from ufor.interface import MixBinding
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, composition, session
@@ -85,11 +86,14 @@ def main(args: list[str] | None = None) -> int:
         return _run_autocalibrate_command(command, command_path, args, cwd)
     cfg = tyro.cli(EditCli, args=args, prog=f'recs edit {command}')
     input_paths = cfg.inputs
+    definitions = {} if cfg.dry_run else None
+    edit_directory = command_path.parent if recipe.get('kind') == 'arrangement' else cwd
     try:
         complete = commands.complete_or_generate(
             recipe,
             input_paths,
             cfg,
+            definitions,
         )
     except commands.SessionRecordRequired:
         input_paths = [commands.latest_record(cwd)]
@@ -97,12 +101,15 @@ def main(args: list[str] | None = None) -> int:
             recipe,
             input_paths,
             cfg,
+            definitions,
         )
     destination = cfg.destination or recording_paths.available_directory(
         cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
     )
     if cfg.dry_run:
-        prepared = session.prepare_edit(complete, command_path.parent, destination)
+        prepared = session.prepare_edit(
+            complete, edit_directory, destination, definitions
+        )
         print(document_toml(prepared.edit), end='')
         return 0
     print(f'Command: {command} ({command_path})')
@@ -111,20 +118,22 @@ def main(args: list[str] | None = None) -> int:
     )
     print(f'Media types: {", ".join(complete.body.media_types)}')
     print(f'Sample rate: {complete.timebases[0].rate.numerator}')
-    source_names = [
-        str(s.selector or f'{s.file}:{"-".join(str(c + 1) for c in s.channels)}')
-        for s in complete.body.sources
-    ]
+    source_names = [n.definition.path for n in complete.body.nodes]
     print(f'Channels: {", ".join(source_names)}')
     print(f'Tracks: {", ".join(t.id for t in complete.body.tracks)}')
     print(f'Buses: {", ".join(b.id for b in complete.body.buses) or "none"}')
     print(f'Output session: {destination}')
-    for output in complete.body.outputs:
-        start = output.start or 0
-        end = output.end if output.end is not None else 'arrangement end'
+    for output in complete.ports:
+        if not isinstance(output.binding, MixBinding):
+            print(f'Output: {output.id}')
+            continue
+        start = output.binding.start or 0
+        end = (
+            output.binding.end if output.binding.end is not None else 'arrangement end'
+        )
         target = next(d for d in complete.destinations if d.port == output.id)
         print(f'Output: {target.path} ({target.format}, frames {start}:{end})')
-    session.execute_edit(complete, command_path.parent, destination)
+    session.execute_edit(complete, edit_directory, destination)
     return 0
 
 

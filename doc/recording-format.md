@@ -2,7 +2,7 @@
 
 The initial common format supports arrangements, recording descriptions, and
 ordered event sequences. TOML is the document syntax; `format = "recs"`,
-`version = 1`, `kind`, `id`, and `name` form its common envelope. The model's
+`version = 2`, `kind`, `id`, and `name` form its common envelope. The model's
 `document_schema()` function generates JSON Schema for all three kinds.
 The [arrangement format](arrangement-format.md) describes audio editing.
 
@@ -59,7 +59,8 @@ The timeline renderer rejects those streams until placement is explicitly
 resolved. It does not stretch the file or guess where gaps belong.
 
 Event streams declare `event_schema` and ordered fragments. Native captures also
-set `event_kind` to `midi`, `osc`, or `key`. Each fragment has an asset,
+set `event_kind` to `midi`, `osc`, `key`, `trigger`, `release`, or
+`control_change`. Omit it for a mixed-kind stream. Each fragment has an asset,
 `event_count`, and matching `timing`. Native fragments require `start` and `end`
 in the stream timebase: a half-open stored-event range, empty only when the
 count is zero. Counts never substitute for duration:
@@ -79,7 +80,7 @@ MIDI defaults to host monotonic callback timestamps; the optional Mido-delta
 mode requires meaningful deltas from the source. OSC retains raw packets,
 decoded values or errors, direction, endpoint, and stable ordinals. Every JSONL
 line is complete, independent of prior file compression state. See the
-[capture journal format](session-record-format.md) for precise clock semantics,
+[capture journal format](../../recs/doc/session-record-format.md) for precise clock semantics,
 recovery, and explicit MIDI-file export.
 
 A complete valid empty recording document follows. The example's journal is
@@ -88,7 +89,7 @@ outputs instead contain the actual version 3 journal snapshot and its hash.
 
 ```toml
 format = "recs"
-version = 1
+version = 2
 kind = "recording"
 id = "example-session"
 name = "Empty capture"
@@ -125,16 +126,25 @@ optional text, modifiers, and a repeat flag. These are stored events, not yet a
 universal performance engine. Recs also captures its observed key transitions
 through the same event model.
 
+Semantic `trigger`, `release`, and `control_change` records use that same
+envelope. Their payload and addressing rules are defined in the
+[instrument contract](instrument-format.md#performance-input). A
+[portable performance sequence](../conformance/performance.json) demonstrates
+preroll controls and overlapping triggers with distinct identities.
+
 ```toml
 format = "recs"
-version = 1
+version = 2
 kind = "sequence"
 id = "key-example"
 name = "One key gesture"
 
 [[timebases]]
 id = "milliseconds"
-rate = { numerator = 1000, denominator = 1 }
+
+[timebases.rate]
+numerator = 1000
+denominator = 1
 
 [body]
 timebase = "milliseconds"
@@ -232,3 +242,15 @@ verified; torn final lines and unfinished files remain explicitly open. Existing
 outputs are never replaced. A new capture process has a new audio clock identity;
 volume changes within that process retain it. Editing across independent capture
 clocks requires an explicit alignment decision.
+
+## Public exports and imported media
+
+Version 2 exposes streams through root `ports`, with an output direction, matching
+stream contract and `binding = { stream = "stable-stream-id" }`. An audio binding
+may select consecutive zero-based `channels`. Native event exports declare their
+physical clock and event kinds; legacy files without native tick positions are
+not automatically exported as timed composition sources.
+
+A sealed recording describing imported media may omit `journal`, `started_at`
+and `ended_at`. Captured sessions retain their journal and capture timestamps.
+This avoids inventing capture history when wrapping a WAV file for composition.

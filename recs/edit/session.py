@@ -8,12 +8,15 @@ import soundfile
 from pydantic import BaseModel, ConfigDict
 from ufor.arrangement import ArrangementDocument
 from ufor.codec import document_toml
+from ufor.interface import Address
+from ufor.recording import RecordingDocument
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
 from recs.edit.materialized import MaterializedAudio
+from recs.edit.nested import resolve_sources
 from recs.edit.output import bit_depth, open_output, validate_outputs
-from recs.edit.record import ResolvedSource, resolve_sources
+from recs.edit.record import ResolvedSource
 from recs.edit.render import Renderer
 from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
@@ -21,24 +24,27 @@ from recs.ui import session_record
 
 class PreparedEdit(BaseModel, frozen=True):
     edit: ArrangementDocument
-    sources: dict[str, ResolvedSource]
+    sources: dict[Address, ResolvedSource | MaterializedAudio]
     graph: EditGraph
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
 
 def prepare_edit(
-    edit: ArrangementDocument, edit_directory: Path, destination: Path
+    edit: ArrangementDocument,
+    edit_directory: Path,
+    destination: Path,
+    supplied: dict[Path, RecordingDocument] | None = None,
 ) -> PreparedEdit:
     if len(edit.body.media_types) != 1 or edit.body.media_types[0] != 'audio':
         raise RecsError(
             'This editor supports only media_types = ["audio"]: '
             f'{edit.body.media_types}'
         )
-    sources = resolve_sources(edit, edit_directory)
+    sources = resolve_sources(edit, edit_directory, supplied)
     graph = validate_graph(edit, sources)
     validate_outputs(edit, graph, destination)
-    canonical = canonical_edit(edit, sources, destination)
+    canonical = canonical_edit(edit, sources, destination, edit_directory)
     return PreparedEdit(edit=canonical, sources=sources, graph=graph)
 
 
@@ -87,12 +93,12 @@ def write_session(
     )
     try:
         destinations = {d.port: d for d in edit.destinations}
-        for output in edit.body.outputs:
+        for output in edit.ports:
             target = destinations[output.id]
             path = destination / target.path
             stream_id = f'audio:edit:{output.id}'
             frame_range = graph.output_extents[output.id]
-            channels = graph.widths[output.source]
+            channels = rendered[output.id].channels
             started = session_record.AudioFileRecord(
                 clock_id=edit.timebases[0].id,
                 type='file_started',
@@ -161,38 +167,47 @@ def write_session(
 
 def canonical_edit(
     edit: ArrangementDocument,
-    sources: Mapping[str, ResolvedSource | MaterializedAudio],
+    sources: Mapping[Address, ResolvedSource | MaterializedAudio],
     destination: Path,
+    origin: Path,
 ) -> ArrangementDocument:
     replacements = []
-    for source in edit.body.sources:
-        resolved = sources[source.id]
-        if isinstance(resolved, MaterializedAudio):
-            replacements.append(source)
+    for node in edit.body.nodes:
+        if node.definition.path.startswith('prepared/'):
+            replacements.append(node)
             continue
-        path = resolved.record or resolved.file
-        assert path is not None
-        try:
-            value = Path(os.path.relpath(path, destination))
-        except ValueError:
-            value = path
-        field = 'record' if resolved.record is not None else 'file'
-        replacements.append(source.model_copy(update={field: value}))
+        reference = node.definition.model_copy(
+            update={
+                'path': os.path.relpath(
+                    (origin / node.definition.path).resolve(), destination
+                )
+            }
+        )
+        node = node.model_copy(update={'definition': reference})
+        replacements.append(node)
     return edit.model_copy(
-        update={'body': edit.body.model_copy(update={'sources': replacements})}
+        update={'body': edit.body.model_copy(update={'nodes': replacements})}
     )
 
 
 def _resolution_metadata(
-    sources: dict[str, ResolvedSource], graph: EditGraph
+    sources: dict[Address, ResolvedSource | MaterializedAudio], graph: EditGraph
 ) -> dict[str, object]:
     return {
         'sources': {
-            s.id: {
-                'session_id': s.session_id,
-                'files': [f.path.as_posix() for f in s.fragments],
-            }
-            for s in sources.values()
+            s.id if isinstance(s, ResolvedSource) else f'{a.node}/{a.port}': (
+                {
+                    'session_id': s.session_id,
+                    'files': [f.path.as_posix() for f in s.fragments],
+                }
+                if isinstance(s, ResolvedSource)
+                else {
+                    'start': s.start_frame,
+                    'end': s.end_frame,
+                    'sample_rate': s.sample_rate,
+                }
+            )
+            for a, s in sources.items()
         },
         'output_ranges': {
             k: {'start': v.start, 'end': v.end} for k, v in graph.output_extents.items()

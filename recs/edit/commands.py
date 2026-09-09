@@ -14,18 +14,18 @@ from ufor.arrangement import (
     BusSpec,
     ClipSpec,
     Interpolation,
-    OutputSpec,
     RouteSpec,
-    SourceSpec,
     TrackSpec,
 )
 from ufor.encoding import Format, Subtype
-from ufor.recording import AudioStream
+from ufor.interface import Address, Direction, MixBinding, Node, Port
+from ufor.recording import AudioStream, RecordingDocument
 from ufor.references import ParameterTarget, RecordSelector
 from ufor.streams import AudioType, FileDestination
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
+from recs.edit.inputs import SourceSpec, export_source
 from recs.edit.options import EditOptions
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
 from recs.recording.read import read_recording_chain
@@ -93,17 +93,23 @@ def complete_or_generate(
     recipe: dict[str, object],
     input_paths: list[Path],
     options: EditOptions,
+    definitions: dict[Path, RecordingDocument] | None = None,
 ) -> ArrangementDocument:
     text = tomlkit.dumps(recipe)
     try:
         return parse_edit(text)
     except ValueError:
         pass
-    return complete_or_generate_tracks(recipe, input_tracks(input_paths), options)
+    return complete_or_generate_tracks(
+        recipe, input_tracks(input_paths), options, definitions
+    )
 
 
 def complete_or_generate_tracks(
-    recipe: dict[str, object], tracks: list[InputTrack], options: EditOptions
+    recipe: dict[str, object],
+    tracks: list[InputTrack],
+    options: EditOptions,
+    definitions: dict[Path, RecordingDocument] | None = None,
 ) -> ArrangementDocument:
     text = tomlkit.dumps(recipe)
     try:
@@ -126,6 +132,7 @@ def complete_or_generate_tracks(
         options.subtype,
         options.route_gain,
         options.crossfade,
+        definitions,
     )
     generated = _dictionary(document['body'], 'Invalid arrangement body')
     overlay = {k: v for k, v in recipe.items() if k not in {'extends', '_command'}}
@@ -140,10 +147,19 @@ def complete_or_generate_tracks(
     for field in ('normalize', 'gain'):
         if (value := getattr(options, field)) is not None:
             defaults[field] = value
-    generated_outputs = generated['outputs']
+    generated_outputs = document['ports']
     assert isinstance(generated_outputs, list)
-    generated['outputs'] = [
-        _merge(_dictionary(o, 'Invalid output'), defaults) for o in generated_outputs
+    document['ports'] = [
+        _dictionary(o, 'Invalid output')
+        | {
+            'binding': _merge(
+                _dictionary(
+                    _dictionary(o, 'Invalid output')['binding'], 'Invalid binding'
+                ),
+                defaults,
+            )
+        }
+        for o in generated_outputs
     ]
     destinations = document['destinations']
     assert isinstance(destinations, list)
@@ -403,6 +419,7 @@ def _generate(
     subtype: Subtype | None,
     route_gains: list[float],
     crossfade: float | None,
+    definitions: dict[Path, RecordingDocument] | None = None,
 ) -> dict[str, object]:
     selected = _select_tracks(input_tracks, requested_selectors)
     if operation == CommandKind.split:
@@ -415,17 +432,21 @@ def _generate(
     format_subtype = subtype or (
         Subtype.pcm_24 if output_format == Format.flac else None
     )
-    sources: list[SourceSpec] = []
+    nodes: list[Node] = []
     output_tracks: list[TrackSpec] = []
     clips: list[ClipSpec] = []
-    outputs: list[OutputSpec] = []
+    outputs: list[Port] = []
     identifiers: list[str] = []
     timeline_start = 0
     for input_index, input_track in enumerate(selected):
         identity = _unique_identifier(input_track.label, identifiers)
         identifiers.append(identity)
         source_id = f'{identity}-source'
-        sources.append(input_track.source.model_copy(update={'id': source_id}))
+        node, channel_names = export_source(
+            input_track.source.model_copy(update={'id': source_id}),
+            definitions,
+        )
+        nodes.append(node)
         ranges = _input_ranges(
             operation,
             input_index,
@@ -443,7 +464,7 @@ def _generate(
                     id=track_id,
                     stream=AudioType(
                         timebase='audio',
-                        channels=[f'channel-{i}' for i in range(input_track.channels)],
+                        channels=channel_names,
                     ),
                 )
             )
@@ -451,7 +472,7 @@ def _generate(
             clips.append(
                 ClipSpec(
                     id=f'{identity}-{range_index + 1}',
-                    source=source_id,
+                    source=Address(node=source_id, port='audio'),
                     track=track_id,
                     source_start=source_start,
                     source_end=source_end,
@@ -466,9 +487,11 @@ def _generate(
                 timeline_start += source_end - source_start
         if operation not in (CommandKind.mix, CommandKind.stitch):
             outputs.append(
-                OutputSpec(
+                Port(
                     id=identity,
-                    source=track_id,
+                    direction=Direction.output,
+                    stream=output_tracks[-1].stream,
+                    binding=MixBinding(track=track_id),
                 )
             )
     if operation == CommandKind.stitch:
@@ -485,9 +508,11 @@ def _generate(
             )
         ]
         outputs = [
-            OutputSpec(
+            Port(
                 id='stitch',
-                source='stitch',
+                direction=Direction.output,
+                stream=output_tracks[0].stream,
+                binding=MixBinding(track='stitch'),
             )
         ]
     buses: list[BusSpec] = []
@@ -534,14 +559,17 @@ def _generate(
                 ),
             ]
         outputs = [
-            OutputSpec(
+            Port(
                 id='mix',
-                source='master',
+                direction=Direction.output,
+                stream=output_tracks[0].stream,
+                binding=MixBinding(bus='master'),
             )
         ]
     return ArrangementDocument(
         id='edit',
         name='Audio edit',
+        ports=outputs,
         timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
         destinations=[
             FileDestination(
@@ -554,13 +582,12 @@ def _generate(
         ],
         body=Arrangement(
             timebase='audio',
-            sources=sources,
+            nodes=nodes,
             tracks=output_tracks,
             buses=buses,
             clips=clips,
             routes=routes,
             automation=automation,
-            outputs=outputs,
         ),
     ).model_dump(mode='json', exclude_none=True)
 
