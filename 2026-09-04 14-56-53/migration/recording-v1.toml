@@ -1,11 +1,9 @@
 format = "recs"
-version = 2
+version = 1
 id = "0d04a5d3-ba24-47b9-8bee-fe7445a3076c"
 name = "2026-09-04 14-56-53"
-timebases = []
-ports = []
-parameters = []
 kind = "recording"
+timebases = []
 
 [[assets]]
 id = "original-journal"
@@ -57,7 +55,6 @@ observed_duration_seconds = 0.37293124198913574
 journal = "original-journal"
 clock_observations = []
 unfinished_files = []
-continued_at = []
 
 [[body.streams]]
 kind = "events"

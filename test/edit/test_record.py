@@ -3,15 +3,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile
+from ufor.references import RecordSelector
 
 from recs.base.errors import RecsError
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import (
     SourceMaterializer,
     allocate_audio,
     materialize_source,
 )
-from recs.edit.record import resolve_sources
-from recs.edit.schema import parse_edit
+from recs.edit.record import resolve_input
 from recs.recording.finalize import finalize_recording
 from recs.ui.session_record import AudioFileRecord, SessionFooter, SessionRecordWriter
 
@@ -30,27 +31,14 @@ def test_source_resolution_preserves_gaps_and_selects_mono_offset(
     writer.write(SessionFooter(ended_at='end', duration_seconds=3))
     writer.close()
     finalize_recording(writer.path)
-    edit = parse_edit(
-        """
-format = "recs"
-version = 1
-kind = "arrangement"
-id = "edit"
-name = "Audio edit"
-timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
-[body]
-timebase = "audio"
-
-[[body.sources]]
-id = "right"
-record = "recording.toml"
-selector = { source = "device", track = "pair", channel = 1 }
-
-
-"""
+    source = resolve_input(
+        SourceSpec(
+            id='right',
+            record=record_path,
+            selector=RecordSelector(source='device', track='pair', channel=1),
+        ),
+        tmp_path,
     )
-
-    source = resolve_sources(edit, tmp_path)['right']
 
     assert source.channels == 1
     assert [(f.start, f.end) for f in source.fragments] == [
@@ -79,27 +67,9 @@ selector = { source = "device", track = "pair", channel = 1 }
 def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
     path = tmp_path / 'take.wav'
     soundfile.write(path, np.zeros((48_000, 4)), 48_000, subtype='FLOAT')
-    edit = parse_edit(
-        """
-format = "recs"
-version = 1
-kind = "arrangement"
-id = "edit"
-name = "Audio edit"
-timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
-[body]
-timebase = "audio"
-
-[[body.sources]]
-id = "middle"
-file = "take.wav"
-channels = [1, 2]
-
-
-"""
+    source = resolve_input(
+        SourceSpec(id='middle', file=path, channels=[1, 2]), tmp_path
     )
-
-    source = resolve_sources(edit, tmp_path)['middle']
 
     assert source.record is None
     assert source.file == path

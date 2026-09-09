@@ -4,8 +4,8 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import units
 from reccy.configuration.tyro import unit_spec
-from ufor.arrangement import NormalizeMode
 from ufor.encoding import Format, Subtype
+from ufor.interface import NormalizeMode
 
 TIME_SPEC = unit_spec(units.Seconds, 'TIME')
 

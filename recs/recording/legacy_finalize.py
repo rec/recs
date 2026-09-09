@@ -17,6 +17,7 @@ from ufor.recording import (
     RecordingDocument,
     UnfinishedFile,
     UnmappedAudioFragment,
+    stream_ports,
 )
 from ufor.streams import AudioType
 from ufor.time import Rate, TickRange, Timebase
@@ -265,6 +266,7 @@ def prepare_legacy_recording(
         id=header.session_id or original.sha256,
         name=root.name,
         assets=assets,
+        ports=stream_ports(streams),
         timebases=clocks,
         body=Recording(
             state='sealed' if footer else 'open',

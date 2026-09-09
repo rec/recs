@@ -14,17 +14,16 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from reccy.configuration import units
 from reccy.configuration.tyro import unit_spec
-from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from ufor.encoding import Format, Subtype
 from ufor.references import RecordSelector
-from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.edit.commands import input_tracks
 from recs.edit.graph import FrameRange as ObservedFrameRange
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
-from recs.edit.record import ResolvedSource, resolve_sources
+from recs.edit.record import ResolvedSource, resolve_input
 from recs.recording.finalize import finalize_recording
 from recs.ui import session_record
 
@@ -606,13 +605,7 @@ def _resolve_record_sources(
                 ),
             )
         )
-    edit = ArrangementDocument(
-        id='edit',
-        name='Audio edit',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
-        body=Arrangement(timebase='audio', sources=specs),
-    )
-    resolved = resolve_sources(edit, record_path.parent)
+    resolved = {s.id: resolve_input(s, record_path.parent) for s in specs}
     return (
         {selector: resolved[track_ids[selector]] for selector in selectors},
         track_ids,

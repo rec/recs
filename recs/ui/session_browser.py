@@ -82,17 +82,19 @@ def summarize(path: Path) -> SessionSummary | None:
     event_assets = {f.asset for s in events for f in s.fragments}
     media = audio_assets | event_assets
     try:
-        asset = assets[body.journal]
-        journal = (
-            legacy.read(path / asset.path)
-            if asset.encoding == 'recs-session-v3'
-            else session_record.read(path / asset.path)
-        )
+        journal = None
+        if body.journal is not None:
+            asset = assets[body.journal]
+            journal = (
+                legacy.read(path / asset.path)
+                if asset.encoding == 'recs-session-v3'
+                else session_record.read(path / asset.path)
+            )
     except OSError as error:
         journal = None
         warnings = [f'Cannot read capture diagnostics: {error}']
     else:
-        warnings = journal.warnings + journal.errors
+        warnings = journal.warnings + journal.errors if journal else []
     unresolved = sum(len(s.unmapped_fragments) for s in audio)
     if unresolved:
         warnings.append(f'{unresolved} audio files have unresolved timeline placement')
@@ -100,7 +102,7 @@ def summarize(path: Path) -> SessionSummary | None:
         warnings.append(f'{len(body.unfinished_files)} files are unfinished')
     return SessionSummary(
         path=path.as_posix(),
-        started_at=body.started_at,
+        started_at=body.started_at or 'unknown',
         ended_at=body.ended_at,
         duration=body.observed_duration_seconds,
         output_directories=sorted(

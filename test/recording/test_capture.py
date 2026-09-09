@@ -6,12 +6,10 @@ import numpy as np
 import pytest
 import soundfile
 from pydantic import TypeAdapter
-from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from ufor.encoding import Format
 from ufor.events import MidiEvent, OscEvent, StoredEvent
 from ufor.recording import AudioStream, EventStream, GapReason
 from ufor.references import RecordSelector
-from ufor.time import Rate, Timebase
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
@@ -21,8 +19,9 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
 from recs.cfg.track import Track
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import materialize_source
-from recs.edit.record import resolve_sources
+from recs.edit.record import resolve_input
 from recs.midi.export import export_midi
 from recs.midi.recorder import MidiPacket, MidiRecorder
 from recs.osc import recorder
@@ -156,22 +155,12 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
     )
     messages = [m for m in mido.MidiFile(smf).tracks[0] if not m.is_meta]
     assert [m.time for m in messages] == [0, 0, 1]
-    edit = ArrangementDocument(
-        id='test',
-        name='Test',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
-        body=Arrangement(
-            timebase='audio',
-            sources=[
-                SourceSpec(
-                    id='take',
-                    record=destination / 'recording.toml',
-                    selector=RecordSelector(source='Mic', track='1'),
-                )
-            ],
-        ),
+    edit = SourceSpec(
+        id='take',
+        record=destination / 'recording.toml',
+        selector=RecordSelector(source='Mic', track='1'),
     )
-    rendered = materialize_source(resolve_sources(edit, tmp_path)['take'])
+    rendered = materialize_source(resolve_input(edit, tmp_path))
     soundfile.write(tmp_path / 'restored.wav', rendered.samples, 48000, subtype='FLOAT')
     actual, rate = soundfile.read(tmp_path / 'restored.wav')
     assert rate == 48000 and len(actual) == 384000
@@ -334,25 +323,15 @@ def test_reconnected_audio_keeps_independent_clock_evidence(tmp_path: Path) -> N
     document = read_recording(path)
     assert len(document.body.streams) == 2
     assert verify_recording(document, tmp_path).audio_frames == 192000
-    edit = ArrangementDocument(
-        id='test',
-        name='Test',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
-        body=Arrangement(
-            timebase='audio',
-            sources=[
-                SourceSpec(
-                    id='take',
-                    record=path,
-                    selector=RecordSelector(source='Mic', track='1'),
-                )
-            ],
-        ),
+    edit = SourceSpec(
+        id='take',
+        record=path,
+        selector=RecordSelector(source='Mic', track='1'),
     )
     with pytest.raises(
         RecsError, match='independent capture clocks require explicit alignment'
     ):
-        resolve_sources(edit, tmp_path)
+        resolve_input(edit, tmp_path)
 
 
 def test_tracks_from_one_capture_share_the_device_clock(tmp_path: Path) -> None:

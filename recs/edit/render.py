@@ -2,7 +2,8 @@ from collections.abc import Mapping
 from functools import cached_property
 
 import numpy as np
-from ufor.arrangement import ArrangementDocument, NormalizeMode, OutputSpec
+from ufor.arrangement import ArrangementDocument
+from ufor.interface import Address, Direction, MixBinding, NormalizeMode, Port
 from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
@@ -21,7 +22,7 @@ class Renderer:
     def __init__(
         self,
         edit: ArrangementDocument,
-        sources: Mapping[str, ResolvedSource | MaterializedAudio],
+        sources: Mapping[Address, ResolvedSource | MaterializedAudio],
         graph: EditGraph,
         materializer: SourceMaterializer | None = None,
     ) -> None:
@@ -34,7 +35,7 @@ class Renderer:
         self.graph = graph
         self.peak_memory_bytes = self._estimated_peak_memory_bytes()
 
-    def render(self, output: OutputSpec) -> MaterializedAudio:
+    def render(self, output: Port) -> MaterializedAudio:
         return self.outputs[output.id]
 
     @cached_property
@@ -50,20 +51,30 @@ class Renderer:
     def _outputs(self) -> dict[str, MaterializedAudio]:
         nodes, ranges = self._nodes()
         result: dict[str, MaterializedAudio] = {}
-        for output in self.edit.body.outputs:
+        for output in self.edit.ports:
+            if output.direction != Direction.output:
+                continue
+            if isinstance(output.binding, Address):
+                result[output.id] = self.sources[output.binding]
+                continue
+            assert isinstance(output.binding, MixBinding)
             frame_range = self.graph.output_extents[output.id]
-            samples = nodes[output.source][frame_range.start : frame_range.end]
-            scale = output.gain
-            if output.normalize != NormalizeMode.none:
+            samples = nodes[str(output.binding.track or output.binding.bus)][
+                frame_range.start : frame_range.end
+            ]
+            scale = output.binding.gain
+            if output.binding.normalize != NormalizeMode.none:
                 peak = float(np.max(np.abs(samples))) if samples.size else 0.0
                 if peak > 0 and (
-                    output.normalize == NormalizeMode.normalize or peak > 1
+                    output.binding.normalize == NormalizeMode.normalize or peak > 1
                 ):
                     scale /= peak
             if scale != 1:
                 samples = samples * np.float32(scale)
             samples.flags.writeable = False
-            observed = _intersect_ranges(ranges[output.source], frame_range)
+            observed = _intersect_ranges(
+                ranges[str(output.binding.track or output.binding.bus)], frame_range
+            )
             result[output.id] = MaterializedAudio(
                 np.asarray(samples, dtype=np.float32),
                 self.edit.timebases[0].rate.numerator,
@@ -182,16 +193,24 @@ class Renderer:
         )
         persistent_outputs = 0
         peak = sources + nodes + max(clip_temporary, route_temporary)
-        for output in self.edit.body.outputs:
+        for output in self.edit.ports:
+            if output.direction != Direction.output or isinstance(
+                output.binding, Address
+            ):
+                continue
+            assert isinstance(output.binding, MixBinding)
             frame_range = self.graph.output_extents[output.id]
             size = (
                 (frame_range.end - frame_range.start)
-                * self.graph.widths[output.source]
+                * self.graph.widths[str(output.binding.track or output.binding.bus)]
                 * itemsize
             )
-            transient = size if output.normalize != NormalizeMode.none else 0
+            transient = size if output.binding.normalize != NormalizeMode.none else 0
             peak = max(peak, sources + nodes + persistent_outputs + transient)
-            if output.gain != 1 or output.normalize != NormalizeMode.none:
+            if (
+                output.binding.gain != 1
+                or output.binding.normalize != NormalizeMode.none
+            ):
                 persistent_outputs += size
             peak = max(peak, sources + nodes + persistent_outputs)
         return peak

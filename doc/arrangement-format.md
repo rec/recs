@@ -8,40 +8,60 @@ the generated media and operational journal.
 
 ```toml
 format = "recs"
-version = 1
+version = 2
 kind = "arrangement"
 id = "speech-edit"
 name = "Speech edit"
-timebases = [{ id = "audio", rate = { numerator = 48000, denominator = 1 } }]
+
+[[timebases]]
+id = "audio"
+
+[timebases.rate]
+numerator = 48000
+denominator = 1
 
 [body]
 timebase = "audio"
 
-[[body.sources]]
-id = "take"
-file = "take.wav"
-channels = [0]
-
 [[body.tracks]]
 id = "speech"
-stream = { timebase = "audio", channels = ["channel-0"] }
+
+[body.tracks.stream]
+timebase = "audio"
+channels = ["channel-0"]
 
 [[body.clips]]
 id = "opening"
-source = "take"
 track = "speech"
 source_start = 0
 source_end = 48000
 timeline_start = 0
 
-[[body.outputs]]
-id = "main"
-source = "speech"
+[body.clips.source]
+node = "take"
+port = "audio"
+
+[[body.nodes]]
+id = "take"
+
+[body.nodes.definition]
+path = "take.recording.toml"
 
 [[destinations]]
 port = "main"
 path = "audio/speech.wav"
 format = "wav"
+
+[[ports]]
+id = "main"
+direction = "output"
+
+[ports.stream]
+timebase = "audio"
+channels = ["channel-0"]
+
+[ports.binding]
+track = "speech"
 ```
 
 The first audio profile has one physical timebase with an integer sample rate.
@@ -54,15 +74,19 @@ rates require explicit conversion and are currently rejected by preparation.
 The pure `convert_tick` operation converts exact positions and never resamples
 audio. Musical time and generalized DSP remain later capabilities.
 
-Source channel indices are zero-based. A session source uses
-`record = "session/recording.toml"` plus
-`selector = { source = "device", track = "voice", channel = 0 }`; omit the
-selector's channel to select the complete track. Source and track names may
-contain colons without becoming ambiguous. CLI channel selectors retain their
-existing human-facing numbering and are resolved before saving the document.
-The resolver follows recording continuations, verifies selected asset hashes,
-and retains native gaps and offsets within files. Open recordings and selected
-streams with unresolved historical placement are rejected.
+Each node directly names a definition with `{ path, sha256? }`. Each clip selects
+its public output with `{ node, port }`. Definitions resolve relative to the
+containing document; public `ports` bind internal tracks, buses or child ports.
+See the [composition design](composition-design.md) for connections and parameters.
+
+Recording exports use stable stream IDs and optional zero-based consecutive
+`channels`. Recs' CLI retains human-facing session selectors while authoring:
+it writes a recording definition exposing the chosen stream/channel selection.
+Raw audio files likewise receive recording metadata rather than a special source
+variant. The resolver follows recording continuations, verifies selected assets,
+and retains native gaps and offsets. Open recordings and unresolved historical
+placement are rejected. Nested arrangement outputs retain their native frame
+coordinates. Unsupported instrument realization fails during preparation.
 
 Automation targets are structured tables, such as
 `{ kind = "clip", node = "opening", parameter = "gain" }`. A route target also
@@ -75,3 +99,15 @@ The Pydantic definition is `ufor.arrangement.ArrangementDocument`; its
 writer are in `recs/edit/schema.py`. Authoring recipes still describe operations
 and defaults; generated arrangements use the new native document. Resolved
 composition stages retain their recipe provenance and store the new documents.
+
+## Validation ownership
+
+Ufor validates identifier uniqueness, clip and routing references, matching route
+channel layouts and timebases, acyclic bus routing, automation targets, output
+references, and destination ports. Frame positions require integers and gains
+must be finite. `Arrangement.bus_order` supplies dependency order to consumers.
+
+Applications still inspect media to check source channel counts and available
+frames, determine rendered extents, and validate output encodings. Arrangement
+`ParameterTarget` specializes the shared modulation `Target` address while
+retaining its existing clip, bus and route selectors and gain-only profile.

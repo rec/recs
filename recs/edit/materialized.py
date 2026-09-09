@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import soundfile
 from pydantic import BaseModel, ConfigDict
+from ufor.recording import RecordingDocument
 
 from recs.base.errors import RecsError
 from recs.edit.graph import FrameRange
@@ -189,3 +190,77 @@ def _read_fragment(
         raise RecsError(
             f'Source audio {path} contains {count} frames; expected {end - start}'
         )
+
+
+def recording_definition(
+    value: MaterializedAudio, name: str, channels: list[str]
+) -> RecordingDocument:
+    """Describe a prepared audio value for the host's definition/asset provider."""
+    from hashlib import sha256
+
+    from ufor.assets import Asset
+    from ufor.interface import Direction, Port, StreamBinding
+    from ufor.recording import (
+        AudioFragment,
+        AudioStream,
+        Gap,
+        GapReason,
+        Recording,
+    )
+    from ufor.streams import AudioType
+    from ufor.time import Rate, Timebase
+
+    clock = Timebase(id='audio', rate=Rate(numerator=value.sample_rate))
+    stream = AudioType(timebase='audio', channels=channels)
+    fragments = [
+        AudioFragment(
+            asset='samples',
+            start=r.start,
+            count=r.end - r.start,
+            asset_start=r.start - value.start_frame,
+        )
+        for r in value.observed_ranges
+    ]
+    gaps = []
+    end = 0
+    for span in value.observed_ranges:
+        if span.start > end:
+            gaps.append(Gap(start=end, end=span.start, reason=GapReason.unknown))
+        end = span.end
+    if end < value.end_frame:
+        gaps.append(Gap(start=end, end=value.end_frame, reason=GapReason.unknown))
+    payload = value.samples.astype('<f4', copy=False).tobytes()
+    asset = Asset(
+        id='samples',
+        path='samples.f32',
+        encoding='float32le',
+        byte_length=len(payload),
+        sha256=sha256(payload).hexdigest(),
+    )
+    return RecordingDocument(
+        id=name,
+        name=name,
+        timebases=[clock],
+        assets=[asset],
+        ports=[
+            Port(
+                id='audio',
+                direction=Direction.output,
+                stream=stream,
+                binding=StreamBinding(stream='audio'),
+            )
+        ],
+        body=Recording(
+            state='sealed',
+            streams=[
+                AudioStream(
+                    id='audio',
+                    source_id=name,
+                    stream=stream,
+                    end=value.end_frame,
+                    fragments=fragments,
+                    gaps=gaps,
+                )
+            ],
+        ),
+    )

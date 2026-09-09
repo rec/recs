@@ -8,10 +8,11 @@ from pydantic import (
     ConfigDict,
     Field,
 )
-from ufor.arrangement import ArrangementDocument, Interpolation, NormalizeMode
+from ufor.arrangement import ArrangementDocument, Interpolation
 from ufor.base import Identifier
 from ufor.codec import parse_document
 from ufor.encoding import Format, Subtype
+from ufor.interface import NormalizeMode
 from ufor.references import ParameterTarget, RecordSelector
 
 

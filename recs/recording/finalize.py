@@ -20,6 +20,7 @@ from ufor.recording import (
     Recording,
     RecordingDocument,
     UnfinishedFile,
+    stream_ports,
 )
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
@@ -341,6 +342,7 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
         id=header.session_id or original.sha256,
         name=root.name,
         assets=assets,
+        ports=stream_ports(streams),
         timebases=list(unique_clocks.values()),
         body=Recording(
             state='sealed' if footer else 'open',
