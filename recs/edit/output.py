@@ -3,7 +3,7 @@ from pathlib import Path
 import soundfile
 from ufor.arrangement import ArrangementDocument
 from ufor.encoding import Format
-from ufor.streams import FileDestination
+from ufor.streams import AudioType, FileDestination
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph
@@ -16,13 +16,13 @@ def validate_outputs(
         raise RecsError(f'Output session directory already exists: {destination}')
     targets = {d.port: d for d in edit.destinations}
     if len(targets) != len(edit.destinations) or set(targets) != {
-        o.id for o in edit.body.outputs
+        o.id for o in edit.ports
     }:
         raise RecsError(
             'Final render requires exactly one destination for every output port'
         )
     paths: list[Path] = []
-    for port in edit.body.outputs:
+    for port in edit.ports:
         output = targets[port.id]
         path = destination / output.path
         resolved = path.resolve()
@@ -38,7 +38,9 @@ def validate_outputs(
         if resolved in paths:
             raise RecsError(f'Duplicate output path: {output.path}')
         paths.append(resolved)
-        channels = graph.widths[port.source]
+        if not isinstance(port.stream, AudioType):
+            raise RecsError('audio renderer requires an audio output')
+        channels = len(port.stream.channels)
         if output.format == Format.flac and channels > 8:
             raise RecsError(f'Output {output.port}: FLAC supports at most 8 channels')
         if output.format == Format.mp3 and channels > 2:

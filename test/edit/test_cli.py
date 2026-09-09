@@ -59,7 +59,9 @@ def test_dry_run_prints_only_document_toml(
     monkeypatch.setattr(
         session,
         'prepare_edit',
-        lambda complete, edit_directory, destination: SimpleNamespace(edit=complete),
+        lambda complete, edit_directory, destination, definitions: SimpleNamespace(
+            edit=complete
+        ),
     )
     monkeypatch.chdir(tmp_path)
 
@@ -81,8 +83,9 @@ def test_dry_run_accepts_direct_audio_file(
     assert main(['clip', 'voice.wav', '--dry-run']) == 0
 
     output = capsys.readouterr().out
-    assert 'file = "../voice.wav"' in output
-    assert 'channels = [0]' in output
+    assert '.recording.toml' in output
+    assert 'definition' in output
+    assert 'channels = ["channel-0"]' in output
     assert sorted(p.name for p in tmp_path.iterdir()) == ['voice.wav']
 
 

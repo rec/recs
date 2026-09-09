@@ -5,13 +5,12 @@ import numpy as np
 import pytest
 import soundfile
 import tomlkit
-from ufor.arrangement import Arrangement, ArrangementDocument, SourceSpec
 from ufor.references import RecordSelector
-from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
+from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import materialize_source
-from recs.edit.record import resolve_sources
+from recs.edit.record import resolve_input
 from recs.recording.finalize import finalize_recording
 from recs.recording.read import read_recording_chain
 from recs.ui import session_export, session_record, session_record_check
@@ -37,22 +36,12 @@ def test_export_preserves_native_positions_and_remains_readable_after_source_mov
             == expected[document.name]
         )
     assert session_record_check.check(result / 'recording.toml') == []
-    edit = ArrangementDocument(
-        id='test',
-        name='Test',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
-        body=Arrangement(
-            timebase='audio',
-            sources=[
-                SourceSpec(
-                    id='take',
-                    record=result / 'recording.toml',
-                    selector=RecordSelector(source='device', track='mono'),
-                )
-            ],
-        ),
+    edit = SourceSpec(
+        id='take',
+        record=result / 'recording.toml',
+        selector=RecordSelector(source='device', track='mono'),
     )
-    source = resolve_sources(edit, tmp_path)['take']
+    source = resolve_input(edit, tmp_path)
     assert [(f.start, f.end) for f in source.fragments] == [(0, 48000), (96000, 144000)]
     rendered = materialize_source(source)
     assert rendered.samples.shape == (144000, 1)
