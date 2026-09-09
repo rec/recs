@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from recs.base.errors import RecsError
 from recs.edit.graph import validate_graph
 from recs.edit.record import AudioFragment, ResolvedSource
 from recs.edit.schema import parse_edit
@@ -33,7 +32,7 @@ def test_graph_rejects_invalid_references(replacement: str, message: str) -> Non
     text = _edit()
     if replacement == 'channels = 2':
         text = text.replace(
-            'channels = ["channel-0"]', 'channels = ["channel-0", "channel-1"]', 1
+            'channels = ["channel-0"]', 'channels = ["channel-0", "channel-1"]'
         )
     elif replacement == 'destination = "master"':
         text += """
@@ -46,7 +45,7 @@ destination = "master"
             'target = { kind = "clip", node = "clip", parameter = "gain" }', replacement
         )
 
-    with pytest.raises(RecsError, match=message):
+    with pytest.raises(ValueError, match=message):
         validate_graph(parse_edit(text), {'source': _source()})
 
 
