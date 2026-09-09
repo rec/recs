@@ -3,7 +3,6 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 from ufor.arrangement import ArrangementDocument
-from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
 
@@ -31,18 +30,8 @@ class FrameRange(BaseModel, frozen=True):
 def validate_graph(
     edit: ArrangementDocument, sources: Mapping[str, AudioDescription]
 ) -> EditGraph:
-    _unique('source', [s.id for s in edit.body.sources])
-    _unique('track', [t.id for t in edit.body.tracks])
-    _unique('bus', [b.id for b in edit.body.buses])
-    _unique('clip', [c.id for c in edit.body.clips])
-    _unique('output', [o.id for o in edit.body.outputs])
-    _unique('automation target', [a.target for a in edit.body.automation])
-
     track_widths = {t.id: len(t.stream.channels) for t in edit.body.tracks}
     bus_widths = {b.id: len(b.stream.channels) for b in edit.body.buses}
-    overlap = set(track_widths) & set(bus_widths)
-    if overlap:
-        raise RecsError(f'Track and bus IDs collide: {sorted(overlap)}')
     widths = track_widths | bus_widths
 
     clip_extents: dict[str, int] = dict.fromkeys(track_widths, 0)
@@ -50,9 +39,7 @@ def validate_graph(
         source = sources.get(clip.source)
         if source is None:
             raise RecsError(f'Clip {clip.id}: unknown source {clip.source}')
-        width = track_widths.get(clip.track)
-        if width is None:
-            raise RecsError(f'Clip {clip.id}: unknown track {clip.track}')
+        width = track_widths[clip.track]
         if source.channels != width:
             raise RecsError(
                 f'Clip {clip.id}: source width {source.channels} does not match '
@@ -70,83 +57,18 @@ def validate_graph(
 
     destinations: dict[str, list[str]] = {b.id: [] for b in edit.body.buses}
     for route in edit.body.routes:
-        if route.source not in widths:
-            raise RecsError(f'Route has unknown source {route.source}')
-        if route.destination not in bus_widths:
-            raise RecsError(f'Route has unknown destination bus {route.destination}')
-        if widths[route.source] != bus_widths[route.destination]:
-            raise RecsError(
-                f'Route {route.source}->{route.destination}: channel widths differ'
-            )
         destinations[route.destination].append(route.source)
-    bus_order = _bus_order(destinations, bus_widths)
+    bus_order = edit.body.bus_order
 
     extents = dict(clip_extents)
     for bus in bus_order:
         extents[bus] = max((extents[s] for s in destinations[bus]), default=0)
 
-    clip_ids = {c.id for c in edit.body.clips}
-    route_ids = {(r.source, r.destination) for r in edit.body.routes}
-    bus_ids = set(bus_widths)
-    for automation in edit.body.automation:
-        _validate_target(automation.target, clip_ids, route_ids, bus_ids)
-
     output_extents: dict[str, FrameRange] = {}
     for output in edit.body.outputs:
-        if output.source not in widths:
-            raise RecsError(f'Output {output.id}: unknown source {output.source}')
         start = output.start or 0
         end = output.end if output.end is not None else extents[output.source]
         if end <= start:
             raise RecsError(f'Output {output.id}: empty frame range {start}:{end}')
         output_extents[output.id] = FrameRange(start=start, end=end)
     return EditGraph(widths=widths, output_extents=output_extents, bus_order=bus_order)
-
-
-def _unique[T](kind: str, values: list[T]) -> None:
-    duplicates = sorted({v for v in values if values.count(v) > 1}, key=str)
-    if duplicates:
-        raise RecsError(f'Duplicate {kind} IDs: {duplicates}')
-
-
-def _bus_order(
-    destinations: dict[str, list[str]], bus_widths: dict[str, int]
-) -> list[str]:
-    result: list[str] = []
-    visiting: set[str] = set()
-    visited: set[str] = set()
-
-    def visit(bus: str) -> None:
-        if bus in visiting:
-            raise RecsError(f'Routing cycle includes bus {bus}')
-        if bus in visited:
-            return
-        visiting.add(bus)
-        for source in destinations[bus]:
-            if source in bus_widths:
-                visit(source)
-        visiting.remove(bus)
-        visited.add(bus)
-        result.append(bus)
-
-    for bus in destinations:
-        visit(bus)
-    return result
-
-
-def _validate_target(
-    target: ParameterTarget,
-    clip_ids: set[str],
-    route_ids: set[tuple[str, str]],
-    bus_ids: set[str],
-) -> None:
-    kind, identity = target.kind, target.node
-    valid = False
-    if kind == 'clip':
-        valid = identity in clip_ids
-    elif kind == 'bus':
-        valid = identity in bus_ids
-    elif kind == 'route':
-        valid = (identity, target.destination) in route_ids
-    if not valid:
-        raise RecsError(f'Unknown automation target {target!r}')
