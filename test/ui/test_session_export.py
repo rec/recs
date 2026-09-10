@@ -37,7 +37,7 @@ def test_export_preserves_native_positions_and_remains_readable_after_source_mov
         )
     assert session_record_check.check(result / 'recording.toml') == []
     edit = SourceSpec(
-        id='take',
+        name='take',
         record=result / 'recording.toml',
         selector=RecordSelector(source='device', track='mono'),
     )

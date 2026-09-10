@@ -33,7 +33,7 @@ def test_source_resolution_preserves_gaps_and_selects_mono_offset(
     finalize_recording(writer.path)
     source = resolve_input(
         SourceSpec(
-            id='right',
+            name='right',
             record=record_path,
             selector=RecordSelector(source='device', track='pair', channel=1),
         ),
@@ -60,7 +60,7 @@ def test_source_resolution_preserves_gaps_and_selects_mono_offset(
 
     materializer = SourceMaterializer()
     assert materializer.materialize(source) is materializer.materialize(
-        source.model_copy(update={'id': 'same-source'})
+        source.model_copy(update={'name': 'same-source'})
     )
 
 
@@ -68,7 +68,7 @@ def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
     path = tmp_path / 'take.wav'
     soundfile.write(path, np.zeros((48_000, 4)), 48_000, subtype='FLOAT')
     source = resolve_input(
-        SourceSpec(id='middle', file=path, channels=[1, 2]), tmp_path
+        SourceSpec(name='middle', file=path, channels=[1, 2]), tmp_path
     )
 
     assert source.record is None

@@ -84,7 +84,7 @@ def test_composition_executes_each_edit_from_the_previous_session(
     assert [e.command for e in canonical.edits] == ['clip', 'clip']
     assert len(canonical.resolved_commands) == 2
     assert len(canonical.stages) == 2
-    first_output = canonical.stages[0].edit['ports'][0]['binding']
+    first_output = canonical.stages[0].edit['outputs'][0]['binding']
     assert 'path' not in first_output
     assert 'format' not in first_output
     assert 'subtype' not in first_output
@@ -311,5 +311,8 @@ def _composition_text(*steps: tuple[str, str | None]) -> str:
         if channel is not None:
             text += f'channel = ["{channel}"]\n'
         if index == len(steps) - 1:
-            text += 'format = "wav"\nsubtype = "float"\n'
+            text += """
+format = "wav"
+subtype = "float"
+"""
     return text

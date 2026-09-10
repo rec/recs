@@ -418,7 +418,7 @@ def _source(directory: Path, name: str, audio: np.ndarray) -> ResolvedSource:
     path = directory / name
     soundfile.write(path, audio, SAMPLE_RATE, subtype='FLOAT')
     return ResolvedSource(
-        id=name.removesuffix('.wav'),
+        name=name.removesuffix('.wav'),
         record=directory / 'recording.toml',
         file=None,
         session_id='input',

@@ -7,7 +7,7 @@ from typing import Annotated
 import tomlkit
 import tyro
 from pydantic import BaseModel
-from ufor.codec import document_toml
+from ufor.codec import score_toml
 
 from ..base.errors import RecsError
 from ..misc.legal_filename import legal_filename
@@ -43,7 +43,7 @@ def export(record: Path, destination: Path) -> Path:
             raise RecsError(f'Cannot export an unfinished recording: {path}')
         for asset in document.assets:
             actual = sealed_asset(
-                path.parent / asset.path, path.parent, asset.id, asset.encoding
+                path.parent / asset.path, path.parent, asset.name, asset.encoding
             )
             if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
                 raise RecsError(f'Asset bytes disagree with recording: {asset.path}')
@@ -58,7 +58,7 @@ def export(record: Path, destination: Path) -> Path:
                 target = output.parent / asset.path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
-                actual = sealed_asset(target, output.parent, asset.id, asset.encoding)
+                actual = sealed_asset(target, output.parent, asset.name, asset.encoding)
                 if (
                     actual.sha256 != asset.sha256
                     or actual.byte_length != asset.byte_length
@@ -88,7 +88,7 @@ def export(record: Path, destination: Path) -> Path:
                     )
                 }
             )
-            output.write_text(document_toml(exported))
+            output.write_text(score_toml(exported))
         (temporary / 'export-summary.toml').write_text(
             tomlkit.dumps(
                 {

@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import soundfile
 from pydantic import BaseModel, ConfigDict
-from ufor.recording import RecordingDocument
+from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
 from recs.edit.graph import FrameRange
@@ -79,7 +79,7 @@ class SourceMaterializer:
         self.audio: dict[str, MaterializedAudio] = {}
 
     def materialize(self, source: ResolvedSource) -> MaterializedAudio:
-        key = source.model_dump_json(exclude={'id'})
+        key = source.model_dump_json(exclude={'name'})
         if key not in self.audio:
             self.audio[key] = materialize_source(source)
         return self.audio[key]
@@ -194,12 +194,12 @@ def _read_fragment(
 
 def recording_definition(
     value: MaterializedAudio, name: str, channels: list[str]
-) -> RecordingDocument:
-    """Describe a prepared audio value for the host's definition/asset provider."""
+) -> RecordingScore:
+    """Describe a prepared audio value for the host's score/asset provider."""
     from hashlib import sha256
 
     from ufor.assets import Asset
-    from ufor.interface import Direction, Port, StreamBinding
+    from ufor.interface import Output, StreamBinding
     from ufor.recording import (
         AudioFragment,
         AudioStream,
@@ -210,7 +210,7 @@ def recording_definition(
     from ufor.streams import AudioType
     from ufor.time import Rate, Timebase
 
-    clock = Timebase(id='audio', rate=Rate(numerator=value.sample_rate))
+    clock = Timebase(name='audio', rate=Rate(numerator=value.sample_rate))
     stream = AudioType(timebase='audio', channels=channels)
     fragments = [
         AudioFragment(
@@ -231,30 +231,25 @@ def recording_definition(
         gaps.append(Gap(start=end, end=value.end_frame, reason=GapReason.unknown))
     payload = value.samples.astype('<f4', copy=False).tobytes()
     asset = Asset(
-        id='samples',
+        name='samples',
         path='samples.f32',
         encoding='float32le',
         byte_length=len(payload),
         sha256=sha256(payload).hexdigest(),
     )
-    return RecordingDocument(
-        id=name,
+    return RecordingScore(
         name=name,
+        title=name,
         timebases=[clock],
         assets=[asset],
-        ports=[
-            Port(
-                id='audio',
-                direction=Direction.output,
-                stream=stream,
-                binding=StreamBinding(stream='audio'),
-            )
+        outputs=[
+            Output(name='audio', stream=stream, binding=StreamBinding(stream='audio'))
         ],
         body=Recording(
             state='sealed',
             streams=[
                 AudioStream(
-                    id='audio',
+                    name='audio',
                     source_id=name,
                     stream=stream,
                     end=value.end_frame,

@@ -6,10 +6,10 @@ from pathlib import Path
 
 import soundfile
 from pydantic import BaseModel, ConfigDict
-from ufor.arrangement import ArrangementDocument
-from ufor.codec import document_toml
-from ufor.interface import Address
-from ufor.recording import RecordingDocument
+from ufor.arrangement import ArrangementScore
+from ufor.codec import score_toml
+from ufor.interface import OutputSelection
+from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
 from recs.edit.graph import EditGraph, validate_graph
@@ -23,18 +23,18 @@ from recs.ui import session_record
 
 
 class PreparedEdit(BaseModel, frozen=True):
-    edit: ArrangementDocument
-    sources: dict[Address, ResolvedSource | MaterializedAudio]
+    edit: ArrangementScore
+    sources: dict[OutputSelection, ResolvedSource | MaterializedAudio]
     graph: EditGraph
 
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
 
 def prepare_edit(
-    edit: ArrangementDocument,
+    edit: ArrangementScore,
     edit_directory: Path,
     destination: Path,
-    supplied: dict[Path, RecordingDocument] | None = None,
+    supplied: dict[Path, RecordingScore] | None = None,
 ) -> PreparedEdit:
     if len(edit.body.media_types) != 1 or edit.body.media_types[0] != 'audio':
         raise RecsError(
@@ -49,13 +49,13 @@ def prepare_edit(
 
 
 def execute_edit(
-    edit: ArrangementDocument, edit_directory: Path, destination: Path
+    edit: ArrangementScore, edit_directory: Path, destination: Path
 ) -> Path:
     prepared = prepare_edit(edit, edit_directory, destination)
     canonical = prepared.edit
     rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
     return write_session(
-        document_toml(canonical),
+        score_toml(canonical),
         canonical,
         prepared.graph,
         rendered,
@@ -66,7 +66,7 @@ def execute_edit(
 
 def write_session(
     edit_text: str,
-    edit: ArrangementDocument,
+    edit: ArrangementScore,
     graph: EditGraph,
     rendered: dict[str, MaterializedAudio],
     destination: Path,
@@ -92,15 +92,15 @@ def write_session(
         sync=True,
     )
     try:
-        destinations = {d.port: d for d in edit.destinations}
-        for output in edit.ports:
-            target = destinations[output.id]
+        destinations = {d.output: d for d in edit.destinations}
+        for output in edit.outputs:
+            target = destinations[output.name]
             path = destination / target.path
-            stream_id = f'audio:edit:{output.id}'
-            frame_range = graph.output_extents[output.id]
-            channels = rendered[output.id].channels
+            stream_id = f'audio:edit:{output.name}'
+            frame_range = graph.output_extents[output.name]
+            channels = rendered[output.name].channels
             started = session_record.AudioFileRecord(
-                clock_id=edit.timebases[0].id,
+                clock_id=edit.timebases[0].name,
                 type='file_started',
                 media_type='audio',
                 timestamp=_timestamp(datetime.now(timezone.utc)),
@@ -109,13 +109,13 @@ def write_session(
                 frame_count=frame_range.start,
                 path=target.path.as_posix(),
                 source='edit',
-                track_name=output.id,
+                track_name=output.name,
                 source_channels=list(range(1, channels + 1)),
                 channels=channels,
                 sample_rate=edit.timebases[0].rate.numerator,
             )
             writer.write(started)
-            audio = rendered[output.id]
+            audio = rendered[output.name]
             fp = open_output(
                 target,
                 path,
@@ -166,36 +166,36 @@ def write_session(
 
 
 def canonical_edit(
-    edit: ArrangementDocument,
-    sources: Mapping[Address, ResolvedSource | MaterializedAudio],
+    edit: ArrangementScore,
+    sources: Mapping[OutputSelection, ResolvedSource | MaterializedAudio],
     destination: Path,
     origin: Path,
-) -> ArrangementDocument:
+) -> ArrangementScore:
     replacements = []
-    for node in edit.body.nodes:
-        if node.definition.path.startswith('prepared/'):
+    for node in edit.body.parts:
+        if node.score.path.startswith('prepared/'):
             replacements.append(node)
             continue
-        reference = node.definition.model_copy(
+        reference = node.score.model_copy(
             update={
                 'path': os.path.relpath(
-                    (origin / node.definition.path).resolve(), destination
+                    (origin / node.score.path).resolve(), destination
                 )
             }
         )
-        node = node.model_copy(update={'definition': reference})
+        node = node.model_copy(update={'score': reference})
         replacements.append(node)
     return edit.model_copy(
-        update={'body': edit.body.model_copy(update={'nodes': replacements})}
+        update={'body': edit.body.model_copy(update={'parts': replacements})}
     )
 
 
 def _resolution_metadata(
-    sources: dict[Address, ResolvedSource | MaterializedAudio], graph: EditGraph
+    sources: dict[OutputSelection, ResolvedSource | MaterializedAudio], graph: EditGraph
 ) -> dict[str, object]:
     return {
         'sources': {
-            s.id if isinstance(s, ResolvedSource) else f'{a.node}/{a.port}': (
+            s.name if isinstance(s, ResolvedSource) else f'{a.name}/{a.output}': (
                 {
                     'session_id': s.session_id,
                     'files': [f.path.as_posix() for f in s.fragments],

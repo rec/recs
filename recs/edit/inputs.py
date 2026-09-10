@@ -6,13 +6,13 @@ from typing import Self
 from pydantic import Field, model_validator
 from ufor.base import Identifier, Model
 from ufor.encoding import Format
-from ufor.interface import Node
-from ufor.recording import RecordingDocument
+from ufor.interface import Part
+from ufor.recording import RecordingScore
 from ufor.references import RecordSelector
 
 
 class SourceSpec(Model):
-    id: Identifier
+    name: Identifier
     record: Path | None = None
     selector: RecordSelector | None = None
     file: Path | None = None
@@ -38,15 +38,15 @@ class SourceSpec(Model):
 
 def export_source(
     source: SourceSpec,
-    definitions: dict[Path, RecordingDocument] | None = None,
-) -> tuple[Node, list[str]]:
-    """Author a recording definition for an explicit host input selection."""
+    definitions: dict[Path, RecordingScore] | None = None,
+) -> tuple[Part, list[str]]:
+    """Author a recording score for an explicit host input selection."""
     import os
     from hashlib import sha256
 
-    from ufor.codec import document_toml
-    from ufor.interface import Definition, Direction, Node, Port, StreamBinding
-    from ufor.recording import AudioFragment, AudioStream, Recording, RecordingDocument
+    from ufor.codec import score_toml
+    from ufor.interface import Output, Part, ScoreVersion, StreamBinding
+    from ufor.recording import AudioFragment, AudioStream, Recording, RecordingScore
     from ufor.streams import AudioType
     from ufor.time import Rate, Timebase
 
@@ -58,9 +58,9 @@ def export_source(
         channels = [f'channel-{i}' for i in source.channels]
         name = source.memory.replace(':', '/')
         indices = '-'.join(str(i) for i in source.channels)
-        return Node(
-            id=source.id,
-            definition=Definition(path=f'prepared/{name}/channels-{indices}.toml'),
+        return Part(
+            name=source.name,
+            score=ScoreVersion(path=f'prepared/{name}/channels-{indices}.toml'),
         ), channels
     resolve_input(source, Path('.'))
     origin = source.record or source.file
@@ -74,10 +74,10 @@ def export_source(
             for s in document.body.streams
             if isinstance(s, AudioStream)
             and (s.source_name or s.source_id) == source.selector.source
-            and (s.track_name or s.id) == source.selector.track
+            and (s.track_name or s.name) == source.selector.track
         )
         if source.input_format is not None:
-            assets = {a.id: a for a in document.assets}
+            assets = {a.name: a for a in document.assets}
             selected = selected.model_copy(
                 update={
                     'fragments': [
@@ -96,21 +96,20 @@ def export_source(
             if indices is None
             else [selected.stream.channels[i] for i in indices]
         )
-        port = Port(
-            id='audio',
-            direction=Direction.output,
+        port = Output(
+            name='audio',
             stream=selected.stream.model_copy(update={'channels': channels}),
-            binding=StreamBinding(stream=selected.id, channels=indices),
+            binding=StreamBinding(stream=selected.name, channels=indices),
         )
-        document = document.model_copy(update={'ports': [port]})
+        document = document.model_copy(update={'outputs': [port]})
     else:
         asset = sealed_asset(origin, origin.parent, 'audio', origin.suffix.lstrip('.'))
         import soundfile
 
         info = soundfile.info(origin)
-        clock = Timebase(id='audio', rate=Rate(numerator=info.samplerate))
+        clock = Timebase(name='audio', rate=Rate(numerator=info.samplerate))
         stream = AudioStream(
-            id='audio',
+            name='audio',
             source_id=origin.name,
             stream=AudioType(
                 timebase='audio',
@@ -120,28 +119,27 @@ def export_source(
             fragments=[AudioFragment(asset='audio', start=0, count=info.frames)],
         )
         channels = [stream.stream.channels[i] for i in source.channels]
-        port = Port(
-            id='audio',
-            direction=Direction.output,
+        port = Output(
+            name='audio',
             stream=AudioType(timebase='audio', channels=channels),
             binding=StreamBinding(stream='audio', channels=source.channels),
         )
-        document = RecordingDocument(
-            id=origin.stem,
-            name=origin.name,
+        document = RecordingScore(
+            name=origin.stem,
+            title=origin.name,
             assets=[asset],
             timebases=[clock],
-            ports=[port],
+            outputs=[port],
             body=Recording(state='sealed', streams=[stream]),
         )
-    document = RecordingDocument.model_validate(document.model_dump())
-    text = document_toml(document)
+    document = RecordingScore.model_validate(document.model_dump())
+    text = score_toml(document)
     suffix = sha256(text.encode()).hexdigest()[:16]
     path = origin.with_name(f'{origin.stem}-{suffix}.recording.toml')
     if definitions is not None:
         definitions[path] = document
     elif not path.exists() or path.read_text() != text:
         path.write_text(text)
-    return Node(
-        id=source.id, definition=Definition(path=os.path.relpath(path, Path.cwd()))
+    return Part(
+        name=source.name, score=ScoreVersion(path=os.path.relpath(path, Path.cwd()))
     ), channels

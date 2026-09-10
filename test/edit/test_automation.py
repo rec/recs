@@ -7,7 +7,7 @@ from recs.edit.automation import gain_values
 def test_gain_values_hold_declared_value_before_first_point() -> None:
     automation = AutomationSpec.model_validate(
         {
-            'target': {'kind': 'clip', 'node': 'voice'},
+            'target': {'kind': 'clip', 'name': 'voice'},
             'interpolation': 'linear',
             'points': [
                 {'frame': 2, 'value': 0.0},
@@ -28,7 +28,7 @@ def test_gain_values_hold_declared_value_before_first_point() -> None:
 def test_equal_power_automation_interpolates_squared_gain() -> None:
     automation = AutomationSpec.model_validate(
         {
-            'target': {'kind': 'clip', 'node': 'voice'},
+            'target': {'kind': 'clip', 'name': 'voice'},
             'interpolation': 'equal_power',
             'points': [
                 {'frame': 0, 'value': 0.0},

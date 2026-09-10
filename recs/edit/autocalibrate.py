@@ -596,7 +596,7 @@ def _resolve_record_sources(
         )
         specs.append(
             SourceSpec(
-                id=identity,
+                name=identity,
                 record=record_path,
                 selector=RecordSelector(
                     source=track.source.selector.source,
@@ -605,7 +605,7 @@ def _resolve_record_sources(
                 ),
             )
         )
-    resolved = {s.id: resolve_input(s, record_path.parent) for s in specs}
+    resolved = {s.name: resolve_input(s, record_path.parent) for s in specs}
     return (
         {selector: resolved[track_ids[selector]] for selector in selectors},
         track_ids,

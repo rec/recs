@@ -1111,7 +1111,7 @@ def test_recorder_writes_one_record_for_all_media(
                 **values,
                 media_type=medium,
                 format='recs_events',
-                timebase=Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+                timebase=Timebase(name='monotonic', rate=Rate(numerator=1_000_000_000)),
                 start_tick=0,
                 end_tick=0,
                 timing_source='host_monotonic',

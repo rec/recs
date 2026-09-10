@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 import soundfile
 import tyro
-from ufor.arrangement import Arrangement, ArrangementDocument
-from ufor.codec import document_toml
+from ufor.arrangement import Arrangement, ArrangementScore
+from ufor.codec import score_toml
 from ufor.time import Rate, Timebase
 
 from recs.edit import commands, session
@@ -38,15 +38,15 @@ def test_edit_cli_inputs_are_optional() -> None:
     assert cfg.inputs == []
 
 
-def test_dry_run_prints_only_document_toml(
+def test_dry_run_prints_only_score_toml(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    edit = ArrangementDocument(
-        id='edit',
-        name='Audio edit',
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+    edit = ArrangementScore(
+        name='edit',
+        title='Audio edit',
+        timebases=[Timebase(name='audio', rate=Rate(numerator=48000))],
         body=Arrangement(
             timebase='audio',
         ),
@@ -67,7 +67,7 @@ def test_dry_run_prints_only_document_toml(
 
     assert main(['command', '--dry-run']) == 0
 
-    assert capsys.readouterr().out == document_toml(edit)
+    assert capsys.readouterr().out == score_toml(edit)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -84,7 +84,7 @@ def test_dry_run_accepts_direct_audio_file(
 
     output = capsys.readouterr().out
     assert '.recording.toml' in output
-    assert 'definition' in output
+    assert 'score' in output
     assert 'channels = ["channel-0"]' in output
     assert sorted(p.name for p in tmp_path.iterdir()) == ['voice.wav']
 

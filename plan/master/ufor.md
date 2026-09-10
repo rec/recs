@@ -31,7 +31,7 @@ its computed/ratio/table/tuning configurations compile to Ufor definitions.
 ## Documents and musical semantics
 
 [The musical specification](../../../ufor/doc/musical-format.md),
-[JSON Schema](../../../ufor/schema/documents.json), and
+[JSON Schema](../../../ufor/schema/scores.json), and
 [language-neutral conformance cases](../../../ufor/conformance/pitch.json)
 live with the implementation. The common codec handles recording, sequence,
 arrangement, tuning, scale, oscillator, envelope, LFO and instrument documents. The

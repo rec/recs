@@ -5,8 +5,8 @@ from typing import Literal, Self
 import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from ufor.arrangement import Arrangement, ArrangementDocument
-from ufor.interface import Address
+from ufor.arrangement import Arrangement, ArrangementScore
+from ufor.interface import OutputSelection
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
@@ -87,7 +87,7 @@ class PreparedComposition:
     def __init__(
         self,
         canonical: CompositionEdit,
-        edit: ArrangementDocument,
+        edit: ArrangementScore,
         graph: EditGraph,
         rendered: dict[str, MaterializedAudio],
         stage_memory: list[int],
@@ -172,7 +172,7 @@ def prepare_composition(
     stages: list[ResolvedStage] = []
     stage_memory: list[int] = []
     peak_memory = 0
-    final_edit: ArrangementDocument | None = None
+    final_edit: ArrangementScore | None = None
     final_graph: EditGraph | None = None
     final_rendered: dict[str, MaterializedAudio] = {}
     final_autocalibration: autocalibrate.PreparedAutocalibrate | None = None
@@ -247,7 +247,7 @@ def prepare_composition(
                 or stage.operation != operation
             ):
                 raise RecsError(f'Resolved stage {index} does not match its edit')
-            edit = ArrangementDocument.model_validate(stage.edit)
+            edit = ArrangementScore.model_validate(stage.edit)
         else:
             edit = commands.complete_or_generate_tracks(
                 resolved_step.recipe, current_tracks, resolved_step.step
@@ -301,10 +301,10 @@ def prepare_composition(
         }
     )
     if final_autocalibration is not None:
-        placeholder = ArrangementDocument(
-            id='edit',
-            name='Audio edit',
-            timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+        placeholder = ArrangementScore(
+            name='edit',
+            title='Audio edit',
+            timebases=[Timebase(name='audio', rate=Rate(numerator=sample_rate))],
             body=Arrangement(
                 timebase='audio',
             ),
@@ -392,7 +392,7 @@ def composition_summary(
 
 
 def _canonical_stage(
-    edit: ArrangementDocument | autocalibrate.AutocalibrateEdit, *, final: bool
+    edit: ArrangementScore | autocalibrate.AutocalibrateEdit, *, final: bool
 ) -> dict[str, object]:
     if final:
         return edit.model_dump(mode='json', exclude_none=True)
@@ -427,15 +427,15 @@ def _validate_recipe(recipe: dict[str, object], index: int, command: str) -> Non
 
 
 def _resolve_stage_sources(
-    edit: ArrangementDocument, directory: Path, memory: Mapping[str, MaterializedAudio]
-) -> dict[Address, ResolvedSource | MaterializedAudio]:
+    edit: ArrangementScore, directory: Path, memory: Mapping[str, MaterializedAudio]
+) -> dict[OutputSelection, ResolvedSource | MaterializedAudio]:
     result = {}
     supplied = {}
     disk_clips = []
-    nodes = {n.id: n for n in edit.body.nodes}
+    parts = {n.name: n for n in edit.body.parts}
     for clip in edit.body.clips:
-        node = nodes[clip.source.node]
-        path = Path(node.definition.path)
+        node = parts[clip.source.name]
+        path = Path(node.score.path)
         if path.parts[0] != 'prepared':
             disk_clips.append(clip)
             continue
@@ -448,16 +448,16 @@ def _resolve_stage_sources(
         from recs.edit.materialized import recording_definition
 
         supplied[(directory / path).resolve()] = recording_definition(
-            audio, node.id, [f'channel-{i}' for i in channels]
+            audio, node.name, [f'channel-{i}' for i in channels]
         )
     load_composition(edit, directory, supplied=supplied)
     if disk_clips:
-        used = {c.source.node for c in disk_clips}
+        used = {c.source.name for c in disk_clips}
         disk = edit.model_copy(
             update={
                 'body': edit.body.model_copy(
                     update={
-                        'nodes': [n for n in edit.body.nodes if n.id in used],
+                        'parts': [n for n in edit.body.parts if n.name in used],
                         'clips': disk_clips,
                     }
                 )
@@ -494,7 +494,7 @@ def _stage_session(
                 label=label,
                 selectors=[label],
                 source=SourceSpec(
-                    id='source',
+                    name='source',
                     memory=key,
                     channels=list(range(audio.channels)),
                 ),
