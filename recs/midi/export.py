@@ -32,18 +32,18 @@ def export_midi(recording: Path, source: str, destination: Path) -> Path:
                 continue
             if document.body.state != 'sealed' or stream.event_kind != 'midi':
                 raise RecsError('MIDI export requires sealed native MIDI streams')
-            clock = next(t for t in document.timebases if t.id == stream.timebase)
-            clocks.add(clock.id)
+            clock = next(t for t in document.timebases if t.name == stream.timebase)
+            clocks.add(clock.name)
             rates.add(Fraction(clock.rate.numerator, clock.rate.denominator))
-            assets = {a.id: a for a in document.assets}
+            assets = {a.name: a for a in document.assets}
             paths: dict[str, Path] = {}
             for fragment in stream.fragments:
                 asset = assets[fragment.asset]
                 payload = path.parent / asset.path
-                actual = sealed_asset(payload, path.parent, asset.id, asset.encoding)
+                actual = sealed_asset(payload, path.parent, asset.name, asset.encoding)
                 if actual != asset:
                     raise RecsError(f'MIDI asset differs from recording: {payload}')
-                paths[asset.id] = payload
+                paths[asset.name] = payload
                 assert fragment.start is not None
                 origins.append(fragment.start)
             verify_events(stream, paths)

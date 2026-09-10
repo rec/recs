@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
-from ufor.arrangement import ArrangementDocument
-from ufor.interface import Address, Direction, MixBinding
+from ufor.arrangement import ArrangementScore
+from ufor.interface import MixBinding, OutputSelection
 
 from recs.base.errors import RecsError
 
@@ -29,26 +29,26 @@ class FrameRange(BaseModel, frozen=True):
 
 
 def validate_graph(
-    edit: ArrangementDocument, sources: Mapping[Address, AudioDescription]
+    edit: ArrangementScore, sources: Mapping[OutputSelection, AudioDescription]
 ) -> EditGraph:
-    track_widths = {t.id: len(t.stream.channels) for t in edit.body.tracks}
-    bus_widths = {b.id: len(b.stream.channels) for b in edit.body.buses}
+    track_widths = {t.name: len(t.stream.channels) for t in edit.body.tracks}
+    bus_widths = {b.name: len(b.stream.channels) for b in edit.body.buses}
     widths = track_widths | bus_widths
 
     clip_extents: dict[str, int] = dict.fromkeys(track_widths, 0)
     for clip in edit.body.clips:
         source = sources.get(clip.source)
         if source is None:
-            raise RecsError(f'Clip {clip.id}: unknown source {clip.source}')
+            raise RecsError(f'Clip {clip.name}: unknown source {clip.source}')
         width = track_widths[clip.track]
         if source.channels != width:
             raise RecsError(
-                f'Clip {clip.id}: source width {source.channels} does not match '
+                f'Clip {clip.name}: source width {source.channels} does not match '
                 f'track width {width}'
             )
         if clip.source_end > source.timeline_end:
             raise RecsError(
-                f'Clip {clip.id}: source range ends at {clip.source_end}, beyond '
+                f'Clip {clip.name}: source range ends at {clip.source_end}, beyond '
                 f'{clip.source} timeline end {source.timeline_end}'
             )
         clip_extents[clip.track] = max(
@@ -56,7 +56,7 @@ def validate_graph(
             clip.timeline_start + clip.source_end - clip.source_start,
         )
 
-    destinations: dict[str, list[str]] = {b.id: [] for b in edit.body.buses}
+    destinations: dict[str, list[str]] = {b.name: [] for b in edit.body.buses}
     for route in edit.body.routes:
         destinations[route.destination].append(route.source)
     bus_order = edit.body.bus_order
@@ -66,12 +66,10 @@ def validate_graph(
         extents[bus] = max((extents[s] for s in destinations[bus]), default=0)
 
     output_extents: dict[str, FrameRange] = {}
-    for output in edit.ports:
-        if output.direction != Direction.output:
-            continue
-        if isinstance(output.binding, Address):
+    for output in edit.outputs:
+        if isinstance(output.binding, OutputSelection):
             source = sources[output.binding]
-            output_extents[output.id] = FrameRange(
+            output_extents[output.name] = FrameRange(
                 start=getattr(source, 'start_frame', 0), end=source.timeline_end
             )
             continue
@@ -83,6 +81,6 @@ def validate_graph(
             else extents[str(output.binding.track or output.binding.bus)]
         )
         if end <= start:
-            raise RecsError(f'Output {output.id}: empty frame range {start}:{end}')
-        output_extents[output.id] = FrameRange(start=start, end=end)
+            raise RecsError(f'Output {output.name}: empty frame range {start}:{end}')
+        output_extents[output.name] = FrameRange(start=start, end=end)
     return EditGraph(widths=widths, output_extents=output_extents, bus_order=bus_order)

@@ -76,7 +76,7 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     assert sum(f.count for f in stream.fragments) == len(samples)
     assert [(g.start, g.end) for g in stream.gaps] == [(48000, 144000)]
     edit = SourceSpec(
-        id='take',
+        name='take',
         record=tmp_path / 'recording.toml',
         selector=RecordSelector(source='Mic', track='1'),
     )

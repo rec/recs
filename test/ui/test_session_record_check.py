@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from ufor.codec import document_toml
+from ufor.codec import score_toml
 from ufor.recording import EventFragment, EventStream
 
 from recs.recording.files import sealed_asset
@@ -48,7 +48,7 @@ def test_record_check_reports_corrupt_midi_payload(recording: Path) -> None:
                 update={
                     'streams': [
                         EventStream(
-                            id='midi',
+                            name='midi',
                             source_id='port',
                             event_schema='midi',
                             fragments=[
@@ -60,7 +60,7 @@ def test_record_check_reports_corrupt_midi_payload(recording: Path) -> None:
             ),
         }
     )
-    recording.write_text(document_toml(value))
+    recording.write_text(score_toml(value))
     errors = session_record_check.check(recording)
     assert len(errors) == 1
     assert 'EOFError' in errors[0]
@@ -74,7 +74,7 @@ def test_record_check_reports_open_recording(recording: Path) -> None:
             'body': document.body.model_copy(update={'state': 'open', 'ended_at': None})
         }
     )
-    recording.write_text(document_toml(value))
+    recording.write_text(score_toml(value))
     assert 'recording is open' in session_record_check.check(recording)[0]
 
 
@@ -87,12 +87,19 @@ def test_record_check_reports_broken_continuation(recording: Path) -> None:
             )
         }
     )
-    recording.write_text(document_toml(value))
+    recording.write_text(score_toml(value))
     assert 'missing/recording.toml' in session_record_check.check(recording)[0]
 
 
 @pytest.mark.parametrize(
-    'value', ['not TOML', 'format = "unknown"\nkind = "recording"']
+    'value',
+    [
+        'not TOML',
+        """
+format = "unknown"
+kind = "recording"
+""",
+    ],
 )
 def test_record_check_reports_invalid_document(recording: Path, value: str) -> None:
     recording.write_text(value)

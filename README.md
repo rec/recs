@@ -150,7 +150,7 @@ a new `recording.toml` and capture journal. Each installed edit command provides
 Tyro-generated `--help`.
 
 Older sessions require explicit conversion with `recs session migrate` before
-editing or export. See [Recording and Sequence Documents](doc/recording-format.md)
+editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
 for conversion, verification, and historical timing limitations.
 
 Before opening a new record, Recs scans the configured output root for
@@ -166,11 +166,11 @@ of Recsam instruments is not implemented yet.
 - [Glossary](doc/glossary.md)
 - [Runtime Architecture](doc/runtime-architecture.md)
 - [Session Record Format](doc/session-record-format.md)
-- [Recording and Sequence Documents](doc/recording-format.md)
-- [Audio Arrangement Documents](doc/arrangement-format.md)
+- [Recording and Sequence Scores](doc/recording-format.md)
+- [Audio Arrangement Scores](doc/arrangement-format.md)
 - [Recs Protocol](doc/recs_protocol.md)
 - [Configuration Units](doc/configuration-units.md)
-- [Sample Instrument Documents](doc/sample-format.md)
+- [Sample Instrument Scores](doc/sample-format.md)
 
 Current unfinished design work is kept under `plan/`. Historical reviews and
 completed plans are deliberately not retained as product documentation.

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import tomlkit
-from ufor.interface import Address
+from ufor.interface import OutputSelection
 
 from recs.edit.graph import validate_graph
 from recs.edit.record import AudioFragment, ResolvedSource
@@ -12,7 +12,9 @@ from recs.edit.schema import parse_edit
 def test_graph_computes_routed_extent() -> None:
     edit = parse_edit(_edit())
 
-    graph = validate_graph(edit, {Address(node='source', port='audio'): _source()})
+    graph = validate_graph(
+        edit, {OutputSelection(name='source', output='audio'): _source()}
+    )
 
     assert graph.bus_order == ['master']
     assert graph.output_extents['output'].start == 0
@@ -25,7 +27,7 @@ def test_graph_computes_routed_extent() -> None:
         ('channels = 2', 'source width'),
         ('destination = "master"', 'Routing cycle'),
         (
-            'target = { kind = "clip", node = "missing", parameter = "gain" }',
+            'target = { kind = "clip", name = "missing", parameter = "gain" }',
             'Unknown automation',
         ),
     ],
@@ -44,18 +46,19 @@ destination = "master"
 """
     else:
         data = tomlkit.parse(text)
-        data['body']['automation'][0]['target']['node'] = 'missing'
+        data['body']['automation'][0]['target']['name'] = 'missing'
         text = tomlkit.dumps(data)
 
     with pytest.raises(ValueError, match=message):
         validate_graph(
-            parse_edit(text), {Address(node='source', port='audio'): _source()}
+            parse_edit(text),
+            {OutputSelection(name='source', output='audio'): _source()},
         )
 
 
 def _source() -> ResolvedSource:
     return ResolvedSource(
-        id='source',
+        name='source',
         record=Path('recording.toml'),
         file=None,
         session_id='source-session',
@@ -72,13 +75,14 @@ def _source() -> ResolvedSource:
 def _edit() -> str:
     return """
 format = "recs"
-version = 2
+version = 3
 kind = "arrangement"
-id = "edit"
-name = "Audio edit"
+name = "edit"
+title = "Audio edit"
+inputs = []
 
 [[timebases]]
-id = "audio"
+name = "audio"
 
 [timebases.rate]
 numerator = 48000
@@ -88,29 +92,29 @@ denominator = 1
 timebase = "audio"
 
 [[body.tracks]]
-id = "track"
+name = "track"
 
 [body.tracks.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
 [[body.buses]]
-id = "master"
+name = "master"
 
 [body.buses.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
 [[body.clips]]
-id = "clip"
+name = "clip"
 track = "track"
 source_start = 0
 source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-node = "source"
-port = "audio"
+name = "source"
+output = "audio"
 
 [[body.routes]]
 source = "track"
@@ -123,28 +127,27 @@ value = 1.0
 
 [body.automation.target]
 kind = "clip"
-node = "clip"
+name = "clip"
 parameter = "gain"
 
-[[body.nodes]]
-id = "source"
+[[body.parts]]
+name = "source"
 
-[body.nodes.definition]
+[body.parts.score]
 path = "recording.toml"
 
 [[destinations]]
-port = "output"
+output = "output"
 path = "audio/output.wav"
 format = "wav"
 
-[[ports]]
-id = "output"
-direction = "output"
+[[outputs]]
+name = "output"
 
-[ports.stream]
+[outputs.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
-[ports.binding]
+[outputs.binding]
 bus = "master"
 """

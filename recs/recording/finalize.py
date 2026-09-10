@@ -9,7 +9,7 @@ import soundfile
 import tyro
 from pydantic import BaseModel
 from ufor.assets import Asset
-from ufor.codec import document_toml
+from ufor.codec import score_toml
 from ufor.recording import (
     AudioFragment,
     AudioStream,
@@ -18,9 +18,9 @@ from ufor.recording import (
     Gap,
     GapReason,
     Recording,
-    RecordingDocument,
+    RecordingScore,
     UnfinishedFile,
-    stream_ports,
+    stream_outputs,
 )
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
+def prepare_recording(journal: Path) -> tuple[RecordingScore, list[str]]:
     root = journal.resolve().parent
     entries, errors = session_record.read_entries(journal)
     notes: list[str] = []
@@ -195,13 +195,15 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
                             f'Audio span count disagrees with payload: {asset.path}'
                         )
                     audio.extend(
-                        AudioFragment(asset=asset.id, **s.model_dump())
+                        AudioFragment(asset=asset.name, **s.model_dump())
                         for s in finished.audio_spans
                     )
                 elif info.frames == finished.quantity_count:
                     audio.append(
                         AudioFragment(
-                            asset=asset.id, start=started.frame_count, count=info.frames
+                            asset=asset.name,
+                            start=started.frame_count,
+                            count=info.frames,
                         )
                     )
                 else:
@@ -221,7 +223,7 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
                 clocks.append(finished.timebase)
                 events.append(
                     EventFragment(
-                        asset=asset.id,
+                        asset=asset.name,
                         event_count=finished.quantity_count,
                         timing='recs_events',
                         start=finished.start_tick,
@@ -239,11 +241,11 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
                 raise RecsError(f'Event clock changes within {source_id}')
             streams.append(
                 EventStream(
-                    id=identity,
+                    name=identity,
                     source_id=source_id,
                     event_schema='recs_events',
                     event_kind=files[0].media_type,
-                    timebase=files[0].timebase.id,
+                    timebase=files[0].timebase.name,
                     fragments=events,
                 )
             )
@@ -258,7 +260,7 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
         if any(d != descriptions[0] for d in descriptions):
             raise RecsError(f'Audio layout or sample rate changes within {source_id}')
         rate, channels, source_channels = descriptions[0]
-        clock = Timebase(id=files[0].clock_id, rate=Rate(numerator=rate))
+        clock = Timebase(name=files[0].clock_id, rate=Rate(numerator=rate))
         clocks.append(clock)
         audio.sort(key=lambda f: (f.start, f.count))
         ranges = [(f.start, f.count) for f in audio]
@@ -276,7 +278,7 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
                 gaps.append(Gap(start=end, end=start, reason=GapReason.unknown))
             end = max(end, finish)
         if captures := timelines.get(source_id):
-            if any(t.clock_id != clock.id or t.sample_rate != rate for t in captures):
+            if any(t.clock_id != clock.name or t.sample_rate != rate for t in captures):
                 raise RecsError(f'Audio timeline clock disagrees: {source_id}')
             end = max(end, *(t.end for t in captures))
             gaps = recorded_gaps(end, audio, captures)
@@ -291,11 +293,11 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
             )
         streams.append(
             AudioStream(
-                id=identity,
+                name=identity,
                 source_id=source_id,
                 source_name=files[0].source,
                 track_name=files[0].track_name,
-                stream=AudioType(timebase=clock.id, channels=labels),
+                stream=AudioType(timebase=clock.name, channels=labels),
                 end=end,
                 fragments=audio,
                 gaps=gaps,
@@ -315,18 +317,18 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
             continue
         identity = 'stream-' + hashlib.sha256(source_id.encode()).hexdigest()[:16]
         clock = Timebase(
-            id=timeline.clock_id,
+            name=timeline.clock_id,
             rate=Rate(numerator=timeline.sample_rate),
         )
         clocks.append(clock)
         streams.append(
             AudioStream(
-                id=identity,
+                name=identity,
                 source_id=source_id,
                 source_name=timeline.source,
                 track_name=timeline.track_name,
                 stream=AudioType(
-                    timebase=clock.id,
+                    timebase=clock.name,
                     channels=[f'input-{i}' for i in timeline.source_channels],
                 ),
                 end=timeline.end,
@@ -335,21 +337,21 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
         )
     unique_clocks: dict[str, Timebase] = {}
     for clock in clocks:
-        if clock.id in unique_clocks and unique_clocks[clock.id] != clock:
-            raise RecsError(f'Conflicting clock definition: {clock.id}')
-        unique_clocks[clock.id] = clock
-    document = RecordingDocument(
-        id=header.session_id or original.sha256,
-        name=root.name,
+        if clock.name in unique_clocks and unique_clocks[clock.name] != clock:
+            raise RecsError(f'Conflicting clock score: {clock.name}')
+        unique_clocks[clock.name] = clock
+    document = RecordingScore(
+        name=header.session_id or original.sha256,
+        title=root.name,
         assets=assets,
-        ports=stream_ports(streams),
+        outputs=stream_outputs(streams),
         timebases=list(unique_clocks.values()),
         body=Recording(
             state='sealed' if footer else 'open',
             started_at=header.started_at,
             ended_at=footer.ended_at if footer else None,
             observed_duration_seconds=footer.duration_seconds if footer else None,
-            journal=original.id,
+            journal=original.name,
             clock_observations=observations,
             streams=streams,
             unfinished_files=[
@@ -370,7 +372,7 @@ def prepare_recording(journal: Path) -> tuple[RecordingDocument, list[str]]:
             ],
         ),
     )
-    paths = {a.id: root / a.path for a in assets}
+    paths = {a.name: root / a.path for a in assets}
     for stream in streams:
         if isinstance(stream, EventStream):
             verify_events(stream, paths)
@@ -381,7 +383,7 @@ def finalize_recording(journal: Path) -> Path:
     document, _ = prepare_recording(journal)
     path = journal.parent / 'recording.toml'
     with path.open('x') as target:
-        target.write(document_toml(document))
+        target.write(score_toml(document))
     return path
 
 

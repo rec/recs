@@ -8,9 +8,9 @@ from pydantic import (
     ConfigDict,
     Field,
 )
-from ufor.arrangement import ArrangementDocument, Interpolation
+from ufor.arrangement import ArrangementScore, Interpolation
 from ufor.base import Identifier
-from ufor.codec import parse_document
+from ufor.codec import parse_score
 from ufor.encoding import Format, Subtype
 from ufor.interface import NormalizeMode
 from ufor.references import ParameterTarget, RecordSelector
@@ -25,7 +25,7 @@ class CommandKind(StrEnum):
 
 
 class PartialSourceSpec(BaseModel, frozen=True):
-    id: Identifier | None = None
+    name: Identifier | None = None
     record: Path | None = None
     selector: RecordSelector | None = None
     file: Path | None = None
@@ -37,14 +37,14 @@ class PartialSourceSpec(BaseModel, frozen=True):
 
 
 class PartialTrackSpec(BaseModel, frozen=True):
-    id: Identifier | None = None
+    name: Identifier | None = None
     channels: int | None = Field(default=None, gt=0)
 
     model_config = ConfigDict(extra='forbid')
 
 
 class PartialBusSpec(BaseModel, frozen=True):
-    id: Identifier | None = None
+    name: Identifier | None = None
     channels: int | None = Field(default=None, gt=0)
     gain: float | None = None
 
@@ -52,7 +52,7 @@ class PartialBusSpec(BaseModel, frozen=True):
 
 
 class PartialClipSpec(BaseModel, frozen=True):
-    id: Identifier | None = None
+    name: Identifier | None = None
     source: Identifier | None = None
     track: Identifier | None = None
     source_start: int | None = Field(default=None, ge=0)
@@ -87,7 +87,7 @@ class PartialAutomationSpec(BaseModel, frozen=True):
 
 
 class PartialOutputSpec(BaseModel, frozen=True):
-    id: Identifier | None = None
+    name: Identifier | None = None
     source: Identifier | None = None
     path: Path | None = None
     format: Format | None = None
@@ -127,9 +127,9 @@ class PartialEditSpec(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-def parse_edit(text: str) -> ArrangementDocument:
-    value = parse_document(text)
-    if not isinstance(value, ArrangementDocument):
+def parse_edit(text: str) -> ArrangementScore:
+    value = parse_score(text)
+    if not isinstance(value, ArrangementScore):
         raise ValueError('edit input must be an arrangement document')
     return value
 

@@ -158,17 +158,17 @@ class RecordingSession:
             and file.start_timestamp is not None
         ):
             clock = Timebase(
-                id=entry.clock_id,
+                name=entry.clock_id,
                 rate=Rate(numerator=file.sample_rate),
             )
             self.write(
                 session_record.ClockRecord(
                     timebases=[
                         clock,
-                        Timebase(id='wall', rate=Rate(numerator=1_000_000_000)),
+                        Timebase(name='wall', rate=Rate(numerator=1_000_000_000)),
                     ],
                     observation=ClockObservation(
-                        source=Position(timebase=clock.id, tick=file.start_frame),
+                        source=Position(timebase=clock.name, tick=file.start_frame),
                         session=Position(
                             timebase='wall',
                             tick=round(file.start_timestamp * 1_000_000_000),
@@ -192,7 +192,7 @@ class RecordingSession:
                         self.record_writer.path.parent / 'key/keyboard.jsonl',
                         'keyboard',
                         'key',
-                        Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+                        Timebase(name='monotonic', rate=Rate(numerator=1_000_000_000)),
                         'host_key_observation',
                         tick,
                     )

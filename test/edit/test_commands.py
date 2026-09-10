@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import soundfile
 from ufor.encoding import Format
-from ufor.interface import Node
-from ufor.recording import RecordingDocument
+from ufor.interface import Part
+from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
@@ -93,8 +93,8 @@ def test_builtins_generate_complete_arrangements(
         EditOptions(format=Format.wav),
     )
 
-    assert len(edit.body.nodes) == source_count
-    assert len(edit.ports) == output_count
+    assert len(edit.body.parts) == source_count
+    assert len(edit.outputs) == output_count
     assert len(edit.body.buses) == bus_count
 
 
@@ -108,11 +108,11 @@ def test_generated_arrangement_accepts_mono_offset(tmp_path: Path) -> None:
         EditOptions(channel=['device:pair:2'], format=Format.wav),
     )
 
-    assert input_definition(edit.body.nodes[0]).ports[0].binding.channels is not None
-    assert input_definition(edit.body.nodes[0]).ports[0].binding.channels == [1]
+    assert input_definition(edit.body.parts[0]).outputs[0].binding.channels is not None
+    assert input_definition(edit.body.parts[0]).outputs[0].binding.channels == [1]
     assert (
         edit.body.tracks[0].stream.channels
-        == input_definition(edit.body.nodes[0]).ports[0].stream.channels
+        == input_definition(edit.body.parts[0]).outputs[0].stream.channels
     )
 
 
@@ -139,8 +139,8 @@ def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [second, first], EditOptions())
 
     assert [
-        (Path(n.definition.path).parent / input_definition(n).assets[0].path).resolve()
-        for n in edit.body.nodes
+        (Path(n.score.path).parent / input_definition(n).assets[0].path).resolve()
+        for n in edit.body.parts
     ] == [second.resolve(), first.resolve()]
     assert [c.timeline_start for c in edit.body.clips] == [0, 48_000]
     assert [d.path.as_posix() for d in edit.destinations] == ['audio/stitch.flac']
@@ -152,7 +152,9 @@ def test_split_expands_file_channels(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [path], EditOptions())
 
-    assert [input_definition(n).ports[0].binding.channels for n in edit.body.nodes] == [
+    assert [
+        input_definition(n).outputs[0].binding.channels for n in edit.body.parts
+    ] == [
         [0],
         [1],
     ]
@@ -165,8 +167,8 @@ def test_split_preserves_explicit_mono_selection(tmp_path: Path) -> None:
 
     edit = complete_or_generate(recipe, [path], EditOptions(channel=['pair:2']))
 
-    assert len(edit.body.nodes) == 1
-    assert input_definition(edit.body.nodes[0]).ports[0].binding.channels == [1]
+    assert len(edit.body.parts) == 1
+    assert input_definition(edit.body.parts[0]).outputs[0].binding.channels == [1]
 
 
 def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
@@ -179,8 +181,8 @@ def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [directory], EditOptions())
 
     assert [
-        (Path(n.definition.path).parent / input_definition(n).assets[0].path).resolve()
-        for n in edit.body.nodes
+        (Path(n.score.path).parent / input_definition(n).assets[0].path).resolve()
+        for n in edit.body.parts
     ] == [first.resolve(), second.resolve()]
 
 
@@ -213,13 +215,13 @@ def test_session_directories_use_qualified_selectors(tmp_path: Path) -> None:
         EditOptions(channel=['two:device:pair']),
     )
 
-    assert len(edit.body.nodes) == 1
+    assert len(edit.body.parts) == 1
     assert (
-        Path(edit.body.nodes[0].definition.path).resolve().parent
+        Path(edit.body.parts[0].score.path).resolve().parent
         == records[1].resolve().parent
     )
-    assert input_definition(edit.body.nodes[0]).ports[0].binding.channels is None
-    assert input_definition(edit.body.nodes[0]).body.streams[0].track_name == 'pair'
+    assert input_definition(edit.body.parts[0]).outputs[0].binding.channels is None
+    assert input_definition(edit.body.parts[0]).body.streams[0].track_name == 'pair'
 
 
 def _record(directory: Path) -> Path:
@@ -271,7 +273,7 @@ def _audio(path: Path, channels: int) -> Path:
     return path
 
 
-def input_definition(node: Node) -> RecordingDocument:
+def input_definition(node: Part) -> RecordingScore:
     from recs.recording.read import read_recording
 
-    return read_recording(Path(node.definition.path))
+    return read_recording(Path(node.score.path))

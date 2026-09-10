@@ -25,7 +25,7 @@ class AudioFragment(BaseModel, frozen=True):
 
 
 class ResolvedSource(BaseModel, frozen=True):
-    id: str
+    name: str
     record: Path | None
     file: Path | None
     session_id: str | None
@@ -43,20 +43,20 @@ def resolve_input(
     edit_directory: Path,
     stream_id: str | None = None,
     selected_channels: list[int] | None = None,
-    document: recording.RecordingDocument | None = None,
+    document: recording.RecordingScore | None = None,
 ) -> ResolvedSource:
     if source.file is not None:
         return _resolve_file_source(source, edit_directory)
     if source.memory is not None:
         raise RecsError(
-            f'Source {source.id}: memory source is valid only inside a composition'
+            f'Source {source.name}: memory source is valid only inside a composition'
         )
     assert source.record is not None
     assert source.selector is not None
     record_path = (edit_directory / source.record).resolve()
     if document is None and not record_path.is_file():
         raise RecsError(
-            f'Source {source.id}: session record does not exist: {record_path}'
+            f'Source {source.name}: session record does not exist: {record_path}'
         )
     records = (
         [(record_path, document)]
@@ -68,42 +68,44 @@ def resolve_input(
         for p, d in records
         for s in d.body.streams
         if isinstance(s, AudioStream)
-        and (stream_id is None or s.id == stream_id)
+        and (stream_id is None or s.name == stream_id)
         and (s.source_name or s.source_id) == source.selector.source
-        and (s.track_name or s.id) == source.selector.track
+        and (s.track_name or s.name) == source.selector.track
     ]
     if not selected:
         raise RecsError(
-            f'Source {source.id}: selector {source.selector!r} matches no audio stream'
+            f'Source {source.name}: selector {source.selector!r} '
+            'matches no audio stream'
         )
     if any(s.unmapped_fragments for _, _, s in selected):
         raise RecsError(
-            f'Source {source.id}: timeline placement is unresolved; '
+            f'Source {source.name}: timeline placement is unresolved; '
             'recorded samples cannot be placed automatically'
         )
     if any(d.body.state != 'sealed' for _, d, _ in selected):
-        raise RecsError(f'Source {source.id}: recording is still open')
+        raise RecsError(f'Source {source.name}: recording is still open')
     widths = {len(s.stream.channels) for _, _, s in selected}
     clocks = [
-        t for _, d, s in selected for t in d.timebases if t.id == s.stream.timebase
+        t for _, d, s in selected for t in d.timebases if t.name == s.stream.timebase
     ]
-    if len({t.id for t in clocks}) != 1:
+    if len({t.name for t in clocks}) != 1:
         raise RecsError(
-            f'Source {source.id}: independent capture clocks require explicit alignment'
+            f'Source {source.name}: independent capture clocks '
+            'require explicit alignment'
         )
     if any(t.rate.denominator != 1 for t in clocks):
         raise RecsError(
-            f'Source {source.id}: this renderer requires integer audio sample rates'
+            f'Source {source.name}: this renderer requires integer audio sample rates'
         )
     rates = {t.rate.numerator for t in clocks}
     if len(widths) != 1 or len(rates) != 1:
-        raise RecsError(f'Source {source.id}: inconsistent audio metadata')
+        raise RecsError(f'Source {source.name}: inconsistent audio metadata')
     file_width = next(iter(widths))
     rate = next(iter(rates))
     offset = selected_channels[0] if selected_channels else source.selector.channel
     if offset is not None and offset >= file_width:
         raise RecsError(
-            f'Source {source.id}: channel offset {offset} exceeds width {file_width}'
+            f'Source {source.name}: channel offset {offset} exceeds width {file_width}'
         )
     width = (
         len(selected_channels)
@@ -114,7 +116,7 @@ def resolve_input(
         tuple[int, int], list[tuple[Path, Asset, recording.AudioFragment]]
     ] = {}
     for path, document, stream in selected:
-        assets = {a.id: a for a in document.assets}
+        assets = {a.name: a for a in document.assets}
         for fragment in stream.fragments:
             variants.setdefault(
                 (fragment.start, fragment.start + fragment.count), []
@@ -131,15 +133,15 @@ def resolve_input(
                     break
         if len(choices) != 1:
             raise RecsError(
-                f'Source {source.id}: ambiguous variants for frames {start}:{end}'
+                f'Source {source.name}: ambiguous variants for frames {start}:{end}'
             )
         directory, asset, span = choices[0]
         path = directory / asset.path
         if path not in verified:
-            actual = sealed_asset(path, directory, asset.id, asset.encoding)
+            actual = sealed_asset(path, directory, asset.name, asset.encoding)
             if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
                 raise RecsError(
-                    f'Source {source.id}: asset bytes disagree with recording: '
+                    f'Source {source.name}: asset bytes disagree with recording: '
                     f'{asset.path}'
                 )
             verified.add(path)
@@ -150,7 +152,7 @@ def resolve_input(
             or span.asset_start + span.count > info.frames
         ):
             raise RecsError(
-                f'Source {source.id}: file metadata disagrees with recording: '
+                f'Source {source.name}: file metadata disagrees with recording: '
                 f'{asset.path}'
             )
         fragments.append(
@@ -165,13 +167,13 @@ def resolve_input(
         )
     if any(a.end > b.start for a, b in zip(fragments, fragments[1:])):
         raise RecsError(
-            f'Source {source.id}: overlapping source ranges across recordings'
+            f'Source {source.name}: overlapping source ranges across recordings'
         )
     return ResolvedSource(
-        id=source.id,
+        name=source.name,
         record=record_path,
         file=None,
-        session_id=records[0][1].id,
+        session_id=records[0][1].name,
         selector=f'{source.selector.source}:{source.selector.track}',
         channels=width,
         sample_rate=rate,
@@ -184,19 +186,19 @@ def _resolve_file_source(source: SourceSpec, edit_directory: Path) -> ResolvedSo
     assert source.file is not None
     path = (edit_directory / source.file).resolve()
     if not path.is_file():
-        raise RecsError(f'Source {source.id}: audio file does not exist: {path}')
+        raise RecsError(f'Source {source.name}: audio file does not exist: {path}')
     try:
         info = soundfile.info(path)
     except soundfile.LibsndfileError as e:
-        raise RecsError(f'Source {source.id}: cannot read {path}: {e}') from e
+        raise RecsError(f'Source {source.name}: cannot read {path}: {e}') from e
     first = source.channels[0]
     if source.channels[-1] >= info.channels:
         raise RecsError(
-            f'Source {source.id}: channel {source.channels[-1]} exceeds '
+            f'Source {source.name}: channel {source.channels[-1]} exceeds '
             f'file width {info.channels}'
         )
     return ResolvedSource(
-        id=source.id,
+        name=source.name,
         record=None,
         file=path,
         session_id=None,

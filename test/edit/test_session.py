@@ -60,13 +60,14 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     edit = parse_edit(
         """
 format = "recs"
-version = 2
+version = 3
 kind = "arrangement"
-id = "edit"
-name = "Audio edit"
+name = "edit"
+title = "Audio edit"
+inputs = []
 
 [[timebases]]
-id = "audio"
+name = "audio"
 
 [timebases.rate]
 numerator = 48000
@@ -76,59 +77,58 @@ denominator = 1
 timebase = "audio"
 
 [[body.tracks]]
-id = "voice"
+name = "voice"
 
 [body.tracks.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
 [[body.clips]]
-id = "voice-clip"
+name = "voice-clip"
 track = "voice"
 source_start = 0
 source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-node = "voice-source"
-port = "audio"
+name = "voice-source"
+output = "audio"
 
-[[body.nodes]]
-id = "voice-source"
+[[body.parts]]
+name = "voice-source"
 
-[body.nodes.definition]
+[body.parts.score]
 path = "recording.toml"
 
 [[destinations]]
-port = "voice"
+output = "voice"
 path = "audio/voice.wav"
 format = "wav"
 subtype = "float"
 
-[[ports]]
-id = "voice"
-direction = "output"
+[[outputs]]
+name = "voice"
 
-[ports.stream]
+[outputs.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
-[ports.binding]
+[outputs.binding]
 track = "voice"
 """
     )
     source_document = read_recording(record_path)
     raw = edit.model_dump()
-    raw['body']['clips'][0]['source']['port'] = source_document.ports[0].id
-    raw['body']['tracks'][0]['stream'] = source_document.ports[0].stream.model_dump()
-    raw['ports'][0]['stream'] = source_document.ports[0].stream.model_dump()
+    raw['body']['clips'][0]['source']['output'] = source_document.outputs[0].name
+    raw['body']['tracks'][0]['stream'] = source_document.outputs[0].stream.model_dump()
+    raw['outputs'][0]['stream'] = source_document.outputs[0].stream.model_dump()
     edit = type(edit).model_validate(raw)
     destination = tmp_path / 'edited'
 
     prepared = prepare_edit(edit, source_directory, destination)
 
     assert not destination.exists()
-    assert prepared.edit.body.nodes[0].definition.path == '../source/recording.toml'
+    assert prepared.edit.body.parts[0].score.path == '../source/recording.toml'
 
     output_record = execute_edit(edit, source_directory, destination)
 
@@ -148,7 +148,7 @@ track = "voice"
     assert result.ended_at is not None
     assert result.events[0].metadata == {
         'sources': {
-            f'root/voice-source/{source_document.ports[0].id}': {
+            f'root/voice-source/{source_document.outputs[0].name}': {
                 'session_id': 'input-session',
                 'files': [source_path.as_posix()],
             }
@@ -159,10 +159,10 @@ track = "voice"
     chained_destination = tmp_path / 'chained'
     exported = read_recording(destination / 'recording.toml')
     raw = edit.model_dump()
-    raw['body']['nodes'][0]['definition']['path'] = 'recording.toml'
-    raw['body']['clips'][0]['source']['port'] = exported.ports[0].id
-    raw['body']['tracks'][0]['stream'] = exported.ports[0].stream.model_dump()
-    raw['ports'][0]['stream'] = exported.ports[0].stream.model_dump()
+    raw['body']['parts'][0]['score']['path'] = 'recording.toml'
+    raw['body']['clips'][0]['source']['output'] = exported.outputs[0].name
+    raw['body']['tracks'][0]['stream'] = exported.outputs[0].stream.model_dump()
+    raw['outputs'][0]['stream'] = exported.outputs[0].stream.model_dump()
     chained = type(edit).model_validate(raw)
 
     execute_edit(chained, destination, chained_destination)
@@ -175,7 +175,7 @@ track = "voice"
 
     normalized_destination = tmp_path / 'normalized'
     raw = edit.model_dump()
-    raw['ports'][0]['binding']['normalize'] = NormalizeMode.normalize
+    raw['outputs'][0]['binding']['normalize'] = NormalizeMode.normalize
     normalized = type(edit).model_validate(raw)
 
     execute_edit(normalized, source_directory, normalized_destination)

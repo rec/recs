@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from reccy.configuration import units
 from ufor.arrangement import (
     Arrangement,
-    ArrangementDocument,
+    ArrangementScore,
     AutomationPoint,
     AutomationSpec,
     BusSpec,
@@ -18,8 +18,8 @@ from ufor.arrangement import (
     TrackSpec,
 )
 from ufor.encoding import Format, Subtype
-from ufor.interface import Address, Direction, MixBinding, Node, Port
-from ufor.recording import AudioStream, RecordingDocument
+from ufor.interface import MixBinding, Output, OutputSelection, Part
+from ufor.recording import AudioStream, RecordingScore
 from ufor.references import ParameterTarget, RecordSelector
 from ufor.streams import AudioType, FileDestination
 from ufor.time import Rate, Timebase
@@ -93,8 +93,8 @@ def complete_or_generate(
     recipe: dict[str, object],
     input_paths: list[Path],
     options: EditOptions,
-    definitions: dict[Path, RecordingDocument] | None = None,
-) -> ArrangementDocument:
+    definitions: dict[Path, RecordingScore] | None = None,
+) -> ArrangementScore:
     text = tomlkit.dumps(recipe)
     try:
         return parse_edit(text)
@@ -109,8 +109,8 @@ def complete_or_generate_tracks(
     recipe: dict[str, object],
     tracks: list[InputTrack],
     options: EditOptions,
-    definitions: dict[Path, RecordingDocument] | None = None,
-) -> ArrangementDocument:
+    definitions: dict[Path, RecordingScore] | None = None,
+) -> ArrangementScore:
     text = tomlkit.dumps(recipe)
     try:
         return parse_edit(text)
@@ -147,9 +147,9 @@ def complete_or_generate_tracks(
     for field in ('normalize', 'gain'):
         if (value := getattr(options, field)) is not None:
             defaults[field] = value
-    generated_outputs = document['ports']
+    generated_outputs = document['outputs']
     assert isinstance(generated_outputs, list)
-    document['ports'] = [
+    document['outputs'] = [
         _dictionary(o, 'Invalid output')
         | {
             'binding': _merge(
@@ -179,7 +179,7 @@ def complete_or_generate_tracks(
         resolved_destinations.append(destination)
     document['destinations'] = resolved_destinations
     document['body'] = _merge(generated, overlay)
-    return ArrangementDocument.model_validate(document)
+    return ArrangementScore.model_validate(document)
 
 
 def input_tracks(paths: list[Path]) -> list[InputTrack]:
@@ -300,7 +300,8 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
     ]
     names = list(
         dict.fromkeys(
-            ((s.source_name or s.source_id), (s.track_name or s.id)) for _, s in streams
+            ((s.source_name or s.source_id), (s.track_name or s.name))
+            for _, s in streams
         )
     )
     result: list[InputTrack] = []
@@ -308,7 +309,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
         selected = [
             (d, s)
             for d, s in streams
-            if (s.source_name or s.source_id, s.track_name or s.id)
+            if (s.source_name or s.source_id, s.track_name or s.name)
             == (source_name, track_name)
         ]
         widths = {len(s.stream.channels) for _, s in selected}
@@ -316,7 +317,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
             t.rate.numerator
             for d, s in selected
             for t in d.timebases
-            if t.id == s.stream.timebase and t.rate.denominator == 1
+            if t.name == s.stream.timebase and t.rate.denominator == 1
         }
         if len(widths) != 1 or len(rates) != 1:
             raise RecsError(
@@ -329,7 +330,7 @@ def _record_tracks(path: Path, input_id: str, qualify: bool) -> list[InputTrack]
                 label=label,
                 selectors=[label],
                 source=SourceSpec(
-                    id='source',
+                    name='source',
                     record=path,
                     selector=RecordSelector(source=source_name, track=track_name),
                 ),
@@ -351,7 +352,9 @@ def _file_track(path: Path, input_id: str) -> InputTrack:
     return InputTrack(
         label=input_id,
         selectors=[input_id],
-        source=SourceSpec(id='source', file=path, channels=list(range(info.channels))),
+        source=SourceSpec(
+            name='source', file=path, channels=list(range(info.channels))
+        ),
         channels=info.channels,
         sample_rate=info.samplerate,
         frame_count=info.frames,
@@ -419,7 +422,7 @@ def _generate(
     subtype: Subtype | None,
     route_gains: list[float],
     crossfade: float | None,
-    definitions: dict[Path, RecordingDocument] | None = None,
+    definitions: dict[Path, RecordingScore] | None = None,
 ) -> dict[str, object]:
     selected = _select_tracks(input_tracks, requested_selectors)
     if operation == CommandKind.split:
@@ -432,10 +435,10 @@ def _generate(
     format_subtype = subtype or (
         Subtype.pcm_24 if output_format == Format.flac else None
     )
-    nodes: list[Node] = []
+    parts: list[Part] = []
     output_tracks: list[TrackSpec] = []
     clips: list[ClipSpec] = []
-    outputs: list[Port] = []
+    outputs: list[Output] = []
     identifiers: list[str] = []
     timeline_start = 0
     for input_index, input_track in enumerate(selected):
@@ -443,10 +446,10 @@ def _generate(
         identifiers.append(identity)
         source_id = f'{identity}-source'
         node, channel_names = export_source(
-            input_track.source.model_copy(update={'id': source_id}),
+            input_track.source.model_copy(update={'name': source_id}),
             definitions,
         )
-        nodes.append(node)
+        parts.append(node)
         ranges = _input_ranges(
             operation,
             input_index,
@@ -461,7 +464,7 @@ def _generate(
         if operation != CommandKind.stitch:
             output_tracks.append(
                 TrackSpec(
-                    id=track_id,
+                    name=track_id,
                     stream=AudioType(
                         timebase='audio',
                         channels=channel_names,
@@ -471,8 +474,8 @@ def _generate(
         for range_index, (source_start, source_end) in enumerate(ranges):
             clips.append(
                 ClipSpec(
-                    id=f'{identity}-{range_index + 1}',
-                    source=Address(node=source_id, port='audio'),
+                    name=f'{identity}-{range_index + 1}',
+                    source=OutputSelection(name=source_id, output='audio'),
                     track=track_id,
                     source_start=source_start,
                     source_end=source_end,
@@ -487,9 +490,8 @@ def _generate(
                 timeline_start += source_end - source_start
         if operation not in (CommandKind.mix, CommandKind.stitch):
             outputs.append(
-                Port(
-                    id=identity,
-                    direction=Direction.output,
+                Output(
+                    name=identity,
                     stream=output_tracks[-1].stream,
                     binding=MixBinding(track=track_id),
                 )
@@ -500,7 +502,7 @@ def _generate(
             raise RecsError('Stitch inputs must have matching channel widths')
         output_tracks = [
             TrackSpec(
-                id='stitch',
+                name='stitch',
                 stream=AudioType(
                     timebase='audio',
                     channels=[f'channel-{i}' for i in range(next(iter(widths)))],
@@ -508,9 +510,8 @@ def _generate(
             )
         ]
         outputs = [
-            Port(
-                id='stitch',
-                direction=Direction.output,
+            Output(
+                name='stitch',
                 stream=output_tracks[0].stream,
                 binding=MixBinding(track='stitch'),
             )
@@ -522,12 +523,12 @@ def _generate(
         widths = {len(t.stream.channels) for t in output_tracks}
         if len(widths) != 1:
             raise RecsError('Mix inputs must have matching channel widths')
-        buses = [BusSpec(id='master', stream=output_tracks[0].stream)]
+        buses = [BusSpec(name='master', stream=output_tracks[0].stream)]
         if route_gains and len(route_gains) != len(output_tracks):
             raise RecsError('Mix requires one --route-gain for each selected channel')
         gains = route_gains or [1.0] * len(output_tracks)
         routes = [
-            RouteSpec(source=t.id, destination='master', gain=g)
+            RouteSpec(source=t.name, destination='master', gain=g)
             for t, g in zip(output_tracks, gains, strict=False)
         ]
         if crossfade is not None:
@@ -539,7 +540,7 @@ def _generate(
             automation = [
                 AutomationSpec(
                     target=ParameterTarget(
-                        kind='route', node=routes[0].source, destination='master'
+                        kind='route', name=routes[0].source, destination='master'
                     ),
                     interpolation=Interpolation.equal_power,
                     points=[
@@ -549,7 +550,7 @@ def _generate(
                 ),
                 AutomationSpec(
                     target=ParameterTarget(
-                        kind='route', node=routes[1].source, destination='master'
+                        kind='route', name=routes[1].source, destination='master'
                     ),
                     interpolation=Interpolation.equal_power,
                     points=[
@@ -559,22 +560,21 @@ def _generate(
                 ),
             ]
         outputs = [
-            Port(
-                id='mix',
-                direction=Direction.output,
+            Output(
+                name='mix',
                 stream=output_tracks[0].stream,
                 binding=MixBinding(bus='master'),
             )
         ]
-    return ArrangementDocument(
-        id='edit',
-        name='Audio edit',
-        ports=outputs,
-        timebases=[Timebase(id='audio', rate=Rate(numerator=sample_rate))],
+    return ArrangementScore(
+        name='edit',
+        title='Audio edit',
+        outputs=outputs,
+        timebases=[Timebase(name='audio', rate=Rate(numerator=sample_rate))],
         destinations=[
             FileDestination(
-                port=o.id,
-                path=Path(f'audio/{o.id}.{output_format}'),
+                output=o.name,
+                path=Path(f'audio/{o.name}.{output_format}'),
                 format=output_format,
                 subtype=format_subtype,
             )
@@ -582,7 +582,7 @@ def _generate(
         ],
         body=Arrangement(
             timebase='audio',
-            nodes=nodes,
+            parts=parts,
             tracks=output_tracks,
             buses=buses,
             clips=clips,

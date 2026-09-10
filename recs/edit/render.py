@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from functools import cached_property
 
 import numpy as np
-from ufor.arrangement import ArrangementDocument
-from ufor.interface import Address, Direction, MixBinding, NormalizeMode, Port
+from ufor.arrangement import ArrangementScore
+from ufor.interface import MixBinding, NormalizeMode, Output, OutputSelection
 from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
@@ -21,8 +21,8 @@ from recs.edit.record import ResolvedSource
 class Renderer:
     def __init__(
         self,
-        edit: ArrangementDocument,
-        sources: Mapping[Address, ResolvedSource | MaterializedAudio],
+        edit: ArrangementScore,
+        sources: Mapping[OutputSelection, ResolvedSource | MaterializedAudio],
         graph: EditGraph,
         materializer: SourceMaterializer | None = None,
     ) -> None:
@@ -35,8 +35,8 @@ class Renderer:
         self.graph = graph
         self.peak_memory_bytes = self._estimated_peak_memory_bytes()
 
-    def render(self, output: Port) -> MaterializedAudio:
-        return self.outputs[output.id]
+    def render(self, output: Output) -> MaterializedAudio:
+        return self.outputs[output.name]
 
     @cached_property
     def outputs(self) -> dict[str, MaterializedAudio]:
@@ -49,17 +49,15 @@ class Renderer:
             ) from e
 
     def _outputs(self) -> dict[str, MaterializedAudio]:
-        nodes, ranges = self._nodes()
+        parts, ranges = self._nodes()
         result: dict[str, MaterializedAudio] = {}
-        for output in self.edit.ports:
-            if output.direction != Direction.output:
-                continue
-            if isinstance(output.binding, Address):
-                result[output.id] = self.sources[output.binding]
+        for output in self.edit.outputs:
+            if isinstance(output.binding, OutputSelection):
+                result[output.name] = self.sources[output.binding]
                 continue
             assert isinstance(output.binding, MixBinding)
-            frame_range = self.graph.output_extents[output.id]
-            samples = nodes[str(output.binding.track or output.binding.bus)][
+            frame_range = self.graph.output_extents[output.name]
+            samples = parts[str(output.binding.track or output.binding.bus)][
                 frame_range.start : frame_range.end
             ]
             scale = output.binding.gain
@@ -75,7 +73,7 @@ class Renderer:
             observed = _intersect_ranges(
                 ranges[str(output.binding.track or output.binding.bus)], frame_range
             )
-            result[output.id] = MaterializedAudio(
+            result[output.name] = MaterializedAudio(
                 np.asarray(samples, dtype=np.float32),
                 self.edit.timebases[0].rate.numerator,
                 frame_range.start,
@@ -85,7 +83,7 @@ class Renderer:
             self.peak_memory_bytes,
             _storage_bytes(
                 [s.samples for s in self.sources.values()]
-                + list(nodes.values())
+                + list(parts.values())
                 + [a.samples for a in result.values()]
             ),
         )
@@ -93,11 +91,15 @@ class Renderer:
 
     def _nodes(self) -> tuple[dict[str, np.ndarray], dict[str, list[FrameRange]]]:
         timeline_end = max(r.end for r in self.graph.output_extents.values())
-        nodes = {
-            t.id: allocate_audio(timeline_end, len(t.stream.channels), f'track {t.id}')
+        parts = {
+            t.name: allocate_audio(
+                timeline_end, len(t.stream.channels), f'track {t.name}'
+            )
             for t in self.edit.body.tracks
         }
-        ranges: dict[str, list[FrameRange]] = {t.id: [] for t in self.edit.body.tracks}
+        ranges: dict[str, list[FrameRange]] = {
+            t.name: [] for t in self.edit.body.tracks
+        }
         automation = {a.target: a for a in self.edit.body.automation}
         for clip in self.edit.body.clips:
             clip_start = clip.timeline_start
@@ -111,12 +113,12 @@ class Renderer:
             source_end = source_start + overlap_end - overlap_start
             source_samples = _source_samples(source, source_start, source_end)
             gains = gain_values(
-                automation.get(ParameterTarget(kind='clip', node=clip.id)),
+                automation.get(ParameterTarget(kind='clip', name=clip.name)),
                 clip.gain,
                 overlap_start,
                 overlap_end - overlap_start,
             )
-            nodes[clip.track][overlap_start:overlap_end] += (
+            parts[clip.track][overlap_start:overlap_end] += (
                 source_samples * gains[:, np.newaxis]
             )
             ranges[clip.track].extend(
@@ -128,14 +130,14 @@ class Renderer:
                 )
             )
 
-        buses = {b.id: b for b in self.edit.body.buses}
-        routes = {b.id: [] for b in self.edit.body.buses}
+        buses = {b.name: b for b in self.edit.body.buses}
+        routes = {b.name: [] for b in self.edit.body.buses}
         for route in self.edit.body.routes:
             routes[route.destination].append(route)
         for bus_id in self.graph.bus_order:
             bus = buses[bus_id]
             block = allocate_audio(
-                timeline_end, len(bus.stream.channels), f'bus {bus.id}'
+                timeline_end, len(bus.stream.channels), f'bus {bus.name}'
             )
             observed: list[FrameRange] = []
             for route in routes[bus_id]:
@@ -143,7 +145,7 @@ class Renderer:
                     automation.get(
                         ParameterTarget(
                             kind='route',
-                            node=route.source,
+                            name=route.source,
                             destination=route.destination,
                         )
                     ),
@@ -151,23 +153,23 @@ class Renderer:
                     0,
                     timeline_end,
                 )
-                block += nodes[route.source] * gains[:, np.newaxis]
+                block += parts[route.source] * gains[:, np.newaxis]
                 observed.extend(ranges[route.source])
             block *= gain_values(
-                automation.get(ParameterTarget(kind='bus', node=bus.id)),
+                automation.get(ParameterTarget(kind='bus', name=bus.name)),
                 bus.gain,
                 0,
                 timeline_end,
             )[:, np.newaxis]
-            nodes[bus_id] = block
+            parts[bus_id] = block
             ranges[bus_id] = merge_ranges(observed)
-        return nodes, {k: merge_ranges(v) for k, v in ranges.items()}
+        return parts, {k: merge_ranges(v) for k, v in ranges.items()}
 
     def _estimated_peak_memory_bytes(self) -> int:
         timeline_end = max(r.end for r in self.graph.output_extents.values())
         itemsize = np.dtype(np.float32).itemsize
         sources = _storage_bytes([s.samples for s in self.sources.values()])
-        nodes = (
+        parts = (
             timeline_end
             * itemsize
             * (
@@ -192,27 +194,25 @@ class Renderer:
             default=0,
         )
         persistent_outputs = 0
-        peak = sources + nodes + max(clip_temporary, route_temporary)
-        for output in self.edit.ports:
-            if output.direction != Direction.output or isinstance(
-                output.binding, Address
-            ):
+        peak = sources + parts + max(clip_temporary, route_temporary)
+        for output in self.edit.outputs:
+            if isinstance(output.binding, OutputSelection):
                 continue
             assert isinstance(output.binding, MixBinding)
-            frame_range = self.graph.output_extents[output.id]
+            frame_range = self.graph.output_extents[output.name]
             size = (
                 (frame_range.end - frame_range.start)
                 * self.graph.widths[str(output.binding.track or output.binding.bus)]
                 * itemsize
             )
             transient = size if output.binding.normalize != NormalizeMode.none else 0
-            peak = max(peak, sources + nodes + persistent_outputs + transient)
+            peak = max(peak, sources + parts + persistent_outputs + transient)
             if (
                 output.binding.gain != 1
                 or output.binding.normalize != NormalizeMode.none
             ):
                 persistent_outputs += size
-            peak = max(peak, sources + nodes + persistent_outputs)
+            peak = max(peak, sources + parts + persistent_outputs)
         return peak
 
 

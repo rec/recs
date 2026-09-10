@@ -6,7 +6,7 @@ from typing import Annotated
 
 import tyro
 from pydantic import BaseModel
-from ufor.codec import document_toml, parse_document
+from ufor.codec import parse_score, score_toml
 
 from ..base.errors import RecsError
 from .files import Verification, verify_recording
@@ -48,7 +48,7 @@ def migrate_session(
     # No writes occur until every referenced finished payload has been verified.
     verification = verify_recording(document, root)
     original = journal.read_bytes()
-    journal_asset = next(a for a in document.assets if a.id == document.body.journal)
+    journal_asset = next(a for a in document.assets if a.name == document.body.journal)
     if hashlib.sha256(original).hexdigest() != journal_asset.sha256:
         raise RecsError(
             'Session record changed during migration; retry after capture stops'
@@ -60,15 +60,15 @@ def migrate_session(
         update={
             'assets': [
                 a.model_copy(update={'path': snapshot.relative_to(root).as_posix()})
-                if a.id == document.body.journal
+                if a.name == document.body.journal
                 else a
                 for a in document.assets
             ]
         }
     )
     with output.open('x') as target:
-        target.write(document_toml(document))
-    restored = parse_document(output.read_text())
+        target.write(score_toml(document))
+    restored = parse_score(output.read_text())
     if (
         restored != document
         or journal.read_bytes() != original

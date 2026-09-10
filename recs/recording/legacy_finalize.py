@@ -14,10 +14,10 @@ from ufor.recording import (
     Gap,
     GapReason,
     Recording,
-    RecordingDocument,
+    RecordingScore,
     UnfinishedFile,
     UnmappedAudioFragment,
-    stream_ports,
+    stream_outputs,
 )
 from ufor.streams import AudioType
 from ufor.time import Rate, TickRange, Timebase
@@ -29,7 +29,7 @@ from .files import sealed_asset
 
 def prepare_legacy_recording(
     journal: Path, paths_relative_to: Path | None = None
-) -> tuple[RecordingDocument, list[str]]:
+) -> tuple[RecordingScore, list[str]]:
     root = journal.resolve().parent
     path_base = root if paths_relative_to is None else paths_relative_to.resolve()
     entries, errors = legacy.read_entries(journal)
@@ -158,19 +158,21 @@ def prepare_legacy_recording(
                             f'Audio span count disagrees with payload: {asset.path}'
                         )
                     audio.extend(
-                        AudioFragment(asset=asset.id, **s.model_dump())
+                        AudioFragment(asset=asset.name, **s.model_dump())
                         for s in finished.audio_spans
                     )
                 elif info.frames == finished.quantity_count:
                     audio.append(
                         AudioFragment(
-                            asset=asset.id, start=started.frame_count, count=info.frames
+                            asset=asset.name,
+                            start=started.frame_count,
+                            count=info.frames,
                         )
                     )
                 else:
                     unmapped.append(
                         UnmappedAudioFragment(
-                            asset=asset.id,
+                            asset=asset.name,
                             count=info.frames,
                             journal_range=TickRange(
                                 start=started.frame_count, end=finished.frame_count
@@ -185,7 +187,7 @@ def prepare_legacy_recording(
             else:
                 events.append(
                     EventFragment(
-                        asset=asset.id,
+                        asset=asset.name,
                         event_count=finished.quantity_count,
                         timing='smf' if finished.media_type == 'midi' else 'osc_jsonl',
                         observed_opened_at=started.timestamp,
@@ -195,7 +197,7 @@ def prepare_legacy_recording(
         if files[0].media_type != 'audio':
             streams.append(
                 EventStream(
-                    id=identity,
+                    name=identity,
                     source_id=source_id,
                     event_schema='midi' if files[0].media_type == 'midi' else 'osc',
                     fragments=events,
@@ -206,7 +208,7 @@ def prepare_legacy_recording(
             raise RecsError(f'Audio layout or sample rate changes within {source_id}')
         rate, channels, source_channels = descriptions[0]
         clock = Timebase(
-            id='clock-' + identity.removeprefix('stream-'), rate=Rate(numerator=rate)
+            name='clock-' + identity.removeprefix('stream-'), rate=Rate(numerator=rate)
         )
         clocks.append(clock)
         audio.sort(key=lambda f: (f.start, f.count))
@@ -238,11 +240,11 @@ def prepare_legacy_recording(
             )
         streams.append(
             AudioStream(
-                id=identity,
+                name=identity,
                 source_id=source_id,
                 source_name=files[0].source,
                 track_name=files[0].track_name,
-                stream=AudioType(timebase=clock.id, channels=labels),
+                stream=AudioType(timebase=clock.name, channels=labels),
                 end=end,
                 fragments=audio,
                 unmapped_fragments=unmapped,
@@ -262,18 +264,18 @@ def prepare_legacy_recording(
             f'Journal paths were resolved relative to {path_base}; '
             'candidate asset paths are relative to the session.'
         )
-    return RecordingDocument(
-        id=header.session_id or original.sha256,
-        name=root.name,
+    return RecordingScore(
+        name=header.session_id or original.sha256,
+        title=root.name,
         assets=assets,
-        ports=stream_ports(streams),
+        outputs=stream_outputs(streams),
         timebases=clocks,
         body=Recording(
             state='sealed' if footer else 'open',
             started_at=header.started_at,
             ended_at=footer.ended_at if footer else None,
             observed_duration_seconds=footer.duration_seconds if footer else None,
-            journal=original.id,
+            journal=original.name,
             streams=streams,
             unfinished_files=[
                 UnfinishedFile(

@@ -9,8 +9,8 @@ import soundfile
 from pytest_regressions.data_regression import DataRegressionFixture
 from reccy.protocol.jsonl import Compress
 from ufor import recording
-from ufor.codec import parse_document
-from ufor.recording import AudioStream, RecordingDocument
+from ufor.codec import parse_score
+from ufor.recording import AudioStream, RecordingScore
 
 from recs.base.errors import RecsError
 from recs.recording import legacy
@@ -101,8 +101,8 @@ def test_migration_preserves_payloads_and_native_gap_positions(
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in session.iterdir()
     }
     path, report = migrate_session(session)
-    document = parse_document(path.read_text())
-    assert isinstance(document, RecordingDocument)
+    document = parse_score(path.read_text())
+    assert isinstance(document, RecordingScore)
     data_regression.check(document.model_dump(mode='json'))
     assert report.audio_frames == 48000
     assert report.event_count == 4
@@ -139,8 +139,8 @@ def test_frame_count_mismatch_preserves_audio_without_inventing_placement(
         subtype='PCM_16',
     )
     path, report = migrate_session(session)
-    document = parse_document(path.read_text())
-    assert isinstance(document, RecordingDocument)
+    document = parse_score(path.read_text())
+    assert isinstance(document, RecordingScore)
     stream = document.body.streams[0]
     assert isinstance(stream, AudioStream)
     assert stream.fragments == []
@@ -195,8 +195,8 @@ def test_unfinished_files_and_torn_tail_remain_visibly_open(session: Path) -> No
     with path.open('a') as output:
         output.write('{"type":')
     output_path, report = migrate_session(session)
-    restored = parse_document(output_path.read_text())
-    assert isinstance(restored, RecordingDocument)
+    restored = parse_score(output_path.read_text())
+    assert isinstance(restored, RecordingScore)
     assert restored.body.state == 'open'
     assert any('truncated final line' in n for n in report.notes)
 
@@ -244,13 +244,17 @@ def test_native_event_order_is_checked_across_fragments(session: Path) -> None:
         for i in range(2)
     ]
     stream = recording.EventStream(
-        id='keys',
+        name='keys',
         source_id='keyboard',
         event_schema='recs_events',
-        timebase=document.timebases[0].id,
+        timebase=document.timebases[0].name,
         fragments=[
             recording.EventFragment(
-                asset=a.id, timing='recs_events', event_count=1, start=48000, end=48001
+                asset=a.name,
+                timing='recs_events',
+                event_count=1,
+                start=48000,
+                end=48001,
             )
             for a in assets
         ],

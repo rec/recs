@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from ufor import recording
-from ufor.codec import document_toml
+from ufor.codec import score_toml
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
 
@@ -123,9 +123,9 @@ def _record(tmp_path: Path) -> Path:
         '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
         '{"type":"footer","ended_at":"end","duration_seconds":1.5}\n'
     )
-    value = recording.RecordingDocument(
-        id='take',
-        name='Take',
+    value = recording.RecordingScore(
+        name='take',
+        title='Take',
         assets=[
             sealed_asset(session / p, session, i, e)
             for p, i, e in (
@@ -134,7 +134,7 @@ def _record(tmp_path: Path) -> Path:
                 ('midi/keys.mid', 'midi', 'smf'),
             )
         ],
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        timebases=[Timebase(name='audio', rate=Rate(numerator=48000))],
         body=recording.Recording(
             state='sealed',
             started_at='start',
@@ -144,7 +144,7 @@ def _record(tmp_path: Path) -> Path:
             continued_at=['next/recording.toml'],
             streams=[
                 recording.AudioStream(
-                    id='mic',
+                    name='mic',
                     source_id='audio:Mic:1',
                     source_name='Mic',
                     track_name='1',
@@ -155,7 +155,7 @@ def _record(tmp_path: Path) -> Path:
                     ],
                 ),
                 recording.EventStream(
-                    id='midi',
+                    name='midi',
                     source_id='midi:Launchkey',
                     event_schema='midi',
                     fragments=[
@@ -167,5 +167,5 @@ def _record(tmp_path: Path) -> Path:
             ],
         ),
     )
-    (session / 'recording.toml').write_text(document_toml(value))
+    (session / 'recording.toml').write_text(score_toml(value))
     return session
