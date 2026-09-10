@@ -10,7 +10,7 @@ from pytest_regressions.file_regression import FileRegressionFixture
 from ufor import modulation, sfz
 from ufor.assets import AudioDescription
 from ufor.control import Scope
-from ufor.interface import AudioBinding, Direction, EventType, PerformanceBinding, Port
+from ufor.interface import AudioBinding, EventType, Input, Output, PerformanceBinding
 from ufor.samples import (
     controls,
     crossfade,
@@ -53,12 +53,12 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert instrument.body.instrument.sustain is not None
     assert instrument.body.instrument.sustain.control == 'sustain'
     assert instrument.body.instrument.controls['sustain'].default == 0
-    assert instrument.name == 'Glass keys'
+    assert instrument.title == 'Glass keys'
     assert len(instrument.body.slots) == 2
     soft, loud = instrument.body.slots
-    assert soft.id == 'region-1'
+    assert soft.name == 'region-1'
     assert instrument.assets[0].path == 'Samples/Soft glass.wav'
-    assert soft.name == 'Soft'
+    assert soft.title == 'Soft'
     assert soft.mapping.lowest_key == 60
     assert soft.mapping.highest_key == 63
     assert soft.mapping.reference_pitch_hz == pytest.approx(261.625565)
@@ -67,7 +67,7 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert soft.processing.volume_db == -3
     assert soft.processing.pan == -0.25
     assert soft.modulation.routes[0].target == modulation.Target(
-        node='processing', parameter='amplitude'
+        name='processing', parameter='amplitude'
     )
     assert soft.modulation.routes[0].points[0].amount == 0
     assert soft.modulation.routes[0].points[64].amount == pytest.approx((64 / 127) ** 2)
@@ -257,18 +257,9 @@ def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     assert asset.audio.frames == 48_000
     assert asset.audio.channels == ['mono']
     assert asset.encoding == 'WAV/PCM_16'
-    clocks = {t.id: t.rate.numerator for t in result.instrument.timebases}
+    clocks = {t.name: t.rate.numerator for t in result.instrument.timebases}
     assert clocks[asset.audio.timebase] == 48_000
-    assert (
-        clocks[
-            next(
-                p.stream.timebase
-                for p in result.instrument.ports
-                if p.direction == 'output'
-            )
-        ]
-        == 96_000
-    )
+    assert clocks[next(p.stream.timebase for p in result.instrument.outputs)] == 96_000
     assert sample.read_bytes() == before
 
 
@@ -418,8 +409,8 @@ def test_write_sfz_preserves_recs_metadata(
         instrument_description='Instrument\ndescription',
         instrument_tags=['bright', 'unicode-ä'],
         slot=instrument.SampleSlot(
-            id='glass-1',
-            name='Soft\nGlass',
+            name='glass-1',
+            title='Soft\nGlass',
             description='Slot\ndescription',
             tags=['soft', 'layer-1'],
             slice='sample',
@@ -445,12 +436,12 @@ def test_write_sfz_preserves_recs_metadata(
 
     assert restored.complete
     assert restored.instrument is not None
-    assert restored.instrument.name == 'Gläss\nKeys'
+    assert restored.instrument.title == 'Gläss\nKeys'
     assert restored.instrument.description == 'Instrument\ndescription'
     assert restored.instrument.tags == ['bright', 'unicode-ä']
     slot = restored.instrument.body.slots[0]
-    assert slot.id == 'glass-1'
-    assert slot.name == 'Soft\nGlass'
+    assert slot.name == 'glass-1'
+    assert slot.title == 'Soft\nGlass'
     assert slot.description == 'Slot\ndescription'
     assert slot.tags == ['soft', 'layer-1']
 
@@ -462,7 +453,7 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
         modulation.Point(input=1.0, amount=1.0),
     ]
     first = instrument.SampleSlot(
-        id='open',
+        name='open',
         slice='open',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -489,14 +480,14 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
                 end=1.0,
             ),
         ],
-        bindings=[processing.EventBinding(id='velocity', kind='velocity')],
+        bindings=[processing.EventBinding(name='velocity', kind='velocity')],
         modulation=modulation.Modulation(
             sources=[
-                modulation.Source(id='velocity', scope='voice', minimum=0, maximum=1)
+                modulation.Source(name='velocity', scope='voice', minimum=0, maximum=1)
             ],
             parameters=[
                 modulation.Parameter(
-                    target=modulation.Target(node='processing', parameter='amplitude'),
+                    target=modulation.Target(name='processing', parameter='amplitude'),
                     scope=Scope.voice,
                     unit=modulation.Unit.ratio,
                     minimum=0,
@@ -506,9 +497,9 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
             ],
             routes=[
                 modulation.Route(
-                    id='velocity-gain',
+                    name='velocity-gain',
                     source='velocity',
-                    target=modulation.Target(node='processing', parameter='amplitude'),
+                    target=modulation.Target(name='processing', parameter='amplitude'),
                     operation=modulation.Operation.multiply,
                     unit=modulation.Unit.ratio,
                     points=points,
@@ -518,7 +509,7 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
     )
 
     second = instrument.SampleSlot(
-        id='closed',
+        name='closed',
         slice='closed',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -560,7 +551,7 @@ def test_write_sfz_exports_loops_chokes_crossfades_and_velocity(tmp_path: Path) 
 
 def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
     bad = instrument.SampleSlot(
-        id='bad',
+        name='bad',
         slice='bad',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -573,7 +564,7 @@ def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
         ),
     )
     good = instrument.SampleSlot(
-        id='good',
+        name='good',
         slice='good',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -605,7 +596,7 @@ def test_write_sfz_reports_precise_omissions_and_keeps_valid_slots() -> None:
 
 def test_write_sfz_with_no_representable_slot_has_only_generated_comment() -> None:
     slot = instrument.SampleSlot(
-        id='bad',
+        name='bad',
         slice='bad',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -631,7 +622,7 @@ def test_read_sfz_reports_unknown_recs_metadata_version(tmp_path: Path) -> None:
     _write_wav(tmp_path / 'sample.wav')
     path.write_text(
         '// recs:instrument '
-        '{"version":2,"name":"Future","description":null,"tags":[]}\n'
+        '{"version":3,"title":"Future","description":null,"tags":[]}\n'
         '<region> sample=sample.wav loop_mode=no_loop'
     )
 
@@ -655,7 +646,7 @@ def test_read_sfz_rejects_malformed_recs_metadata(tmp_path: Path) -> None:
 
 def test_write_sfz_serializes_unsupported_control_diagnostic() -> None:
     slot = instrument.SampleSlot(
-        id='slot',
+        name='slot',
         slice='sample',
         channels=[
             processing.ChannelRoute(input='mono', output=c, gain=sqrt(0.5))
@@ -699,17 +690,17 @@ def _instrument(
     instrument_name: str = 'Test',
     instrument_description: str | None = None,
     instrument_tags: list[str] | None = None,
-) -> instrument.InstrumentDocument:
+) -> instrument.InstrumentScore:
     selected = slots if slots is not None else [slot] if slot is not None else []
-    return instrument.InstrumentDocument(
-        id='test',
-        name=instrument_name,
+    return instrument.InstrumentScore(
+        name='test',
+        title=instrument_name,
         description=instrument_description,
         tags=instrument_tags or [],
-        timebases=[Timebase(id='audio', rate=Rate(numerator=48000))],
+        timebases=[Timebase(name='audio', rate=Rate(numerator=48000))],
         assets=[
             instrument.AudioAsset(
-                id=s.slice,
+                name=s.slice,
                 path='bad=sample.wav' if s.slice == 'bad' else f'{s.slice}.wav',
                 encoding='WAV/PCM_16',
                 byte_length=0,
@@ -720,21 +711,21 @@ def _instrument(
             )
             for s in selected
         ],
-        ports=[
-            Port(
-                id='audio',
-                direction=Direction.output,
-                stream=AudioType(timebase='audio', channels=['left', 'right']),
-                binding=AudioBinding(),
-            ),
-            Port(
-                id='performance',
-                direction=Direction.input,
+        inputs=[
+            Input(
+                name='performance',
                 stream=EventType(
                     timebase='audio', kinds=['trigger', 'release', 'control_change']
                 ),
                 binding=PerformanceBinding(),
-            ),
+            )
+        ],
+        outputs=[
+            Output(
+                name='audio',
+                stream=AudioType(timebase='audio', channels=['left', 'right']),
+                binding=AudioBinding(),
+            )
         ],
         body=instrument.SampleInstrument(
             instrument=instrument.Instrument(
@@ -745,7 +736,7 @@ def _instrument(
             slots=selected,
             slices=[
                 playback.Slice(
-                    id=s.slice,
+                    name=s.slice,
                     asset=s.slice,
                     end_frame=48000,
                     loop=loop if i == 0 else None,

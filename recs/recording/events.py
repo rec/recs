@@ -76,7 +76,7 @@ def host_clock_observation() -> ClockRecord:
     after = monotonic_ns()
     return ClockRecord(
         timebases=[
-            Timebase(id=i, rate=Rate(numerator=1_000_000_000))
+            Timebase(name=i, rate=Rate(numerator=1_000_000_000))
             for i in ('monotonic', 'wall')
         ],
         observation=ClockObservation(

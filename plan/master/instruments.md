@@ -111,7 +111,7 @@ for the deferred implementation and shared conformance requirements.
 
 ## External samplers and change from today
 
-`InstrumentDocument` is now the common root; `SampleInstrument` is its typed
+`InstrumentScore` is now the common root; `SampleInstrument` is its typed
 body. The former `format_version` root and Recsam model modules are removed.
 `ufor.sfz` owns pure conversion with explicit unsupported-feature diagnostics.
 Recs retains local path resolution, symlink containment, hashing, decoding and

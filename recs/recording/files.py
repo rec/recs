@@ -12,7 +12,7 @@ from reccy.protocol.jsonl import Decompress
 from ufor.assets import Asset
 from ufor.base import Model
 from ufor.events import StoredEvent
-from ufor.recording import AudioFragment, AudioStream, EventStream, RecordingDocument
+from ufor.recording import AudioFragment, AudioStream, EventStream, RecordingScore
 
 from ..base.errors import RecsError
 
@@ -34,7 +34,7 @@ def sealed_asset(path: Path, root: Path, identity: str, encoding: str) -> Asset:
     with resolved.open('rb') as source:
         digest = hashlib.file_digest(source, 'sha256').hexdigest()
     return Asset(
-        id=identity,
+        name=identity,
         path=resolved.relative_to(root.resolve()).as_posix(),
         encoding=encoding,
         byte_length=resolved.stat().st_size,
@@ -42,17 +42,17 @@ def sealed_asset(path: Path, root: Path, identity: str, encoding: str) -> Asset:
     )
 
 
-def verify_recording(document: RecordingDocument, root: Path) -> Verification:
+def verify_recording(document: RecordingScore, root: Path) -> Verification:
     """Check hashes, decode every audio frame, and count embedded events."""
-    assets = {a.id: a for a in document.assets}
+    assets = {a.name: a for a in document.assets}
     paths: dict[str, Path] = {}
     for asset in document.assets:
         path = root / asset.path
-        actual = sealed_asset(path, root, asset.id, asset.encoding)
+        actual = sealed_asset(path, root, asset.name, asset.encoding)
         if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
             raise RecsError(f'Asset bytes disagree with the recording: {asset.path}')
-        paths[asset.id] = path
-    clocks = {t.id: t for t in document.timebases}
+        paths[asset.name] = path
+    clocks = {t.name: t for t in document.timebases}
     audio_frames = event_count = gap_frames = 0
     unresolved_audio_files = 0
     decoded: dict[str, tuple[int, int, int]] = {}
@@ -84,7 +84,7 @@ def verify_recording(document: RecordingDocument, root: Path) -> Verification:
                     or rate * clock.rate.denominator != clock.rate.numerator
                 ):
                     raise RecsError(
-                        f'Audio layout or rate disagrees with stream {stream.id}'
+                        f'Audio layout or rate disagrees with stream {stream.name}'
                     )
                 asset_start = (
                     fragment.asset_start if isinstance(fragment, AudioFragment) else 0

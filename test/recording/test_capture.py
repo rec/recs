@@ -129,7 +129,7 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
         verified = verify_recording(document, path.parent)
         assert verified.unresolved_audio_files == 0
         assert document.body.clock_observations
-        assets = {a.id: a for a in document.assets}
+        assets = {a.name: a for a in document.assets}
         for stream in document.body.streams:
             if isinstance(stream, AudioStream):
                 reasons = {g.reason for g in stream.gaps}
@@ -156,7 +156,7 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
     messages = [m for m in mido.MidiFile(smf).tracks[0] if not m.is_meta]
     assert [m.time for m in messages] == [0, 0, 1]
     edit = SourceSpec(
-        id='take',
+        name='take',
         record=destination / 'recording.toml',
         selector=RecordSelector(source='Mic', track='1'),
     )
@@ -301,7 +301,7 @@ def test_key_capture_uses_common_events_and_preserves_observed_order(
     assert isinstance(stream, EventStream)
     assert stream.event_kind == 'key'
     assert verify_recording(document, tmp_path).event_count == 2
-    payload = next(a for a in document.assets if a.id == stream.fragments[0].asset)
+    payload = next(a for a in document.assets if a.name == stream.fragments[0].asset)
     events = [
         TypeAdapter(StoredEvent).validate_json(e)
         for e in (tmp_path / payload.path).read_text().splitlines()
@@ -324,7 +324,7 @@ def test_reconnected_audio_keeps_independent_clock_evidence(tmp_path: Path) -> N
     assert len(document.body.streams) == 2
     assert verify_recording(document, tmp_path).audio_frames == 192000
     edit = SourceSpec(
-        id='take',
+        name='take',
         record=path,
         selector=RecordSelector(source='Mic', track='1'),
     )

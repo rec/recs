@@ -73,7 +73,7 @@ def summarize(path: Path) -> SessionSummary | None:
     except RecsError:
         return None
     body = document.body
-    assets = {a.id: a for a in document.assets}
+    assets = {a.name: a for a in document.assets}
     audio = [s for s in body.streams if isinstance(s, AudioStream)]
     events = [s for s in body.streams if isinstance(s, EventStream)]
     audio_assets = {
@@ -110,7 +110,7 @@ def summarize(path: Path) -> SessionSummary | None:
         ),
         devices=sorted({s.source_name or s.source_id for s in audio}),
         tracks=sorted(
-            {f'{s.source_name or s.source_id}:{s.track_name or s.id}' for s in audio}
+            {f'{s.source_name or s.source_id}:{s.track_name or s.name}' for s in audio}
         ),
         midi_ports=sorted(
             {

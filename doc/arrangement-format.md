@@ -1,20 +1,21 @@
-# Audio arrangement documents
+# Audio arrangement scores
 
 Implemented initial profile of the [master format](../plan/master/master.md).
-The native audio-edit document is now a Recs document with an arrangement body.
-Old flat edit documents are no longer accepted. Session inputs use
-`recording.toml`; successful renders finalize a new recording document beside
+The native audio-edit score is now a Recs score with an arrangement body.
+Old flat edit scores are no longer accepted. Session inputs use
+`recording.toml`; successful renders finalize a new recording score beside
 the generated media and operational journal.
 
 ```toml
 format = "recs"
-version = 2
+version = 3
 kind = "arrangement"
-id = "speech-edit"
-name = "Speech edit"
+name = "speech-edit"
+title = "Speech edit"
+inputs = []
 
 [[timebases]]
-id = "audio"
+name = "audio"
 
 [timebases.rate]
 numerator = 48000
@@ -24,43 +25,42 @@ denominator = 1
 timebase = "audio"
 
 [[body.tracks]]
-id = "speech"
+name = "speech"
 
 [body.tracks.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
 [[body.clips]]
-id = "opening"
+name = "opening"
 track = "speech"
 source_start = 0
 source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-node = "take"
-port = "audio"
+name = "take"
+output = "audio"
 
-[[body.nodes]]
-id = "take"
+[[body.parts]]
+name = "take"
 
-[body.nodes.definition]
+[body.parts.score]
 path = "take.recording.toml"
 
 [[destinations]]
-port = "main"
+output = "main"
 path = "audio/speech.wav"
 format = "wav"
 
-[[ports]]
-id = "main"
-direction = "output"
+[[outputs]]
+name = "main"
 
-[ports.stream]
+[outputs.stream]
 timebase = "audio"
 channels = ["channel-0"]
 
-[ports.binding]
+[outputs.binding]
 track = "speech"
 ```
 
@@ -74,10 +74,10 @@ rates require explicit conversion and are currently rejected by preparation.
 The pure `convert_tick` operation converts exact positions and never resamples
 audio. Musical time and generalized DSP remain later capabilities.
 
-Each node directly names a definition with `{ path, sha256? }`. Each clip selects
-its public output with `{ node, port }`. Definitions resolve relative to the
-containing document; public `ports` bind internal tracks, buses or child ports.
-See the [composition design](composition-design.md) for connections and parameters.
+Each part directly names a definition with `{ path, sha256? }`. Each clip selects
+its public output with `{ part, port }`. Definitions resolve relative to the
+containing score; public `inputs`, `outputs` bind internal tracks, buses or child ports.
+See the [composition design](../../ufor/doc/composition-design.md) for connections and parameters.
 
 Recording exports use stable stream IDs and optional zero-based consecutive
 `channels`. Recs' CLI retains human-facing session selectors while authoring:
@@ -89,16 +89,16 @@ placement are rejected. Nested arrangement outputs retain their native frame
 coordinates. Unsupported instrument realization fails during preparation.
 
 Automation targets are structured tables, such as
-`{ kind = "clip", node = "opening", parameter = "gain" }`. A route target also
+`{ kind = "clip", part = "opening", parameter = "gain" }`. A route target also
 names `destination`. Gain remains a linear amplitude multiplier. Existing
 equal-power gain interpolation retains its squared-gain formula and its base
 value before the first knot.
 
-The Pydantic definition is `ufor.arrangement.ArrangementDocument`; its
+The Pydantic definition is `ufor.arrangement.ArrangementScore`; its
 `model_json_schema()` describes this implemented profile. The parser and TOML
 writer are in `recs/edit/schema.py`. Authoring recipes still describe operations
-and defaults; generated arrangements use the new native document. Resolved
-composition stages retain their recipe provenance and store the new documents.
+and defaults; generated arrangements use the new native score. Resolved
+composition stages retain their recipe provenance and store the new scores.
 
 ## Validation ownership
 

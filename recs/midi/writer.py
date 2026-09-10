@@ -64,7 +64,7 @@ class MidiWriter(EventWriter):
             port_name,
             'midi',
             Timebase(
-                id='clock-'
+                name='clock-'
                 + hashlib.sha256(('midi:' + port_name).encode()).hexdigest()[:16],
                 rate=Rate(numerator=1_000_000_000),
             ),
@@ -83,10 +83,10 @@ class MidiWriter(EventWriter):
         return ClockRecord(
             timebases=[
                 self.timebase,
-                Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+                Timebase(name='monotonic', rate=Rate(numerator=1_000_000_000)),
             ],
             observation=ClockObservation(
-                source=Position(timebase=self.timebase.id, tick=self.clock.last_tick),
+                source=Position(timebase=self.timebase.name, tick=self.clock.last_tick),
                 session=Position(timebase='monotonic', tick=self.clock.received_tick),
                 timing_source='midi_'
                 + str(self.clock.timing_source)

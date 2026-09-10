@@ -1,27 +1,27 @@
 assets:
 - byte_length: 1467
   encoding: recs-session-v3
-  id: original-journal
+  name: original-journal
   path: migration/session-record-v3.jsonl
   sha256: 551f11d52393c809c90adbc2ed84ea433ae37651bc29f51d4c08bcef853b06e9
 - byte_length: 96044
   encoding: wav
-  id: asset-2f97f5e90dbceaad
+  name: asset-2f97f5e90dbceaad
   path: audio.wav
   sha256: de1a21e8218c213a0ac3a1dd1562389578815375698f50f6785bb8339b4e3436
 - byte_length: 42
   encoding: smf
-  id: asset-6928c7a28fdd6b91
+  name: asset-6928c7a28fdd6b91
   path: notes.mid
   sha256: 06a06cc9fd2da3955003d1b6f803445b6acac454c23c28afdfca70957d97e43a
 - byte_length: 77
   encoding: jsonl
-  id: asset-f8206985070a549c
+  name: asset-f8206985070a549c
   path: osc-0.jsonl
   sha256: ec1a547a2708e11e3a6efc45e571177c574f0a8e11bdec958876bf4ded3b7a18
 - byte_length: 34
   encoding: jsonl
-  id: asset-f3e5412ee2822d5e
+  name: asset-f3e5412ee2822d5e
   path: osc-1.jsonl
   sha256: d001b881e8d4292404c4532e527a9b38b93d901051274494e570b0f60c849153
 body:
@@ -45,8 +45,8 @@ body:
     - end: 48000
       reason: unknown
       start: 0
-    id: stream-c160dbc57a502291
     kind: audio
+    name: stream-c160dbc57a502291
     source_id: audio:desk
     source_name: null
     stream:
@@ -68,8 +68,8 @@ body:
       start: null
       timing: smf
       timing_source: null
-    id: stream-4658c87f69f94fb7
     kind: events
+    name: stream-4658c87f69f94fb7
     source_id: midi:desk
     timebase: null
   - event_kind: null
@@ -89,22 +89,20 @@ body:
       start: null
       timing: osc_jsonl
       timing_source: null
-    id: stream-595cf3de8e2da8e0
     kind: events
+    name: stream-595cf3de8e2da8e0
     source_id: osc:desk
     timebase: null
   unfinished_files: []
 format: recs
-id: test-session
+inputs: []
 kind: recording
-name: session
-parameters: []
-ports:
+name: test-session
+outputs:
 - binding:
     channels: null
     stream: stream-c160dbc57a502291
-  direction: output
-  id: stream-c160dbc57a502291
+  name: stream-c160dbc57a502291
   stream:
     channels:
     - channel-0
@@ -112,10 +110,12 @@ ports:
     quantity: audio_amplitude
     timebase: clock-c160dbc57a502291
     unit: full_scale
+parameters: []
 timebases:
-- id: clock-c160dbc57a502291
-  kind: physical
+- kind: physical
+  name: clock-c160dbc57a502291
   rate:
     denominator: 1
     numerator: 48000
-version: 2
+title: session
+version: 3

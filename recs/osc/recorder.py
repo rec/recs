@@ -219,7 +219,7 @@ class OscNodeRecorder:
             self.path,
             self.node.name,
             'osc',
-            Timebase(id='monotonic', rate=Rate(numerator=1_000_000_000)),
+            Timebase(name='monotonic', rate=Rate(numerator=1_000_000_000)),
             'host_monotonic_packet_observation',
             time.monotonic_ns(),
         )

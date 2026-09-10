@@ -1,13 +1,12 @@
 format = "recs"
-version = 3
-name = "d0929489-3fed-4aa8-ada3-182f5923cc50"
-title = "2026-09-04 15-01-57"
+version = 2
+id = "d0929489-3fed-4aa8-ada3-182f5923cc50"
+name = "2026-09-04 15-01-57"
 parameters = []
 kind = "recording"
-inputs = []
 
 [[timebases]]
-name = "clock-5e226690c59de982"
+id = "clock-5e226690c59de982"
 kind = "physical"
 
 [timebases.rate]
@@ -15,7 +14,7 @@ numerator = 48000
 denominator = 1
 
 [[timebases]]
-name = "clock-f41eac0a041172e2"
+id = "clock-f41eac0a041172e2"
 kind = "physical"
 
 [timebases.rate]
@@ -23,7 +22,7 @@ numerator = 48000
 denominator = 1
 
 [[timebases]]
-name = "clock-4e986fb6c56c24f2"
+id = "clock-4e986fb6c56c24f2"
 kind = "physical"
 
 [timebases.rate]
@@ -31,7 +30,7 @@ numerator = 48000
 denominator = 1
 
 [[timebases]]
-name = "clock-1bc345f3335f1830"
+id = "clock-1bc345f3335f1830"
 kind = "physical"
 
 [timebases.rate]
@@ -39,7 +38,7 @@ numerator = 48000
 denominator = 1
 
 [[timebases]]
-name = "clock-8d60a292cd10400d"
+id = "clock-8d60a292cd10400d"
 kind = "physical"
 
 [timebases.rate]
@@ -47,520 +46,526 @@ numerator = 48000
 denominator = 1
 
 [[timebases]]
-name = "clock-3120708d92e52f5e"
+id = "clock-3120708d92e52f5e"
 kind = "physical"
 
 [timebases.rate]
 numerator = 48000
 denominator = 1
 
-[[outputs]]
-name = "stream-5e226690c59de982"
+[[ports]]
+id = "stream-5e226690c59de982"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-5e226690c59de982"
 channels = ["input-1", "input-2"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-5e226690c59de982"
 
-[[outputs]]
-name = "stream-f41eac0a041172e2"
+[[ports]]
+id = "stream-f41eac0a041172e2"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-f41eac0a041172e2"
 channels = ["input-3", "input-4"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-f41eac0a041172e2"
 
-[[outputs]]
-name = "stream-4e986fb6c56c24f2"
+[[ports]]
+id = "stream-4e986fb6c56c24f2"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-4e986fb6c56c24f2"
 channels = ["input-5", "input-6"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-4e986fb6c56c24f2"
 
-[[outputs]]
-name = "stream-1bc345f3335f1830"
+[[ports]]
+id = "stream-1bc345f3335f1830"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-1bc345f3335f1830"
 channels = ["input-7", "input-8"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-1bc345f3335f1830"
 
-[[outputs]]
-name = "stream-8d60a292cd10400d"
+[[ports]]
+id = "stream-8d60a292cd10400d"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-8d60a292cd10400d"
 channels = ["input-9", "input-10"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-8d60a292cd10400d"
 
-[[outputs]]
-name = "stream-3120708d92e52f5e"
+[[ports]]
+id = "stream-3120708d92e52f5e"
+direction = "output"
 
-[outputs.stream]
+[ports.stream]
 family = "sampled"
 quantity = "audio_amplitude"
 unit = "full_scale"
 timebase = "clock-3120708d92e52f5e"
 channels = ["input-1"]
 
-[outputs.binding]
+[ports.binding]
 stream = "stream-3120708d92e52f5e"
 
 [[assets]]
-name = "original-journal"
+id = "original-journal"
 path = "migration/session-record-v3.jsonl"
 encoding = "recs-session-v3"
 byte_length = 53850
 sha256 = "fc710b7ebf0f875e2adf5d06a2ed96e37e80024c61c4279e1fb89fcbcab67362"
 
 [[assets]]
-name = "asset-f28fdf4c43815dc8"
+id = "asset-f28fdf4c43815dc8"
 path = "midi/FLOW 8-20260904-150157.mid"
 encoding = "smf"
 byte_length = 43
 sha256 = "86c91c66d6dad6870b600af2ba0e6d727fdb77fb76c3afb82e3989e72cc01d5e"
 
 [[assets]]
-name = "asset-fc44ffdf3decffdd"
+id = "asset-fc44ffdf3decffdd"
 path = "midi/IAC Driver Bus 1-20260904-150157.mid"
 encoding = "smf"
 byte_length = 53
 sha256 = "23a0c50697c3a0039c8dc6cda8b7aca77415f47a5ef01e5a2043bae51ea75c09"
 
 [[assets]]
-name = "asset-982fc90d6deb66d4"
+id = "asset-982fc90d6deb66d4"
 path = "midi/U6MIDI Pro Port 1-20260904-150157.mid"
 encoding = "smf"
 byte_length = 54
 sha256 = "2e1254653a348064e4ee9d7e6badebabc71f3a1d225b4162d5b72d3b1911cf8e"
 
 [[assets]]
-name = "asset-f2cc7c62df0d22ef"
+id = "asset-f2cc7c62df0d22ef"
 path = "midi/U6MIDI Pro Port 2-20260904-150157.mid"
 encoding = "smf"
 byte_length = 54
 sha256 = "a828b4472d403989d74b71bb3aa0246be348edd3670a5f1cd34f96510a56d3a4"
 
 [[assets]]
-name = "asset-e7b5c63c8dee7578"
+id = "asset-e7b5c63c8dee7578"
 path = "midi/U6MIDI Pro Port 3-20260904-150157.mid"
 encoding = "smf"
 byte_length = 54
 sha256 = "edc4c7d15777e8b66c5f51086e0faeca96c6d9b8a5e8490e503d7c6ba2f6b01b"
 
 [[assets]]
-name = "asset-3b917147c64b2140"
+id = "asset-3b917147c64b2140"
 path = "audio/FLOW 8 (Recording) + 1-2 + 20260904-150158.flac"
 encoding = "flac"
 byte_length = 438448
 sha256 = "508c6fbf603513a3a93d8c142f771d9fa4965e2d7449cc7ccf77876db1e213c8"
 
 [[assets]]
-name = "asset-781ae40c7d911b1e"
+id = "asset-781ae40c7d911b1e"
 path = "audio/FLOW 8 (Recording) + 3-4 + 20260904-150216.flac"
 encoding = "flac"
 byte_length = 373789845
 sha256 = "32214a7073b54daeadcba90c4960005ac1f9fae42428bc36ec4c357cc62d6a64"
 
 [[assets]]
-name = "asset-8d5a25d2b8e809b4"
+id = "asset-8d5a25d2b8e809b4"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150206.flac"
 encoding = "flac"
 byte_length = 75299
 sha256 = "4ee71bfb36d7ba742610c70edc9305ec2651cc03e9be0dc40107ce5a5a82c5cb"
 
 [[assets]]
-name = "asset-aafb89db474a6452"
+id = "asset-aafb89db474a6452"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150320.flac"
 encoding = "flac"
 byte_length = 2490957
 sha256 = "c52fdc4eb4df55cd31c9efb2e35457cca61102d743d6485f7a90a260f445dac2"
 
 [[assets]]
-name = "asset-f34757ed81cfb115"
+id = "asset-f34757ed81cfb115"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-150658.flac"
 encoding = "flac"
 byte_length = 12755178
 sha256 = "f36a2857300db2b3911c7a37787b34c28b71266f6a2b3223a3065fdff10f7a1d"
 
 [[assets]]
-name = "asset-6bb77298038f9a30"
+id = "asset-6bb77298038f9a30"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151217.flac"
 encoding = "flac"
 byte_length = 3217801
 sha256 = "9a9c101ba3016285b0f4e67ecea3f2e4d3ebfc01c314db45365800739dec6aca"
 
 [[assets]]
-name = "asset-db409520ba189283"
+id = "asset-db409520ba189283"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151338.flac"
 encoding = "flac"
 byte_length = 207658
 sha256 = "35cd7c843901f7e8c736818c9b16fb1cb03660ff9f0ae5169d61182495133565"
 
 [[assets]]
-name = "asset-a71d95781b2edd1d"
+id = "asset-a71d95781b2edd1d"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151411.flac"
 encoding = "flac"
 byte_length = 2414756
 sha256 = "c9921aa1a9783429662339c7ad315687f598387cc29dfa923ef343c7a33142c4"
 
 [[assets]]
-name = "asset-846ed4b58a000720"
+id = "asset-846ed4b58a000720"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-151554.flac"
 encoding = "flac"
 byte_length = 24178055
 sha256 = "482b0ee8905413863dd3799c8a5328921d97c3c34ebb6675cd4d82fdce20c30b"
 
 [[assets]]
-name = "asset-d28d60cc618ac978"
+id = "asset-d28d60cc618ac978"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-152457.flac"
 encoding = "flac"
 byte_length = 30250280
 sha256 = "cc3ee44b2f0c16994cf7cd2722a002e031fe699cdf3a6b786c2f7e7bc1e9264e"
 
 [[assets]]
-name = "asset-624f53f118a22992"
+id = "asset-624f53f118a22992"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-155737.flac"
 encoding = "flac"
 byte_length = 7672327
 sha256 = "244f7354d642647ddb269a7783d859d76b532f2e074ef56344eb4b0a62ac7fa3"
 
 [[assets]]
-name = "asset-939e3103ae84c739"
+id = "asset-939e3103ae84c739"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-160453.flac"
 encoding = "flac"
 byte_length = 7680142
 sha256 = "609f3f6d39e0d29f8d6e25dab2424324bea83cea37fd41f34c3d0d804e2b5825"
 
 [[assets]]
-name = "asset-59bc5a5a592583af"
+id = "asset-59bc5a5a592583af"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-160947.flac"
 encoding = "flac"
 byte_length = 9730493
 sha256 = "5a7e9cdd2c09f8a7fce04f171854822391c6bb9b318b894919d7146d3d5cd2ed"
 
 [[assets]]
-name = "asset-f304de816f21da5e"
+id = "asset-f304de816f21da5e"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-162244.flac"
 encoding = "flac"
 byte_length = 19604674
 sha256 = "e6290c166e45922f60c94a8006a1dee1da726437d5d1faf3c44ebdfcd380db24"
 
 [[assets]]
-name = "asset-fe1a9840e63ea107"
+id = "asset-fe1a9840e63ea107"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163011.flac"
 encoding = "flac"
 byte_length = 5680025
 sha256 = "80d5099158e51b19fbce356e45f724e71ba854a2d540f6707c1f6158e4329e0d"
 
 [[assets]]
-name = "asset-3970b50ef2dab0f8"
+id = "asset-3970b50ef2dab0f8"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163252.flac"
 encoding = "flac"
 byte_length = 180289
 sha256 = "e624df0598f7daacfafb041390fcd4d17df5351699599ccd317270aaf9c509cb"
 
 [[assets]]
-name = "asset-d52f0f623518d746"
+id = "asset-d52f0f623518d746"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163319.flac"
 encoding = "flac"
 byte_length = 3076431
 sha256 = "202d6eadfeff67b63b48df3159e08944338e5dced0bedb467456099a91b9242d"
 
 [[assets]]
-name = "asset-e1ecfcf3f4d9c5c0"
+id = "asset-e1ecfcf3f4d9c5c0"
 path = "audio/FLOW 8 (Recording) + 5-6 + 20260904-163533.flac"
 encoding = "flac"
 byte_length = 6449703
 sha256 = "44e857de2afd495c86f39c47c70eb0aa0966688c17a2902fbe81a07c1c4f2b61"
 
 [[assets]]
-name = "asset-d41c3e2bea76fcfc"
+id = "asset-d41c3e2bea76fcfc"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150206.flac"
 encoding = "flac"
 byte_length = 221461
 sha256 = "f85bc8e7e11c0a4ec5ea66a483eefad3dd5dc62907ae99a96428966317f74ad5"
 
 [[assets]]
-name = "asset-e36d07e1f90f6261"
+id = "asset-e36d07e1f90f6261"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150320.flac"
 encoding = "flac"
 byte_length = 2158121
 sha256 = "9939cecb10bd0393b74b978116f28c49c43d7e84e743be0ffa07ecfe793203ee"
 
 [[assets]]
-name = "asset-941ac3a5ec83689e"
+id = "asset-941ac3a5ec83689e"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-150658.flac"
 encoding = "flac"
 byte_length = 9285479
 sha256 = "65e47093a526b91c5964eea90ba04f81a467c9604055f5e1a6b695e04d232360"
 
 [[assets]]
-name = "asset-f32d6c8fe1cd35af"
+id = "asset-f32d6c8fe1cd35af"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151217.flac"
 encoding = "flac"
 byte_length = 2376189
 sha256 = "bfc4244d86d562b41690c5ad435cafaf89debf657ed541c67a7121ae5a4e18f7"
 
 [[assets]]
-name = "asset-315bf46659ff2bc4"
+id = "asset-315bf46659ff2bc4"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151338.flac"
 encoding = "flac"
 byte_length = 134325
 sha256 = "013a33cbff6fe0e90c0bcb411a905275c949bd5474d5b6b92d28aa0a3a110cf6"
 
 [[assets]]
-name = "asset-789862f0f8e2ffab"
+id = "asset-789862f0f8e2ffab"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151411.flac"
 encoding = "flac"
 byte_length = 1761849
 sha256 = "52dd1402ce1899cbd0c05d8a648af8450af778e38cd90a20ec32b319bebfc099"
 
 [[assets]]
-name = "asset-9b50378dd7d3c1c4"
+id = "asset-9b50378dd7d3c1c4"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-151554.flac"
 encoding = "flac"
 byte_length = 54238637
 sha256 = "1901b2727d6c99cd1925f621423ae84174677a54aa52d7f2db2a920e52bb7220"
 
 [[assets]]
-name = "asset-d1608e8254a2e025"
+id = "asset-d1608e8254a2e025"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-155743.flac"
 encoding = "flac"
 byte_length = 29959016
 sha256 = "259e2f2b063c71dddc5b9b49b08cabdc8612e628309f20ce042eb85e4a55bb27"
 
 [[assets]]
-name = "asset-2b20158a5c891a38"
+id = "asset-2b20158a5c891a38"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-162244.flac"
 encoding = "flac"
 byte_length = 11423647
 sha256 = "8ffb5dc622b347f6babb3442b6923d76932d39f319fcee6660b4622196f6d9a3"
 
 [[assets]]
-name = "asset-5c08e95ab253a148"
+id = "asset-5c08e95ab253a148"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163011.flac"
 encoding = "flac"
 byte_length = 5208489
 sha256 = "b07a2947f0a2144012dbd3feb77b445f95fdb01677599531c62d91d867664dad"
 
 [[assets]]
-name = "asset-35c3f35e3627ee7b"
+id = "asset-35c3f35e3627ee7b"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163253.flac"
 encoding = "flac"
 byte_length = 159919
 sha256 = "e8b375aab85ab1e4a3f1d88c0a28a46cf063488fa8446963d020a8ac932bbe8e"
 
 [[assets]]
-name = "asset-9b3146b7d6908032"
+id = "asset-9b3146b7d6908032"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163319.flac"
 encoding = "flac"
 byte_length = 2564733
 sha256 = "dfe8f615cbbbf7255483613fc2e081c0a28a6aeca6c2ef1607c7071927c09bc5"
 
 [[assets]]
-name = "asset-5885458e5f3001d0"
+id = "asset-5885458e5f3001d0"
 path = "audio/FLOW 8 (Recording) + 7-8 + 20260904-163533.flac"
 encoding = "flac"
 byte_length = 5529842
 sha256 = "990acf8279e2816d19df2bd782f162854a47b68e09ed3b91f0342cd231999c4a"
 
 [[assets]]
-name = "asset-229aca9b41a2d20a"
+id = "asset-229aca9b41a2d20a"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-150206.flac"
 encoding = "flac"
 byte_length = 4439479
 sha256 = "e7f93a92e01d0df8dd93a81739a612144ff027fa98d3509aadae73936fff09b4"
 
 [[assets]]
-name = "asset-601a91197aa90de8"
+id = "asset-601a91197aa90de8"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-150544.flac"
 encoding = "flac"
 byte_length = 124057409
 sha256 = "535745dff536acf5317d4952a86658ce2a3e9bad8b74314b4d3b9820197fe5fc"
 
 [[assets]]
-name = "asset-ecaa9b91b29d5015"
+id = "asset-ecaa9b91b29d5015"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-155743.flac"
 encoding = "flac"
 byte_length = 54208368
 sha256 = "f2fbd0c41dea7e083a93d0c460ac4179d1037b0627d5ae710a67fecf35d57b29"
 
 [[assets]]
-name = "asset-1851cdffc9e3a191"
+id = "asset-1851cdffc9e3a191"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-162204.flac"
 encoding = "flac"
 byte_length = 26007951
 sha256 = "35a2396e0ea09093467c2280dbc5665a9408cb78a15aac4adca6e59789f0a3ac"
 
 [[assets]]
-name = "asset-54bc303f8c19b360"
+id = "asset-54bc303f8c19b360"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163006.flac"
 encoding = "flac"
 byte_length = 10817712
 sha256 = "66ac13753f3b50df3bdd281b450d8322a2b36aa2dcb0738270e96766bcb32627"
 
 [[assets]]
-name = "asset-ae2c01ffd0a2072e"
+id = "asset-ae2c01ffd0a2072e"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163253.flac"
 encoding = "flac"
 byte_length = 17183613
 sha256 = "635b603e24af315d7925d40138970a586c6cf96fda1f4077d6fd565c8a779f63"
 
 [[assets]]
-name = "asset-f6b81f5cb43c898c"
+id = "asset-f6b81f5cb43c898c"
 path = "audio/FLOW 8 (Recording) + 9-10 + 20260904-163944.flac"
 encoding = "flac"
 byte_length = 83042
 sha256 = "5c8954e887e7046eb96056ae3e78c50da9e2484d90416ef4e76046f87f38f30a"
 
 [[assets]]
-name = "asset-0c00a5847aa53508"
+id = "asset-0c00a5847aa53508"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-150158.flac"
 encoding = "flac"
 byte_length = 13208044
 sha256 = "44e1159458d4952edcc25f0a115e9775faafbd9cfb99c621a16247ffb1cf2ea3"
 
 [[assets]]
-name = "asset-994ade518c2b5545"
+id = "asset-994ade518c2b5545"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-150752.flac"
 encoding = "flac"
 byte_length = 16920597
 sha256 = "f704b2fbf69ea5b72f1b74f2d713c185e5ba5f6bc761ff8e20e72582b9c7bab4"
 
 [[assets]]
-name = "asset-ef070b913d681196"
+id = "asset-ef070b913d681196"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-151300.flac"
 encoding = "flac"
 byte_length = 19061252
 sha256 = "8b2c865899848b2756819b6fe8d148b2b3f566d45359b14f84b336ca3a43a4c0"
 
 [[assets]]
-name = "asset-f11c09cacfd581d7"
+id = "asset-f11c09cacfd581d7"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-151859.flac"
 encoding = "flac"
 byte_length = 1085807
 sha256 = "fb0de4e7b60f1c76551a8766ee972b22ff2f318725435afa0c30582136cf3832"
 
 [[assets]]
-name = "asset-5f907c881aadb5e4"
+id = "asset-5f907c881aadb5e4"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-151919.flac"
 encoding = "flac"
 byte_length = 8511303
 sha256 = "d1303b498dcddc06061e37893622e19c210279425651c80a9a06d9428bfa2538"
 
 [[assets]]
-name = "asset-38d9756c2d9925ba"
+id = "asset-38d9756c2d9925ba"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-152152.flac"
 encoding = "flac"
 byte_length = 24725160
 sha256 = "fdbfed0f2c20aab7997811535f38588550342e10774c0a22046ff6ab2a164220"
 
 [[assets]]
-name = "asset-2189573223f43884"
+id = "asset-2189573223f43884"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-152850.flac"
 encoding = "flac"
 byte_length = 18173824
 sha256 = "c76396aefd0fa9a4f5377be51380145ac19011cf9af9815d699286e76e01c503"
 
 [[assets]]
-name = "asset-2520395d65c28b1e"
+id = "asset-2520395d65c28b1e"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-153446.flac"
 encoding = "flac"
 byte_length = 10364321
 sha256 = "5282bfe0e8cb396bd116290941219b459f923d28dd716fed3732b19613869ec7"
 
 [[assets]]
-name = "asset-7925f03229ff1ab8"
+id = "asset-7925f03229ff1ab8"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-153820.flac"
 encoding = "flac"
 byte_length = 17900900
 sha256 = "837b6f385f53534d781b7b79341286debf5fc25fd43ba69b01c0b4516040ba96"
 
 [[assets]]
-name = "asset-7078d6f92781e423"
+id = "asset-7078d6f92781e423"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-154751.flac"
 encoding = "flac"
 byte_length = 8748000
 sha256 = "53de56081601cc3156d8cc592b5aba6645626fbd39a290ed4411bfd50d67cf0b"
 
 [[assets]]
-name = "asset-53b8f21f39b1b3dd"
+id = "asset-53b8f21f39b1b3dd"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-155307.flac"
 encoding = "flac"
 byte_length = 5677966
 sha256 = "48a17471331ce1236d3c3f62f6713fc4818df4ce16c0aa14767acbd60b1388dc"
 
 [[assets]]
-name = "asset-643454ed1b8c7caa"
+id = "asset-643454ed1b8c7caa"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-155632.flac"
 encoding = "flac"
 byte_length = 1343887
 sha256 = "b0e6319cea95fe92b8b3754a2888f6c983c4f93325a84d2e4a2151b7f42c634e"
 
 [[assets]]
-name = "asset-a84ffd642a07dcb9"
+id = "asset-a84ffd642a07dcb9"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-155719.flac"
 encoding = "flac"
 byte_length = 16540446
 sha256 = "4ba32906d551630363efb6337e15c52486fe2caf5b19e9502ebddc5ef6ee35d7"
 
 [[assets]]
-name = "asset-cbda3928b4a93ea6"
+id = "asset-cbda3928b4a93ea6"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-160409.flac"
 encoding = "flac"
 byte_length = 29851047
 sha256 = "7d85817057e568d6c5d0b72d807f7a744e227e732a39b04fb884009f4c2a7e4a"
 
 [[assets]]
-name = "asset-e79a47bdf97f4553"
+id = "asset-e79a47bdf97f4553"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-161508.flac"
 encoding = "flac"
 byte_length = 29913836
 sha256 = "54629bb333525ce21a234ab447c8c262d0d04d74eb1c2fd196632cc92c9da39c"
 
 [[assets]]
-name = "asset-aa87f3eb8a6390fe"
+id = "asset-aa87f3eb8a6390fe"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-162739.flac"
 encoding = "flac"
 byte_length = 2734710
 sha256 = "9e97b52bb5462480fedd606d529515b9a16f41778cb1beaf2e3806dbc9eca336"
 
 [[assets]]
-name = "asset-4e282f2c2f257152"
+id = "asset-4e282f2c2f257152"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-162821.flac"
 encoding = "flac"
 byte_length = 24027313
 sha256 = "74d070b663ea42388d6a3694ea22bb83c71c73cd0ea232b31cf3e99890c9a745"
 
 [[assets]]
-name = "asset-a906fda6e411a1ec"
+id = "asset-a906fda6e411a1ec"
 path = "audio/MacBook Pro Microphone + 1 + 20260904-163619.flac"
 encoding = "flac"
 byte_length = 11583038
@@ -578,7 +583,7 @@ continued_at = []
 
 [[body.streams]]
 kind = "events"
-name = "stream-0765b5a81a95046e"
+id = "stream-0765b5a81a95046e"
 source_id = "midi:FLOW 8"
 event_schema = "midi"
 
@@ -591,7 +596,7 @@ timing_source = "mido"
 
 [[body.streams]]
 kind = "events"
-name = "stream-4575f1b311c4594d"
+id = "stream-4575f1b311c4594d"
 source_id = "midi:IAC Driver Bus 1"
 event_schema = "midi"
 
@@ -604,7 +609,7 @@ timing_source = "mido"
 
 [[body.streams]]
 kind = "events"
-name = "stream-13d4d8b046170ed5"
+id = "stream-13d4d8b046170ed5"
 source_id = "midi:U6MIDI Pro Port 1"
 event_schema = "midi"
 
@@ -617,7 +622,7 @@ timing_source = "mido"
 
 [[body.streams]]
 kind = "events"
-name = "stream-35c986fb90ebf3cc"
+id = "stream-35c986fb90ebf3cc"
 source_id = "midi:U6MIDI Pro Port 2"
 event_schema = "midi"
 
@@ -630,7 +635,7 @@ timing_source = "mido"
 
 [[body.streams]]
 kind = "events"
-name = "stream-61140ec3037d80a1"
+id = "stream-61140ec3037d80a1"
 source_id = "midi:U6MIDI Pro Port 3"
 event_schema = "midi"
 
@@ -643,7 +648,7 @@ timing_source = "mido"
 
 [[body.streams]]
 kind = "audio"
-name = "stream-5e226690c59de982"
+id = "stream-5e226690c59de982"
 source_id = "audio:FLOW 8 (Recording):1-2"
 end = 1712128
 fragments = []
@@ -667,7 +672,7 @@ channels = ["input-1", "input-2"]
 
 [[body.streams]]
 kind = "audio"
-name = "stream-f41eac0a041172e2"
+id = "stream-f41eac0a041172e2"
 source_id = "audio:FLOW 8 (Recording):3-4"
 end = 283164672
 fragments = []
@@ -695,7 +700,7 @@ channels = ["input-3", "input-4"]
 
 [[body.streams]]
 kind = "audio"
-name = "stream-4e986fb6c56c24f2"
+id = "stream-4e986fb6c56c24f2"
 source_id = "audio:FLOW 8 (Recording):5-6"
 end = 281141248
 fragments = []
@@ -933,7 +938,7 @@ channels = ["input-5", "input-6"]
 
 [[body.streams]]
 kind = "audio"
-name = "stream-1bc345f3335f1830"
+id = "stream-1bc345f3335f1830"
 source_id = "audio:FLOW 8 (Recording):7-8"
 end = 281182208
 fragments = []
@@ -1129,7 +1134,7 @@ channels = ["input-7", "input-8"]
 
 [[body.streams]]
 kind = "audio"
-name = "stream-8d60a292cd10400d"
+id = "stream-8d60a292cd10400d"
 source_id = "audio:FLOW 8 (Recording):9-10"
 end = 282603520
 fragments = []
@@ -1241,7 +1246,7 @@ channels = ["input-9", "input-10"]
 
 [[body.streams]]
 kind = "audio"
-name = "stream-3120708d92e52f5e"
+id = "stream-3120708d92e52f5e"
 source_id = "audio:MacBook Pro Microphone:1"
 end = 283151872
 gaps = []

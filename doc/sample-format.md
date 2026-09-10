@@ -1,13 +1,13 @@
-# Sample instrument documents
+# Sample instrument scores
 
 The canonical format, models, examples and schema now live in Ufor:
 
 - [Instrument format](../../ufor/doc/instrument-format.md)
 - [Envelope and LFO semantics](../../ufor/doc/modulation-format.md)
 - [Native conversion fixture](../../ufor/conformance/instrument.json)
-- [Document schema](../../ufor/schema/documents.json)
+- [Score schema](../../ufor/schema/scores.json)
 
-`ufor.samples.instrument.InstrumentDocument` is the common root. It owns sealed
+`ufor.samples.instrument.InstrumentScore` is the common root. It owns sealed
 audio assets, native timebases, output layout and a typed sample-instrument body.
 Slots reference named slices and explicit channel maps. `ufor.samples` owns the
 musical declarations; `ufor.envelope`, `ufor.lfo` and `ufor.modulation` provide
@@ -24,12 +24,12 @@ to Ufor. No portable model remains defined in Recsam.
 from pathlib import Path
 
 from recs.recsam.sfz import read
-from ufor.codec import document_toml
+from ufor.codec import score_toml
 from ufor.sfz import write
 
 result = read(Path("Glass.sfz"))
 if result.complete and result.instrument is not None:
-    Path("instrument.toml").write_text(document_toml(result.instrument))
+    Path("instrument.toml").write_text(score_toml(result.instrument))
     exported = write(result.instrument)
 ```
 

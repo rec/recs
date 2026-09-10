@@ -24,10 +24,10 @@ def read(
         assets[reference] = read_audio_metadata(sample)
     return sfz.compile(
         source,
-        id=path.stem,
         name=path.stem,
+        title=path.stem,
         assets=assets,
-        output_timebase=Timebase(id='output', rate=Rate(numerator=output_rate)),
+        output_timebase=Timebase(name='output', rate=Rate(numerator=output_rate)),
         output_channels=output_channels
         if output_channels is not None
         else ['left', 'right'],

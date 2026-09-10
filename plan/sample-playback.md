@@ -71,7 +71,7 @@ names below describe responsibilities, not mandatory Python runtime classes:
 
 | Class | Responsibility |
 | --- | --- |
-| `InstrumentDocument`, `SampleInstrument`, `Instrument`, `SampleSlot` | Implemented Ufor root, body, settings and slots, with named slices and explicit channels |
+| `InstrumentScore`, `SampleInstrument`, `Instrument`, `SampleSlot` | Implemented Ufor root, body, settings and slots, with named slices and explicit channels |
 | `Trigger`, `Release`, `ControlChange` | Implemented Ufor events with native ticks/ordinals, logical parts and trigger IDs |
 | `PreparedInstrument` | Validated assets, resolved settings, and efficient key/velocity lookup |
 | `PerformanceState` | Named controls per scope, trigger ownership, sustain, articulations, alternate-take counters, and random state |

@@ -1,29 +1,29 @@
-# Recording and sequence documents
+# Recording and sequence scores
 
 The initial common format supports arrangements, recording descriptions, and
-ordered event sequences. TOML is the document syntax; `format = "recs"`,
-`version = 2`, `kind`, `id`, and `name` form its common envelope. The model's
+ordered event sequences. TOML is the score syntax; `format = "recs"`,
+`version = 3`, `kind`, `id`, and `name` form its common envelope. The model's
 `document_schema()` function generates JSON Schema for all three kinds.
 The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
 export, and the editor's session resolver. Recording shutdown and successful
-audio edits finalize this document beside their version 4 capture journal.
+audio edits finalize this score beside their version 4 capture journal.
 The journal remains append-only operational evidence for diagnostics and
-recovery. Content readers require the common document; they do not fall back
+recovery. Content readers require the common score; they do not fall back
 to historical journals. Convert old sessions explicitly before opening them.
 
 Finalization hashes finished assets and checks audio metadata and native spans.
-It never overwrites an existing document. A failed finalization leaves the
+It never overwrites an existing score. A failed finalization leaves the
 journal and media available; the recorder reports the error, and the next
-recovery scan reports the missing document even if the journal has a footer.
+recovery scan reports the missing score even if the journal has a footer.
 `recs record check` performs the fuller payload verification described below.
 
 ## Recording fields
 
 | Field | Meaning |
 | --- | --- |
-| `assets` | Sealed payloads: local ID, path relative to the document directory, encoding, byte length, SHA-256 |
+| `assets` | Sealed payloads: local ID, path relative to the score directory, encoding, byte length, SHA-256 |
 | `timebases` | Named physical clocks with exact positive rational ticks per second |
 | `body.state` | `sealed` requires an end timestamp and no unfinished files; otherwise `open` |
 | `body.started_at`, `ended_at` | Observed session wall-clock timestamps; not sample alignment |
@@ -32,7 +32,7 @@ recovery scan reports the missing document even if the journal has a footer.
 | `body.streams` | Typed audio or event streams, each with a local ID and original opaque `source_id` |
 | `body.clock_observations` | Optional source/session tick observations with uncertainty and timing source; no automatic drift fit |
 | `body.unfinished_files` | Original stream ID, original journal path, and observed opening timestamp; these are evidence, not verified asset references |
-| `body.continued_from`, `continued_at` | Previous and following `recording.toml` paths, resolved relative to this document; they may cross volume roots |
+| `body.continued_from`, `continued_at` | Previous and following `recording.toml` paths, resolved relative to this score; they may cross volume roots |
 
 Audio streams have an `AudioType`, native `end` frame, captured fragments, and
 explicit gaps. A fragment references an asset and records `asset_start`, stream
@@ -71,7 +71,7 @@ count is zero. Counts never substitute for duration:
 | `osc` | `osc_jsonl` | Existing packet timestamps and raw bytes remain in JSONL, including compression state across fragments |
 | `recs_events` | `recs_events` | JSONL of the common event envelopes, with a required stream `timebase` |
 
-External MIDI and OSC streams do not claim a document timebase. Their observed
+External MIDI and OSC streams do not claim a score timebase. Their observed
 opening timestamp and timing-source label can be retained separately. Native
 event JSONL uses the same event records as sequences below, one complete record
 per line. Verification checks ordering and unique ordinals across fragments.
@@ -83,20 +83,20 @@ line is complete, independent of prior file compression state. See the
 [capture journal format](../../recs/doc/session-record-format.md) for precise clock semantics,
 recovery, and explicit MIDI-file export.
 
-A complete valid empty recording document follows. The example's journal is
+A complete valid empty recording score follows. The example's journal is
 an empty asset solely to keep its hash independently reproducible; migration
 outputs instead contain the actual version 3 journal snapshot and its hash.
 
 ```toml
 format = "recs"
-version = 2
+version = 3
 kind = "recording"
-id = "example-session"
-name = "Empty capture"
+name = "example-session"
+title = "Empty capture"
 timebases = []
 
 [[assets]]
-id = "journal"
+name = "journal"
 path = "journal.jsonl"
 encoding = "recs-session-v3"
 byte_length = 0
@@ -134,13 +134,13 @@ preroll controls and overlapping triggers with distinct identities.
 
 ```toml
 format = "recs"
-version = 2
+version = 3
 kind = "sequence"
-id = "key-example"
-name = "One key gesture"
+name = "key-example"
+title = "One key gesture"
 
 [[timebases]]
-id = "milliseconds"
+name = "milliseconds"
 
 [timebases.rate]
 numerator = 1000
@@ -194,7 +194,7 @@ channels still fail. It then creates:
 Existing outputs cause an error. Neither the original journal nor media is
 rewritten. Asset paths and resolved symlinks must remain within the session.
 The whole session directory can be moved without changing candidate paths.
-`verify_recording(document, root)` rechecks the payloads independently of the
+`verify_recording(score, root)` rechecks the payloads independently of the
 production reader.
 
 A malformed final JSON line may be preserved as interrupted evidence, making
@@ -203,7 +203,7 @@ errors. Unfinished files are listed but never claimed as verified payloads.
 Convert each segment of a historical continuation chain separately. The
 converter translates its continuation filenames to `recording.toml`, retaining
 the relative directory links. It does not migrate other volumes automatically;
-all linked documents must exist before reading or exporting the chain.
+all linked scores must exist before reading or exporting the chain.
 
 Historical gaps receive reason `unknown`; wall-clock shutdown time does not
 establish trailing sample extent. Each historical audio stream retains its
@@ -228,8 +228,8 @@ all audio; its warnings and control markers come from the referenced journal.
 `recs explain /path/to/session/session-record.jsonl` still examines operational
 evidence directly, including captures that have not finalized.
 
-Export requires sealed documents and verifies every asset before copying.
-It includes all linked segments, rewrites common-document continuation paths,
+Export requires sealed scores and verifies every asset before copying.
+It includes all linked segments, rewrites common-score continuation paths,
 and verifies copied assets. Original journal bytes remain unchanged as evidence.
 The result starts at `recording.toml`; additional segments live under `sessions/`.
 Moving the exported directory preserves media references and native frame gaps.
@@ -245,7 +245,7 @@ clocks requires an explicit alignment decision.
 
 ## Public exports and imported media
 
-Version 2 exposes streams through root `ports`, with an output direction, matching
+Version 2 exposes streams through root `outputs`, with an output direction, matching
 stream contract and `binding = { stream = "stable-stream-id" }`. An audio binding
 may select consecutive zero-based `channels`. Native event exports declare their
 physical clock and event kinds; legacy files without native tick positions are
