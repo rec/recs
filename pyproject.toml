@@ -72,7 +72,6 @@ exclude-newer = "1 week"
 
 [tool.uv.sources]
 reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
-ufor = { path = "../ufor", editable = true }
 
 
 [build-system]

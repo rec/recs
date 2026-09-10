@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-09-01T17:04:30.098891Z"
+exclude-newer = "2026-09-03T11:28:14.125Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -620,7 +620,7 @@ requires-dist = [
     { name = "threa", specifier = ">=1.9.0" },
     { name = "tomlkit", specifier = ">=0.15.1" },
     { name = "tyro", specifier = ">=1.0.13" },
-    { name = "ufor", editable = "../ufor" },
+    { name = "ufor", url = "https://github.com/rec/ufor/archive/44ac375645132c6adfc80baa6a061f97896161a7.tar.gz" },
 ]
 
 [package.metadata.requires-dev]
@@ -855,24 +855,17 @@ wheels = [
 [[package]]
 name = "ufor"
 version = "0.1.0"
-source = { editable = "../ufor" }
+source = { url = "https://github.com/rec/ufor/archive/44ac375645132c6adfc80baa6a061f97896161a7.tar.gz" }
 dependencies = [
     { name = "pydantic" },
     { name = "tomlkit" },
 ]
+sdist = { hash = "sha256:f56b22374b5df1ee32334c6979fb3dbbf080bbc34e6ffccf62bfb87b258a6111" }
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "tomlkit", specifier = ">=0.15.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest" },
-    { name = "pyupgrade" },
-    { name = "ruff" },
-    { name = "ty" },
 ]
 
 [[package]]
