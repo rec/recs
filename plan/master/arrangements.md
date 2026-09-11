@@ -57,7 +57,7 @@ speed = { numerator = 1, denominator = 1 }
 
 When both timebases are 48 kHz, this places ten seconds from the source at the
 start of the arrangement. IDs and stream descriptors in this fragment would
-be declared in the containing document.
+be declared in the containing score.
 
 ## Mixing and automation
 

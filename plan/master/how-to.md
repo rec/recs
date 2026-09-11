@@ -24,10 +24,10 @@ Additional work beyond the prompt: None.
 Stages 1 and 2 are implemented in Recs. The supported
 subset has pure common models, exact rational physical timebases, sealed assets, common event envelopes,
 structured source and parameter references, and typed audio ports. Audio editing
-now uses the common arrangement document, with file destinations separate from
+now uses the common arrangement score, with file destinations separate from
 public outputs. Existing rendered-audio regression behavior is retained.
 
-Recording and sequence documents have a common parser, TOML serializer, and
+Recording and sequence scores have a common parser, TOML serializer, and
 generated JSON Schema through `document_schema()`. The explicit
 `recs session migrate` converter prepares historical version 3 sessions. New
 captures and successful audio edits finalize `recording.toml`; browsing,
@@ -41,13 +41,13 @@ The earlier checkpoint commits, each tested and pushed, are:
 | --- | --- |
 | `0fbf7a9` | Add shared time, asset, and event models |
 | `45c7247` | Use structured references in recs/edit |
-| `fad4d32` | Move audio arrangements into common Recs documents |
+| `fad4d32` | Move audio arrangements into common Recs scores |
 | `ce79588` | Separate arrangement audio ports from file destinations |
-| `56cf634` | Add recording and sequence document profiles |
+| `56cf634` | Add recording and sequence score profiles |
 | `67ea823` | Add verified session migration before reader cutover |
 | `805fe33` | Save both production conversions and the preparation checkpoint |
 | `26f78a5` | Preserve exact audio spans through capture and silence trimming |
-| `d5420c9` | Switch session readers and export to common recording documents |
+| `d5420c9` | Switch session readers and export to common recording scores |
 
 Both user-selected production sessions have new metadata and byte-identical
 journal snapshots. All referenced media hashes were checked again after writing;
@@ -96,9 +96,9 @@ streams with unresolved placement. Historical audio cannot acquire missing
 timing evidence through conversion.
 
 Common continuation links preserve native positions across volumes. Export
-copies their complete asset sets, rewrites common-document links, and verifies
+copies their complete asset sets, rewrites common-score links, and verifies
 hashes, retaining original journal bytes. Recovery reports missing finalized
-documents even when the capture journal already has a footer. Diagnostics can
+scores even when the capture journal already has a footer. Diagnostics can
 still inspect the operational journal directly with `recs explain`.
 
 Stage 2 now includes:
@@ -134,7 +134,7 @@ journals match their preserved snapshots. The full recording's 39 unresolved
 historical placements remain explicit and are rejected by the editor.
 
 Arrangements currently retain file paths, structured source/track selectors, and internal
-materialized sources at their preparation boundary. General document dependency
+materialized sources at their preparation boundary. General score dependency
 packaging, nested reusable mixes, musical beat clocks, drift fitting, instruments,
 DSP graphs, and the sibling application cutovers remain later roadmap work.
 
@@ -146,10 +146,10 @@ the named symbols when starting implementation. Existing format models are not
 evidence that playback or cross-application execution has been implemented.
 
 Implemented pure definitions now live in `~/code/ufor`, published as
-[rec/ufor](https://github.com/rec/ufor). Recs imports the shared document and
+[rec/ufor](https://github.com/rec/ufor). Recs imports the shared score model and
 encoding types directly; Tuney imports shared musical semantics through its
 application configuration adapters. Neither application is required to read a
-Ufor document. Reccy remains Python application infrastructure. The old
+Ufor score. Reccy remains Python application infrastructure. The old
 `recs/model` implementations and Tuney's copied number/accidental modules have
 been removed rather than retained as compatibility shims.
 
@@ -169,11 +169,11 @@ Future language ports implement the same semantics, not Python class layouts.
 | [Edit record resolution](../../recs/edit/record.py) | `ResolvedSource`, `AudioFragment`, session selectors, native-rate matching | Resolve typed recording streams/assets; keep native fragments and gap behavior; explicit conversion nodes for mismatched rates |
 | [Composition](../../recs/edit/composition.py) | `CompositionEdit`, command recipes, materialized stages | Compile authored operations to nested arrangements/derived assets; retain recipe history as provenance |
 | [Session records](../../recs/ui/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
-| [Session export](../../recs/ui/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common documents/assets and preserve timeline gaps |
+| [Session export](../../recs/ui/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common scores/assets and preserve timeline gaps |
 | [Ufor instrument](../../../ufor/ufor/samples/instrument.py) | Common root, body, slots, musical validation | Implemented; Recsam definitions removed |
 | [Ufor events](../../../ufor/ufor/events.py) | `Trigger`, `Release`, `ControlChange` | Implemented common tick/ordinal envelope; Recs consumes these directly |
 | [Ufor sample types](../../../ufor/ufor/samples/) | Controls, EQ, selection, crossfades, slices, loops, pitch mapping | Implemented with shared envelopes/LFOs/routes; generic DSP remains separate |
-| [Ufor SFZ](../../../ufor/ufor/sfz.py), [Recs file adapter](../../recs/recsam/sfz.py) | Pure conversion versus local asset acquisition | Implemented native document conversion, sealed metadata and diagnostics |
+| [Ufor SFZ](../../../ufor/ufor/sfz.py), [Recs file adapter](../../recs/recsam/sfz.py) | Pure conversion versus local asset acquisition | Implemented native score conversion, sealed metadata and diagnostics |
 | [MIDI writer](../../recs/midi/writer.py), [OSC recorder](../../recs/osc/recorder.py) | Native-timed common event JSONL | Implemented; SMF is explicit export and OSC retains raw bytes alongside decoded values |
 | [Lyte show](../../../lyte/lyte/show.py) | `ShowFile`, Python factory lookup, animation/mixer graph | Common graph definitions and installed implementation bindings |
 | [Lyte installation](../../../lyte/lyte/installation.py) | Twinkly/DMX targets, pixel/DMX programs, output driver interface | Common definition references plus physical bindings; retain driver implementations |
@@ -192,7 +192,7 @@ Sibling source links assume the repositories remain adjacent under `~/code`.
 Use the proposal's TOML envelope, discriminated domain bodies, three stream
 families, explicit units, native integer timebases, and structured references.
 Publish the required field tables and one complete valid example for every
-initial document kind. Then generate a JSON Schema from the Pydantic model for
+initial score kind. Then generate a JSON Schema from the Pydantic model for
 tooling, while TOML remains the canonical authored representation.
 
 Specify which fields are required and which defaults are normative. Mark
@@ -203,7 +203,7 @@ and LFOs are explicitly reopened for design; their existing fields are not the
 final common model. Select a small coherent profile before implementing it.
 
 Distinguish schema version from capability support. A reader may understand
-the document but lack a renderer for one operation. Do not introduce extension
+the score but lack a renderer for one operation. Do not introduce extension
 fields that silently bypass validation. A new semantic operation needs a typed
 contract and examples before it becomes part of the vocabulary.
 
@@ -244,7 +244,7 @@ quantization. Keep OSC raw bytes and decoded semantics linked rather than
 discarding messages that a semantic adapter cannot understand.
 
 Acceptance: one session containing audio, MIDI, and OSC finalizes into portable
-documents; counts cannot be confused with duration; packet ordering is stable;
+scores; counts cannot be confused with duration; packet ordering is stable;
 truncated final journal lines and incomplete files remain visibly partial;
 volume continuations do not reset the stream timeline. Unit tests should use
 in-memory or local file observations, not live networks or hardware.
@@ -279,7 +279,7 @@ complete.
    the existing implementation can be reused later without a new renderer now.
 4. The first [envelope and LFO profile](modulation.md) now defines timing,
    curves, retrigger/release, scope, phase, and modulation combination. Ufor
-   implements the documents and scalar state calculations. Loops, random
+   implements the scores and scalar state calculations. Loops, random
    sources, and continuous rate ramps are explicitly deferred. Sample instruments
    now consume the same definitions directly.
 5. The [small instrument contract](../../../ufor/doc/instrument-format.md)
@@ -296,7 +296,7 @@ complete.
    binding information, not universal instrument fields. The existing VL70m
    SysEx work is a bounded MIDI 1.0 proof of concept, not this layer.
 
-Acceptance: documents round-trip; exact fractions remain exact; repeating and
+Acceptance: scores round-trip; exact fractions remain exact; repeating and
 finite domains differ explicitly; existing intended Tuney pitch examples agree;
 Scala and MTS mappings have defined boundaries; oscillator parameters and
 envelope/LFO event/state behavior have language-neutral cases. Numerical pitch
@@ -380,7 +380,7 @@ device pitch realization is reported instead of silently using equal temperament
 
 ## Cutover and verification discipline
 
-No backward-compatibility layer or automatic historical-document migration is
+No backward-compatibility layer or automatic historical-score migration is
 required. Existing external formats such as SFZ, MIDI, and OSC still need
 purposeful import/export adapters because interchange is part of the product.
 Update checked-in examples and consumers in each native-format cutover. Old
