@@ -21,7 +21,8 @@ Recs should record, edit, compose, and play time-varying quantities and events.
 Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,
 and timed requests should share documents that humans can read and exchange.
 Sample instruments, synthesizers, mixes, and radio shows are reusable objects
-in that language. Video is outside this proposal, including video editing and
+in that language. A really good still-image slideshow player is a prominent
+future target. Video is outside this proposal, including video editing and
 video codecs. A matrix of LED quantities remains in scope.
 
 ## The central decision
