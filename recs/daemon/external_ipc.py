@@ -44,6 +44,7 @@ class ControlRequest:
 
 
 class ExternalServer(Reccy):
+    name: ClassVar[str] = 'recs'
     service_spec: ClassVar[models.ServiceSpec] = RECS_SERVICE
     rpc_enabled = True
     rpc_role = 'recs'
@@ -239,6 +240,12 @@ def response(
         'list_devices',
         'mutable_attributes',
         'new_session',
+        'play_session',
+        'stop_playback',
+        'pause_playback',
+        'continue_playback',
+        'jump_playback',
+        'jump_session',
         'subscribe_waveforms',
         'status_snapshot',
         'unsubscribe_waveforms',

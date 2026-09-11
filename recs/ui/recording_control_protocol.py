@@ -42,6 +42,30 @@ class RecordingControlTarget(Protocol):
     def pause_recording(self, reason: str) -> gui_protocol.RecordingState:
         ...
 
+    def play_session(
+        self, request: gui_protocol.PlaySession
+    ) -> gui_protocol.PlaybackState:
+        ...
+
+    def stop_playback(self) -> gui_protocol.PlaybackState:
+        ...
+
+    def pause_playback(self) -> gui_protocol.PlaybackState:
+        ...
+
+    def continue_playback(self) -> gui_protocol.PlaybackState:
+        ...
+
+    def jump_playback(
+        self, request: gui_protocol.JumpPlayback
+    ) -> gui_protocol.PlaybackState:
+        ...
+
+    def jump_session(
+        self, request: gui_protocol.JumpSession
+    ) -> gui_protocol.PlaybackState:
+        ...
+
     def reload_profiles(self) -> gui_protocol.ProfilesReloaded:
         ...
 
@@ -165,6 +189,18 @@ class RecordingControlProtocol:
             return self.control.new_session()
         if isinstance(request, gui_protocol.PauseRecording):
             return self.control.pause_recording('pause_recording')
+        if isinstance(request, gui_protocol.PlaySession):
+            return self.control.play_session(request)
+        if isinstance(request, gui_protocol.StopPlayback):
+            return self.control.stop_playback()
+        if isinstance(request, gui_protocol.PausePlayback):
+            return self.control.pause_playback()
+        if isinstance(request, gui_protocol.ContinuePlayback):
+            return self.control.continue_playback()
+        if isinstance(request, gui_protocol.JumpPlayback):
+            return self.control.jump_playback(request)
+        if isinstance(request, gui_protocol.JumpSession):
+            return self.control.jump_session(request)
         if isinstance(request, gui_protocol.ReloadProfiles):
             return self.control.reload_profiles()
         if isinstance(request, gui_protocol.ResumeRecording):

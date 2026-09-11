@@ -54,6 +54,36 @@ class Pause(ControlCommand):
     rpc_command = 'pause_recording'
 
 
+class Play(ControlCommand):
+    rpc_command = 'play_session'
+    session: int = -1
+    source: str | None = None
+    channel: str | None = None
+    output_channel: str | None = None
+
+
+class Stop(ControlCommand):
+    rpc_command = 'stop_playback'
+
+
+class PausePlayback(ControlCommand):
+    rpc_command = 'pause_playback'
+
+
+class Continue(ControlCommand):
+    rpc_command = 'continue_playback'
+
+
+class Jump(ControlCommand):
+    rpc_command = 'jump_playback'
+    seconds: Annotated[float, tyro.conf.Positional]
+
+
+class JumpSession(ControlCommand):
+    rpc_command = 'jump_session'
+    offset: Annotated[int, tyro.conf.Positional]
+
+
 class Resume(ControlCommand):
     rpc_command = 'resume_recording'
 
@@ -110,6 +140,12 @@ COMMANDS: dict[str, Callable[..., ControlCommand]] = {
     'set': Set,
     'mark': Mark,
     'pause': Pause,
+    'play': Play,
+    'stop': Stop,
+    'pause-playback': PausePlayback,
+    'continue': Continue,
+    'jump': Jump,
+    'jump-session': JumpSession,
     'resume': Resume,
     'calibrate': Calibrate,
     'card-replace': CardReplace,

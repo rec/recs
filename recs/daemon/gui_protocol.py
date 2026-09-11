@@ -6,7 +6,7 @@ from reccy.protocol import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
-VERSION = 8
+VERSION = 9
 
 
 class Hello(ipc.Hello):
@@ -76,6 +76,36 @@ class Mark(BaseModel):
 
 class PauseRecording(BaseModel):
     type: Literal['pause_recording']
+
+
+class PlaySession(BaseModel):
+    type: Literal['play_session']
+    session: int = Field(default=-1, strict=True, lt=0)
+    source: str | None = None
+    channel: str | None = None
+    output_channel: str | None = None
+
+
+class StopPlayback(BaseModel):
+    type: Literal['stop_playback']
+
+
+class PausePlayback(BaseModel):
+    type: Literal['pause_playback']
+
+
+class ContinuePlayback(BaseModel):
+    type: Literal['continue_playback']
+
+
+class JumpPlayback(BaseModel):
+    type: Literal['jump_playback']
+    seconds: float = Field(strict=True)
+
+
+class JumpSession(BaseModel):
+    type: Literal['jump_session']
+    offset: Literal[-1, 1]
 
 
 class ReloadProfiles(BaseModel):
@@ -224,6 +254,18 @@ class RecordingState(BaseModel):
     paused: bool
 
 
+class PlaybackState(BaseModel):
+    type: Literal['playback_state']
+    state: Literal['waiting', 'playing', 'paused']
+    session: int | None = None
+    path: str | None = None
+    source: str | None = None
+    channel: str | None = None
+    output_channel: str | None = None
+    position_seconds: float | None = None
+    duration_seconds: float | None = None
+
+
 class StatusSnapshot(BaseModel):
     type: Literal['status_snapshot_result']
     devices: list[dict[str, object]]
@@ -232,6 +274,7 @@ class StatusSnapshot(BaseModel):
     record_path: str
     midi: list[dict[str, object]] = Field(default_factory=list)
     osc: list[dict[str, object]] = Field(default_factory=list)
+    playback: dict[str, object] = Field(default_factory=dict)
     recording: dict[str, bool]
     rows: list[dict[str, object]]
     session_directory: str
@@ -276,6 +319,12 @@ Request = (
     | NewSession
     | Mark
     | PauseRecording
+    | PlaySession
+    | StopPlayback
+    | PausePlayback
+    | ContinuePlayback
+    | JumpPlayback
+    | JumpSession
     | ReloadProfiles
     | ResumeRecording
     | SetCfg
@@ -301,6 +350,7 @@ Response = (
     | NoiseFloorSet
     | ProfilesReloaded
     | RecordingState
+    | PlaybackState
     | StatusSnapshot
     | TrackNames
     | TracksSet
@@ -330,6 +380,12 @@ API_COMMANDS = [
     'new_session',
     'mark',
     'pause_recording',
+    'play_session',
+    'stop_playback',
+    'pause_playback',
+    'continue_playback',
+    'jump_playback',
+    'jump_session',
     'reload_profiles',
     'resume_recording',
     'set_key_label',

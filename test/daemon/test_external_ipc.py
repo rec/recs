@@ -91,6 +91,16 @@ def test_external_request_uses_new_session_command() -> None:
     assert message == gui_protocol.NewSession(type='new_session')
 
 
+def test_external_request_uses_play_session_command() -> None:
+    message = external_ipc.recs_request(
+        rpc.Request(command='play_session', params={'session': -2, 'channel': '9-10'})
+    )
+
+    assert message == gui_protocol.PlaySession(
+        type='play_session', session=-2, channel='9-10'
+    )
+
+
 def test_external_request_rejects_non_request_protocol_message() -> None:
     request = rpc.Request(command='rows', params={'rows': []})
 
@@ -158,6 +168,30 @@ def test_external_response_preserves_new_session_started() -> None:
         'session_directory': '/recordings/new',
         'previous_record_path': '/recordings/old/session-record.jsonl',
         'record_path': '/recordings/new/session-record.jsonl',
+    }
+
+
+def test_external_response_preserves_playback_state() -> None:
+    result = external_ipc.response(
+        rpc.Request(command='pause_playback'),
+        gui_protocol.PlaybackState(
+            type='playback_state',
+            state='paused',
+            session=-1,
+            position_seconds=12.5,
+        ),
+    )
+
+    assert result == {
+        'type': 'playback_state',
+        'state': 'paused',
+        'session': -1,
+        'path': None,
+        'source': None,
+        'channel': None,
+        'output_channel': None,
+        'position_seconds': 12.5,
+        'duration_seconds': None,
     }
 
 
