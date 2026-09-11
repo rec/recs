@@ -6,7 +6,7 @@ limits visible.
 
 ## What a binding contains
 
-A binding document names the logical definition or endpoint, an installed
+A binding score names the logical definition or endpoint, an installed
 adapter ID, implementation identity/revision, port/channel mapping, parameter
 mapping, and supported capabilities. Physical bindings additionally identify
 local device selectors and calibration. Credentials are resolved through local
@@ -86,7 +86,7 @@ resolved target and original source when reproducing the run matters.
 
 | Claim | Required evidence |
 | --- | --- |
-| Editable | Document schema and dependencies can be inspected without executing the implementation |
+| Editable | Score schema and dependencies can be inspected without executing the implementation |
 | Realizable | A selected binding satisfies the required port and parameter contracts |
 | Behaviorally matched | A named operation contract has conformance examples and a declared tolerance |
 | Captured result | Sealed output assets preserve the produced data irrespective of future plugin availability |
@@ -101,11 +101,11 @@ inspectable as an asset but not portable behavior.
 
 ## Change from today
 
-Replace Lyte's document-level Python `impl` resolution with adapter lookup at
+Replace Lyte's score-level Python `impl` resolution with adapter lookup at
 preparation time. Move `DmxInstrument` patch fields, Twinkly connection fields,
 and Streamo device/service selection into binding responsibilities as each
 application adopts the format. Reuse actual drivers and service adapters; do
-not rewrite network transports to make the document model uniform.
+not rewrite network transports to make the score model uniform.
 
 Showco continues owning operational setup and service actions. Recs owns the
 meaning of the graph, while the selected host owns the binding's execution.

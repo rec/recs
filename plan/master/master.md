@@ -14,7 +14,7 @@ Status: stages 1 and 2 are implemented. The shared-format extraction into
 [Ufor](ufor.md) now covers recordings, arrangements, sequences, tunings, scales,
 and oscillator definitions. Ufor also implements the first envelope/LFO control
 profile, with exact timing and scalar conformance cases. Native instrument
-documents, asset slices, source bindings, shared routes and the SFZ cutover are
+scores, asset slices, source bindings, shared routes and the SFZ cutover are
 now implemented in Ufor; no portable models remain in Recsam. Stage 3 still
 requires preparation and performance action traces. The
 [instrument format](../../../ufor/doc/instrument-format.md) states that boundary. Further audio waveform
@@ -29,7 +29,7 @@ Backward compatibility is not a requirement.
 
 Recs should record, edit, compose, and play time-varying quantities and events.
 Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,
-and timed requests should share documents that humans can read and exchange.
+and timed requests should share scores that humans can read and exchange.
 Sample instruments, synthesizers, mixes, and radio shows are reusable objects
 in that language. A really good still-image slideshow player is a prominent
 future target. Its assets may include video clips, but video editing and codec
@@ -38,7 +38,7 @@ in scope.
 
 ## The central decision
 
-Use one document envelope and typed composition model, with distinct payloads
+Use one score envelope and typed composition model, with distinct payloads
 for genuinely different data. A note release is an event; a voltage is a
 quantity; a light field also has geometry. Making everything an audio buffer,
 a MIDI message, or a dictionary of arbitrary values would discard meaning.
@@ -61,9 +61,9 @@ Keep three things distinct:
 This is a file format and execution contract, not a replacement plugin ABI,
 network protocol, operating system, or database.
 
-## Document map
+## Score map
 
-| Document | Subject |
+| Score | Subject |
 | --- | --- |
 | [Time](time.md) | Exact time, beats, clocks, synchronization, and scheduling |
 | [Quantities](quantities.md) | Sampled audio, control curves, CV, gates, and measured features |
@@ -88,9 +88,10 @@ their unfinished boundary first.
 
 ## A small common vocabulary
 
-The proposed root is `Document`, serialized as TOML. Use `format = "recs"`,
-integer `version = 1`, a stable `id`, a human `name`, and `kind` to select the
-body. This version is independent of existing recsam and edit versions.
+The proposed root is `Score`, serialized as TOML. Use `format = "recs"`,
+integer `version = 3`, a stable `name`, a human `title`, and optional `tags`.
+Domain score types select their own body. This version is independent of
+existing recsam and edit versions.
 The initial kinds are `recording`, `sequence`, `instrument`, `processor`,
 `arrangement`, `broadcast`, `binding`, `layout`, and `tuning`.
 
@@ -108,7 +109,7 @@ and recording references consistent with other reusable objects.
 | `Port` | Stable ID, direction, stream type, and declared combination rule if it accepts multiple connections |
 | `Parameter` | Stable ID, type, unit/domain, default, permitted range or choices, scope, and automation policy |
 | `Asset` | ID, relative path, encoding, and payload description; sealed assets also have byte length and SHA-256 |
-| `Dependency` | Local ID, relative document path, and digest of the referenced document when sealed |
+| `ScoreVersion` | Relative score path and optional digest of its exact bytes |
 | `Node` | ID, referenced definition or registered primitive, and parameter values |
 | `Connection` | Explicit source node/port and destination node/port references |
 | `Binding` | Realization of a definition or endpoint with a declared capability contract |
@@ -118,7 +119,7 @@ Use three stream families: `sampled` for regular arrays, `curve` for timed
 numeric knots, and `event` for discrete typed records. Semantic schemas refine
 these: audio PCM, pitch estimates, performance events, raw MIDI, fixture state,
 and pixel fields have different contracts even when their storage families match.
-Static definitions such as layouts and tunings are document dependencies, not
+Static definitions such as layouts and tunings are score dependencies, not
 pretend streams with one value per audio frame.
 
 Public ports are the complete interface. A reference to an arrangement reads
@@ -127,9 +128,9 @@ addresses use structured `{node, parameter}` references; port addresses use
 `{node, port}`. An exported parameter explicitly delegates to one internal
 parameter. A macro affecting several parameters is a mapping processor.
 
-IDs are unique in their declared collection and remain stable through display
-name edits. Imports are namespaced by dependency ID. Reference cycles between
-documents are invalid; signal feedback has separate rules in [Processors](processors.md).
+Names are unique in their declared collection and remain stable through title
+edits. Imports are namespaced by dependency name. Reference cycles between
+scores are invalid; signal feedback has separate rules in [Processors](processors.md).
 No implicit merging of equally named objects occurs.
 
 ## Serialization and editing
@@ -138,11 +139,11 @@ TOML holds definitions, small curves, and short authored sequences. Bulk
 payloads are assets described in [Recordings](recordings.md). Reuse the same
 typed event records in inline `events` and recorded JSONL; these are storage
 forms of one model, not different sequence languages. A stream chooses one
-storage form. Files are relative to their containing document; portable export
+storage form. Files are relative to their containing score; portable export
 collects dependencies under one directory and rewrites references.
 
 Use tagged Pydantic models with explicit fields, frozen definitions, and list
-or dict collections. Keep runtime handles and mutable state out of documents.
+or dict collections. Keep runtime handles and mutable state out of scores.
 Unknown required kinds, operations, or fields are validation errors. Vendor
 parameters belong in a typed binding profile, rather than unchecked keys in
 the common schema. Opening and editing a definition must not load plugin code,
@@ -152,7 +153,7 @@ The examples in this directory are proposed TOML fragments unless explicitly
 identified as complete. Names such as `recs.gain` describe proposed operation
 contracts, not import paths or currently available commands. Complete required
 fields and machine-readable schemas are an implementation deliverable in
-[How to implement](how-to.md); these documents fix the important semantics first.
+[How to implement](how-to.md); these scores fix the important semantics first.
 
 ## What uniformity promises
 
@@ -190,7 +191,7 @@ implemented boundary and remaining design work.
 Stages 1 and 2 already cover arrangements and native capture. Tuning, scale,
 oscillator, envelope, and LFO definitions now have portable Ufor models and
 musical or scalar/state conformance cases. The instrument contract now includes
-shared performance events, typed routes, native instrument documents and SFZ
+shared performance events, typed routes, native instrument scores and SFZ
 conversion. Next settle preparation and portable voice-action traces. Design the
 sampler's interface without selecting its implementation language or producing
 new audio. Later rendering and a possible VST realization require the model

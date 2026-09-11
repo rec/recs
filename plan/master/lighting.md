@@ -106,7 +106,7 @@ to the definition while retaining efficient runtime arrays.
 `ShowFile` separates animations, mixers, devices, and run targets, but its
 generic `DeviceSpec` currently supports Twinkly only. `InstallationFile` already
 supports Twinkly and DMX targets and Art-Net delivery. Replace these distinct
-native document roots with common graphs plus installation bindings, reusing
+native score roots with common graphs plus installation bindings, reusing
 the existing renderers and drivers where their semantics match.
 
 `DmxInstrument` currently combines patch address and channel categories.

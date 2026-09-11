@@ -7,9 +7,9 @@ or video codec. Still images are its primary material; video clips are allowed
 as visual assets. General video editing and codec implementation remain outside
 this plan.
 
-## The document
+## The score
 
-A slideshow definition contains named visual assets, ordered items, optional
+A slideshow score contains named visual assets, ordered items, optional
 audio accompaniment, caption tracks, image descriptions, cues, and a default
 run policy. Each item has a stable name. Its visual source is either an explicit
 asset or a declared directory selection. A directory selection is resolved to
@@ -19,7 +19,7 @@ silently alter an authored show.
 An item has a display interval in the slideshow timebase. A still image needs a
 positive duration. A video clip selects a finite source interval and has a
 declared playback speed of one in the first profile. Its embedded audio is mute
-unless the document explicitly supplies it as an accompaniment source. This
+unless the score explicitly supplies it as an accompaniment source. This
 keeps visual editing and audio accompaniment independent.
 
 Visual placement declares a normalized crop rectangle, rotation in right-angle
@@ -35,7 +35,7 @@ patterns, and an ordering rule. The first profile supports `path` ordering by
 Unicode code-point order of normalized relative paths. A later natural or
 capture-time order needs its own specified comparator.
 
-The selection resolves only regular files beneath the document root. It rejects
+The selection resolves only regular files beneath the score root. It rejects
 paths that escape the root through `..` or a symlink. Patterns apply to the
 normalized relative path, use `/` as a separator, and do not match directories
 by themselves. The resolved result records each source asset's path, byte

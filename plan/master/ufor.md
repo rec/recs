@@ -21,11 +21,11 @@ release builds run without GitHub SSH credentials. UV development sources use th
 
 | Owner | Implemented responsibility |
 | --- | --- |
-| Ufor | Timebases, assets, references, stream/encoding types, events, recordings, sequences, arrangements, document codec and schema |
+| Ufor | Timebases, assets, references, stream/encoding types, events, recordings, sequences, arrangements, score codec and schema |
 | Ufor | Frequency/ratio expressions, computed tuning, finite frequency and ratio tables, repeating ratios and adjacent intervals, Scala text conversion, scale naming, accidentals, and oscillator parameters/gain |
-| Ufor | Segmented envelope and LFO documents, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
+| Ufor | Segmented envelope and LFO scores, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
 | Ufor | Shared performance events in native sequences/JSONL; typed parameter/source/route declarations and scalar route evaluation |
-| Ufor | Native sample-instrument documents, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
+| Ufor | Native sample-instrument scores, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
 | Ufor | Lossless VL70m MIDI 1.0 SysEx inspection and bounded patch relocation, retaining opaque message spans and duplicate occurrences |
 | Recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
 | Tuney | Editable configuration and UI annotations, units and broader expressions, Scala file/browser access, instrument-range wrapping, MIDI protocol delivery, and existing NumPy waveform generation |
@@ -37,13 +37,13 @@ tests moved to Ufor; Recs retains its application integration tests. Tuney's
 Scale and Oscillator classes add UI fields/runtime realization to Ufor models;
 its computed/ratio/table/tuning configurations compile to Ufor definitions.
 
-## Documents and musical semantics
+## Scores and musical semantics
 
 [The musical specification](../../../ufor/doc/musical-format.md),
 [JSON Schema](../../../ufor/schema/scores.json), and
 [language-neutral conformance cases](../../../ufor/conformance/pitch.json)
 live with the implementation. The common codec handles recording, sequence,
-arrangement, tuning, scale, oscillator, envelope, LFO and instrument documents. The
+arrangement, tuning, scale, oscillator, envelope, LFO and instrument scores. The
 [modulation profile](../../../ufor/doc/modulation-format.md) specifies the new
 control models now used directly by sample instruments. Recs now imports performance
 events directly from `ufor.events`; its old `recs/recsam/events.py` is removed.

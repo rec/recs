@@ -1,7 +1,7 @@
 # Future features worth building
 
 Part of the [master proposal](master.md). These are suggestions, not approved
-implementation work or additional fields required in every document. The first
+implementation work or additional fields required in every score. The first
 usable milestones are in [How to implement](how-to.md). Video remains outside
 the target even in this list.
 
@@ -113,7 +113,7 @@ fixtures and clear unsupported-feature reporting.
 Schema-driven editors could supply appropriate controls for Hz, ratios, enum
 choices, time, geometry, and tuning degrees. Accessible text authoring and
 keyboard navigation should remain first-class alongside graphical timelines.
-Human-friendly recipes can compile into the same canonical documents so an
+Human-friendly recipes can compile into the same canonical scores so an
 operation authored in the CLI and one authored in an editor stay interchangeable.
 
 ## Suggested priority
@@ -121,7 +121,7 @@ operation authored in the CLI and one authored in an editor stay interchangeable
 Stages 1 and 2 have established common arrangements and native capture. Ufor
 now owns the initial musical definitions and first envelope/LFO control profile.
 Shared performance events and typed routes now accompany the instrument contract.
-Next implement its native document, preparation, and SFZ cutover. Defer
+Next implement its native score, preparation, and SFZ cutover. Defer
 new sampler, oscillator, and other audio generation until that design is ready
 and execution work is explicitly resumed. Cross-domain and programme work can
 reuse existing recordings and engines. Improve authoring and interchange around
