@@ -2,8 +2,8 @@
 
 Recs exposes a local RPC API while its daemon is running. Clients can use it
 to inspect recording state, change mutable recording settings, configure
-tracks, add marks to the session record, pause or resume recording, and shut
-down the daemon.
+tracks, add marks to the session record, play a finalized recorded-audio
+session, pause or resume recording, and shut down the daemon.
 
 The public API uses `reccy.protocol.rpc`. The separate daemon GUI socket remains a
 private implementation detail. Live waveforms are available through the public
@@ -50,6 +50,11 @@ recs control set recording.longest_file_time 1h
 recs control mark "solo starts"
 recs control pause
 recs control resume
+recs control play
+recs control pause-playback
+recs control jump -10
+recs control continue
+recs control stop
 recs control calibrate
 recs control card-replace
 recs control reload-profiles
@@ -69,6 +74,12 @@ The subcommands map to the protocol as follows:
 | `mark LABEL` | `mark` |
 | `pause` | `pause_recording` |
 | `resume` | `resume_recording` |
+| `play [--session N] [--source NAME] [--channel N[-N]] [--output-channel N[-N]]` | `play_session` |
+| `stop` | `stop_playback` |
+| `pause-playback` | `pause_playback` |
+| `continue` | `continue_playback` |
+| `jump SECONDS` | `jump_playback` |
+| `jump-session -1\|1` | `jump_session` |
 | `calibrate` | `calibrate` for all selected online tracks |
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
@@ -115,7 +126,7 @@ There are two independent versions:
 - `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the Recs payload version. It is
-  currently `8` and is returned by `capabilities`.
+  currently `9` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
@@ -147,6 +158,12 @@ response return the JSON string `"ok"`.
 | `card_replace` | none | `card_replace_started` |
 | `pause_recording` | none | `"ok"` |
 | `resume_recording` | none | `"ok"` |
+| `play_session` | optional `session: negative int`, `source: str`, `channel: "N" \| "N-N"`, `output_channel: "N" \| "N-N"` | `playback_state` |
+| `stop_playback` | none | `playback_state` |
+| `pause_playback` | none | `playback_state` |
+| `continue_playback` | none | `playback_state` |
+| `jump_playback` | `seconds: float` | `playback_state` |
+| `jump_session` | `offset: -1 \| 1` | `playback_state` |
 | `reload_profiles` | none | `"ok"` |
 | `subscribe_waveforms` | none | `waveform_subscription` |
 | `unsubscribe_waveforms` | none | `waveform_subscription` |
@@ -160,7 +177,7 @@ Call this first when a client needs to adapt to different Recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 8
+  "version": 9
 }
 ```
 
@@ -192,6 +209,7 @@ client:
   "record_path": "/mnt/openloop/recs/2026-08-28 12-00-00/session-record.jsonl",
   "midi": [],
   "osc": [],
+  "playback": {"state": "waiting"},
   "recording": {"paused": false},
   "rows": [],
   "session_directory": "/mnt/openloop/recs/2026-08-28 12-00-00"
@@ -208,6 +226,7 @@ The fields have these meanings:
 | `record_path` | Absolute path of the current session record |
 | `midi` | Current MIDI input states |
 | `osc` | Current OSC recorder states |
+| `playback` | Current recorded-audio transport state, without its `type` field |
 | `recording.paused` | Whether recording is globally paused |
 | `rows` | The current live-display rows described under Events |
 | `session_directory` | Absolute path of the current session directory |
@@ -438,6 +457,51 @@ paused. Both transitions are recorded in the record.
 
 Use `status_snapshot` to read the resulting `recording.paused` state.
 
+### Recorded-audio transport
+
+`play_session` stops audio capture and plays one audio stream from a finalized
+`recording.toml`. Its default `session` is `-1`, the most recently started
+session; `-2` selects the one before it. A session number must be negative.
+
+`source` accepts either the recorded source name or source ID. `channel` and
+`output_channel` each accept a one-based mono channel such as `9`, or an
+adjacent pair such as `9-10`. A selected input and output must have the same
+width. The output is the operating system default output device.
+
+When no source or channel is supplied, Recs selects the recorded source with
+the highest numbered input and then its highest numbered stereo pair. If no
+`output_channel` is supplied, it selects the highest mono channel or adjacent
+stereo pair available on the default output device. Playback supports recorded
+mono streams and stereo pairs.
+
+Playback preserves the stream's timeline: recorded gaps are silence. It ends
+at the session's recorded end and resumes audio capture. `stop_playback` also
+resumes capture. `pause_playback` holds the playback position;
+`continue_playback` resumes it. `jump_playback` moves by signed seconds,
+clamped to the session's beginning and end. `jump_session` accepts `-1` or
+`1`, selecting the preceding or following session while retaining the source,
+channel, and output selection.
+
+Every transport command returns this state shape:
+
+```json
+{
+  "type": "playback_state",
+  "state": "playing",
+  "session": -1,
+  "path": "/recordings/2026-09-04 15-01-57/recording.toml",
+  "source": "Mixer",
+  "channel": "9-10",
+  "output_channel": "3-4",
+  "position_seconds": 12.5,
+  "duration_seconds": 3742.25
+}
+```
+
+`state` is `waiting`, `playing`, or `paused`. In `waiting`, all selection and
+position fields are `null`. A playback file or output-device failure records a
+warning, ends playback, and resumes audio capture.
+
 `mark` appends a labeled event to the current record. `set_key_label`
 updates the label associated with a recorded key. `reload_profiles` reloads the
 configured profiles file and fails if Recs was not started with a profiles
@@ -595,6 +659,7 @@ Recs publishes these events:
 | Event | Data |
 | --- | --- |
 | `rows` | `rows` live-display records and current `errors` |
+| `playback_state` | A `playback_state` object without its `type` field, published when playback starts or returns to waiting |
 | `waveform_layout` | Current track layout and waveform generation for one source |
 | `waveform` | One min/max envelope batch for one source |
 | `shutdown` | empty; Recs has begun shutting down |
