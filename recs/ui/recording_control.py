@@ -4,7 +4,7 @@ from typing import cast
 
 from pydantic import BaseModel
 
-from recs.base.errors import ErrorRecord
+from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
@@ -21,6 +21,7 @@ from . import (
 )
 from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
+from .playback_control import PlaybackControl
 from .recording_control_protocol import RecordingControlTarget
 from .session_record import Record
 
@@ -74,6 +75,7 @@ class RecordingControl:
         self.card_replace_callback = card_replace
         self.new_session_callback = new_session
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
+        self.playback: PlaybackControl | None = None
         self.runtime_state = RecordingRuntimeState()
         self.cfg_revision = 0
         self.protocol = recording_control_protocol.RecordingControlProtocol(
@@ -109,6 +111,36 @@ class RecordingControl:
         self, reason: str, disk: disk_space.Disk | None = None
     ) -> gui_protocol.RecordingState:
         return recording_commands.pause_recording(self, reason, disk)
+
+    def set_playback(self, playback: PlaybackControl) -> None:
+        self.playback = playback
+
+    def play_session(
+        self, request: gui_protocol.PlaySession
+    ) -> gui_protocol.PlaybackState:
+        return self._playback().play(request)
+
+    def stop_playback(self) -> gui_protocol.PlaybackState:
+        return self._playback().stop()
+
+    def pause_playback(self) -> gui_protocol.PlaybackState:
+        return self._playback().pause()
+
+    def continue_playback(self) -> gui_protocol.PlaybackState:
+        return self._playback().resume()
+
+    def jump_playback(
+        self, request: gui_protocol.JumpPlayback
+    ) -> gui_protocol.PlaybackState:
+        return self._playback().jump(request.seconds)
+
+    def jump_session(
+        self, request: gui_protocol.JumpSession
+    ) -> gui_protocol.PlaybackState:
+        return self._playback().jump_session(request.offset)
+
+    def playback_state(self) -> gui_protocol.PlaybackState:
+        return self._playback().state()
 
     def resume_recording(
         self, reason: str, disk: disk_space.Disk | None = None
@@ -167,3 +199,8 @@ class RecordingControl:
 
     def track_for_channel(self, source_name: str, channel: int) -> Track:
         return recording_track_config.track_for_channel(self, source_name, channel)
+
+    def _playback(self) -> PlaybackControl:
+        if self.playback is None:
+            raise RecsError('Playback is not available')
+        return self.playback

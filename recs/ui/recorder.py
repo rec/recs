@@ -32,6 +32,7 @@ from . import (
     disk_space_policy,
     gui_process,
     live,
+    playback_control,
     recording_control,
     recording_control_protocol,
     recording_paths,
@@ -162,6 +163,14 @@ class Recorder(Runnables):
             self._card_replace,
             self._new_session,
         )
+        self._playback = playback_control.PlaybackControl(
+            lambda: Path(self.cfg.directory.output_directory),
+            lambda: self._control.pause_recording('playback'),
+            lambda: self._control.resume_recording('playback'),
+            self._publish_playback_state,
+            self._record_warning,
+        )
+        self._control.set_playback(self._playback)
         self._card_replacement = card_replacement.CardReplacement()
         self._recording_disk = recording_paths.mounted_disk(self.session_directory)
         self._calibration = calibration.Calibration(
@@ -322,6 +331,7 @@ class Recorder(Runnables):
             except KeyboardInterrupt:
                 print('Interrupted', file=sys.stderr)
             finally:
+                self._playback.stop()
                 if self.external is not None:
                     self.external.close()
                 self._receive_pending_updates()
@@ -653,6 +663,12 @@ class Recorder(Runnables):
         errors: list[ErrorRecord],
     ) -> None:
         self._control.protocol.publish(self.external, rows, errors)
+
+    def _publish_playback_state(self, state: gui_protocol.PlaybackState) -> None:
+        if self.external is not None:
+            self.external.publish_event(
+                'playback_state', **state.model_dump(exclude={'type'})
+            )
 
     def _receive_connection(self, conn: connection.Connection) -> bool:
         return self._devices.receive_connection(conn)
