@@ -129,7 +129,7 @@ spelling, accidentals, offsets, reference frequency, and detuning semantics.
 Keyboard mappings and educational presentation do not change the underlying
 frequency definition. Avoid baking MIDI's key range into the common degree type.
 
-Authored performance events reference tuning degrees and documents. Preparation
+Authored performance events reference tuning degrees and scores. Preparation
 resolves them to one authoritative `pitch_hz`; retain authored degrees as
 provenance. A frequency measurement already in Hz needs no scale assignment.
 Specify whether pitch bend acts before or after retuning, with explicit scope

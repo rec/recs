@@ -31,7 +31,7 @@ controls, EQ, and independent reference pitch. Keep those musical concepts.
 Do not flatten them into thousands of primitive graph connections simply to
 make every object look identical.
 
-The new instrument document wraps a typed `sample_instrument` definition,
+The new instrument score wraps a typed `sample_instrument` definition,
 exposes a performance input and named audio outputs, and references common
 assets, parameters, and events. General processing after the instrument uses
 the processor graph. Voice-specific processing stays in its voice template.
@@ -114,7 +114,7 @@ audio; do not let a Python-specific class layout become the portable contract.
 A later implementation decision should compare a compiled core, an optional
 Python reference followed by a compiled port, and reuse of a suitable existing
 engine. A VST instrument is a possible host wrapper for the core, not the
-instrument document format. No language, plugin SDK, or Python-first engine is
+instrument score format. No language, plugin SDK, or Python-first engine is
 selected by this plan revision. See [Sample Playback](../sample-playback.md)
 for the deferred implementation and shared conformance requirements.
 

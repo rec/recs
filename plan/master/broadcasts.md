@@ -1,6 +1,6 @@
 # Radio programmes, live sections, and rebroadcast
 
-Part of the [master proposal](master.md). A broadcast document schedules content
+Part of the [master proposal](master.md). A broadcast score schedules content
 that may not exist yet. It describes intended playout; a run records actual
 playout. A completed recording and a future programme are different objects.
 

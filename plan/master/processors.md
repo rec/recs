@@ -70,14 +70,14 @@ Publish units, defaults, admissible values, equations, and state transitions.
 Keep phase evolution separate from shape evaluation so envelopes, LFOs, and
 audio oscillators can share suitable definitions without conflating their rates
 or lifetime. Reconcile these decisions with [Modulation](modulation.md).
-Stage 3 acceptance uses documents, parameter mappings, phase/state examples,
+Stage 3 acceptance uses scores, parameter mappings, phase/state examples,
 and existing source inspection. New waveform generation and audio regression
 fixtures wait for the later execution milestone.
 
 ## Graph contract
 
-A processor document contains `nodes`, `connections`, and exported `ports`.
-Each node references exactly one operation or dependent document. Input ports
+A processor score contains `nodes`, `connections`, and exported `ports`.
+Each node references exactly one operation or dependent score. Input ports
 accept one producer unless their definition declares an explicit merge rule.
 Audio summing uses a mixer; events use an ordered merge; lighting uses its own
 compositor. Converters are visible nodes. Matching scalar types alone does not
@@ -140,7 +140,7 @@ host owns clock deadlines and output queues. The offline host requests bounded
 blocks for a finite interval. A node declares whether it can run offline, needs
 a live endpoint, can seek, can save/restore state, and has deterministic output
 given state and inputs. Missing live dependencies prevent a complete offline
-render unless the document explicitly supplies replacement material.
+render unless the score explicitly supplies replacement material.
 
 Run records pin implementations and state assets where supported. Capturing a
 processor's output is the reliable way to retain an otherwise unavailable or

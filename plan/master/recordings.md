@@ -2,7 +2,7 @@
 
 ## Incomplete
 
-Dense-array streams and general document-dependency packaging remain proposals
+Dense-array streams and general score-dependency packaging remain proposals
 for later stages. The current completed profile covers capture journals and
 recording metadata, not a general portable package implementation.
 
@@ -11,7 +11,7 @@ recording metadata, not a general portable package implementation.
 Part of the [master proposal](master.md). A recording is evidence of streams
 over time, including where data is absent. It is not just a list of filenames.
 
-## Recording document
+## Recording score
 
 A recording contains stream descriptors, clock observations, fragments, gap
 records, and asset references. Each stream has a stable ID, source endpoint
@@ -67,7 +67,7 @@ sidecar formats rather than inventing a universal binary container:
 | Payload | Initial storage |
 | --- | --- |
 | Audio samples | WAV/FLAC or another explicitly supported codec, with decoded frame metadata |
-| Dense numeric control or pixel arrays | Non-object NPY arrays, with semantic axes, unit, layout, and clock in the recording document |
+| Dense numeric control or pixel arrays | Non-object NPY arrays, with semantic axes, unit, layout, and clock in the recording score |
 | Recorded events and raw packets | UTF-8 JSONL with the shared event schema; binary fields use base64 |
 | Small authored curves and sequences | Inline typed TOML records |
 | Plugin-specific state | Opaque asset with implementation identity and declared encoding |
@@ -92,7 +92,7 @@ session record rather than rewriting TOML on every audio block.
 Only a finished fragment with verified metadata becomes a sealed asset.
 An interrupted fragment remains partial. Recovery accepts complete journal
 records up to a torn final line and reports that line; corrupt interior records
-remain errors. Finalization produces a recording document and preserves the
+remain errors. Finalization produces a recording score and preserves the
 journal as provenance. A recording that is still open is explicitly marked open
 and exposes only verified completed fragments to an ordinary offline reader.
 
@@ -102,7 +102,7 @@ and preserves the original timeline, including gaps and continuation history.
 
 ## Portable package
 
-Use an ordinary directory containing a root TOML document, dependent documents,
+Use an ordinary directory containing a root TOML score, dependent scores,
 assets, and run journals. References must remain inside the exported root after
 path and symlink resolution. Import and authoring may select external local
 files, but portable export copies the dependency closure and rewrites paths.
@@ -131,6 +131,6 @@ second export path with different containment and gap semantics.
 
 Current captures use typed version 4 journal records, native MIDI/OSC/key JSONL,
 measured clock observations, and explicit audio gap evidence. See the normative
-[recording document](../../doc/recording-format.md) and
+[recording score](../../doc/recording-format.md) and
 [capture journal](../../doc/session-record-format.md) profiles. Dense arrays and
-general document dependency packaging above remain proposals for later stages.
+general score dependency packaging above remain proposals for later stages.

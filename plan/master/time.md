@@ -9,7 +9,7 @@ clock observations, and native event timing are the completed foundation.
 ## Completed
 
 Part of the [master proposal](master.md). These rules apply to every timed
-payload; domain documents must not invent their own meaning for a timestamp.
+payload; domain scores must not invent their own meaning for a timestamp.
 
 ## Exact positions
 
@@ -28,7 +28,7 @@ nonnegative. All stored ranges are half-open `[start, end)`.
 For rate `n/d`, tick `k` represents exactly `k*d/n` seconds from its origin.
 Do rational arithmetic between timebases. Convert an event to a destination
 sample frame once, using nearest integer with ties to even. Keep its original
-position in the source document; never round each elapsed delta independently.
+position in the source score; never round each elapsed delta independently.
 For example, tick 44,100 at 44.1 kHz maps exactly to frame 48,000 at 48 kHz.
 Two seconds of output always span exactly 96,000 output frames.
 
