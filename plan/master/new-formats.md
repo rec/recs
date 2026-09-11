@@ -2,7 +2,8 @@
 
 Part of the [master proposal](master.md). These are candidate domains for
 future editing and interchange work. They do not authorize implementation,
-expand the current schema, or bring video into scope.
+expand the current schema, or establish general video editing or codec work.
+Video clips are allowed as visual assets in the planned [live slideshow format](slideshow.md).
 
 ## Candidate data domains
 
@@ -32,8 +33,8 @@ rehearsal material, robotics and kinetic sculpture, haptics, environmental
 measurements, interactive-installation sensors, projection mapping metadata,
 networked collaborative state, score following, digital fabrication, and
 accessibility tracks. Projection mapping may describe surfaces, transforms,
-masks, calibration points, and still-image placements; it does not add video
-editing or video codecs to the proposal.
+masks, calibration points, and still-image placements; it does not add general
+video editing or video codecs to the proposal.
 
 ## Existing interchange formats
 
