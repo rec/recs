@@ -1,5 +1,13 @@
 # Time, clocks, and transport
 
+## Incomplete
+
+Portable scheduling, checkpoint restoration, real-time lateness policies, and
+cross-machine clock synchronization remain execution work. Capture timebases,
+clock observations, and native event timing are the completed foundation.
+
+## Completed
+
 Part of the [master proposal](master.md). These rules apply to every timed
 payload; domain documents must not invent their own meaning for a timestamp.
 

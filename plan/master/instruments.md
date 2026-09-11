@@ -1,5 +1,14 @@
 # Sample instruments and performance objects
 
+## Incomplete
+
+Prepared settings and performance action traces, including pedal/legato gate
+delivery and voice retirement, remain to be specified. Sampler rendering,
+further waveform generation, engine selection, and a VST wrapper remain
+deferred.
+
+## Completed
+
 Part of the [master proposal](master.md). An instrument consumes performance
 events and produces named streams. A sample instrument is one realization;
 a synthesizer graph can expose the same performance interface.

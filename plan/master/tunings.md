@@ -1,5 +1,14 @@
 # Pitch, tunings, and scales
 
+## Incomplete
+
+Noncontiguous tuning maps, broader keyboard mappings, MTS byte import and
+sparse updates, plus host realization rules, remain future model or adapter
+work. The current portable model deliberately does not inherit Tuney's
+instrument-range fallback.
+
+## Completed
+
 Part of the [master proposal](master.md). Revised 8 September 2026.
 Pitch, a tuning degree, and a sample-selection key are separate coordinates.
 Tuney's musical model is the starting point for shared definitions; its

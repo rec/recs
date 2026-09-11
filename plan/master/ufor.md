@@ -1,5 +1,13 @@
 # Ufor extraction handover
 
+## Incomplete
+
+Portable preparation and performance-action traces, sparse tunings and MTS
+byte import, oscillator lifecycle integration, and MIDI 2.0/UMP interchange
+remain model work. No sampler, waveform renderer, plugin host, or VST exists.
+
+## Completed
+
 The initial extraction is complete across `~/code/ufor`, Recs, and Tuney.
 The public repository is [rec/ufor](https://github.com/rec/ufor); all Git remotes
 use SSH. Recs pins a public Ufor source archive at
