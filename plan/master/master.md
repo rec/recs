@@ -109,7 +109,7 @@ and recording references consistent with other reusable objects.
 | `Port` | Stable ID, direction, stream type, and declared combination rule if it accepts multiple connections |
 | `Parameter` | Stable ID, type, unit/domain, default, permitted range or choices, scope, and automation policy |
 | `Asset` | ID, relative path, encoding, and payload description; sealed assets also have byte length and SHA-256 |
-| `ScoreVersion` | Relative score path and optional digest of its exact bytes |
+| `ScoreVersion` | Relative score path or selector, with an optional digest of the selected score's exact bytes |
 | `Node` | ID, referenced definition or registered primitive, and parameter values |
 | `Connection` | Explicit source node/port and destination node/port references |
 | `Binding` | Realization of a definition or endpoint with a declared capability contract |
