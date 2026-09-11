@@ -32,8 +32,9 @@ Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,
 and timed requests should share documents that humans can read and exchange.
 Sample instruments, synthesizers, mixes, and radio shows are reusable objects
 in that language. A really good still-image slideshow player is a prominent
-future target. Video is outside this proposal, including video editing and
-video codecs. A matrix of LED quantities remains in scope.
+future target. Its assets may include video clips, but video editing and codec
+implementation remain outside this proposal. A matrix of LED quantities remains
+in scope.
 
 ## The central decision
 
@@ -76,6 +77,7 @@ network protocol, operating system, or database.
 | [Lighting](lighting.md) | Fixture state, DMX/Art-Net, pixel fields, and geometry |
 | [Bindings](bindings.md) | Implementations, device profiles, parameter translation, and limitations |
 | [Tunings](tunings.md) | Pitch, scales, and the connection to Tuney |
+| [Live slideshow](slideshow.md) | Timed visual assets, accompaniment, accessibility, and live presentation |
 | [New formats](new-formats.md) | Candidate editable domains and their existing interchange formats |
 | [How to implement](how-to.md) | Current structures, replacements, ownership, and staged work |
 | [Future features](future-features.md) | Candidate work beyond the first usable system |
