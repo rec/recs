@@ -1,5 +1,14 @@
 # How to build the common model
 
+## Incomplete
+
+Stage 3 still needs preparation and portable performance-action traces, MIDI
+2.0/UMP interchange, and the remaining musical-model decisions. Stages 4–7,
+including playback, physical bindings, broadcasts, and Tuney host integration,
+are future work.
+
+## Completed
+
 Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
 2026 the user requested a plan revision prioritizing tuning/scale and oscillator
 extraction, richer envelopes/LFOs, and deferring further waveform generation.

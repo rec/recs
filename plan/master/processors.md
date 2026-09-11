@@ -1,5 +1,14 @@
 # Synthesizers, DSP, and analysis graphs
 
+## Incomplete
+
+Oscillator lifecycle integration, processor execution, graph preparation,
+latency handling in a host, plugin hosting, and all new audio generation remain
+deferred. The extracted oscillator definitions and scalar LFO semantics are
+the completed model foundation.
+
+## Completed
+
 Part of the [master proposal](master.md). Sources generate data, processors
 transform it, and sinks consume it. These are roles determined by ports, not
 three unrelated class hierarchies.

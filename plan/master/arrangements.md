@@ -1,5 +1,14 @@
 # Arrangements, sequences, and nested mixes
 
+## Incomplete
+
+General nested arrangements, typed ports, structured references, and the
+cutover from Recs's audio-only edit schema remain unfinished. Existing edit
+commands and rendering remain application behavior, not the completed portable
+arrangement model described here.
+
+## Completed
+
 Part of the [master proposal](master.md). An arrangement places reusable sources
 in time, processes and combines their streams, and exposes named output ports.
 A track is an editing lane; a bus combines routed signals; neither is a device.
