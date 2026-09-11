@@ -1,5 +1,13 @@
 # Events, requests, and sequences
 
+## Incomplete
+
+The MIDI 2.0/UMP layer, SysEx7/SysEx8 interchange, MIDI-CI handling, request
+execution, and portable seek/loop state reconstruction remain to be implemented.
+The VL70m code is a limited MIDI 1.0 proof of concept only.
+
+## Completed
+
 Part of the [master proposal](master.md). Events say that something happened at
 a time; they do not imply a continuously sampled value between occurrences.
 

@@ -1,5 +1,14 @@
 # Envelopes, LFOs, and modulation
 
+## Incomplete
+
+Instrument preparation, pedal and legato gate delivery, voice retirement,
+portable action traces, oscillator lifecycle integration, loops, random
+sources, continuous rate ramps, feedback, and audio-rate execution remain
+unfinished. Sampler and VST work remain separate deferred execution decisions.
+
+## Completed
+
 Stage 3, step 4 now has an implemented first control profile in Ufor. The
 canonical [modulation specification](../../../ufor/doc/modulation-format.md)
 contains the equations, state transitions, ownership, mapping rules, examples,

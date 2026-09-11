@@ -1,5 +1,13 @@
 # Recordings, assets, and portable files
 
+## Incomplete
+
+Dense-array streams and general document-dependency packaging remain proposals
+for later stages. The current completed profile covers capture journals and
+recording metadata, not a general portable package implementation.
+
+## Completed
+
 Part of the [master proposal](master.md). A recording is evidence of streams
 over time, including where data is absent. It is not just a list of filenames.
 

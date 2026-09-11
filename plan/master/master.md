@@ -1,5 +1,15 @@
 # Recs: a common language for things that happen in time
 
+## Incomplete
+
+Stage 3 still needs portable preparation and performance-action traces, MIDI
+2.0/UMP interchange, and the remaining model decisions named in
+[How to build the common model](how-to.md). Playback, device bindings,
+lighting, broadcasts, synthesis, and the still-image slideshow player remain
+future work.
+
+## Completed
+
 Status: stages 1 and 2 are implemented. The shared-format extraction into
 [Ufor](ufor.md) now covers recordings, arrangements, sequences, tunings, scales,
 and oscillator definitions. Ufor also implements the first envelope/LFO control
@@ -68,6 +78,10 @@ network protocol, operating system, or database.
 | [Tunings](tunings.md) | Pitch, scales, and the connection to Tuney |
 | [How to implement](how-to.md) | Current structures, replacements, ownership, and staged work |
 | [Future features](future-features.md) | Candidate work beyond the first usable system |
+
+Wholly completed documents move to [complete/](complete/README.md). None has
+reached that state yet; documents that mix implemented and remaining work put
+their unfinished boundary first.
 
 ## A small common vocabulary
 
