@@ -278,13 +278,24 @@ complete.
    events/routes and SFZ conversion. All portable Recsam types now live in Ufor.
    Next settle prepared settings and selection/gate/retirement action traces.
    These stateful additions remain separate from sampler waveform generation.
+6. Define MIDI interchange before extending device-specific MIDI work. Keep
+   semantic performance/control events independent of their wire encoding;
+   specify MIDI 1.0 byte streams and UMP separately, including UMP-carried
+   MIDI 1.0, native MIDI 2.0 messages, group assignment, SysEx7 and SysEx8.
+   Make MIDI 1.0 conversion an explicit capability-limited operation. Keep
+   MIDI-CI discovery, Profiles and Property Exchange as device interaction and
+   binding information, not universal instrument fields. The existing VL70m
+   SysEx work is a bounded MIDI 1.0 proof of concept, not this layer.
 
 Acceptance: documents round-trip; exact fractions remain exact; repeating and
 finite domains differ explicitly; existing intended Tuney pitch examples agree;
 Scala and MTS mappings have defined boundaries; oscillator parameters and
 envelope/LFO event/state behavior have language-neutral cases. Numerical pitch
 and scalar-control checks are allowed; no new audio rendering is needed to
-complete this stage. Record unresolved design choices rather than guess defaults.
+complete this stage. MIDI acceptance cases preserve raw MIDI 1.0 bytes and UMP
+words exactly, make protocol conversion limits visible, and retain unfamiliar
+SysEx7/SysEx8 packets without inventing semantic fields. Record unresolved
+design choices rather than guess defaults.
 
 ### 4. Resume execution only after the model gate
 

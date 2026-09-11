@@ -18,6 +18,7 @@ release builds run without GitHub SSH credentials. UV development sources use th
 | Ufor | Segmented envelope and LFO documents, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
 | Ufor | Shared performance events in native sequences/JSONL; typed parameter/source/route declarations and scalar route evaluation |
 | Ufor | Native sample-instrument documents, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
+| Ufor | Lossless VL70m MIDI 1.0 SysEx inspection and bounded patch relocation, retaining opaque message spans and duplicate occurrences |
 | Recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
 | Tuney | Editable configuration and UI annotations, units and broader expressions, Scala file/browser access, instrument-range wrapping, MIDI protocol delivery, and existing NumPy waveform generation |
 | Reccy | Shared Python application infrastructure, with no ownership of the portable format |
@@ -55,6 +56,10 @@ implementation was found. Tuney retains its broader math authoring language and
 also accepts `^`. Scala imports distinguish integer ratios from decimal cents.
 Finite MTS tables have an explicit representation, but MTS byte decoding and
 sparse update messages are not part of this extraction.
+The VL70m proof of concept is intentionally MIDI 1.0 byte-stream only. UMP,
+native MIDI 2.0 messages, SysEx8, MIDI-CI, Profiles, and Property Exchange need
+their own transport and capability design before Ufor adds further
+device-specific MIDI descriptions.
 
 `Computed.limit` retains its actual maximum-denominator behavior. The earlier
 Tuney comment calling it N-limit just intonation was inaccurate. Oscillator
@@ -99,7 +104,8 @@ implemented. Next define resolved preparation settings and portable
 selection/gate/retirement action traces. These stateful components never existed
 in Recsam and are not part of the completed type consolidation. Sparse tuning
 maps, Scala keyboard mapping, MTS byte import, audio oscillator lifecycle
-integration, and richer cross-domain graphs remain future model work. No sampler engine,
+integration, the MIDI 2.0/UMP interchange layer, and richer cross-domain graphs
+remain future model work. No sampler engine,
 new waveform renderer, compiled-language implementation, or VST was added.
 Existing implementations can realize later contracts after an explicit design
 and conformance decision. Stage 3 as a whole is not yet complete.

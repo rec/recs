@@ -67,6 +67,33 @@ resolution, sustain interpretation, and conversion to pitched performance.
 Keep SysEx or other unrecognized messages as typed raw data. Export to a more
 limited protocol reports quantization and unsupported per-note expression.
 
+## MIDI 1.0 and MIDI 2.0 boundary
+
+The event envelope is transport-neutral. A raw MIDI event therefore records a
+protocol family and exact wire representation, rather than treating a list of
+seven-bit bytes as the universal MIDI form. MIDI 1.0 byte streams, Standard MIDI
+Files, and UMP are distinct encodings of related musical meaning.
+
+The first MIDI 2.0 work defines a small UMP layer before adding more
+device-specific MIDI formats. It must represent MIDI 1.0 messages carried in
+UMP, native MIDI 2.0 channel-voice messages, group assignment, and exact UMP
+packet words. It also distinguishes SysEx7 from SysEx8. A captured UMP stream
+preserves its packet sequence even when no semantic adapter understands a
+manufacturer message. Conversion to a MIDI 1.0 byte stream is an explicit
+lossy operation when the source uses MIDI 2.0-only precision or expression.
+
+MIDI-CI discovery, Profiles, and Property Exchange describe a device's current
+capabilities or exchange protocol. They do not silently alter an instrument
+definition, binding, or saved patch. A host may record them as raw protocol or
+run observations, then use an explicit adapter to select a compatible binding.
+Permanent descriptions of an instrument's musical interface remain separate
+from discovery responses and connected-device state.
+
+The [VL70m SysEx proof of concept](../../../ufor/doc/vl70m-sysex-example.md)
+is deliberately a MIDI 1.0 byte-stream implementation. It preserves unknown
+bytes and performs bounded patch relocation; it neither models UMP nor claims
+that the VL70m supports MIDI 2.0.
+
 OSC capture keeps address, type tags, arguments, bundle membership, raw bytes,
 and source timetag where present. An address alone does not tell us whether a
 message is state, a trigger, or a request with side effects. Its endpoint profile
