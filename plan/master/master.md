@@ -76,6 +76,7 @@ network protocol, operating system, or database.
 | [Lighting](lighting.md) | Fixture state, DMX/Art-Net, pixel fields, and geometry |
 | [Bindings](bindings.md) | Implementations, device profiles, parameter translation, and limitations |
 | [Tunings](tunings.md) | Pitch, scales, and the connection to Tuney |
+| [New formats](new-formats.md) | Candidate editable domains and their existing interchange formats |
 | [How to implement](how-to.md) | Current structures, replacements, ownership, and staged work |
 | [Future features](future-features.md) | Candidate work beyond the first usable system |
 
