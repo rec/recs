@@ -7,20 +7,6 @@ latency handling in a host, plugin hosting, and all new audio generation remain
 deferred. The extracted oscillator definitions and scalar LFO semantics are
 the completed model foundation.
 
-## Completed
-
-Part of the [master proposal](master.md). Sources generate data, processors
-transform it, and sinks consume it. These are roles determined by ports, not
-three unrelated class hierarchies.
-
-Revision, 8 September 2026: extracting and specifying Tuney's oscillator is
-stage 3 work. Its existing parameters, waveform names, gain calculation, and
-documented shape equations are now extracted into Ufor; Tuney still owns its
-existing NumPy implementation. Ufor's first modulation profile now defines
-exact LFO phase/reset state and scalar shape observations; integrating that
-lifecycle with an audio oscillator remains model work. New audio generation and processor execution remain deferred
-until the musical and [modulation](modulation.md) models are settled.
-
 ## Operation and instance
 
 An operation definition specifies typed ports, parameter semantics, state

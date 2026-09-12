@@ -6,17 +6,6 @@ Portable preparation and performance-action traces, sparse tunings and MTS
 byte import, oscillator lifecycle integration, and MIDI 2.0/UMP interchange
 remain model work. No sampler, waveform renderer, plugin host, or VST exists.
 
-## Completed
-
-The initial extraction is complete across `~/code/ufor`, Recs, and Tuney.
-The public repository is [rec/ufor](https://github.com/rec/ufor); all Git remotes
-use SSH. Recs pins a public Ufor source archive at
-`7a6d3e44ddd194062243e4e6374f37cac5d7219e` for native instruments and pure SFZ
-conversion. Tuney retains its initial extraction pin at
-`9fa9d39f356613285e4ec5e55bdb3d894bfd8dbf`. These archives let installations and
-release builds run without GitHub SSH credentials. UV development sources use the editable
-`../ufor` checkout. Dependency changes are committed separately from code.
-
 ## Ownership
 
 | Owner | Implemented responsibility |

@@ -7,18 +7,6 @@ Stage 3 still needs preparation and portable performance-action traces, MIDI
 including playback, physical bindings, broadcasts, and Tuney host integration,
 are future work.
 
-## Completed
-
-Part of the [master proposal](master.md). Stage 2 is complete. On 8 September
-2026 the user requested a plan revision prioritizing tuning/scale and oscillator
-extraction, richer envelopes/LFOs, and deferring further waveform generation.
-The subsequent Ufor extraction is implemented; see [its handover](ufor.md).
-The first envelope/LFO control profile is implemented in Ufor. The final
-instrument root, slices, channel maps, source bindings, and SFZ conversion are
-now implemented in Ufor. Preparation/action traces remain stage 3 work. Shared
-performance events and typed scalar routes are implemented; see the [instrument contract](../../../ufor/doc/instrument-format.md).
-Additional work beyond the prompt: None.
-
 ## Implementation status
 
 Stages 1 and 2 are implemented in Recs. The supported
