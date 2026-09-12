@@ -174,9 +174,17 @@ messages.
 
 ### Remaining scope
 
-The MIDI 2.0/UMP layer, SysEx7/SysEx8 interchange, MIDI-CI handling, request
-execution, and portable seek/loop state reconstruction remain to be implemented.
-The VL70m code is a limited MIDI 1.0 proof of concept only.
+The milestone 2 library profile is implemented in Ufor: `SequenceSelection`,
+`state_at`, and `plan_playback` provide half-open selections, control snapshots,
+active-note retrigger/omit policies, loop-qualified ownership, and end cleanup.
+Raw captures remain inert. `UmpEvent` preserves exact packet words, checks packet
+length, exposes known groups, and distinguishes SysEx7 from SysEx8 packet families.
+Portable conformance examples and the host application contract are in
+[Ufor's sequence playback specification](../../../ufor/doc/sequence-playback.md).
+
+Host transport integration, MIDI-CI handling, SysEx reassembly/conversion, and
+request execution remain later work. The VL70m code remains a limited MIDI 1.0
+proof of concept. This milestone introduces no audio generation or device output.
 
 ### Event envelope
 
