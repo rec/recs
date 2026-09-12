@@ -11,10 +11,10 @@ It does not select Python, a compiled language, or a plugin SDK.
 
 Related documents:
 
-- [Master roadmap](master/how-to.md): stage 3 model work and deferred execution.
-- [Tunings and scales](master/tunings.md): finite/repeating domains and the
+- [Master roadmap](master/verification-procedures.md#how-to-build-the-common-model): stage 3 model work and deferred execution.
+- [Tunings and scales](master/deferred-work.md#pitch-tunings-and-scales): finite/repeating domains and the
   frequency/ratio minilanguage.
-- [Envelopes and LFOs](master/modulation.md): required design before playback.
+- [Envelopes and LFOs](master/deferred-work.md#envelopes-lfos-and-modulation): required design before playback.
 - [Recsam Instrument Format](../doc/sample-format.md): implemented TOML schema
   and Pydantic models.
 - [Remaining Recsam Format Work](sample-format.md): candidate features awaiting

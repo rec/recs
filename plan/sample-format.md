@@ -17,7 +17,7 @@ Playback implementation remains separate in [Sample Playback](sample-playback.md
 
 ## Envelopes And LFOs Come First
 
-Follow the [modulation design](master/modulation.md) before implementing a
+Follow the [modulation design](master/deferred-work.md#envelopes-lfos-and-modulation) before implementing a
 sampler or extending waveform generation. Replace the assumption that current
 ADSR-like fields and a frequency/phase LFO are sufficient with an explicit
 review of curves, timing, retrigger/release, scope, phase continuity, and route
