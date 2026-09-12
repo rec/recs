@@ -51,6 +51,14 @@ concrete device needs them.
 **First useful result:** Edit gain, frequency, and gate curves without confusing
 their units. Check interpolation, defaults, and competing writers.
 
+**Implemented scalar profile:** Ufor now provides editable automation scores,
+TOML round trips, JSON Schema, and a pure evaluator for these three quantities.
+See the [automation format](../../../ufor/doc/automation-format.md) and
+[portable cases](../../../ufor/conformance/automation.json). Direct-writer
+conflicts and explicit add/multiply contributions are checked within a score.
+Graph-wide ownership, GUI editing, dense arrays, physical delivery, and the
+broader quantity proposals below remain later work.
+
 ### Quantity types
 
 A numeric stream declares both what a value means and how it is represented. The
