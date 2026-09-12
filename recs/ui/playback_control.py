@@ -21,8 +21,8 @@ class PlaybackControl:
     def __init__(
         self,
         recordings_root: Callable[[], Path],
-        pause_recording: Callable[[], None],
-        resume_recording: Callable[[], None],
+        pause_recording: Callable[[], object],
+        resume_recording: Callable[[], object],
         publish: Callable[[gui_protocol.PlaybackState], None],
         warning: Callable[[str], None],
     ) -> None:
