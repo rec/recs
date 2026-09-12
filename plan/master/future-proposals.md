@@ -444,12 +444,12 @@ Check parameter conversions and report unsupported capabilities before output
 begins.
 
 **Implemented profile:** Ufor now has `BindingScore`, a portable declaration of
-a referenced definition, named host adapter, implementation revision,
-capabilities, and parameter maps. Pure conversion supports identity, affine,
-log-normalized, and ratio-to-dB parameters, rejecting invalid ranges and making
-silence an explicit native mute. The first concrete identity is
-`sysexy.vl70m`, for the existing VL70m SysEx librarian; it validates material
-but does not open a MIDI device. See [the binding format](../../../ufor/doc/binding-format.md).
+a referenced definition, named host adapter, implementation revision, capability
+and stream contracts, channel maps, physical-control semantics, opaque state, and
+parameter maps. It supports identity, affine, log-normalized, ratio-to-dB,
+monotone piecewise, and explicit enum conversions. The first concrete identity is
+`sysexy.vl70m`, for the existing VL70m SysEx librarian; it validates material but
+does not open a MIDI device. See [the binding format](../../../ufor/doc/binding-format.md).
 
 Host adapter lookup, display/output selection, credentials, and actual device or
 plugin activation remain host work. No hardware was contacted by this milestone.
@@ -577,13 +577,13 @@ video assets and accompaniment in subsequent increments of the same format.
 explicit images, edit their crops and timing, and replay a recorded manual
 presentation. Include accessibility in the first usable player.
 
-**Implemented profile:** Ufor now has a still-image `SlideshowScore` with sealed
-assets, ordered slides, normalized crop/rotation/fit, required alt text, manual
-or cue advance, adjacent transitions, and ordered run records. Its pure resolver
-sorts host-supplied relative paths and applies declared inclusion/exclusion rules.
-See [the slideshow format](../../../ufor/doc/slideshow-format.md). Image/video
-decoding, display output, audio accompaniment, captions, and cue delivery remain
-host work.
+**Implemented profile:** Ufor now has `SlideshowScore` with sealed image/video
+assets, ordered items, normalized crop/rotation/fit, required alt text, manual or
+cue advance, transitions, accompaniment, caption tracks, and ordered observed run
+records. Its pure resolver sorts host-supplied relative paths and applies declared
+inclusion/exclusion rules. See [the slideshow format](../../../ufor/doc/slideshow-format.md).
+Decoding, display output, audio playback, caption rendering, and cue delivery
+remain host work.
 
 A slideshow is an ordered visual performance: it can play automatically, be
 advanced by a person, react to a cue, or mix those modes during one run. It is
@@ -768,12 +768,12 @@ editing its cues. Preview and delivery use the same values and layout, with
 explicit stop behavior.
 
 **Implemented profile:** Ufor now has `FixtureScore` for semantic numeric and
-discrete fixture cues, plus separate `FixturePatch` records that map logical
-fixtures to display and Art-Net wire universes and DMX start slots. Repatching
-validates coverage without changing cues. Existing Ufor light layouts and wiring
-continue to provide the independent pixel-field representation. See [the fixture
-format](../../../ufor/doc/fixture-format.md). DMX/Art-Net transmission, fixture
-channel encoding, preview, and stop behavior remain host work.
+discrete fixture cues, channel encodings, compositor and stop rules, raw DMX
+capture, and separate `FixturePatch` records that map logical fixtures to display
+and Art-Net wire universes and DMX start slots. Existing Ufor light layouts and
+wiring, including coordinate frames and separate pixel patches, provide the
+independent pixel-field representation. See [the fixture format](../../../ufor/doc/fixture-format.md).
+DMX/Art-Net transmission and preview remain host work.
 
 Lighting has two principal editable forms: semantic fixture state and spatial
 fields. Raw device traffic is a third capture representation. Keep all three
@@ -891,12 +891,13 @@ source. Replay the captured timing and decisions without needing the original li
 input.
 
 **Implemented profile:** Ufor now has `BroadcastScore` with recorded/live/relay
-source declarations, fixed/after/cue section starts, finite durations, optional
-replacement sources, capture intent, and ordered as-aired events. It validates
-unknown references and cyclic `after` schedules, while the recorded run preserves
-replacement and dropout decisions independently of a future live source. See [the
-broadcast format](../../../ufor/doc/broadcast-format.md). Input connection,
-delivery, buffered relays, and audio capture remain host work.
+source declarations, fixed/after/cue starts, every planned end rule, transitions,
+unavailability and late-join policy, relay buffer requirements, capture intent,
+provisional-cue detection, and ordered as-aired delivery observations. It validates
+unknown references and cyclic `after` schedules while preserving actual decisions
+independently of a future live source. See [the broadcast format](../../../ufor/doc/broadcast-format.md).
+Input connection, playout, relay buffering, delivery, and audio capture remain
+host work.
 
 A broadcast score schedules content that may not exist yet. It describes intended
 playout; a run records actual playout. A completed recording and a future
