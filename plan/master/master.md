@@ -8,34 +8,6 @@ Stage 3 still needs portable preparation and performance-action traces, MIDI
 lighting, broadcasts, synthesis, and the still-image slideshow player remain
 future work.
 
-## Completed
-
-Status: stages 1 and 2 are implemented. The shared-format extraction into
-[Ufor](ufor.md) now covers recordings, arrangements, sequences, tunings, scales,
-and oscillator definitions. Ufor also implements the first envelope/LFO control
-profile, with exact timing and scalar conformance cases. Native instrument
-scores, asset slices, source bindings, shared routes and the SFZ cutover are
-now implemented in Ufor; no portable models remain in Recsam. Stage 3 still
-requires preparation and performance action traces. The
-[instrument format](../../../ufor/doc/instrument-format.md) states that boundary. Further audio waveform
-generation, especially the sampler, is deferred until that design is settled.
-The implemented subset is documented in the
-[arrangement format](../../doc/arrangement-format.md) and
-[recording/sequence format](../../doc/recording-format.md). The broader domain
-designs below remain proposals, not a claim of universal playback. See the
-[implementation status](how-to.md#implementation-status) and
-[Ufor handover](ufor.md) for the completed extraction and remaining work.
-Backward compatibility is not a requirement.
-
-Recs should record, edit, compose, and play time-varying quantities and events.
-Audio, musical performance, keystrokes, fixture controls, LED fields, voltages,
-and timed requests should share scores that humans can read and exchange.
-Sample instruments, synthesizers, mixes, and radio shows are reusable objects
-in that language. A really good still-image slideshow player is a prominent
-future target. Its assets may include video clips, but video editing and codec
-implementation remain outside this proposal. A matrix of LED quantities remains
-in scope.
-
 ## The central decision
 
 Use one score envelope and typed composition model, with distinct payloads

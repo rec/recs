@@ -6,11 +6,6 @@ Portable scheduling, checkpoint restoration, real-time lateness policies, and
 cross-machine clock synchronization remain execution work. Capture timebases,
 clock observations, and native event timing are the completed foundation.
 
-## Completed
-
-Part of the [master proposal](master.md). These rules apply to every timed
-payload; domain scores must not invent their own meaning for a timestamp.
-
 ## Exact positions
 
 Store integer ticks in a named timebase. A physical timebase declares a positive
