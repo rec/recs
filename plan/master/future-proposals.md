@@ -890,6 +890,14 @@ sections and one live input; add delayed relay and rolling buffers later.
 source. Replay the captured timing and decisions without needing the original live
 input.
 
+**Implemented profile:** Ufor now has `BroadcastScore` with recorded/live/relay
+source declarations, fixed/after/cue section starts, finite durations, optional
+replacement sources, capture intent, and ordered as-aired events. It validates
+unknown references and cyclic `after` schedules, while the recorded run preserves
+replacement and dropout decisions independently of a future live source. See [the
+broadcast format](../../../ufor/doc/broadcast-format.md). Input connection,
+delivery, buffered relays, and audio capture remain host work.
+
 A broadcast score schedules content that may not exist yet. It describes intended
 playout; a run records actual playout. A completed recording and a future
 programme are different objects.
