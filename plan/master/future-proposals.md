@@ -443,6 +443,17 @@ binding needed for one existing driver. A general plugin host is a later project
 Check parameter conversions and report unsupported capabilities before output
 begins.
 
+**Implemented profile:** Ufor now has `BindingScore`, a portable declaration of
+a referenced definition, named host adapter, implementation revision,
+capabilities, and parameter maps. Pure conversion supports identity, affine,
+log-normalized, and ratio-to-dB parameters, rejecting invalid ranges and making
+silence an explicit native mute. The first concrete identity is
+`sysexy.vl70m`, for the existing VL70m SysEx librarian; it validates material
+but does not open a MIDI device. See [the binding format](../../../ufor/doc/binding-format.md).
+
+Host adapter lookup, display/output selection, credentials, and actual device or
+plugin activation remain host work. No hardware was contacted by this milestone.
+
 For example, a score asks for a filter cutoff in Hz. A binding translates that
 value into the selected device's parameter and records any limitations.
 
