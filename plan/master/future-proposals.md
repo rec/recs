@@ -577,6 +577,14 @@ video assets and accompaniment in subsequent increments of the same format.
 explicit images, edit their crops and timing, and replay a recorded manual
 presentation. Include accessibility in the first usable player.
 
+**Implemented profile:** Ufor now has a still-image `SlideshowScore` with sealed
+assets, ordered slides, normalized crop/rotation/fit, required alt text, manual
+or cue advance, adjacent transitions, and ordered run records. Its pure resolver
+sorts host-supplied relative paths and applies declared inclusion/exclusion rules.
+See [the slideshow format](../../../ufor/doc/slideshow-format.md). Image/video
+decoding, display output, audio accompaniment, captions, and cue delivery remain
+host work.
+
 A slideshow is an ordered visual performance: it can play automatically, be
 advanced by a person, react to a cue, or mix those modes during one run. It is
 editable without opening an image or video codec. Still images are its primary
