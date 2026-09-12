@@ -339,6 +339,24 @@ cases before adding fields.
 **First useful result:** Combine recorded audio, a control curve, and an event
 sequence. Reuse a nested score twice with independent state and timing.
 
+**Implemented profile:** Ufor arrangements already resolve named audio parts,
+event connections, nested score instances, and selected audio clips. This
+milestone adds a reusable automation score's public `control` output and an
+arrangement `control_clips` placement. The curve's target selects a sibling
+part's public parameter. Resolution checks the output contract, target, exact
+clock conversion, parameter unit/scope/range, and one writer per target. An
+audio request includes the curve from its clip start through the requested end,
+which preserves its state for cropped rendering. The worked composition test
+contains a recorded audio clip, a sequence driving an instrument, and a control
+curve targeting a light-score parameter. See [Ufor's arrangement
+format](../../../ufor/doc/arrangement-format.md) and [automation
+format](../../../ufor/doc/automation-format.md).
+
+The profile deliberately supports part-scoped numeric controls at speed one.
+Logical gates, voice/instrument scopes, control combiners, tempo anchoring,
+audio time-stretching, reversal, and host audio/device execution remain later
+work. Raw event captures stay inert unless an explicit adapter interprets them.
+
 ### Sources and clips
 
 A source references a recording stream, a sequence, an instrument-driven graph,
