@@ -9,8 +9,11 @@ from recs.base.errors import RecsError
 
 
 class AudioDescription(Protocol):
-    channels: int
-    timeline_end: int
+    @property
+    def channels(self) -> int: ...
+
+    @property
+    def timeline_end(self) -> int: ...
 
 
 class EditGraph(BaseModel, frozen=True):
