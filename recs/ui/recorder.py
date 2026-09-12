@@ -89,23 +89,18 @@ class Recorder(Runnables):
         self.external = (
             external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
         )
-        if gui_ipc.daemon_mode_enabled():
-            display_type = gui_ipc.DaemonGuiServer
-        elif self.cfg.console.gui:
-            display_type = gui_process.GuiProcess
-        else:
-            display_type = live.Live
-        self.live = (
-            display_type(
-                self.rows,
-                self.cfg,
-                errors=self.error_records
-                if gui_ipc.daemon_mode_enabled()
-                else self.error_messages,
+        if not display:
+            self.live = None
+        elif gui_ipc.daemon_mode_enabled():
+            self.live = gui_ipc.DaemonGuiServer(
+                self.rows, self.cfg, errors=self.error_records
             )
-            if display
-            else None
-        )
+        elif self.cfg.console.gui:
+            self.live = gui_process.GuiProcess(
+                self.rows, self.cfg, errors=self.error_messages
+            )
+        else:
+            self.live = live.Live(self.rows, self.cfg, errors=self.error_messages)
         session_id = str(uuid.uuid4())
         self.session = recording_session.RecordingSession(
             session_id, self.session_start_time

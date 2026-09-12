@@ -9,7 +9,6 @@ from threa import Runnable
 from ufor.events import MidiEvent
 
 from recs.base import times
-from recs.base.types import MidiTiming
 from recs.cfg.cfg import Cfg
 from recs.ui.session_record import EventRecord, Record, timestamp_to_json
 
@@ -216,9 +215,7 @@ class MidiRecorder(Runnable):
         try:
             self.clocks.setdefault(
                 name,
-                MidiClock(
-                    cast(MidiTiming, self.cfg.midi.midi_timing), self.capture_clock()
-                ),
+                MidiClock(self.cfg.midi.midi_timing, self.capture_clock()),
             )
             port = self.open_input(name)
             writer = None
@@ -226,7 +223,7 @@ class MidiRecorder(Runnable):
                 writer = MidiWriter(
                     self.session_directory,
                     name,
-                    cast(MidiTiming, self.cfg.midi.midi_timing),
+                    self.cfg.midi.midi_timing,
                     started_at,
                     self.clocks[name],
                 )
@@ -259,7 +256,7 @@ class MidiRecorder(Runnable):
         self.writers[name] = MidiWriter(
             self.session_directory,
             name,
-            cast(MidiTiming, self.cfg.midi.midi_timing),
+            self.cfg.midi.midi_timing,
             started_at,
             self.clocks[name],
         )
