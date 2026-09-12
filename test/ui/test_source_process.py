@@ -522,7 +522,7 @@ def test_source_process_ignores_broken_connection_poll(
 def test_source_process_join_drains_real_child_final_updates(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(source_process, 'mp', mp.get_context('fork'))
+    monkeypatch.setattr(source_process, 'mp', mp.get_context('spawn'))
     input_path = tmp_path / 'input.wav'
     output_path = tmp_path / 'output'
     audio = np.resize(np.array([-0.5, 0.5], dtype=np.float32), (48_000, 1))
