@@ -767,6 +767,14 @@ one fixture profile and one pixel layout before broadening device coverage.
 editing its cues. Preview and delivery use the same values and layout, with
 explicit stop behavior.
 
+**Implemented profile:** Ufor now has `FixtureScore` for semantic numeric and
+discrete fixture cues, plus separate `FixturePatch` records that map logical
+fixtures to display and Art-Net wire universes and DMX start slots. Repatching
+validates coverage without changing cues. Existing Ufor light layouts and wiring
+continue to provide the independent pixel-field representation. See [the fixture
+format](../../../ufor/doc/fixture-format.md). DMX/Art-Net transmission, fixture
+channel encoding, preview, and stop behavior remain host work.
+
 Lighting has two principal editable forms: semantic fixture state and spatial
 fields. Raw device traffic is a third capture representation. Keep all three
 distinguishable.
