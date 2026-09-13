@@ -505,6 +505,30 @@ def test_external_ipc_start_failure_stops_recorder_before_devices_open(
     assert external.closed
 
 
+def test_recorder_rejects_an_active_settings_writer(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(save_settings=True, silent=True))
+    writer = recorder.instances.InstanceDescriptor(
+        identity=recorder.instances.InstanceIdentity(
+            pid=999,
+            start_token='writer',
+            started_at=1,
+            role='local',
+        ),
+        control_endpoint='/tmp/writer.sock',
+        event_endpoint='/tmp/writer-events.sock',
+        protocol_version=9,
+        settings_path=rec.settings_path,
+    )
+    monkeypatch.setattr(recorder.instances, 'settings_writer', lambda path: writer)
+
+    with pytest.raises(RecsError, match='Recs PID 999 is already saving'):
+        rec.start()
+
+
 def test_external_control_requests_use_recorder_handler(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

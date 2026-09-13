@@ -249,6 +249,13 @@ def list_instances() -> list[dict[str, object]]:
     ]
 
 
+def settings_writer(path: str) -> InstanceDescriptor | None:
+    return next(
+        (descriptor for descriptor in discover() if descriptor.settings_path == path),
+        None,
+    )
+
+
 def external_control_endpoint() -> Path | str:
     from . import paths
 
