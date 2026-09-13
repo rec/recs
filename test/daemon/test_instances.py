@@ -182,6 +182,35 @@ def test_source_users_excludes_the_current_instance(monkeypatch) -> None:
     assert instances.source_users('Mic', current.identity) == [other]
 
 
+def test_settings_claim_excludes_another_live_instance(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    first = instances.InstanceIdentity(
+        pid=100,
+        start_token='first',
+        started_at=1,
+        role='local',
+    )
+    second = first.model_copy(update={'pid': 200, 'start_token': 'second'})
+    monkeypatch.setattr(instances, '_process_exists', lambda pid: True)
+
+    instances.claim_settings('/tmp/second-interface.json', first, tmp_path)
+
+    try:
+        instances.claim_settings('/tmp/second-interface.json', second, tmp_path)
+    except ValueError as error:
+        assert str(error) == 'Recs PID 100 is already saving /tmp/second-interface.json'
+    else:
+        raise AssertionError('settings claim was accepted')
+
+    instances.release_settings('/tmp/second-interface.json', first, tmp_path)
+
+    assert instances.claim_settings(
+        '/tmp/second-interface.json', second, tmp_path
+    ).exists()
+
+
 def _descriptor(
     role: instances.InstanceRole,
     pid: int,

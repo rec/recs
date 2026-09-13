@@ -282,11 +282,10 @@ class Recorder(Runnables):
 
     def start(self) -> None:
         if self.settings_path is not None:
-            if writer := instances.settings_writer(self.settings_path):
-                raise RecsError(
-                    f'Recs PID {writer.identity.pid} is already saving '
-                    f'{self.settings_path}'
-                )
+            try:
+                instances.claim_settings(self.settings_path, self.instance)
+            except ValueError as error:
+                raise RecsError(str(error)) from None
         try:
             self.external.start()
             instances.publish(
@@ -301,6 +300,8 @@ class Recorder(Runnables):
             )
         except OSError as e:
             self.external.close()
+            if self.settings_path is not None:
+                instances.release_settings(self.settings_path, self.instance)
             raise RecsError(f'Cannot start Recs control server: {e}') from None
         super().start()
         Runnable.start(self)
@@ -362,6 +363,8 @@ class Recorder(Runnables):
                 self._playback.stop()
                 self.external.close()
                 instances.remove(self.instance)
+                if self.settings_path is not None:
+                    instances.release_settings(self.settings_path, self.instance)
                 self._receive_pending_updates()
                 self._finish_record()
                 if self.cfg.general.silence_preview:
