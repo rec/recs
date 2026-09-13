@@ -677,7 +677,8 @@ recs watch --json
 ```
 
 The JSON form writes the initial `status_snapshot` followed by each public event
-as one JSON object per line. Neither form starts a recorder or polls the daemon.
+as one JSON object per line. Neither form starts a recorder or polls the selected
+recorder.
 
 Recs publishes these events:
 
