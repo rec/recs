@@ -1958,11 +1958,14 @@ def test_save_settings_failure_records_warning(
     control.cfg = Cfg(save_settings=True)
     control.track_names = {}
     control.saved_tracks = {}
+    control.settings_profile = None
     control.write_entry = records.append
     monkeypatch.setattr(
         recording_track_config.settings,
         'save',
-        lambda cfg, track_names, tracks: _raise_recs_error('cannot save settings'),
+        lambda cfg, track_names, tracks, profile: _raise_recs_error(
+            'cannot save settings'
+        ),
     )
 
     recording_track_config.save_settings(control)

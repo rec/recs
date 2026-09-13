@@ -57,6 +57,7 @@ class RecordingControl:
         card_replace: Callable[[], gui_protocol.CardReplaceStarted],
         new_session: Callable[[], gui_protocol.NewSessionStarted],
         instance: InstanceIdentity,
+        settings_profile: str | None,
     ) -> None:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
@@ -77,6 +78,7 @@ class RecordingControl:
         self.card_replace_callback = card_replace
         self.new_session_callback = new_session
         self.instance = instance
+        self.settings_profile = settings_profile
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.playback: PlaybackControl | None = None
         self.runtime_state = RecordingRuntimeState()

@@ -82,11 +82,12 @@ def load(name: str) -> SetupProfile:
 def configured(name: str, arguments: list[str]) -> settings.LoadedSettings:
     profile = load(name)
     cfg = tyro.cli(cli.CliCfg, default=profile.cfg, args=arguments, prog='recs')
-    return settings.LoadedSettings(
-        cfg=cfg,
+    return settings.load(
+        cfg,
+        run_cli.cli_overrides(arguments),
+        profile=name,
         track_names=profile.track_names,
         tracks=profile.tracks,
-        profile=name,
     )
 
 
