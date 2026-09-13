@@ -228,6 +228,23 @@ Startup ordering uses the descriptor startup time, with PID and start token as a
 stable tie-breaker. It never uses descriptor modification time, which can change
 during cleanup or inspection.
 
+## Audio-device conflicts
+
+Do not reject two instances merely because they select the same audio device.
+Core Audio, WASAPI shared mode, ALSA sharing plugins, and other host arrangements
+may support concurrent capture.
+
+When PortAudio cannot open a selected device, preserve its portable error code,
+host API, native error code, and native message. Device-unavailable and busy
+errors should say that another Recs instance or application may already be using
+the device, without presenting that inference as certain.
+
+Once discovery is available, compare a failed source with the sources in other
+live descriptors. If another Recs process selected the same physical device, add
+its PID, role, and profile to the warning. This is supporting evidence, not proof
+of exclusivity. Report the warning through normal status, display, and session
+records while allowing unaffected sources to continue.
+
 ## API boundaries
 
 The current fixed endpoint functions continue to mean “the daemon endpoint.”
@@ -280,7 +297,8 @@ negative positions and the newest-local-then-daemon default.
 Acceptance covers no instances, daemon only, one local, daemon plus local, several
 locals, several locals plus daemon, daemon selection, PID selection, every valid
 negative position, zero, out-of-range positions, stale records, and a selected
-process exiting before connection.
+process exiting before connection. A device-open failure identifies another Recs
+process selecting that device when one is discoverable.
 
 ### 5. Per-profile mutable settings
 

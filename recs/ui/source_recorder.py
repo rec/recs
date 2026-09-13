@@ -89,6 +89,11 @@ class SourceFailure(NamedTuple):
     final_frame_count: int | None = None
     last_callback_timestamp: float | None = None
     stop_kind: str | None = None
+    portaudio_code: int | None = None
+    host_api: str | None = None
+    host_error_code: int | None = None
+    host_error_message: str | None = None
+    device_unavailable: bool = False
 
 
 class SourceControl(NamedTuple):

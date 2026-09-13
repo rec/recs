@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+import sounddevice
 import soundfile
 
 from recs.cfg.cfg import Cfg
@@ -588,6 +589,56 @@ def test_source_process_reports_recorder_start_failure(
             source_name='Mic',
             exception_type='ValueError',
             stop_kind='crash',
+        )
+    ]
+
+
+def test_source_process_explains_unavailable_audio_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(**kwargs: object) -> None:
+        raise sounddevice.PortAudioError(
+            'Error opening InputStream: Unanticipated host error',
+            -9999,
+            (0, -16, 'Device or resource busy'),
+        )
+
+    monkeypatch.setattr(source_process.source_recorder, 'SourceRecorder', fail)
+    monkeypatch.setattr(sounddevice, 'query_hostapis', lambda index: {'name': 'ALSA'})
+    source = InputDevice(
+        {
+            'default_samplerate': 48_000,
+            'max_input_channels': 1,
+            'name': 'Mic',
+        }
+    )
+    connection = FakeSendConnection()
+
+    source_process._run_source_recorder(
+        cfg=Cfg(),
+        control_connection=FakeConnection(),
+        session_directory=Path('session'),
+        stop_event=FakeEvent(),
+        tracks=[Track(source, '1')],
+        update_connection=connection,
+    )
+
+    assert connection.sent == [
+        SourceFailure(
+            message=(
+                'PortAudioError: Error opening InputStream: Unanticipated host '
+                "error [PaErrorCode -9999]: 'Device or resource busy' "
+                '[ALSA error -16]. The audio device may already be in use by '
+                'another Recs instance or application'
+            ),
+            source_name='Mic',
+            exception_type='PortAudioError',
+            stop_kind='crash',
+            portaudio_code=-9999,
+            host_api='ALSA',
+            host_error_code=-16,
+            host_error_message='Device or resource busy',
+            device_unavailable=True,
         )
     ]
 
