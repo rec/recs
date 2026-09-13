@@ -840,6 +840,44 @@ def test_source_failure_is_reported(
     assert caplog.messages == ['Device Mic failed: ValueError: no input device']
 
 
+def test_unavailable_source_names_another_recs_instance(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    other = recorder.instances.InstanceDescriptor(
+        identity=recorder.instances.InstanceIdentity(
+            pid=999,
+            start_token='other',
+            started_at=1,
+            role='local',
+            profile='second-interface',
+        ),
+        control_endpoint='/tmp/other.sock',
+        event_endpoint='/tmp/other-events.sock',
+        protocol_version=9,
+    )
+    monkeypatch.setattr(
+        recorder.instances,
+        'source_users',
+        lambda source, identity: [other],
+    )
+
+    rec._receive_source_message(
+        SourceFailure(
+            message='PortAudioError: device unavailable',
+            source_name='Mic',
+            device_unavailable=True,
+        )
+    )
+
+    assert rec.error_records()[1].message == (
+        'Device Mic is also selected by Recs PID 999 (local) with profile '
+        "'second-interface'"
+    )
+
+
 def test_recorder_finishes_with_all_devices_offline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
