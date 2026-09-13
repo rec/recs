@@ -354,10 +354,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
 
     assert connection.sent == [
         '{"type":"hello","role":"daemon","version":9}\n',
-        (
-            '{"type":"calibrated","measurements":{},'
-            '"noise_floors":{"Mic":{"1":15.0}}}\n'
-        ),
+        ('{"type":"calibrated","measurements":{},"noise_floors":{"Mic":{"1":15.0}}}\n'),
     ]
 
 

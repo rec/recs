@@ -412,7 +412,7 @@ def audio_timeline(
         }
     )
     gaps: list[Gap] = []
-    for start, end in zip(boundaries, boundaries[1:]):
+    for start, end in zip(boundaries, boundaries[1:], strict=False):
         if any(s.start <= start < s.start + s.count for s in captured):
             continue
         reason = (

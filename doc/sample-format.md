@@ -27,9 +27,9 @@ from recs.recsam.sfz import read
 from ufor.codec import score_toml
 from ufor.sfz import write
 
-result = read(Path("Glass.sfz"))
+result = read(Path('Glass.sfz'))
 if result.complete and result.instrument is not None:
-    Path("instrument.toml").write_text(score_toml(result.instrument))
+    Path('instrument.toml').write_text(score_toml(result.instrument))
     exported = write(result.instrument)
 ```
 

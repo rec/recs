@@ -90,8 +90,8 @@ def _status_payload(
 
 
 def _print_status(status: dict[str, object]) -> None:
-    print(f"daemon: {_state(status.get('running'))}")
-    print(f"installed: {_state(status.get('installed'))}")
+    print(f'daemon: {_state(status.get("running"))}')
+    print(f'installed: {_state(status.get("installed"))}')
     if details := status.get('details'):
         print(f'details: {details}')
     if error := status.get('recorder_error'):
@@ -103,7 +103,7 @@ def _print_status(status: dict[str, object]) -> None:
     recording = recorder.get('recording')
     if isinstance(recording, dict):
         recording = cast(dict[str, object], recording)
-        print(f"recording: {'paused' if recording.get('paused') else 'active'}")
+        print(f'recording: {"paused" if recording.get("paused") else "active"}')
     if path := recorder.get('session_directory'):
         print(f'session directory: {path}')
     if path := recorder.get('record_path'):
@@ -113,8 +113,8 @@ def _print_status(status: dict[str, object]) -> None:
     if rows := recorder.get('rows'):
         if isinstance(rows, list) and rows and isinstance(rows[0], dict):
             total = cast(dict[str, object], rows[0])
-            print(f"files: {total.get('file_count', 0)}")
-            print(f"bytes: {total.get('file_size', 0)}")
+            print(f'files: {total.get("file_count", 0)}')
+            print(f'bytes: {total.get("file_size", 0)}')
     devices = recorder.get('devices')
     if isinstance(devices, list):
         online = sum(
@@ -130,8 +130,8 @@ def _print_status(status: dict[str, object]) -> None:
 
 
 def _print_disk_status(disk: dict[str, object]) -> None:
-    print(f"disk: {disk.get('path', '')}")
-    print(f"disk free bytes: {disk.get('free_bytes', 0)}")
+    print(f'disk: {disk.get("path", "")}')
+    print(f'disk free bytes: {disk.get("free_bytes", 0)}')
     if remaining := disk.get('estimated_seconds_remaining'):
         print(f'disk seconds remaining: {remaining}')
 

@@ -1,5 +1,4 @@
 from pathlib import Path
-from test.ui.test_recorder import DiskUsage, FakePoller, FakeSourceProcess
 
 import pytest
 
@@ -14,6 +13,7 @@ from recs.ui import (
 )
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import SourceFile, SourceUpdate
+from test.ui.test_recorder import DiskUsage, FakePoller, FakeSourceProcess
 
 
 def test_minimum_free_space_is_an_emergency_reserve(

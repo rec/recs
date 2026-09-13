@@ -140,9 +140,9 @@ class PlaybackRunner:
                     frames = min(self.block_frames, self.timeline.end - start)
                     self.position += frames
                 block = np.zeros((frames, channels), dtype=np.float32)
-                block[
-                    :, [channel - 1 for channel in self.output_channels]
-                ] = self.timeline.read(start, frames)
+                block[:, [channel - 1 for channel in self.output_channels]] = (
+                    self.timeline.read(start, frames)
+                )
                 stream.write(block)
         except (
             OSError,

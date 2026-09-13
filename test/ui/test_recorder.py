@@ -2,7 +2,6 @@ import json
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from test.conftest import DEVICES, DEVICES_FILE
 from typing import Any, NamedTuple
 
 import pytest
@@ -28,6 +27,7 @@ from recs.ui import (
 from recs.ui.key_events import KeyEvent
 from recs.ui.recorder import Recorder
 from recs.ui.source_recorder import BufferStats, SourceFailure, SourceFile, SourceUpdate
+from test.conftest import DEVICES, DEVICES_FILE
 
 
 class DiskUsage(NamedTuple):
@@ -2018,8 +2018,7 @@ def test_control_request_rejects_immutable_cfg(
         gui_protocol.Error(
             type='error',
             message=(
-                'Immutable configuration attribute: '
-                'recording.memory_reserve_megabytes'
+                'Immutable configuration attribute: recording.memory_reserve_megabytes'
             ),
         )
     ]
