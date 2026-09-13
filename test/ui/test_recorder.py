@@ -523,7 +523,13 @@ def test_recorder_rejects_an_active_settings_writer(
         protocol_version=9,
         settings_path=rec.settings_path,
     )
-    monkeypatch.setattr(recorder.instances, 'settings_writer', lambda path: writer)
+    monkeypatch.setattr(
+        recorder.instances,
+        'claim_settings',
+        lambda path, identity: _raise_recs_error(
+            f'Recs PID {writer.identity.pid} is already saving {path}'
+        ),
+    )
 
     with pytest.raises(RecsError, match='Recs PID 999 is already saving'):
         rec.start()

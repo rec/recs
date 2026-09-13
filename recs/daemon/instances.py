@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 
@@ -44,6 +45,13 @@ class Target(BaseModel):
     control_endpoint: str
     event_endpoint: str
     identity: InstanceIdentity | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class SettingsClaim(BaseModel):
+    identity: InstanceIdentity
+    settings_path: str
 
     model_config = ConfigDict(frozen=True)
 
@@ -256,6 +264,52 @@ def settings_writer(path: str) -> InstanceDescriptor | None:
     )
 
 
+def claim_settings(
+    settings_path: str,
+    identity: InstanceIdentity,
+    home: Path | None = None,
+    platform: models.Platform | None = None,
+) -> Path:
+    path = _settings_claim_path(settings_path, home, platform)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    claim = SettingsClaim(identity=identity, settings_path=settings_path)
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        try:
+            existing = SettingsClaim.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            raise ValueError(
+                f'Cannot determine the owner of settings {settings_path}'
+            ) from None
+        if _process_exists(existing.identity.pid):
+            raise ValueError(
+                f'Recs PID {existing.identity.pid} is already saving {settings_path}'
+            ) from None
+        path.unlink()
+        return claim_settings(settings_path, identity, home, platform)
+    with os.fdopen(descriptor, 'w') as file:
+        file.write(claim.model_dump_json() + '\n')
+        file.flush()
+        os.fsync(file.fileno())
+    return path
+
+
+def release_settings(
+    settings_path: str,
+    identity: InstanceIdentity,
+    home: Path | None = None,
+    platform: models.Platform | None = None,
+) -> None:
+    path = _settings_claim_path(settings_path, home, platform)
+    try:
+        claim = SettingsClaim.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        return
+    if claim.identity == identity:
+        path.unlink(missing_ok=True)
+
+
 def source_users(
     source: str,
     identity: InstanceIdentity,
@@ -313,3 +367,22 @@ def _unavailable_instance(
 
 def _directory_name(identity: InstanceIdentity) -> str:
     return f'{identity.pid}-{identity.start_token}'
+
+
+def _settings_claim_path(
+    settings_path: str,
+    home: Path | None,
+    platform: models.Platform | None,
+) -> Path:
+    digest = sha256(settings_path.encode()).hexdigest()
+    return instances_directory(home, platform) / f'settings-{digest}.lock'
+
+
+def _process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
