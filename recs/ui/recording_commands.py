@@ -91,6 +91,7 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
         recording=recording_state(control).model_dump(exclude={'type'}),
         rows=control.rows(),
         session_directory=str(record_path.parent),
+        instance=control.instance,
     )
 
 

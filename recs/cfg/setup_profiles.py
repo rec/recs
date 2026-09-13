@@ -86,6 +86,7 @@ def configured(name: str, arguments: list[str]) -> settings.LoadedSettings:
         cfg=cfg,
         track_names=profile.track_names,
         tracks=profile.tracks,
+        profile=name,
     )
 
 

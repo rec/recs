@@ -20,7 +20,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
-from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.daemon import external_ipc, gui_ipc, gui_protocol, instances
 from recs.midi.recorder import MidiRecorder
 from recs.osc.recorder import OscRecorder
 
@@ -86,8 +86,21 @@ class Recorder(Runnables):
         self.session_directory = recording_paths.session_directory(
             self.cfg.directory.output_directory, self.session_start_time
         )
-        self.external = (
-            external_ipc.ExternalServer() if gui_ipc.daemon_mode_enabled() else None
+        self.instance = instances.new_identity(
+            'daemon' if gui_ipc.daemon_mode_enabled() else 'local',
+            saved_settings.profile,
+        )
+        self.external = external_ipc.ExternalServer(
+            control_path=(
+                None
+                if self.instance.role == 'daemon'
+                else instances.local_control_endpoint(self.instance)
+            ),
+            event_path=(
+                None
+                if self.instance.role == 'daemon'
+                else instances.local_event_endpoint(self.instance)
+            ),
         )
         if not display:
             self.live = None
@@ -157,6 +170,7 @@ class Recorder(Runnables):
             self._finish_record,
             self._card_replace,
             self._new_session,
+            self.instance,
         )
         self._playback = playback_control.PlaybackControl(
             lambda: Path(self.cfg.directory.output_directory),
@@ -260,15 +274,11 @@ class Recorder(Runnables):
         )
 
     def start(self) -> None:
-        if self.external is not None:
-            try:
-                self.external.start()
-            except OSError as e:
-                self.external.close()
-                self.external = None
-                self._record_warning(f'Cannot start external IPC server: {e}')
-                if isinstance(self.live, gui_ipc.DaemonGuiServer):
-                    self.live.external_ipc_error = str(e)
+        try:
+            self.external.start()
+        except OSError as e:
+            self.external.close()
+            raise RecsError(f'Cannot start Recs control server: {e}') from None
         super().start()
         Runnable.start(self)
 
@@ -327,8 +337,7 @@ class Recorder(Runnables):
                 print('Interrupted', file=sys.stderr)
             finally:
                 self._playback.stop()
-                if self.external is not None:
-                    self.external.close()
+                self.external.close()
                 self._receive_pending_updates()
                 self._finish_record()
                 if self.cfg.general.silence_preview:
