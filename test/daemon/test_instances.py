@@ -161,6 +161,19 @@ def test_resolve_reports_available_instances_when_selector_is_unavailable(
         raise AssertionError('selector was accepted')
 
 
+def test_settings_writer_finds_only_a_live_matching_destination(monkeypatch) -> None:
+    match = _descriptor('local', 100, 2).model_copy(
+        update={'settings_path': '/tmp/second-interface.json'}
+    )
+    other = _descriptor('local', 200, 3).model_copy(
+        update={'settings_path': '/tmp/other.json'}
+    )
+    monkeypatch.setattr(instances, 'discover', lambda: [other, match])
+
+    assert instances.settings_writer('/tmp/second-interface.json') == match
+    assert instances.settings_writer('/tmp/missing.json') is None
+
+
 def _descriptor(
     role: instances.InstanceRole,
     pid: int,

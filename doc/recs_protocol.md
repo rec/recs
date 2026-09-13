@@ -1,6 +1,6 @@
 # Recs protocol
 
-Recs exposes a local RPC API while its daemon is running. Clients can use it
+Recs exposes a local RPC API while a recorder is running. Clients can use it
 to inspect recording state, change mutable recording settings, configure
 tracks, add marks to the session record, play a finalized recorded-audio
 session, pause or resume recording, and shut down the daemon.
@@ -58,7 +58,15 @@ recs control stop
 recs control calibrate
 recs control card-replace
 recs control reload-profiles
+recs control instances
 ```
+
+By default, `recs control` and `recs watch` select the newest live foreground
+instance. When there is none, they use the daemon's established endpoint. Use
+`--daemon` to select the daemon, `--instance PID` for a specific instance, or
+`--instance -1`, `--instance -2`, and so on for foreground instances ordered
+newest first. Negative positions never include the daemon. `recs control
+instances` prints the verified live instances and sends no request.
 
 The subcommands map to the protocol as follows:
 
@@ -101,7 +109,24 @@ recs control set some.address '"3600"'
 control; MIDI and OSC continue while audio is paused. Waveform subscriptions
 are not one-request operations and are not exposed through `recs control`.
 
-## Endpoints
+## Instances and endpoints
+
+The established endpoints remain the daemon endpoints. Existing clients using
+`external_control_endpoint()` or `external_event_endpoint()` therefore continue
+to address the one daemon.
+
+An ordinary foreground recorder also starts a control and event server. Its
+unique endpoints and identity are published in an atomic descriptor under
+`~/.local/state/recs/instances/`; the descriptor disappears on orderly shutdown.
+Each descriptor has a PID, opaque start token, startup time, role, optional
+setup profile, selected sources, and endpoints. Discovery checks `capabilities`
+and accepts a descriptor only when the recorder reports the same PID and token.
+
+`capabilities_result` and `status_snapshot_result` both include an `instance`
+object with that identity. Request payloads remain unchanged: a client selects
+an endpoint before sending its request.
+
+## Daemon endpoints
 
 On macOS and Linux, Recs owns these Unix sockets:
 
@@ -135,7 +160,7 @@ the payload version.
 ## Commands
 
 The `capabilities` response is the authoritative list of commands supported by
-the running daemon. Commands in the following table that do not have a data
+the selected recorder. Commands in the following table that do not have a data
 response return the JSON string `"ok"`.
 
 | Command | Parameters | Success response |

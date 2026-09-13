@@ -86,6 +86,11 @@ recs profile delete x18-show
 Start with a saved setup using `recs --profile x18-show`. Install the daemon
 with the same setup using `recs daemon install --profile x18-show`.
 
+When a setup is started with saving enabled, mutable changes made through the
+protocol are stored in `~/.config/recs/profile-settings/NAME.json`. This overlay
+does not alter the setup definition or the daemon's unprofiled
+`~/.config/recs/settings.json` file.
+
 Per-device JSON profiles are separate from named recording setups. Pass them
 with `--profiles` to override settings such as the noise floor for a matching
 device:
@@ -115,7 +120,8 @@ recs daemon stop
 recs daemon uninstall
 ```
 
-Inspect and control a running daemon locally:
+Inspect and control the newest foreground recorder, or the daemon when no
+foreground recorder is running:
 
 ```console
 recs watch
@@ -125,6 +131,9 @@ recs control mark "solo starts"
 recs control pause
 recs control resume
 recs control card-replace
+recs control instances
+recs control --daemon status
+recs control --instance -1 pause
 ```
 
 The complete local RPC and event interface, including live waveforms and the
