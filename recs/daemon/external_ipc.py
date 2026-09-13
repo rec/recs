@@ -46,6 +46,9 @@ class ExternalServer(Reccy):
     service_spec = RECS_SERVICE
     rpc_enabled = True
 
+    control_path: Path | str | None = None
+    event_path: Path | str | None = None
+
     _requests: list[ControlRequest] = PrivateAttr(default_factory=list)
     _pending: list[ControlRequest] = PrivateAttr(default_factory=list)
     _lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
@@ -60,10 +63,14 @@ class ExternalServer(Reccy):
 
     @property
     def control_endpoint(self) -> Path | str:
+        if self.control_path is not None:
+            return self.control_path
         return paths.external_control_endpoint(self.home, self.platform)
 
     @property
     def event_endpoint(self) -> Path | str:
+        if self.event_path is not None:
+            return self.event_path
         return paths.external_event_endpoint(self.home, self.platform)
 
     def start(self) -> None:

@@ -6,6 +6,8 @@ from reccy.protocol import ipc
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 
+from .instances import InstanceIdentity
+
 VERSION = 9
 
 
@@ -180,6 +182,7 @@ class CapabilitiesResult(BaseModel):
     type: Literal['capabilities_result']
     commands: list[str]
     version: int
+    instance: InstanceIdentity
 
 
 class CfgSet(BaseModel):
@@ -278,6 +281,7 @@ class StatusSnapshot(BaseModel):
     recording: dict[str, bool]
     rows: list[dict[str, object]]
     session_directory: str
+    instance: InstanceIdentity
 
 
 class TrackNames(BaseModel):

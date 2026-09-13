@@ -30,6 +30,7 @@ class LoadedSettings(BaseModel):
     cfg: Cfg
     track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[TrackSettings]] = Field(default_factory=dict)
+    profile: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
