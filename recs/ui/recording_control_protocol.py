@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
 from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.daemon.instances import InstanceIdentity
 
 
 class ControlDisplay(Protocol):
@@ -14,6 +15,7 @@ class ControlDisplay(Protocol):
 
 class RecordingControlTarget(Protocol):
     cfg: Cfg
+    instance: InstanceIdentity
     shutdown_started: bool
     track_names: dict[str, dict[str, int]]
 
@@ -141,6 +143,7 @@ class RecordingControlProtocol:
                 type='capabilities_result',
                 commands=gui_protocol.API_COMMANDS,
                 version=gui_protocol.VERSION,
+                instance=self.control.instance,
             )
         if isinstance(request, gui_protocol.DiskStatusRequest):
             return self.control.disk_status()

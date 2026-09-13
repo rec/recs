@@ -10,6 +10,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
+from recs.daemon.instances import InstanceIdentity
 
 from . import (
     disk_space,
@@ -55,6 +56,7 @@ class RecordingControl:
         finish_record: Callable[[], None],
         card_replace: Callable[[], gui_protocol.CardReplaceStarted],
         new_session: Callable[[], gui_protocol.NewSessionStarted],
+        instance: InstanceIdentity,
     ) -> None:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
@@ -74,6 +76,7 @@ class RecordingControl:
         self.finish_record = finish_record
         self.card_replace_callback = card_replace
         self.new_session_callback = new_session
+        self.instance = instance
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
         self.playback: PlaybackControl | None = None
         self.runtime_state = RecordingRuntimeState()

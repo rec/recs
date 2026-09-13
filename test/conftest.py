@@ -57,6 +57,13 @@ def mock_midi_devices(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mido, 'open_input', lambda name: FakeMidiPort())
 
 
+@pytest.fixture(autouse=True)
+def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = Path('/tmp') / f'recs-{tmp_path.name[-8:]}'
+    home.mkdir(exist_ok=True)
+    monkeypatch.setenv('HOME', str(home))
+
+
 @pytest.fixture
 def mock_mp(monkeypatch):
     monkeypatch.setattr(connection, 'wait', wait)

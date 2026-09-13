@@ -15,7 +15,7 @@ from recs.base.state import ChannelState
 from recs.cfg import device, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
-from recs.daemon import external_ipc, gui_ipc, gui_protocol
+from recs.daemon import external_ipc, gui_protocol
 from recs.ui import (
     disk_space,
     disk_space_controller,
@@ -477,7 +477,7 @@ def test_daemon_mode_uses_gui_server_instead_of_local_gui(
     assert isinstance(rec.live, DaemonDisplay)
 
 
-def test_external_ipc_start_failure_keeps_recorder_usable(
+def test_external_ipc_start_failure_stops_recorder_before_devices_open(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
 ) -> None:
@@ -499,13 +499,10 @@ def test_external_ipc_start_failure_keeps_recorder_usable(
     external = BrokenExternal()
     rec.external = external
 
-    rec.start()
+    with pytest.raises(RecsError, match='Cannot start Recs control server'):
+        rec.start()
 
     assert external.closed
-    assert rec.external is None
-    assert rec.error_messages() == ['Cannot start external IPC server: address in use']
-    assert isinstance(rec.live, gui_ipc.DaemonGuiServer)
-    assert rec.live.external_ipc_error == 'address in use'
 
 
 def test_external_control_requests_use_recorder_handler(
@@ -1540,6 +1537,7 @@ def test_control_request_reports_capabilities(
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
     assert response.version == 9
+    assert response.instance == rec.instance
     assert 'status_snapshot' in response.commands
     assert 'subscribe_waveforms' in response.commands
     assert 'unsubscribe_waveforms' in response.commands
