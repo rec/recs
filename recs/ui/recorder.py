@@ -67,6 +67,7 @@ class Recorder(Runnables):
         all_tracks = device_lifecycle.DeviceLifecycle.initial_tracks(
             cfg, self.saved_tracks
         )
+        self._instance_sources = sorted(source.name for source, _ in all_tracks)
         self.warnings: list[ErrorRecord] = []
         self._warning_indexes: dict[str, int] = {}
         self._recorded_warning_counts: dict[str, int] = {}
@@ -276,6 +277,15 @@ class Recorder(Runnables):
     def start(self) -> None:
         try:
             self.external.start()
+            self._instance_descriptor_path = instances.publish(
+                instances.InstanceDescriptor(
+                    identity=self.instance,
+                    control_endpoint=str(self.external.control_endpoint),
+                    event_endpoint=str(self.external.event_endpoint),
+                    protocol_version=gui_protocol.VERSION,
+                    sources=self._instance_sources,
+                )
+            )
         except OSError as e:
             self.external.close()
             raise RecsError(f'Cannot start Recs control server: {e}') from None
@@ -338,6 +348,7 @@ class Recorder(Runnables):
             finally:
                 self._playback.stop()
                 self.external.close()
+                instances.remove(self.instance)
                 self._receive_pending_updates()
                 self._finish_record()
                 if self.cfg.general.silence_preview:
