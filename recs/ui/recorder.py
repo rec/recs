@@ -91,6 +91,11 @@ class Recorder(Runnables):
             'daemon' if gui_ipc.daemon_mode_enabled() else 'local',
             saved_settings.profile,
         )
+        self.settings_path = (
+            str(settings.mutable_settings_path(saved_settings.profile))
+            if self.cfg.save_settings
+            else None
+        )
         self.external = external_ipc.ExternalServer(
             control_path=(
                 None
@@ -276,6 +281,12 @@ class Recorder(Runnables):
         )
 
     def start(self) -> None:
+        if self.settings_path is not None:
+            if writer := instances.settings_writer(self.settings_path):
+                raise RecsError(
+                    f'Recs PID {writer.identity.pid} is already saving '
+                    f'{self.settings_path}'
+                )
         try:
             self.external.start()
             instances.publish(
@@ -285,6 +296,7 @@ class Recorder(Runnables):
                     event_endpoint=str(self.external.event_endpoint),
                     protocol_version=gui_protocol.VERSION,
                     sources=self._instance_sources,
+                    settings_path=self.settings_path,
                 )
             )
         except OSError as e:
