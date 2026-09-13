@@ -11,11 +11,9 @@ from recs.cfg.cfg import Cfg
 
 
 class Listener(Protocol):
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def stop(self) -> None:
-        ...
+    def stop(self) -> None: ...
 
 
 class KeyEvent(BaseModel):

@@ -1,9 +1,9 @@
 import importlib
 import json
 import subprocess as sp
+import tomllib
 
 import pytest
-import tomllib
 import tyro
 from ufor.encoding import Format, Subtype
 

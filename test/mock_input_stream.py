@@ -1,5 +1,4 @@
 import random
-from test.conftest import BLOCK_SIZE, SLEEP_TIME
 from types import SimpleNamespace
 
 import numpy as np
@@ -7,6 +6,7 @@ import sounddevice
 from threa import HasThread
 
 from recs.base import times
+from test.conftest import BLOCK_SIZE, SLEEP_TIME
 
 AMPLITUDE = 1 / 16
 

@@ -1,11 +1,10 @@
-from test.conftest import DEVICES, TIME, TIMESTAMP
-
 import pytest
 
 from recs.base.errors import RecsError
 from recs.cfg import device
 from recs.cfg.cfg import Cfg
 from recs.cfg.path_pattern import PathPattern
+from test.conftest import DEVICES, TIME, TIMESTAMP
 
 
 def test_empty(mock_devices):

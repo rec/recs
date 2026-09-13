@@ -125,7 +125,7 @@ def _no_file_explanations(
             Explanation(
                 reason='files started but did not finish',
                 evidence=(
-                    'record has file_started records without ' 'file_finished records'
+                    'record has file_started records without file_finished records'
                 ),
             )
         ]

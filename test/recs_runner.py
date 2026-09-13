@@ -3,8 +3,6 @@ from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
-from test.conftest import BLOCK_SIZE, TIMESTAMP
-from test.mock_input_stream import InputStreamReporter
 from types import SimpleNamespace
 from typing import cast
 
@@ -18,6 +16,8 @@ from ufor.encoding import Format
 from recs.base import times
 from recs.cfg import run_cli
 from recs.cfg.cfg import Cfg
+from test.conftest import BLOCK_SIZE, TIMESTAMP
+from test.mock_input_stream import InputStreamReporter
 
 DEVICE_OFFSET = 0.000_0237
 TRIES = 100

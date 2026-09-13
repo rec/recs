@@ -174,7 +174,7 @@ def complete_or_generate_tracks(
         if options.subtype is not None:
             destination['subtype'] = options.subtype
         destination['path'] = str(
-            Path(str(destination['path'])).with_suffix(f".{destination['format']}")
+            Path(str(destination['path'])).with_suffix(f'.{destination["format"]}')
         )
         resolved_destinations.append(destination)
     document['destinations'] = resolved_destinations

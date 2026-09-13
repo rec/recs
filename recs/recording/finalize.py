@@ -402,7 +402,7 @@ def recorded_gaps(
         }
     )
     gaps: list[Gap] = []
-    for start, finish in zip(boundaries, boundaries[1:]):
+    for start, finish in zip(boundaries, boundaries[1:], strict=False):
         if any(f.start <= start < f.start + f.count for f in fragments):
             continue
         reasons = {g.reason for g in known if g.start <= start < g.end}
