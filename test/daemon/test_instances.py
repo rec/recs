@@ -104,3 +104,76 @@ def test_discover_accepts_only_the_instance_described_by_its_endpoint(
             return {'instance': live.identity.model_dump()}
 
     assert instances.discover(tmp_path, client=Client) == [live]
+
+
+def test_selector_arguments_reject_zero_and_conflicting_targets() -> None:
+    assert instances.selector_arguments(['--instance', '-2', 'pause']) == (
+        instances.Selector(instance=-2),
+        ['pause'],
+    )
+
+    for arguments, message in [
+        (['--instance', '0', 'pause'], 'cannot be zero'),
+        (['--daemon', '--instance', '1', 'pause'], 'cannot be used together'),
+    ]:
+        try:
+            instances.selector_arguments(arguments)
+        except ValueError as error:
+            assert message in str(error)
+        else:
+            raise AssertionError('selector was accepted')
+
+
+def test_resolve_prefers_newest_local_and_uses_daemon_as_fallback(
+    monkeypatch,
+) -> None:
+    daemon = _descriptor('daemon', 300, 1)
+    older = _descriptor('local', 100, 2)
+    newest = _descriptor('local', 200, 3)
+    monkeypatch.setattr(instances, 'discover', lambda: [newest, older, daemon])
+    monkeypatch.setattr(instances, 'external_control_endpoint', lambda: '/tmp/daemon')
+    monkeypatch.setattr(instances, 'external_event_endpoint', lambda: '/tmp/events')
+
+    assert instances.resolve(instances.Selector()).identity == newest.identity
+    assert instances.resolve(instances.Selector(instance=-2)).identity == older.identity
+    assert (
+        instances.resolve(instances.Selector(instance=300)).identity == daemon.identity
+    )
+    assert (
+        instances.resolve(instances.Selector(daemon=True)).control_endpoint
+        == '/tmp/daemon'
+    )
+
+
+def test_resolve_reports_available_instances_when_selector_is_unavailable(
+    monkeypatch,
+) -> None:
+    descriptor = _descriptor('local', 100, 2)
+    monkeypatch.setattr(instances, 'discover', lambda: [descriptor])
+
+    try:
+        instances.resolve(instances.Selector(instance=-2))
+    except ValueError as error:
+        assert str(error) == (
+            'Recs instance -2 is unavailable. Live instances: local PID 100'
+        )
+    else:
+        raise AssertionError('selector was accepted')
+
+
+def _descriptor(
+    role: instances.InstanceRole,
+    pid: int,
+    started_at: int,
+) -> instances.InstanceDescriptor:
+    return instances.InstanceDescriptor(
+        identity=instances.InstanceIdentity(
+            pid=pid,
+            start_token=f'token-{pid}',
+            started_at=started_at,
+            role=role,
+        ),
+        control_endpoint=f'/tmp/{pid}.sock',
+        event_endpoint=f'/tmp/{pid}-events.sock',
+        protocol_version=9,
+    )
