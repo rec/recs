@@ -26,6 +26,7 @@ def test_setup_profile_round_trip_and_cli_overrides(
     assert loaded.cfg.directory.output_directory == 'other'
     assert loaded.track_names == {'Mic': {'Voice': 1}}
     assert loaded.tracks == {'Mic': [settings.TrackSettings(channels=[1, 2])]}
+    assert loaded.profile == 'show'
 
 
 def test_setup_profile_refuses_replacement_and_invalid_names(

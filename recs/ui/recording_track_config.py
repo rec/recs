@@ -249,7 +249,12 @@ def set_cfg_value(
 def save_settings(control: 'RecordingControl') -> None:
     if control.cfg.save_settings:
         try:
-            settings.save(control.cfg, control.track_names, control.saved_tracks)
+            settings.save(
+                control.cfg,
+                control.track_names,
+                control.saved_tracks,
+                profile=control.settings_profile,
+            )
         except RecsError as e:
             control.write_entry(
                 WarningRecord(
