@@ -703,6 +703,20 @@ class Recorder(Runnables):
 
     def _receive_source_message(self, message: SourceUpdate | SourceFailure) -> None:
         self._devices.receive_message(message)
+        if isinstance(message, SourceFailure) and message.device_unavailable:
+            for descriptor in instances.source_users(
+                message.source_name, self.instance
+            ):
+                profile = (
+                    f' with profile {descriptor.identity.profile!r}'
+                    if descriptor.identity.profile is not None
+                    else ''
+                )
+                self._record_warning(
+                    f'Device {message.source_name} is also selected by Recs '
+                    f'PID {descriptor.identity.pid} ({descriptor.identity.role})'
+                    f'{profile}'
+                )
 
     def _receive_update(self, update: SourceUpdate) -> None:
         self._devices.receive_message(update)

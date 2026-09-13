@@ -256,6 +256,17 @@ def settings_writer(path: str) -> InstanceDescriptor | None:
     )
 
 
+def source_users(
+    source: str,
+    identity: InstanceIdentity,
+) -> list[InstanceDescriptor]:
+    return [
+        descriptor
+        for descriptor in discover()
+        if descriptor.identity != identity and source in descriptor.sources
+    ]
+
+
 def external_control_endpoint() -> Path | str:
     from . import paths
 

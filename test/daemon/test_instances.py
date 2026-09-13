@@ -174,6 +174,14 @@ def test_settings_writer_finds_only_a_live_matching_destination(monkeypatch) -> 
     assert instances.settings_writer('/tmp/missing.json') is None
 
 
+def test_source_users_excludes_the_current_instance(monkeypatch) -> None:
+    current = _descriptor('local', 100, 2)
+    other = _descriptor('daemon', 200, 3).model_copy(update={'sources': ['Mic']})
+    monkeypatch.setattr(instances, 'discover', lambda: [current, other])
+
+    assert instances.source_users('Mic', current.identity) == [other]
+
+
 def _descriptor(
     role: instances.InstanceRole,
     pid: int,
