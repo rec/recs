@@ -334,14 +334,7 @@ def _run_source_recorder(
         recorder.run()
     except Exception as e:
         source_name = tracks[0].source.key
-        transport.publish(
-            source_recorder.SourceFailure(
-                message=f'{type(e).__name__}: {e}',
-                source_name=source_name,
-                exception_type=type(e).__name__,
-                stop_kind='crash',
-            )
-        )
+        transport.publish(_source_failure(e, source_name))
     finally:
         transport.finish()
 
@@ -351,6 +344,52 @@ def _connection_ready(conn: connection.Connection) -> bool:
         return conn.poll()
     except OSError:
         return False
+
+
+def _source_failure(
+    error: Exception, source_name: str
+) -> source_recorder.SourceFailure:
+    import sounddevice
+
+    message = f'{type(error).__name__}: {error}'
+    if not isinstance(error, sounddevice.PortAudioError):
+        return source_recorder.SourceFailure(
+            message=message,
+            source_name=source_name,
+            exception_type=type(error).__name__,
+            stop_kind='crash',
+        )
+
+    portaudio_code = error.args[1] if len(error.args) >= 2 else None
+    host_api = None
+    host_error_code = None
+    host_error_message = None
+    if len(error.args) >= 3:
+        host_index, host_error_code, host_error_message = error.args[2]
+        try:
+            host_api = str(sounddevice.query_hostapis(host_index)['name'])
+        except (IndexError, KeyError, sounddevice.PortAudioError):
+            pass
+    unavailable = portaudio_code == -9985 or any(
+        phrase in str(error).lower()
+        for phrase in ('device unavailable', 'device or resource busy', 'in use')
+    )
+    if unavailable:
+        message += (
+            '. The audio device may already be in use by another Recs instance '
+            'or application'
+        )
+    return source_recorder.SourceFailure(
+        message=message,
+        source_name=source_name,
+        exception_type=type(error).__name__,
+        stop_kind='crash',
+        portaudio_code=portaudio_code,
+        host_api=host_api,
+        host_error_code=host_error_code,
+        host_error_message=host_error_message,
+        device_unavailable=unavailable,
+    )
 
 
 def _source_process_name(source_name: str) -> str:
