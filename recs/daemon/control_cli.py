@@ -7,7 +7,7 @@ import tyro
 from pydantic import BaseModel, ValidationError
 from reccy.protocol import rpc
 
-from . import paths
+from . import instances
 
 
 class ControlCommand(BaseModel, frozen=True):
@@ -101,22 +101,37 @@ class ReloadProfiles(ControlCommand):
 
 
 def main(argv: list[str]) -> int:
+    try:
+        selector, arguments = instances.selector_arguments(argv)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    if arguments == ['instances']:
+        if selector != instances.Selector():
+            print(
+                'recs control instances does not accept a target selector',
+                file=sys.stderr,
+            )
+            return 1
+        print(json.dumps(instances.list_instances(), separators=(',', ':')))
+        return 0
     command = tyro.extras.subcommand_cli_from_dict(
         COMMANDS,
-        args=argv,
+        args=arguments,
         prog='recs control',
-        description='Send one command to the running Recs daemon.',
+        description='Send one command to a running Recs instance.',
     )
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
     try:
+        target = instances.resolve(selector)
         result = rpc.Client(
-            paths.external_control_endpoint(),
+            target.control_endpoint,
             role='recs-control',
             timeout=6,
         ).call(command.rpc_command, **params)
-    except (OSError, ValidationError) as error:
+    except (OSError, TimeoutError, ValidationError, ValueError) as error:
         print(str(error) or type(error).__name__, file=sys.stderr)
         return 1
     print(json.dumps(result, separators=(',', ':')))

@@ -33,6 +33,21 @@ class InstanceDescriptor(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class Selector(BaseModel):
+    daemon: bool = False
+    instance: int | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class Target(BaseModel):
+    control_endpoint: str
+    event_endpoint: str
+    identity: InstanceIdentity | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
 def new_identity(role: InstanceRole, profile: str | None = None) -> InstanceIdentity:
     return InstanceIdentity(
         pid=os.getpid(),
@@ -133,6 +148,149 @@ def discover(
         ),
         reverse=True,
     )
+
+
+def selector_arguments(arguments: list[str]) -> tuple[Selector, list[str]]:
+    daemon = False
+    instance: int | None = None
+    remaining: list[str] = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == '--daemon':
+            if daemon:
+                raise ValueError('--daemon may only be specified once')
+            daemon = True
+        elif argument == '--instance':
+            if instance is not None or index + 1 == len(arguments):
+                raise ValueError('--instance requires exactly one PID or position')
+            index += 1
+            instance = _instance_selector(arguments[index])
+        elif argument.startswith('--instance='):
+            if instance is not None:
+                raise ValueError('--instance requires exactly one PID or position')
+            instance = _instance_selector(argument.split('=', 1)[1])
+        else:
+            remaining.append(argument)
+        index += 1
+    if daemon and instance is not None:
+        raise ValueError('--daemon and --instance cannot be used together')
+    return Selector(daemon=daemon, instance=instance), remaining
+
+
+def resolve(selector: Selector) -> Target:
+    if selector.daemon:
+        return Target(
+            control_endpoint=str(external_control_endpoint()),
+            event_endpoint=str(external_event_endpoint()),
+        )
+    descriptors = discover()
+    if selector.instance is None:
+        if local := next(
+            (
+                descriptor
+                for descriptor in descriptors
+                if descriptor.identity.role == 'local'
+            ),
+            None,
+        ):
+            return _target(local)
+        return Target(
+            control_endpoint=str(external_control_endpoint()),
+            event_endpoint=str(external_event_endpoint()),
+        )
+    if selector.instance > 0:
+        if selected := next(
+            (
+                descriptor
+                for descriptor in descriptors
+                if descriptor.identity.pid == selector.instance
+            ),
+            None,
+        ):
+            return _target(selected)
+        raise ValueError(_unavailable_instance(selector.instance, descriptors))
+    local = [
+        descriptor for descriptor in descriptors if descriptor.identity.role == 'local'
+    ]
+    position = -selector.instance
+    if position <= len(local):
+        return _target(local[position - 1])
+    raise ValueError(_unavailable_instance(selector.instance, descriptors))
+
+
+def list_instances() -> list[dict[str, object]]:
+    descriptors = discover()
+    default = next(
+        (
+            descriptor
+            for descriptor in descriptors
+            if descriptor.identity.role == 'local'
+        ),
+        next(
+            (
+                descriptor
+                for descriptor in descriptors
+                if descriptor.identity.role == 'daemon'
+            ),
+            None,
+        ),
+    )
+    return [
+        {
+            'pid': descriptor.identity.pid,
+            'role': descriptor.identity.role,
+            'profile': descriptor.identity.profile,
+            'started_at': descriptor.identity.started_at,
+            'sources': descriptor.sources,
+            'default': descriptor == default,
+        }
+        for descriptor in descriptors
+    ]
+
+
+def external_control_endpoint() -> Path | str:
+    from . import paths
+
+    return paths.external_control_endpoint()
+
+
+def external_event_endpoint() -> Path | str:
+    from . import paths
+
+    return paths.external_event_endpoint()
+
+
+def _instance_selector(value: str) -> int:
+    try:
+        instance = int(value)
+    except ValueError:
+        raise ValueError('--instance must be a PID or negative position') from None
+    if instance == 0:
+        raise ValueError('--instance cannot be zero')
+    return instance
+
+
+def _target(descriptor: InstanceDescriptor) -> Target:
+    return Target(
+        control_endpoint=descriptor.control_endpoint,
+        event_endpoint=descriptor.event_endpoint,
+        identity=descriptor.identity,
+    )
+
+
+def _unavailable_instance(
+    selector: int,
+    descriptors: list[InstanceDescriptor],
+) -> str:
+    if descriptors:
+        available = ', '.join(
+            f'{descriptor.identity.role} PID {descriptor.identity.pid}'
+            for descriptor in descriptors
+        )
+    else:
+        available = 'none'
+    return f'Recs instance {selector} is unavailable. Live instances: {available}'
 
 
 def _directory_name(identity: InstanceIdentity) -> str:
