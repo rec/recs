@@ -77,7 +77,7 @@ def test_control_commands_send_one_rpc_request(
 ) -> None:
     monkeypatch.setattr(control_cli.rpc, 'Client', FakeClient)
     monkeypatch.setattr(
-        control_cli.paths, 'external_control_endpoint', lambda: '/tmp/recs.sock'
+        control_cli.instances, 'external_control_endpoint', lambda: '/tmp/recs.sock'
     )
 
     assert control_cli.main(arguments) == 0
@@ -130,6 +130,38 @@ def test_control_prints_json_result(
     assert control_cli.main(['get', 'recording.longest_file_time']) == 0
 
     assert capsys.readouterr().out == '{"type":"cfg_value","value":3600.0}\n'
+
+
+def test_control_can_target_a_specific_local_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(control_cli.rpc, 'Client', FakeClient)
+    target = control_cli.instances.Target(
+        control_endpoint='/tmp/local.sock',
+        event_endpoint='/tmp/local-events.sock',
+    )
+    monkeypatch.setattr(control_cli.instances, 'resolve', lambda selector: target)
+
+    assert control_cli.main(['--instance', '43120', 'pause']) == 0
+
+    assert FakeClient.clients[0].endpoint == '/tmp/local.sock'
+    assert FakeClient.clients[0].calls == [('pause_recording', {})]
+
+
+def test_control_instances_prints_discovery_without_request(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        control_cli.instances,
+        'list_instances',
+        lambda: [{'pid': 43120, 'role': 'local', 'default': True}],
+    )
+
+    assert control_cli.main(['instances']) == 0
+
+    assert capsys.readouterr().out == '[{"pid":43120,"role":"local","default":true}]\n'
+    assert FakeClient.clients == []
 
 
 def test_control_reports_rpc_failure(

@@ -3,6 +3,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Annotated, Protocol, cast
 
 import tyro
@@ -16,7 +17,7 @@ from rich.table import Table
 
 from recs.ui import presentation
 
-from . import paths
+from . import instances, paths
 
 
 class Watch(BaseModel, frozen=True):
@@ -95,17 +96,19 @@ def watch(
     command: Watch,
     event_client: Callable[..., EventConnection] = rpc.EventClient,
     control_client: Callable[..., ControlConnection] = rpc.Client,
+    event_endpoint: Path | str | None = None,
+    control_endpoint: Path | str | None = None,
 ) -> int:
     watcher = StatusWatcher(command.json_output)
     events = event_client(
-        paths.external_event_endpoint(),
+        event_endpoint or paths.external_event_endpoint(),
         watcher.receive,
         role='recs-watch',
     )
     try:
         events.start()
         result = control_client(
-            paths.external_control_endpoint(),
+            control_endpoint or paths.external_control_endpoint(),
             role='recs-watch',
         ).call('status_snapshot')
         if not isinstance(result, dict):
@@ -128,13 +131,21 @@ def watch(
 
 
 def main(argv: list[str]) -> int:
+    try:
+        selector, arguments = instances.selector_arguments(argv)
+        target = instances.resolve(selector)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
     return watch(
         tyro.cli(
             Watch,
-            args=argv,
+            args=arguments,
             prog='recs watch',
-            description='Watch the running Recs daemon.',
-        )
+            description='Watch a running Recs instance.',
+        ),
+        event_endpoint=target.event_endpoint,
+        control_endpoint=target.control_endpoint,
     )
 
 

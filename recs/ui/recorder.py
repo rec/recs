@@ -277,7 +277,7 @@ class Recorder(Runnables):
     def start(self) -> None:
         try:
             self.external.start()
-            self._instance_descriptor_path = instances.publish(
+            instances.publish(
                 instances.InstanceDescriptor(
                     identity=self.instance,
                     control_endpoint=str(self.external.control_endpoint),
