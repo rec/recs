@@ -165,7 +165,7 @@ def resolve_input(
                 asset_start=span.asset_start,
             )
         )
-    if any(a.end > b.start for a, b in zip(fragments, fragments[1:])):
+    if any(a.end > b.start for a, b in zip(fragments, fragments[1:], strict=False)):
         raise RecsError(
             f'Source {source.name}: overlapping source ranges across recordings'
         )

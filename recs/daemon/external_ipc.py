@@ -3,12 +3,10 @@ from __future__ import annotations
 import threading
 from collections import deque
 from pathlib import Path
-from typing import ClassVar
 
 from pydantic import PrivateAttr, TypeAdapter
 from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy
-from reccy.services import models
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.waveform import WaveformBatchData, WaveformLayoutData
@@ -44,11 +42,9 @@ class ControlRequest:
 
 
 class ExternalServer(Reccy):
-    name: ClassVar[str] = 'recs'
-    service_spec: ClassVar[models.ServiceSpec] = RECS_SERVICE
+    name = 'recs'
+    service_spec = RECS_SERVICE
     rpc_enabled = True
-    rpc_role = 'recs'
-    logger_name = __name__
 
     _requests: list[ControlRequest] = PrivateAttr(default_factory=list)
     _pending: list[ControlRequest] = PrivateAttr(default_factory=list)

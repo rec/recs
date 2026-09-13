@@ -24,16 +24,13 @@ class Watch(BaseModel, frozen=True):
 
 
 class EventConnection(Protocol):
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
 
 class ControlConnection(Protocol):
-    def call(self, command: str) -> str | dict[str, object]:
-        ...
+    def call(self, command: str) -> str | dict[str, object]: ...
 
 
 class StatusWatcher:
@@ -147,7 +144,7 @@ def _summary(status: dict[str, object], snapshot_time: float) -> Panel:
         cast(dict[str, object], recording) if isinstance(recording, dict) else {}
     )
     paused = recording_data.get('paused')
-    values = [f"recording: {'paused' if paused else 'active'}"]
+    values = [f'recording: {"paused" if paused else "active"}']
     if session := status.get('session_directory'):
         values.append(f'session: {session}')
     if isinstance(disk := status.get('disk'), dict):
@@ -170,6 +167,6 @@ def _errors(status: dict[str, object]) -> Panel:
                 continue
             error_data = cast(dict[str, object], error)
             if message := error_data.get('message'):
-                suffix = f": {error_data['value']}" if 'value' in error_data else ''
+                suffix = f': {error_data["value"]}' if 'value' in error_data else ''
                 messages.append(f'{message}{suffix}')
     return Panel('\n'.join(messages) or 'None', title='Warnings')

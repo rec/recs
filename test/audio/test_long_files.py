@@ -1,5 +1,4 @@
 import os
-from test.audio.test_channel_writer import TIMES
 
 import numpy as np
 import tdir
@@ -11,6 +10,7 @@ from recs.audio.file_opener import FileOpener
 from recs.base.types import SdType
 from recs.cfg.cfg import Cfg
 from recs.cfg.time_settings import TimeSettings
+from test.audio.test_channel_writer import TIMES
 
 SAMPLERATE = 44_100
 SHRINK = 256

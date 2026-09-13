@@ -248,7 +248,7 @@ def test_resolved_composition_flattens_inherited_recipes(
         'extends = "base"\n[_command]\nhelp = "derived"\n'
     )
     value = parse_composition(
-        'schema_version = 1\nkind = "composition"\n' '[[edits]]\ncommand = "derived"\n'
+        'schema_version = 1\nkind = "composition"\n[[edits]]\ncommand = "derived"\n'
     )
 
     resolved = resolve_composition(value, tmp_path)

@@ -1,5 +1,4 @@
 from pathlib import Path
-from test.conftest import DEVICES_FILE
 
 import pytest
 from pydantic import ValidationError
@@ -7,6 +6,7 @@ from pydantic import ValidationError
 from recs.base.types import MidiTiming, RecordKeys
 from recs.cfg import cfg
 from recs.cfg.cfg import Cfg
+from test.conftest import DEVICES_FILE
 
 
 def test_sdtype(mock_devices):

@@ -1,5 +1,3 @@
-from test.conftest import DEVICES
-
 import pytest
 
 from recs.base.errors import RecsError
@@ -11,6 +9,7 @@ from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
 from recs.ui import recording_track_config
 from recs.ui.session_record import Record
+from test.conftest import DEVICES
 
 
 class FakeSourceProcess:

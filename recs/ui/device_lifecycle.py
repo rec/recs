@@ -394,9 +394,9 @@ class DeviceLifecycle:
             reported = self.buffer_drops_reported[update.source_name]
             if update.buffer_stats.dropped_frames > reported:
                 self.buffer_update(update.source_name, update.buffer_stats)
-                self.buffer_drops_reported[
-                    update.source_name
-                ] = update.buffer_stats.dropped_frames
+                self.buffer_drops_reported[update.source_name] = (
+                    update.buffer_stats.dropped_frames
+                )
             pressure = self.buffer_pressure_reported[update.source_name]
             threshold = self.cfg.recording.audio_buffer_seconds * 0.8
             if (
@@ -404,9 +404,9 @@ class DeviceLifecycle:
                 and update.buffer_stats.max_queued_seconds >= threshold
             ):
                 self.buffer_update(update.source_name, update.buffer_stats)
-                self.buffer_pressure_reported[
-                    update.source_name
-                ] = update.buffer_stats.max_queued_seconds
+                self.buffer_pressure_reported[update.source_name] = (
+                    update.buffer_stats.max_queued_seconds
+                )
         for warning in update.buffer_warnings or []:
             self.warning(warning)
 
