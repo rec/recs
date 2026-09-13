@@ -172,6 +172,7 @@ class Recorder(Runnables):
             self._card_replace,
             self._new_session,
             self.instance,
+            saved_settings.profile,
         )
         self._playback = playback_control.PlaybackControl(
             lambda: Path(self.cfg.directory.output_directory),
