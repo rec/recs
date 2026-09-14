@@ -44,15 +44,6 @@ and memory use:
 
 The format must not leave voice stealing to player-specific defaults.
 
-## Named Slot Groups
-
-Add one non-nested grouping level for sharing selection and sound settings
-without repeating them in every slot. Define precedence and processing order
-across instrument, group, and slot values.
-
-Groups must remain distinct from alternative-selection sets, choke groups, and
-articulations even when the same slots participate in several of them.
-
 ## Synchronized Microphone Layers And Routing
 
 Represent close, room, and ambient captures that trigger together while keeping
@@ -99,7 +90,7 @@ remain outside this plan.
 1. Envelope/LFO design and Tuney definition extraction under master stage 3.
 2. A small instrument/performance contract with language-neutral examples.
 3. Voice limits and retriggering where needed by that retained contract.
-4. Groups and synchronized microphone layers if retained; named slices are implemented.
+4. Synchronized microphone layers if retained; named slices and slot groups are implemented.
 5. Reproducible variation and filters as separately settled extensions.
 
 No step above authorizes sampler waveform generation. Choose its language,
