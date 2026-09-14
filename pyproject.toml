@@ -20,7 +20,7 @@ dependencies = [
     "reccy",
     "mido[ports-rtmidi]>=1.3.3",
     "tomlkit>=0.15.1",
-    "ufor @ https://github.com/rec/ufor/archive/44ac375645132c6adfc80baa6a061f97896161a7.tar.gz",
+    "ufor @ https://github.com/rec/ufor/archive/5f6f1df9cec42890f31044e90a363f8ed1920eb3.tar.gz",
 ]
 
 [project.scripts]

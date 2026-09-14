@@ -111,6 +111,7 @@ outputs:
     timebase: clock-c160dbc57a502291
     unit: full_scale
 parameters: []
+tags: []
 timebases:
 - kind: physical
   name: clock-c160dbc57a502291
