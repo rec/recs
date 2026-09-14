@@ -30,6 +30,8 @@ def pause_recording(
     reason: str,
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
+    if control.recording_paused:
+        return recording_state(control, was_paused=True)
     control.recording_paused = True
     control.devices.stop_hardware()
     control.devices.join_hardware()
@@ -44,7 +46,7 @@ def pause_recording(
             free_bytes=disk.free_bytes if disk else None,
         )
     )
-    return recording_state(control)
+    return recording_state(control, was_paused=False)
 
 
 def resume_recording(
@@ -88,7 +90,7 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
         midi=control.midi_status(),
         osc=control.osc_status(),
         playback=control.playback_state().model_dump(exclude={'type'}),
-        recording=recording_state(control).model_dump(exclude={'type'}),
+        recording=recording_state(control).model_dump(exclude={'type', 'was_paused'}),
         rows=control.rows(),
         session_directory=str(record_path.parent),
         instance=control.instance,
@@ -142,8 +144,11 @@ def device_status(control: 'RecordingControl') -> list[dict[str, object]]:
     return devices
 
 
-def recording_state(control: 'RecordingControl') -> gui_protocol.RecordingState:
+def recording_state(
+    control: 'RecordingControl', was_paused: bool | None = None
+) -> gui_protocol.RecordingState:
     return gui_protocol.RecordingState(
         type='recording_state',
         paused=control.recording_paused,
+        was_paused=was_paused,
     )

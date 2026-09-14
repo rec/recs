@@ -1784,13 +1784,26 @@ def test_control_request_pauses_and_resumes_recording(
     rec._poll_devices()
     assert rec._devices.hardware['Mic'].running
     pause = FakeControlRequest(gui_protocol.PauseRecording(type='pause_recording'))
+    repeated_pause = FakeControlRequest(
+        gui_protocol.PauseRecording(type='pause_recording')
+    )
     resume = FakeControlRequest(gui_protocol.ResumeRecording(type='resume_recording'))
-    rec.live = FakeControlDisplay([pause, resume])
+    rec.live = FakeControlDisplay([pause, repeated_pause, resume])
     rec._start_record()
 
     rec._receive_control_requests()
 
     assert not rec._control.recording_paused
+    assert pause.responses == [
+        gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=False
+        )
+    ]
+    assert repeated_pause.responses == [
+        gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=True
+        )
+    ]
     assert not rec._devices.hardware['Mic'].running
     assert not rec._devices.hardware['Mic'].started
     assert rec._devices.hardware['Mic'].stop_count == 1

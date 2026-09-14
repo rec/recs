@@ -255,6 +255,7 @@ class ProfilesReloaded(BaseModel):
 class RecordingState(BaseModel):
     type: Literal['recording_state']
     paused: bool
+    was_paused: bool | None = None
 
 
 class PlaybackState(BaseModel):

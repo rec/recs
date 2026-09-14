@@ -131,6 +131,21 @@ def test_external_response_preserves_recs_response_type() -> None:
     }
 
 
+def test_external_response_preserves_pause_state() -> None:
+    result = external_ipc.response(
+        rpc.Request(command='pause_recording'),
+        gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=False
+        ),
+    )
+
+    assert result == {
+        'type': 'recording_state',
+        'paused': True,
+        'was_paused': False,
+    }
+
+
 def test_external_response_preserves_card_replace_started() -> None:
     result = external_ipc.response(
         rpc.Request(command='card_replace'),
