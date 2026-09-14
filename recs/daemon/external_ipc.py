@@ -243,6 +243,7 @@ def response(
         'list_devices',
         'mutable_attributes',
         'new_session',
+        'pause_recording',
         'play_session',
         'stop_playback',
         'pause_playback',
