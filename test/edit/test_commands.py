@@ -3,6 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile
+from ufor.automation import AutomationScore
+from ufor.codec import parse_score, score_toml
 from ufor.encoding import Format
 from ufor.interface import Part
 from ufor.recording import RecordingScore
@@ -127,8 +129,13 @@ def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
     )
 
     assert [r.gain for r in edit.body.routes] == [0.75, 0.5]
-    assert len(edit.body.automation) == 2
-    assert edit.body.automation[0].points[-1].frame == 12_000
+    assert len(edit.body.control_clips) == 2
+    automation = [
+        p.score for p in edit.body.parts if isinstance(p.score, AutomationScore)
+    ]
+    assert len(automation) == 2
+    assert automation[0].body.curves[0].knots[-1].tick == 12_000
+    assert parse_score(score_toml(edit)) == edit
 
 
 def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:

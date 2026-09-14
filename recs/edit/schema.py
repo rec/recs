@@ -8,12 +8,12 @@ from pydantic import (
     ConfigDict,
     Field,
 )
-from ufor.arrangement import ArrangementScore, Interpolation
+from ufor.arrangement import ArrangementScore
 from ufor.base import Identifier
 from ufor.codec import parse_score
 from ufor.encoding import Format, Subtype
 from ufor.interface import NormalizeMode
-from ufor.references import ParameterTarget, RecordSelector
+from ufor.references import RecordSelector
 
 
 class CommandKind(StrEnum):
@@ -71,21 +71,6 @@ class PartialRouteSpec(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-class PartialAutomationPoint(BaseModel, frozen=True):
-    frame: int | None = Field(default=None, ge=0)
-    value: float | None = None
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class PartialAutomationSpec(BaseModel, frozen=True):
-    target: ParameterTarget | None = None
-    interpolation: Interpolation | None = None
-    points: list[PartialAutomationPoint] | None = None
-
-    model_config = ConfigDict(extra='forbid')
-
-
 class PartialOutputSpec(BaseModel, frozen=True):
     name: Identifier | None = None
     source: Identifier | None = None
@@ -116,7 +101,6 @@ class PartialEditSpec(BaseModel, frozen=True):
     buses: list[PartialBusSpec] | None = None
     clips: list[PartialClipSpec] | None = None
     routes: list[PartialRouteSpec] | None = None
-    automation: list[PartialAutomationSpec] | None = None
     outputs: list[PartialOutputSpec] | None = None
     extends: str | None = None
 
