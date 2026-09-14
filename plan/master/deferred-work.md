@@ -4,10 +4,10 @@
 
 ### Incomplete
 
-Prepared settings and performance action traces, including pedal/legato gate
-delivery and voice retirement, remain to be specified. Sampler rendering,
-further waveform generation, engine selection, and a VST wrapper remain
-deferred.
+The sample preparation trace, including pedal/legato gate delivery and voice
+retirement, is complete. A portable synth-instrument definition and a shared
+offline instrument contract remain model work. Sampler and synth rendering,
+engine selection, and a VST wrapper remain deferred.
 
 ### Preserve the useful recsam model
 
@@ -93,10 +93,12 @@ those transport protocols.
 
 ### Small sampler contract and later implementations
 
-First define a bounded contract for asset slices, prepared instrument settings,
-performance events, voice state, and the modulation model. Keep authoring and
-host concerns outside that core. Publish event/state examples without rendering
-audio; do not let a Python-specific class layout become the portable contract.
+First define a bounded contract for prepared sample and synth definitions,
+performance events, voice state, snapshots, and the modulation model. Keep
+authoring and host concerns outside that core. Publish event/state examples
+without rendering audio; do not let a Python-specific class layout become the
+portable contract. The synth definition must be added before either renderer so
+the common lifecycle is designed once rather than retrofitted from the sampler.
 
 A later implementation decision should compare a compiled core, an optional
 Python reference followed by a compiled port, and reuse of a suitable existing
@@ -209,6 +211,20 @@ Oscillator lifecycle integration, processor execution, graph preparation,
 latency handling in a host, plugin hosting, and all new audio generation remain
 deferred. The extracted oscillator definitions and scalar LFO semantics are
 the completed model foundation.
+
+### First synth-instrument definition
+
+Before any renderer, define a typed synth instrument as a sibling of the sample
+instrument score. Its mapped voice templates reuse the extracted oscillator,
+envelope, LFO, modulation, processing, controls, and performance-event models.
+It must explicitly specify output routes, trigger/lifecycle behavior, and
+oscillator pitch and phase/reset inputs. It does not model samples, loops,
+arbitrary processor graphs, feedback, or transport-specific MIDI behavior.
+
+Acceptance before implementation is schema and codec round trips, mapping and
+reference validation, exact oscillator phase/state observations, shared
+sustain/choke/voice-limit traces, snapshot restoration, and rejection of features
+outside the first profile. Audio fixtures wait for the separate execution decision.
 
 ### Operation and instance
 

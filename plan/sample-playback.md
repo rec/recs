@@ -61,11 +61,15 @@ before a live host is added. The core consumes the shared trigger, release,
 and control contract, with MIDI, OSC, and sequencers as adapters. Python is
 not required for that core or for its first implementation.
 
-## Proposed Sampler Subsystem
+## Proposed Instrument Subsystem
 
-The portable instrument models live in `ufor/samples/`; shared control and event
-models live in Ufor too. Recsam retains only file acquisition. Design a small sampler
-contract separate from document parsing, host wrappers, and recording machinery.
+The portable sample-instrument models live in `ufor/samples/`; shared control
+and event models live in Ufor too. Recsam retains only file acquisition. Before
+implementing playback, add a portable synth-instrument definition alongside the
+sample definition. The eventual core must consume either definition through one
+offline instrument contract, rather than making the sampler a special host with
+an unrelated synth path.
+
 Do not create `recs/sampler/` as an assumed Python implementation yet. The
 names below describe responsibilities, not mandatory Python runtime classes:
 
@@ -73,10 +77,10 @@ names below describe responsibilities, not mandatory Python runtime classes:
 | --- | --- |
 | `InstrumentScore`, `SampleInstrument`, `Instrument`, `SampleSlot` | Implemented Ufor root, body, settings and slots, with named slices and explicit channels |
 | `Trigger`, `Release`, `ControlChange` | Implemented Ufor events with native ticks/ordinals, logical parts and trigger IDs |
-| `PreparedInstrument` | Validated assets, resolved settings, and efficient key/velocity lookup |
+| `PreparedInstrument` | Validated assets or synth voice templates, resolved settings, and efficient event lookup |
 | `PerformanceState` | Named controls per scope, trigger ownership, sustain, articulations, alternate-take counters, and random state |
-| `Voice` | Playback position, direction, loop state, envelope, and filter state |
-| `Sampler` | Consume timed events, manage voices, and render audio blocks |
+| `Voice` | Shared lifecycle plus sample playback position or synth oscillator/processor state |
+| `OfflineInstrument` | Consume timed events, manage voices, and render bounded audio blocks |
 
 Separate immutable instrument definitions from mutable performance and voice state.
 Resolve TOML, validation, and inherited settings before rendering rather than
@@ -93,6 +97,51 @@ into four areas:
 Only implement retained features after their defaults and interactions are
 specified. For example, selection, choking, and layering cannot independently
 make conflicting decisions about voices created by the same event.
+
+### Synth Definition Before Playback
+
+The first synth definition is a sibling instrument score, not a sample slot with
+a fake generated asset and not a general processor graph. It has one named audio
+output layout, declared performance controls, shared voice-policy and lifecycle
+rules, and one or more mapped synth voice templates. A template references the
+existing oscillator, envelope, LFO, modulation, and voice-processing definitions;
+it has no asset, slice, loop, or sample traversal fields. Trigger, key, velocity,
+articulation, crossfade, choke, and control eligibility use the same event
+vocabulary as sample slots.
+
+Before the schema is added, settle these definition-level details with portable
+fixtures: the template's mapping and layering rules; oscillator phase/reset and
+frequency inputs; envelope and modulation ownership; template output routing;
+and the relationship between a trigger, a logical gate, and a synth voice. The
+first profile excludes arbitrary processor graphs, feedback, audio-rate control,
+and implicit MIDI bindings. It must reuse the existing oscillator mathematics,
+not create another waveform vocabulary. No sample or synth renderer begins until
+the score, schema, codec, validation cases, and shared lifecycle trace are agreed.
+
+### Offline Instrument Contract
+
+The implementation-neutral core is defined by observable boundaries:
+
+| Boundary | Input | Output and required rule |
+| --- | --- | --- |
+| Prepare | One sealed sample or synth score, decoded immutable sample data when applicable, output timebase and channel layout | A prepared definition or a validation failure. Resolve inheritance, mappings, output routes, and asset bounds before any render call. |
+| Start | Prepared definition and explicit unsigned seed | Fresh mutable performance state with no voices, controls at declared defaults, and no state shared with another instance. |
+| Advance | A monotonically ordered interval of output frames and ordered performance events at exact frame boundaries | Ordered semantic actions, replacement state, and audio for exactly that half-open interval. Events at a boundary apply before its first output sample. |
+| Snapshot | Current performance state at an output-frame boundary | Serializable state sufficient to restore identical later semantic actions and audio for the same future input. |
+| Stop | Current state and stop frame | Explicit retirement actions and a defined tail policy. It never invents release-trigger events. |
+
+The core owns only prepared data, performance state, voice state, frame-clock
+scheduling, and bounded output buffers. A host owns document/file loading,
+decoding, encoding, transport conversion, device timing, logging, and session
+provenance. The core accepts normalized `Trigger`, `Release`, and
+`ControlChange` events and produces planar floating-point audio in the declared
+output channel order. It neither accepts MIDI/OSC messages nor opens files.
+
+`Advance` must be observationally partition-invariant: processing `[a, b)` once
+has the same actions, ending state, and audio as any contiguous split of that
+interval, given the same events. A reference implementation may expose the
+semantic actions for diagnosis, but actions are not a second event stream and do
+not permit hosts to alter a render retrospectively.
 
 ## One Engine, Two Hosts
 
@@ -195,13 +244,22 @@ memory is acceptable.
 If a Python reference is chosen, avoid Python loops over individual samples
 for expensive DSP. That consideration does not determine the core's language.
 
-## Shared Conformance Before Two Implementations
+## Acceptance Before Implementation
 
-Publish language-neutral documents, event streams, initial state, expected
-state transitions, and scalar pitch/control values before building a renderer.
-Include finite-table boundaries, periodic ratios, exact fractions, oscillator
-phase conventions, envelope interruption, LFO reset, and voice independence.
-Specify numeric precision and tolerances, ordering at equal times, and units.
+Publish language-neutral score documents, event streams, initial state, expected
+state transitions, and scalar pitch/control values before building either
+renderer. Include finite-table boundaries, periodic ratios, exact fractions,
+oscillator phase conventions, envelope interruption, LFO reset, and voice
+independence. Specify numeric precision and tolerances, ordering at equal times,
+and units.
+
+| Fixture family | Acceptance before rendering | Acceptance after rendering resumes |
+| --- | --- | --- |
+| Common lifecycle | Repeated and overlapping trigger IDs, releases, sustain crossings, chokes, voice limits, snapshots, stop, and equal-frame order have exact trace actions and restored state. | Sample and synth implementations emit the same required lifecycle actions across block partitions. |
+| Sample definition | Slice bounds, mappings, loops, linked takes, selection, random ranges, variation, routing, and SFZ conversion validate and round-trip. | At 48 kHz, one-second-or-longer WAV fixtures cover traversal direction, loops, pitch, envelopes, modulation, and channel routing. |
+| Synth definition | Codec/schema round trips validate template mappings, oscillator inputs, phase/reset observations, envelope/LFO/modulation ownership, routing, and rejected unsupported graphs. | At 48 kHz, one-second-or-longer WAV fixtures cover oscillator shape, pitch, retrigger/reset, envelope release, control modulation, layering, and output routing. |
+| Core contract | Preparation failures, fresh-instance isolation, snapshots, event-boundary ordering, and split-interval equivalence are exact. | Render at 64, 128, 256, and 1024 frames; compare the concatenated output and final state with the unsplit render. |
+| Backend boundary | Every unsupported score feature has a visible diagnostic. | Compare each candidate backend with the reference using declared per-fixture tolerances; do not claim bit identity across different numeric libraries. |
 
 After the audio-generation pause ends, add identical asset/event fixtures for
 each implementation. Compare rendered output across block sizes, rates, and
@@ -213,10 +271,11 @@ Python and compiled expectations. VST host behavior needs separate later tests.
 
 ## Suggested Implementation Order
 
-1. Complete master stage 3: tuning/scale and oscillator definitions, the
-   frequency/ratio language, and the envelope/LFO redesign.
-2. Trim the instrument and sampler contract; resolve retained interactions and
-   publish language-neutral document, pitch, control, and state fixtures.
+1. Complete the synth-instrument definition and its schema, codec, validation,
+   oscillator/state, and lifecycle conformance cases without generating audio.
+2. Generalize the current sample semantic trace into the shared lifecycle
+   contract, then publish language-neutral preparation, snapshot, and event-order
+   fixtures for both instrument kinds.
 3. Stop at the model gate. Decide separately when to resume audio generation
    and whether to use a compiled core, Python reference/port, or existing engine.
 4. After that decision, implement asset preparation and bounded rendering with

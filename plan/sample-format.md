@@ -60,9 +60,10 @@ remain outside this plan.
 
 ## Next Decision
 
-The model gate is complete. No remaining entry here authorizes sampler waveform
-generation. A future implementation must begin with an explicit decision on its
-language, backend, and possible host, following [Sample Playback](sample-playback.md).
+Sample-format work is complete. Before any renderer or backend choice, add the
+sibling synth-instrument definition and the shared offline lifecycle contract
+described in [Sample Playback](sample-playback.md). Waveform generation still
+requires a later explicit decision on language, backend, and possible host.
 
 ## Additional Work Beyond The Prompt
 
