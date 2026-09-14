@@ -69,9 +69,8 @@ remain outside this plan.
 ## Suggested Order
 
 1. Envelope/LFO design and Tuney definition extraction under master stage 3.
-2. A small instrument/performance contract with language-neutral examples.
-3. Voice limits and retriggering where needed by that retained contract.
-4. Reproducible variation as a separately settled extension.
+2. Voice limits and retriggering where needed by that retained contract.
+3. Reproducible variation as a separately settled extension.
 
 No step above authorizes sampler waveform generation. Choose its language,
 backend, and possible VST hosting only after the model gate.
