@@ -1,22 +1,24 @@
 import numpy as np
-from ufor.arrangement import AutomationSpec
+from ufor.arrangement import ControlClip
+from ufor.automation import (
+    ArrangementGainTarget,
+    Automation,
+    AutomationScore,
+    Interpolation,
+    Knot,
+    Quantity,
+    TimelineCurve,
+)
+from ufor.control import Scope
+from ufor.interface import ControlBinding, ControlType, Output, OutputSelection
+from ufor.modulation import Unit
+from ufor.time import Rate, Timebase
 
 from recs.edit.automation import gain_values
 
 
-def test_gain_values_hold_declared_value_before_first_point() -> None:
-    automation = AutomationSpec.model_validate(
-        {
-            'target': {'kind': 'clip', 'name': 'voice'},
-            'interpolation': 'linear',
-            'points': [
-                {'frame': 2, 'value': 0.0},
-                {'frame': 6, 'value': 1.0},
-            ],
-        }
-    )
-
-    result = gain_values(automation, 0.5, 0, 8)
+def test_gain_values_hold_declared_value_before_first_knot() -> None:
+    result = gain_values(_automation(Interpolation.linear, 2, 6), 0.5, 0, 8)
 
     assert result.dtype == np.float32
     np.testing.assert_allclose(
@@ -26,18 +28,53 @@ def test_gain_values_hold_declared_value_before_first_point() -> None:
 
 
 def test_equal_power_automation_interpolates_squared_gain() -> None:
-    automation = AutomationSpec.model_validate(
-        {
-            'target': {'kind': 'clip', 'name': 'voice'},
-            'interpolation': 'equal_power',
-            'points': [
-                {'frame': 0, 'value': 0.0},
-                {'frame': 4, 'value': 1.0},
-            ],
-        }
+    np.testing.assert_allclose(
+        gain_values(_automation(Interpolation.equal_power, 0, 4), 0.0, 0, 5),
+        [0.0, 0.5, np.sqrt(0.5), np.sqrt(0.75), 1.0],
     )
 
-    np.testing.assert_allclose(
-        gain_values(automation, 0.0, 0, 5),
-        [0.0, 0.5, np.sqrt(0.5), np.sqrt(0.75), 1.0],
+
+def _automation(
+    interpolation: Interpolation, start: int, end: int
+) -> tuple[ControlClip, AutomationScore]:
+    return (
+        ControlClip(
+            name='fade',
+            source=OutputSelection(name='fade', output='control'),
+            source_start=start,
+            source_end=end + 2,
+            timeline_start=start,
+        ),
+        AutomationScore(
+            name='fade',
+            title='Fade',
+            timebases=[Timebase(name='audio', rate=Rate(numerator=48_000))],
+            outputs=[
+                Output(
+                    name='control',
+                    stream=ControlType(
+                        timebase='audio',
+                        quantity='gain',
+                        unit=Unit.ratio,
+                        scope=Scope.part,
+                    ),
+                    binding=ControlBinding(),
+                )
+            ],
+            body=Automation(
+                target=ArrangementGainTarget(kind='clip', name='voice'),
+                scope=Scope.part,
+                quantity=Quantity.gain,
+                unit=Unit.ratio,
+                default=0,
+                curves=[
+                    TimelineCurve(
+                        name='gain',
+                        unit=Unit.ratio,
+                        interpolation=interpolation,
+                        knots=[Knot(tick=start, value=0.0), Knot(tick=end, value=1.0)],
+                    )
+                ],
+            ),
+        ),
     )

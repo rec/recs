@@ -8,6 +8,7 @@ from ufor.codec import parse_score, score_toml
 from ufor.composition import Composition, ScoreRecord
 from ufor.interface import (
     OutputSelection,
+    ScoreVersion,
     StreamBinding,
 )
 from ufor.recording import AudioStream, RecordingScore
@@ -47,16 +48,19 @@ def load_composition(
             score = parse_score(data.decode())
         links = {}
         if isinstance(score, ArrangementScore):
-            links = {
-                n.score.path: load(path.parent / n.score.path) for n in score.body.parts
-            }
+            for part in score.body.parts:
+                if isinstance(part.score, ScoreVersion) and part.score.path is not None:
+                    links[part.score.path] = load(path.parent / part.score.path)
         records[identity] = ScoreRecord(
             score=score, paths=links, sha256=sha256(data).hexdigest()
         )
         active.remove(path)
         return identity
 
-    links = {n.score.path: load(root / n.score.path) for n in edit.body.parts}
+    links = {}
+    for part in edit.body.parts:
+        if isinstance(part.score, ScoreVersion) and part.score.path is not None:
+            links[part.score.path] = load(root / part.score.path)
     records['root'] = ScoreRecord(score=edit, paths=links)
     return Composition('root', records)
 

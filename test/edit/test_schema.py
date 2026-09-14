@@ -53,28 +53,66 @@ source = "voice"
 destination = "master"
 gain = 0.5
 
-[[body.automation]]
-interpolation = "linear"
+[[body.control_clips]]
+name = "fade"
+source_start = 0
+source_end = 48000
+timeline_start = 0
 
-[[body.automation.points]]
-frame = 0
-value = 0.0
-
-[[body.automation.points]]
-frame = 48000
-value = 0.5
-
-[body.automation.target]
-kind = "route"
-name = "voice"
-parameter = "gain"
-destination = "master"
+[body.control_clips.source]
+name = "fade"
+output = "control"
 
 [[body.parts]]
 name = "voice-source"
 
 [body.parts.score]
 path = "../recording.toml"
+
+[[body.parts]]
+name = "fade"
+
+[body.parts.score]
+format = "recs"
+version = 3
+kind = "automation"
+name = "fade"
+title = "Fade"
+
+[[body.parts.score.timebases]]
+name = "audio"
+
+[body.parts.score.timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[body.parts.score.outputs]]
+name = "control"
+binding = { control = true }
+
+[body.parts.score.outputs.stream]
+family = "control"
+timebase = "audio"
+quantity = "gain"
+unit = "ratio"
+scope = "part"
+
+[body.parts.score.body]
+quantity = "gain"
+unit = "ratio"
+scope = "part"
+default = 0.0
+
+[body.parts.score.body.target]
+kind = "route"
+name = "voice"
+destination = "master"
+
+[[body.parts.score.body.curves]]
+name = "gain"
+unit = "ratio"
+interpolation = "linear"
+knots = [{ tick = 0, value = 0.0 }, { tick = 48000, value = 0.5 }]
 
 [[destinations]]
 output = "mix"
@@ -152,7 +190,7 @@ def test_intervals_and_automation_points_are_ordered() -> None:
     with pytest.raises(ValidationError, match='source_end'):
         parse_edit(COMPLETE_EDIT.replace('source_end = 48000', 'source_end = 0'))
     with pytest.raises(ValidationError, match='strictly increasing'):
-        parse_edit(COMPLETE_EDIT.replace('frame = 48000', 'frame = 0'))
+        parse_edit(COMPLETE_EDIT.replace('tick = 48000', 'tick = 0'))
 
 
 def test_edit_models_are_frozen() -> None:

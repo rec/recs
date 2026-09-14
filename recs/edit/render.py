@@ -2,9 +2,9 @@ from collections.abc import Mapping
 from functools import cached_property
 
 import numpy as np
-from ufor.arrangement import ArrangementScore
+from ufor.arrangement import ArrangementScore, ControlClip
+from ufor.automation import ArrangementGainTarget, AutomationScore
 from ufor.interface import MixBinding, NormalizeMode, Output, OutputSelection
-from ufor.references import ParameterTarget
 
 from recs.base.errors import RecsError
 from recs.edit.automation import gain_values
@@ -100,7 +100,7 @@ class Renderer:
         ranges: dict[str, list[FrameRange]] = {
             t.name: [] for t in self.edit.body.tracks
         }
-        automation = {a.target: a for a in self.edit.body.automation}
+        automation = self._automation()
         for clip in self.edit.body.clips:
             clip_start = clip.timeline_start
             clip_end = clip_start + clip.source_end - clip.source_start
@@ -113,7 +113,7 @@ class Renderer:
             source_end = source_start + overlap_end - overlap_start
             source_samples = _source_samples(source, source_start, source_end)
             gains = gain_values(
-                automation.get(ParameterTarget(kind='clip', name=clip.name)),
+                automation.get(ArrangementGainTarget(kind='clip', name=clip.name)),
                 clip.gain,
                 overlap_start,
                 overlap_end - overlap_start,
@@ -143,7 +143,7 @@ class Renderer:
             for route in routes[bus_id]:
                 gains = gain_values(
                     automation.get(
-                        ParameterTarget(
+                        ArrangementGainTarget(
                             kind='route',
                             name=route.source,
                             destination=route.destination,
@@ -156,7 +156,7 @@ class Renderer:
                 block += parts[route.source] * gains[:, np.newaxis]
                 observed.extend(ranges[route.source])
             block *= gain_values(
-                automation.get(ParameterTarget(kind='bus', name=bus.name)),
+                automation.get(ArrangementGainTarget(kind='bus', name=bus.name)),
                 bus.gain,
                 0,
                 timeline_end,
@@ -164,6 +164,28 @@ class Renderer:
             parts[bus_id] = block
             ranges[bus_id] = merge_ranges(observed)
         return parts, {k: merge_ranges(v) for k, v in ranges.items()}
+
+    def _automation(
+        self,
+    ) -> dict[ArrangementGainTarget, tuple[ControlClip, AutomationScore]]:
+        parts = {part.name: part for part in self.edit.body.parts}
+        result = {}
+        for clip in self.edit.body.control_clips:
+            part = parts[clip.source.name]
+            if not isinstance(part.score, AutomationScore):
+                raise RecsError(f'Control clip {clip.name}: source is not automation')
+            score = part.score
+            if score.timebases[0].rate != self.edit.timebases[0].rate:
+                raise RecsError(
+                    f'Control clip {clip.name}: automation rate must match audio rate'
+                )
+            if not isinstance(score.body.target, ArrangementGainTarget):
+                raise RecsError(
+                    f'Control clip {clip.name}: automation target is not an '
+                    'arrangement gain'
+                )
+            result[score.body.target] = clip, score
+        return result
 
     def _estimated_peak_memory_bytes(self) -> int:
         timeline_end = max(r.end for r in self.graph.output_extents.values())

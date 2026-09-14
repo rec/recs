@@ -9,18 +9,34 @@ from reccy.configuration import units
 from ufor.arrangement import (
     Arrangement,
     ArrangementScore,
-    AutomationPoint,
-    AutomationSpec,
     BusSpec,
     ClipSpec,
-    Interpolation,
+    ControlClip,
     RouteSpec,
     TrackSpec,
 )
+from ufor.automation import (
+    ArrangementGainTarget,
+    Automation,
+    AutomationScore,
+    Interpolation,
+    Knot,
+    Quantity,
+    TimelineCurve,
+)
+from ufor.control import Scope
 from ufor.encoding import Format, Subtype
-from ufor.interface import MixBinding, Output, OutputSelection, Part
+from ufor.interface import (
+    ControlBinding,
+    ControlType,
+    MixBinding,
+    Output,
+    OutputSelection,
+    Part,
+)
+from ufor.modulation import Unit
 from ufor.recording import AudioStream, RecordingScore
-from ufor.references import ParameterTarget, RecordSelector
+from ufor.references import RecordSelector
 from ufor.streams import AudioType, FileDestination
 from ufor.time import Rate, Timebase
 
@@ -518,7 +534,7 @@ def _generate(
         ]
     buses: list[BusSpec] = []
     routes: list[RouteSpec] = []
-    automation: list[AutomationSpec] = []
+    control_clips: list[ControlClip] = []
     if operation == CommandKind.mix:
         widths = {len(t.stream.channels) for t in output_tracks}
         if len(widths) != 1:
@@ -537,28 +553,36 @@ def _generate(
             fade_end = round(crossfade * sample_rate)
             if fade_end <= 0:
                 raise RecsError('--crossfade must be greater than zero')
-            automation = [
-                AutomationSpec(
-                    target=ParameterTarget(
-                        kind='route', name=routes[0].source, destination='master'
-                    ),
-                    interpolation=Interpolation.equal_power,
-                    points=[
-                        AutomationPoint(frame=0, value=routes[0].gain),
-                        AutomationPoint(frame=fade_end, value=0),
-                    ],
-                ),
-                AutomationSpec(
-                    target=ParameterTarget(
-                        kind='route', name=routes[1].source, destination='master'
-                    ),
-                    interpolation=Interpolation.equal_power,
-                    points=[
-                        AutomationPoint(frame=0, value=0),
-                        AutomationPoint(frame=fade_end, value=routes[1].gain),
-                    ],
-                ),
-            ]
+            for name, route, start, end in (
+                ('crossfade-out', routes[0], routes[0].gain, 0.0),
+                ('crossfade-in', routes[1], 0.0, routes[1].gain),
+            ):
+                parts.append(
+                    Part(
+                        name=name,
+                        score=_crossfade_automation(
+                            name,
+                            sample_rate,
+                            ArrangementGainTarget(
+                                kind='route',
+                                name=route.source,
+                                destination=route.destination,
+                            ),
+                            start,
+                            end,
+                            fade_end,
+                        ),
+                    )
+                )
+                control_clips.append(
+                    ControlClip(
+                        name=name,
+                        source=OutputSelection(name=name, output='control'),
+                        source_start=0,
+                        source_end=fade_end,
+                        timeline_start=0,
+                    )
+                )
         outputs = [
             Output(
                 name='mix',
@@ -587,9 +611,51 @@ def _generate(
             buses=buses,
             clips=clips,
             routes=routes,
-            automation=automation,
+            control_clips=control_clips,
         ),
     ).model_dump(mode='json', exclude_none=True)
+
+
+def _crossfade_automation(
+    name: str,
+    sample_rate: int,
+    target: ArrangementGainTarget,
+    start: float,
+    end: float,
+    duration: int,
+) -> AutomationScore:
+    return AutomationScore(
+        name=name,
+        title=f'{name.title()} automation',
+        timebases=[Timebase(name='audio', rate=Rate(numerator=sample_rate))],
+        outputs=[
+            Output(
+                name='control',
+                stream=ControlType(
+                    timebase='audio',
+                    quantity='gain',
+                    unit=Unit.ratio,
+                    scope=Scope.part,
+                ),
+                binding=ControlBinding(),
+            )
+        ],
+        body=Automation(
+            target=target,
+            scope=Scope.part,
+            quantity=Quantity.gain,
+            unit=Unit.ratio,
+            default=0,
+            curves=[
+                TimelineCurve(
+                    name='gain',
+                    unit=Unit.ratio,
+                    interpolation=Interpolation.equal_power,
+                    knots=[Knot(tick=0, value=start), Knot(tick=duration, value=end)],
+                )
+            ],
+        ),
+    )
 
 
 def _input_ranges(
