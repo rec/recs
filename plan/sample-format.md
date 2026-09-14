@@ -1,4 +1,4 @@
-# Remaining Sample Format Work
+# Sample Format Work
 
 ## Scope
 
@@ -9,11 +9,14 @@ panning, stereo balance, and pitch bend. On 8 September 2026 the user reopened
 envelopes and LFOs for deeper design before any further waveform generation.
 Other existing fields remain implementation inventory, not proof of a sampler.
 
-The sections below are unresolved additions. They require explicit approval and
-format design before changing Ufor's instrument specification or models.
 The Recsam type extraction, named slices, explicit channel maps, richer
-envelopes/LFOs, and SFZ cutover are now implemented.
+envelopes/LFOs, SFZ cutover, voice policy, deterministic preparation trace, and
+reproducible selection and variation are implemented in Ufor. SFZ `lorand` and
+`hirand` map to portable random-range conditions; engine-dependent random
+parameter opcodes remain diagnosed as unsupported.
+
 Playback implementation remains separate in [Sample Playback](sample-playback.md).
+Any further sample-format addition requires explicit approval and format design.
 
 ## Envelopes And LFOs Come First
 
@@ -32,17 +35,10 @@ compiled implementation, with an optional Python reference and shared tests.
 
 ## Voice Limits And Retriggering
 
-Define predictable polyphony and repeated-trigger behavior while bounding CPU
-and memory use:
-
-- instrument-wide and optional group voice limits;
-- whether limits count triggers or individual layered voices;
-- repeated-trigger masking and retrigger behavior;
-- deterministic voice selection when a limit is reached;
-- immediate, faded, or release-stage retirement;
-- interactions with choke groups, sustain, release samples, and linked layers.
-
-The format must not leave voice stealing to player-specific defaults.
+Implemented: instrument-wide limits count individual layered voices. Same-key and
+overflow policies retire selected voices deterministically, and their interaction
+with sustain, release samples, choking, and linked layers is pinned by semantic
+trace conformance tests.
 
 ## Named Slices
 
@@ -53,27 +49,20 @@ implemented.
 
 ## Reproducible Variation
 
-Specify deterministic alternative selection and randomized parameter values:
-
-- seed ownership and reset rules;
-- the exact random-selection algorithm;
-- independence from processing block size and unrelated voices;
-- stable behavior for the same instrument, event stream, and initial state.
-
-This is required before adding random delay, offset, pitch, gain, or SFZ random
-region selection.
+Implemented: named selection sets, delay, offset, pitch, gain variation, and
+portable random-range eligibility each have explicit seeded algorithms that are
+independent of audio block size and unrelated voices. Random ranges preserve SFZ
+source intervals, including overlaps and gaps, rather than collapsing them into
+equal-choice selection.
 
 Granular playback, time stretching, arbitrary effect chains, and microtonality
 remain outside this plan.
 
-## Suggested Order
+## Next Decision
 
-1. Envelope/LFO design and Tuney definition extraction under master stage 3.
-2. Voice limits and retriggering where needed by that retained contract.
-3. Reproducible variation as a separately settled extension.
-
-No step above authorizes sampler waveform generation. Choose its language,
-backend, and possible VST hosting only after the model gate.
+The model gate is complete. No remaining entry here authorizes sampler waveform
+generation. A future implementation must begin with an explicit decision on its
+language, backend, and possible host, following [Sample Playback](sample-playback.md).
 
 ## Additional Work Beyond The Prompt
 

@@ -128,10 +128,11 @@ None.
 
 ### Incomplete
 
-Instrument preparation, pedal and legato gate delivery, voice retirement,
-portable action traces, oscillator lifecycle integration, loops, random
-sources, continuous rate ramps, feedback, and audio-rate execution remain
-unfinished. Sampler and VST work remain separate deferred execution decisions.
+Looped envelopes, continuous LFO rate ramps, modulation feedback, oscillator
+lifecycle integration, and audio-rate execution remain unfinished. Sampler and
+VST work remain separate deferred execution decisions. Instrument preparation,
+pedal and legato gate delivery, voice retirement, portable action traces, and
+seeded sample selection and variation are complete format work.
 
 ### Selected model
 
@@ -183,11 +184,11 @@ playback inheritance survives serialization, and SFZ adapters report unsupported
 curves and behavior explicitly. There is no alternate Recsam reader.
 
 The canonical specification gives before/after mappings, including the old
-exponential curves and the changed phase behavior during LFO delay. The next
-step is [instrument preparation](deferred-work.md#sample-instruments-and-performance-objects), including pedal/legato
-gate delivery, voice retirement, and portable action traces for these models.
-Audio oscillator lifecycle integration must also use the phase/reset contract
-without copying a waveform engine into Ufor.
+exponential curves and the changed phase behavior during LFO delay. Instrument
+preparation now supplies pedal/legato gate delivery, voice retirement, and
+portable action traces for these models. Audio oscillator lifecycle integration
+must also use the phase/reset contract without copying a waveform engine into
+Ufor.
 
 Looped envelopes, random/sample-and-hold sources, continuous LFO rate ramps,
 modulation feedback, and audio-rate execution remain deferred. A looped contour
