@@ -196,14 +196,15 @@ Pass when there are no unexplained dropped frames, memory remains bounded, the
 CPU does not thermally throttle, queues recover, and write latency retains a
 documented safety margin.
 
-## Sampler Backend And Live Playback
+## Instrument Backend And Live Playback
 
-1. Build a conformance instrument covering forward, backward, and mirror
-   direction; loops; envelopes; modulation; alternate selection; choking;
-   stereo layout; and deterministic selection.
+1. Build conformance instruments for samples and synth voices. The sample case
+   covers forward, backward, and mirror direction; loops; selection; choking;
+   stereo layout; and deterministic variation. The synth case covers oscillator
+   phase/reset, pitch, envelope release, control modulation, layering, and routing.
 2. Render one fixed event stream with each candidate backend and a simple
    reference implementation. Compare timing, duration, pitch, channel layout,
-   selection order, and samples where exact agreement is expected.
+   lifecycle actions, selection order, and samples where exact agreement is expected.
 3. Repeat at block sizes 64, 128, 256, and 1024 frames. Confirm timing and
    deterministic selection do not depend on block size.
 4. Test realistic instruments at increasing polyphony. Measure CPU, resident
