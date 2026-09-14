@@ -31,9 +31,9 @@ def pause_recording(
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
     control.recording_paused = True
-    for source in control.devices.hardware.values():
-        if source.running:
-            source.stop()
+    control.devices.stop_hardware()
+    control.devices.join_hardware()
+    control.receive_pending_updates()
     control.write_entry(
         EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
