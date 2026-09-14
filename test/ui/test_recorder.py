@@ -94,6 +94,8 @@ class FakeSourceProcess:
         self.running = False
         self.alive = False
         self.start_count = 0
+        self.stop_count = 0
+        self.join_count = 0
         self.track_names = track_names or {}
         self.cfg = cfg
         self.session_directory = session_directory
@@ -109,6 +111,7 @@ class FakeSourceProcess:
         return self.source.channels
 
     def join(self, timeout: float | None = None) -> None:
+        self.join_count += 1
         self.alive = False
         self.started = False
 
@@ -119,6 +122,7 @@ class FakeSourceProcess:
         self.start_count += 1
 
     def stop(self) -> None:
+        self.stop_count += 1
         self.running = False
         self.alive = False
 
@@ -1788,6 +1792,9 @@ def test_control_request_pauses_and_resumes_recording(
 
     assert not rec._control.recording_paused
     assert not rec._devices.hardware['Mic'].running
+    assert not rec._devices.hardware['Mic'].started
+    assert rec._devices.hardware['Mic'].stop_count == 1
+    assert rec._devices.hardware['Mic'].join_count == 1
     records = read_jsonl(record_path(rec))
     assert records[1]['type'] == 'recording_paused'
     assert records[2]['type'] == 'recording_resumed'
