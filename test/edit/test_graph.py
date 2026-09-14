@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-import tomlkit
 from ufor.interface import OutputSelection
 
 from recs.edit.graph import validate_graph
@@ -26,10 +25,6 @@ def test_graph_computes_routed_extent() -> None:
     [
         ('channels = 2', 'source width'),
         ('destination = "master"', 'Routing cycle'),
-        (
-            'target = { kind = "clip", name = "missing", parameter = "gain" }',
-            'Unknown automation',
-        ),
     ],
 )
 def test_graph_rejects_invalid_references(replacement: str, message: str) -> None:
@@ -44,11 +39,6 @@ def test_graph_rejects_invalid_references(replacement: str, message: str) -> Non
 source = "master"
 destination = "master"
 """
-    else:
-        data = tomlkit.parse(text)
-        data['body']['automation'][0]['target']['name'] = 'missing'
-        text = tomlkit.dumps(data)
-
     with pytest.raises(ValueError, match=message):
         validate_graph(
             parse_edit(text),
@@ -120,21 +110,64 @@ output = "audio"
 source = "track"
 destination = "master"
 
-[[body.automation]]
-[[body.automation.points]]
-frame = 0
-value = 1.0
+[[body.control_clips]]
+name = "fade"
+source_start = 0
+source_end = 48000
+timeline_start = 0
 
-[body.automation.target]
-kind = "clip"
-name = "clip"
-parameter = "gain"
+[body.control_clips.source]
+name = "fade"
+output = "control"
 
 [[body.parts]]
 name = "source"
 
 [body.parts.score]
 path = "recording.toml"
+
+[[body.parts]]
+name = "fade"
+
+[body.parts.score]
+format = "recs"
+version = 3
+kind = "automation"
+name = "fade"
+title = "Fade"
+
+[[body.parts.score.timebases]]
+name = "audio"
+
+[body.parts.score.timebases.rate]
+numerator = 48000
+denominator = 1
+
+[[body.parts.score.outputs]]
+name = "control"
+binding = { control = true }
+
+[body.parts.score.outputs.stream]
+family = "control"
+timebase = "audio"
+quantity = "gain"
+unit = "ratio"
+scope = "part"
+
+[body.parts.score.body]
+quantity = "gain"
+unit = "ratio"
+scope = "part"
+default = 1.0
+
+[body.parts.score.body.target]
+kind = "clip"
+name = "clip"
+
+[[body.parts.score.body.curves]]
+name = "gain"
+unit = "ratio"
+knots = [{ tick = 0, value = 1.0 }]
 
 [[destinations]]
 output = "output"

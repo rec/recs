@@ -8,7 +8,7 @@ import soundfile
 from pydantic import BaseModel, ConfigDict
 from ufor.arrangement import ArrangementScore
 from ufor.codec import score_toml
-from ufor.interface import OutputSelection
+from ufor.interface import OutputSelection, ScoreVersion
 from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
@@ -173,6 +173,11 @@ def canonical_edit(
 ) -> ArrangementScore:
     replacements = []
     for node in edit.body.parts:
+        if not isinstance(node.score, ScoreVersion):
+            replacements.append(node)
+            continue
+        if node.score.path is None:
+            raise RecsError(f'Part {node.name}: score reference has no path')
         if node.score.path.startswith('prepared/'):
             replacements.append(node)
             continue

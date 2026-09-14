@@ -6,7 +6,7 @@ from typing import Annotated
 import tyro
 from pydantic import BaseModel, ConfigDict, Field
 from ufor.codec import score_toml
-from ufor.interface import MixBinding
+from ufor.interface import MixBinding, Part, ScoreVersion
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, composition, session
@@ -118,7 +118,7 @@ def main(args: list[str] | None = None) -> int:
     )
     print(f'Media types: {", ".join(complete.body.media_types)}')
     print(f'Sample rate: {complete.timebases[0].rate.numerator}')
-    source_names = [n.score.path for n in complete.body.parts]
+    source_names = [_part_source_name(part) for part in complete.body.parts]
     print(f'Channels: {", ".join(source_names)}')
     print(f'Tracks: {", ".join(t.name for t in complete.body.tracks)}')
     print(f'Buses: {", ".join(b.name for b in complete.body.buses) or "none"}')
@@ -135,6 +135,12 @@ def main(args: list[str] | None = None) -> int:
         print(f'Output: {target.path} ({target.format}, frames {start}:{end})')
     session.execute_edit(complete, edit_directory, destination)
     return 0
+
+
+def _part_source_name(part: Part) -> str:
+    if isinstance(part.score, ScoreVersion):
+        return part.score.path or '<unresolved score>'
+    return f'<inline {part.score.name}>'
 
 
 def _run_autocalibrate_command(

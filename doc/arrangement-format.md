@@ -74,10 +74,11 @@ rates require explicit conversion and are currently rejected by preparation.
 The pure `convert_tick` operation converts exact positions and never resamples
 audio. Musical time and generalized DSP remain later capabilities.
 
-Each part directly names a definition with `{ path, sha256? }`. Each clip selects
-its public output with `{ part, port }`. Definitions resolve relative to the
-containing score; public `inputs`, `outputs` bind internal tracks, buses or child ports.
-See the [composition design](../../ufor/doc/composition-design.md) for connections and parameters.
+Each part either names a definition with `{ path, sha256? }` or contains a
+complete inline score. Each clip selects its public output with `{ part, port }`.
+Definitions resolve relative to the containing score; public `inputs`, `outputs`
+bind internal tracks, buses or child ports. See the [composition
+design](../../ufor/doc/composition-design.md) for connections and parameters.
 
 Recording exports use stable stream IDs and optional zero-based consecutive
 `channels`. Recs' CLI retains human-facing session selectors while authoring:
@@ -88,11 +89,14 @@ and retains native gaps and offsets. Open recordings and unresolved historical
 placement are rejected. Nested arrangement outputs retain their native frame
 coordinates. Unsupported instrument realization fails during preparation.
 
-Automation targets are structured tables, such as
-`{ kind = "clip", part = "opening", parameter = "gain" }`. A route target also
-names `destination`. Gain remains a linear amplitude multiplier. Existing
-equal-power gain interpolation retains its squared-gain formula and its base
-value before the first knot.
+Generated automation is an inline `AutomationScore` part with a public `control`
+output. A `body.control_clips` entry places its source interval on the audio
+timeline. The initial Recs renderer accepts only an automation timebase that
+exactly matches the arrangement's audio rate. An `ArrangementGainTarget` names a
+clip, bus, or route, and route targets also name `destination`. Gain remains a
+linear amplitude multiplier. Equal-power gain interpolation retains its
+squared-gain formula and the declared route, bus, or clip gain before its first
+knot.
 
 The Pydantic definition is `ufor.arrangement.ArrangementScore`; its
 `model_json_schema()` describes this implemented profile. The parser and TOML
@@ -103,11 +107,12 @@ composition stages retain their recipe provenance and store the new scores.
 ## Validation ownership
 
 Ufor validates identifier uniqueness, clip and routing references, matching route
-channel layouts and timebases, acyclic bus routing, automation targets, output
-references, and destination ports. Frame positions require integers and gains
-must be finite. `Arrangement.bus_order` supplies dependency order to consumers.
+channel layouts and timebases, acyclic bus routing, control-clip references,
+output references, and destination ports. Frame positions require integers and
+gains must be finite. `Arrangement.bus_order` supplies dependency order to
+consumers.
 
 Applications still inspect media to check source channel counts and available
 frames, determine rendered extents, and validate output encodings. Arrangement
-`ParameterTarget` specializes the shared modulation `Target` address while
-retaining its existing clip, bus and route selectors and gain-only profile.
+`ArrangementGainTarget` retains the arrangement's clip, bus, and route selectors
+and gain-only profile.

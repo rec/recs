@@ -6,7 +6,7 @@ import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from ufor.arrangement import Arrangement, ArrangementScore
-from ufor.interface import OutputSelection
+from ufor.interface import OutputSelection, ScoreVersion
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
@@ -435,6 +435,8 @@ def _resolve_stage_sources(
     parts = {n.name: n for n in edit.body.parts}
     for clip in edit.body.clips:
         node = parts[clip.source.name]
+        if not isinstance(node.score, ScoreVersion) or node.score.path is None:
+            raise RecsError(f'Clip {clip.name}: inline audio scores are unsupported')
         path = Path(node.score.path)
         if path.parts[0] != 'prepared':
             disk_clips.append(clip)
