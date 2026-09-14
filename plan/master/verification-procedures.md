@@ -299,11 +299,12 @@ design choices rather than guess defaults.
 #### 4. Resume execution only after the model gate
 
 Deferred pending completion of stage 3 and a separate decision to resume audio
-generation. Compare a compiled sampler core, an optional Python reference with
-a compiled port, and a suitable existing engine. A VST instrument may wrap the
-core later. Neither Python-first rendering nor a particular language or plugin
-SDK is selected. Define shared conformance cases before implementing either
-language, including event order, state, tuning, and modulation behavior.
+generation. First add and validate a synth-instrument definition beside the
+sample score, then publish their shared offline lifecycle, snapshot, event-order,
+and split-interval conformance cases. Compare a compiled instrument core, an
+optional Python reference with a compiled port, and a suitable existing engine.
+A VST instrument may wrap the core later. Neither Python-first rendering nor a
+particular language or plugin SDK is selected.
 
 Use the [deferred playback plan](../sample-playback.md) for the later sampler.
 Then generalize the existing renderer's scheduling boundary to typed processors.
@@ -317,10 +318,11 @@ values; latency alignment on parallel paths; audio-to-control timing that
 distinguishes observation time from availability; explicit rejection of
 unsupported live/offline capabilities. Adapter unit tests check mapping logic;
 actual plugin integration and live behavior require separately requested runs.
-Later sampler acceptance covers overlapping same-key triggers, sustain/release,
-loops, independent instances, and tuning across block sizes. Only after audio
-generation resumes add the 48 kHz, at-least-one-second WAV cases, with declared
-tolerances comparing reference and compiled implementations where both exist.
+Later instrument acceptance covers sample and synth scores, overlapping same-key
+triggers, sustain/release, loops, independent instances, tuning, snapshots, and
+split intervals across block sizes. Only after audio generation resumes add the
+48 kHz, at-least-one-second WAV cases, with declared tolerances comparing
+reference and compiled implementations where both exist.
 
 Stages 5 through 7 may reuse existing engines and captured media; they must not
 implicitly bypass the pause on new waveform generation.
