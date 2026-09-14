@@ -63,12 +63,6 @@ Specify deterministic alternative selection and randomized parameter values:
 This is required before adding random delay, offset, pitch, gain, or SFZ random
 region selection.
 
-## Deferred Filter Design
-
-Resonant filters still need a separate design covering filter types, frequency
-and resonance units, modulation, composition across instrument and slot scopes,
-stability, and conformance tests. Existing peaking EQ remains unchanged.
-
 Granular playback, time stretching, arbitrary effect chains, and microtonality
 remain outside this plan.
 
@@ -77,7 +71,7 @@ remain outside this plan.
 1. Envelope/LFO design and Tuney definition extraction under master stage 3.
 2. A small instrument/performance contract with language-neutral examples.
 3. Voice limits and retriggering where needed by that retained contract.
-4. Reproducible variation and filters as separately settled extensions.
+4. Reproducible variation as a separately settled extension.
 
 No step above authorizes sampler waveform generation. Choose its language,
 backend, and possible VST hosting only after the model gate.
