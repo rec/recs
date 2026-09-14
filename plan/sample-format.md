@@ -44,25 +44,12 @@ and memory use:
 
 The format must not leave voice stealing to player-specific defaults.
 
-## Synchronized Microphone Layers And Routing
-
-Represent close, room, and ambient captures that trigger together while keeping
-independent gain and output routing:
-
-- linked selection so one alternative take is chosen across all microphones;
-- explicit channel selection and channel layout;
-- named output destinations without implicit downmixing;
-- optional alignment offsets when source files do not begin at the same frame.
-
-The existing panning and stereo-balance fields cover spatial adjustment, not
-layer synchronization or routing.
-
 ## Named Slices
 
 Implemented in Ufor. Slots reference named half-open native-frame ranges in
 sealed audio assets, with contained loop ranges. There is no duplicated sample
-path or trim interval on each slot. Linked microphone take selection remains
-separate future work.
+path or trim interval on each slot. Linked microphone take selection is
+implemented.
 
 ## Reproducible Variation
 
@@ -90,8 +77,7 @@ remain outside this plan.
 1. Envelope/LFO design and Tuney definition extraction under master stage 3.
 2. A small instrument/performance contract with language-neutral examples.
 3. Voice limits and retriggering where needed by that retained contract.
-4. Synchronized microphone layers if retained; named slices and slot groups are implemented.
-5. Reproducible variation and filters as separately settled extensions.
+4. Reproducible variation and filters as separately settled extensions.
 
 No step above authorizes sampler waveform generation. Choose its language,
 backend, and possible VST hosting only after the model gate.
