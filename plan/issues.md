@@ -37,6 +37,10 @@ checking both device-process retirement and preservation of final updates.
 
 ### 2. P1: failed update sends never release the finish waiter
 
+Resolved: a failed send marks the transport stopped and wakes the finish waiter.
+Later publications cannot reset the waiter. A closed-pipe regression covers
+both the failed send and a subsequent publication before finish.
+
 Evidence: [SourceUpdateTransport](../recs/ui/source_recorder.py) clears `idle`
 when publishing. Its send-error branch returns without setting `idle` or
 recording a terminal transport state. `finish()` still calls `idle.wait()`.
