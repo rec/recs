@@ -7,6 +7,7 @@ from ufor.recording import AudioFragment, AudioStream, Recording, RecordingScore
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
 
+from recs.base.errors import RecsError
 from recs.daemon import gui_protocol
 from recs.ui import playback_control
 
@@ -102,6 +103,48 @@ def test_playback_restores_only_its_own_recording_pause(
     assert control.state().state == 'waiting'
     control.poll()
     assert len(resumes) == int(not was_paused)
+
+
+@pytest.mark.parametrize('already_playing', [False, True])
+def test_preparation_failure_leaves_capture_and_current_playback_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, already_playing: bool
+) -> None:
+    (tmp_path / 'recording.toml').touch()
+    score = _score('2026-09-01T12:00:00Z')
+    monkeypatch.setattr(playback_control, 'read_recording', lambda path: score)
+    monkeypatch.setattr(playback_control, 'PlaybackRunner', FakeRunner)
+    pauses: list[None] = []
+
+    def pause() -> gui_protocol.RecordingState:
+        pauses.append(None)
+        return gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=False
+        )
+
+    control = playback_control.PlaybackControl(
+        lambda: tmp_path,
+        pause,
+        lambda: pytest.fail('Recording must not resume'),
+        lambda state: None,
+        lambda message: pytest.fail(message),
+    )
+    request = gui_protocol.PlaySession(type='play_session', output_channel='1-2')
+    if already_playing:
+        control.play(request)
+    runner = control.runner
+    score = score.model_copy(
+        update={
+            'timebases': [
+                Timebase(name='audio', rate=Rate(numerator=96_001, denominator=2))
+            ]
+        }
+    )
+
+    with pytest.raises(RecsError, match='fractional rate'):
+        control.play(request)
+
+    assert control.runner is runner
+    assert len(pauses) == int(already_playing)
 
 
 class FakeRunner:
