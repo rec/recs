@@ -54,6 +54,9 @@ def execute_edit(
     destination: Path,
     provenance: dict[str, object] | None = None,
 ) -> Path:
+    from .resources import plan_edit
+
+    plan_edit(edit, edit_directory, destination).check()
     prepared = prepare_edit(edit, edit_directory, destination)
     canonical = prepared.edit
     rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs

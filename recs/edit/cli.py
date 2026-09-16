@@ -11,11 +11,14 @@ from ufor.interface import MixBinding, Part, ScoreVersion
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, calibration_schema, commands, composition, session
 from recs.edit.options import EditOptions
+from recs.edit.resources import plan_calibration, plan_edit
 from recs.edit.schema import CommandKind
+from recs.edit.workspace import audio_workspace
 from recs.recording import recording_paths
 
 
 class EditCli(EditOptions, frozen=True):
+    scratch_directory: Path | None = None
     inputs: Annotated[list[Path], tyro.conf.Positional] = Field(default_factory=list)
 
     destination: Annotated[
@@ -39,6 +42,7 @@ class EditCommandCli(BaseModel, frozen=True):
 
 
 class CompositionCli(BaseModel, frozen=True):
+    scratch_directory: Path | None = None
     record: Annotated[Path | None, tyro.conf.Positional] = None
 
     destination: Annotated[
@@ -52,6 +56,7 @@ class CompositionCli(BaseModel, frozen=True):
 
 
 class AutocalibrateCli(calibration_schema.AutocalibrateOptions, frozen=True):
+    scratch_directory: Path | None = None
     record: Annotated[Path | None, tyro.conf.Positional] = None
 
     destination: Annotated[
@@ -65,6 +70,7 @@ class AutocalibrateCli(calibration_schema.AutocalibrateOptions, frozen=True):
 
 
 class AutocalibrateFileCli(BaseModel, frozen=True):
+    scratch_directory: Path | None = None
     destination: Annotated[
         Path | None,
         tyro.conf.arg(aliases=('-o',), help='New output session directory'),
@@ -126,10 +132,15 @@ def main(args: list[str] | None = None) -> int:
         cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
     )
     if cfg.dry_run:
-        prepared = session.prepare_edit(
-            complete, edit_directory, destination, definitions
-        )
-        print(score_toml(prepared.edit), end='')
+        with audio_workspace(cfg.scratch_directory):
+            plan = plan_edit(complete, edit_directory, destination, definitions)
+            print('\n'.join(f'# {s}' for s in plan.summary().splitlines()))
+            print(
+                score_toml(
+                    session.canonical_edit(complete, {}, destination, edit_directory)
+                ),
+                end='',
+            )
         return 0
     print(f'Command: {command} ({command_path})')
     print(
@@ -152,7 +163,8 @@ def main(args: list[str] | None = None) -> int:
         )
         target = next(d for d in complete.destinations if d.output == output.name)
         print(f'Output: {target.path} ({target.format}, frames {start}:{end})')
-    session.execute_edit(complete, edit_directory, destination)
+    with audio_workspace(cfg.scratch_directory):
+        session.execute_edit(complete, edit_directory, destination)
     return 0
 
 
@@ -172,12 +184,14 @@ def _run_autocalibrate_command(
         cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
     )
     if cfg.dry_run:
-        prepared = autocalibrate.prepare_autocalibrate(
-            value, command_path.parent, destination
-        )
-        print(autocalibrate.autocalibrate_summary(prepared), end='')
+        with audio_workspace(cfg.scratch_directory):
+            print(
+                plan_calibration(record_path, value.channels, destination).summary(),
+                end='',
+            )
         return 0
-    autocalibrate.execute_autocalibrate(value, command_path.parent, destination)
+    with audio_workspace(cfg.scratch_directory):
+        autocalibrate.execute_autocalibrate(value, command_path.parent, destination)
     return 0
 
 
@@ -188,10 +202,18 @@ def _run_autocalibrate_file(path: Path, args: list[str], cwd: Path) -> int:
         cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
     )
     if cfg.dry_run:
-        prepared = autocalibrate.prepare_autocalibrate(value, path.parent, destination)
-        print(autocalibrate.autocalibrate_summary(prepared), end='')
+        if value.record is None:
+            raise RecsError('Calibration planning requires a recording input')
+        with audio_workspace(cfg.scratch_directory):
+            print(
+                plan_calibration(
+                    path.parent / value.record, value.channels, destination
+                ).summary(),
+                end='',
+            )
         return 0
-    autocalibrate.execute_autocalibrate(value, path.parent, destination)
+    with audio_workspace(cfg.scratch_directory):
+        autocalibrate.execute_autocalibrate(value, path.parent, destination)
     return 0
 
 
@@ -207,11 +229,13 @@ def _run_composition(path: Path, args: list[str], cwd: Path) -> int:
             cwd / f'{datetime.now():%Y-%m-%d %H-%M-%S} edit'
         )
     if cfg.dry_run:
-        print(
-            composition.composition_summary(value, path, record_path, destination),
-            end='',
-        )
+        with audio_workspace(cfg.scratch_directory):
+            print(
+                composition.composition_summary(value, path, record_path, destination),
+                end='',
+            )
         return 0
-    result = composition.execute_composition(value, path, record_path, destination)
+    with audio_workspace(cfg.scratch_directory):
+        result = composition.execute_composition(value, path, record_path, destination)
     print(f'Result: {result}')
     return 0

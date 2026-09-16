@@ -29,7 +29,6 @@ class Renderer:
             for k, v in sources.items()
         }
         self.graph = graph
-        width = max(graph.widths.values(), default=1)
         source_width = max(
             (s.storage.channels for s in self.sources.values()), default=0
         )
@@ -37,9 +36,7 @@ class Renderer:
             max(
                 (s.storage.peak_buffer_bytes for s in self.sources.values()), default=0
             ),
-            materialized.BLOCK_FRAMES
-            * 4
-            * (sum(graph.widths.values()) + source_width + 4 * width + 32),
+            materialized.estimate_audio_buffers(graph.widths, source_width),
         )
 
     def render(self, output: Output) -> MaterializedAudio:

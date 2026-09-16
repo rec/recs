@@ -280,6 +280,14 @@ renderer and preserving headroom without promising DAW-specific project formats.
 
 ## 8. Edit resource planning
 
+Implemented: edit and composition dry runs plan metadata through the shared graph
+validator without materializing nested audio. Calibration-dependent results remain
+unknown. Reports distinguish logical source/intermediate storage, bounded audio
+RAM, output frames, and known versus unknown encoded sizes. Invocation-local
+`--scratch-directory` covers every temporary audio allocation. Conservative
+preflight and allocation checks preserve the existing incomplete-output behavior.
+The assumptions and limitations are documented in `doc/edit-resources.md`.
+
 Question answered: “Does this edit fit, and where will its temporary audio go?”
 
 Existing foundation: bounded audio buffers, temporary float32 storage, and
@@ -316,4 +324,4 @@ or implementing another project's responsibilities.
 
 ## Additional work beyond the prompt
 
-None. This document proposes features only; it implements none of them.
+None.

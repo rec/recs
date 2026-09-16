@@ -62,7 +62,8 @@ def export_source(
             name=source.name,
             score=ScoreVersion(path=f'prepared/{name}/channels-{indices}.toml'),
         ), channels
-    resolve_input(source, Path('.'))
+    if definitions is None:
+        resolve_input(source, Path('.'))
     origin = source.record or source.file
     assert origin is not None
     origin = origin.resolve()

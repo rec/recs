@@ -331,9 +331,17 @@ encoding. RAM use scales with graph width and block size, not recording duration
 Temporary storage can require four bytes per sample per channel for each live
 source or output; sparse timeline gaps may use less physical disk space. Files
 are released with their prepared audio objects, including shared channel views.
-The system temporary directory must have enough space. Composition summaries
-distinguish temporary audio storage from estimated audio-buffer memory; these
-estimates exclude interpreter, graph metadata, and codec overhead.
+`--dry-run` plans from metadata without rendering sources or intermediates.
+Ordinary edit previews remain TOML, with resource estimates in comments;
+composition previews describe stages and their estimates. Calibration previews
+report audio-dependent results as unknown rather than running analysis.
+Use `--scratch-directory /existing/directory` on an edit invocation to place all
+its temporary audio there. The default remains the system temporary directory;
+capture settings are unchanged. Space checks count full logical storage without
+assuming sparse-file savings and combine scratch and known output requirements
+when they share a filesystem. Estimates exclude interpreter and codec overhead,
+do not predict compressed sizes, and cannot reserve disk capacity.
+See [Edit resource planning](doc/edit-resources.md) for the assumptions and limits.
 
 Older sessions require explicit conversion with `recs session migrate` before
 editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
