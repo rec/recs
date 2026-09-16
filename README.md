@@ -207,6 +207,28 @@ full scale. Run ranges are half-open and clipped to the analyzed range.
 Unmapped audio retains asset offsets without invented source positions. The
 report never changes the recording; use `record check` for full media integrity.
 
+Search the session library without decoding media:
+
+```console
+recs sessions /path/to/recordings --source x18 --marker solo --media audio --limit 20
+recs sessions /path/to/recordings --since 2026-09-01 --before 2026-10-01 --incomplete --json
+recs sessions /path/to/recordings --warning "offline"
+```
+
+Filters combine with AND. `--source`, `--track`, `--marker`, and `--warning`
+use case-insensitive substring matching. Tracks include their source prefix;
+marker text includes journal labels and pressed keys. `--warning ""` matches any
+warning. Dates use the capture timestamp's recorded calendar date, not the file
+modification time or a conversion to another timezone. `--since` is inclusive,
+`--before` exclusive; unknown dates do not match date filters. `--incomplete`
+includes open documents and unresolved audio placement. Captures without a
+`recording.toml` remain outside this document-based library.
+
+Results include matching reasons and use deterministic path order. The default
+limit is 100; additional matches and unreadable documents are reported to stderr,
+including with JSON output. A malformed document does not hide healthy sessions.
+Search reads metadata and journals afresh, so moving a library needs no reindexing.
+
 `recs edit` reads TOML edit definitions or installed edit commands and writes a
 new session directory containing generated media, the resolved `edit.toml`, and
 a new `recording.toml` and capture journal. Each installed edit command provides

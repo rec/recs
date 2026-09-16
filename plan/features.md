@@ -111,6 +111,14 @@ evidence warn. Read/analysis errors fail the command; warnings/advisories do not
 
 ## 3. Searchable session library
 
+Implemented: `recs sessions ROOT` accepts source/track, marker, media, capture-date,
+incomplete-state, and warning filters. Filters combine with AND; text matching is
+case-insensitive substring matching. Dates use the recorded calendar date with
+inclusive `--since` and exclusive `--before`. Results include match explanations,
+use path order, and default to a configurable 100-result limit. Truncation and
+unreadable documents are reported without suppressing healthy matches. No media
+decoding, persistent index, database, or new tagging schema was added.
+
 Question answered: “Where is the take with that device, marker, or problem?”
 
 Existing foundation: directory-based session listing and per-session summaries.
@@ -155,6 +163,12 @@ insufficient clock evidence produces an explicit limitation, not guessed alignme
 
 First-version limit: one source clock at a time. Wall-clock labels and host
 timestamps must not be treated as proof of sample alignment across devices.
+
+Decision pending after inspection: current `mark` records contain a wall-clock
+timestamp and label, not source-frame positions. Audio clock observations have
+unknown timing uncertainty. Proposed prerequisite: capture source-local frame
+evidence for new markers; retain older markers as unpositioned unless explicitly
+aligned. This capture-metadata change needs approval before implementation.
 
 ## 5. Assisted recovery into a new session
 
