@@ -215,6 +215,15 @@ add more aliases as a substitute for deciding the intended interface.
 
 ### 13. P2: edits allocate whole source and timeline arrays
 
+Resolved: sources and intermediate outputs use temporary float32 storage while
+rendering, normalization, hashing, autocalibration, and encoding use blocks of
+at most 65,536 frames. Prepared snapshots, channel views, and exact routing
+semantics are preserved. Regression WAVs match whole-array reference arithmetic
+across three block sizes and every normalization mode. A sparse one-hour timeline
+measured about 1.78 MB traced peak allocation, unchanged from a two-second case;
+this is not a whole-process RSS or hardware benchmark. Scratch storage still
+scales with prepared audio size and is documented explicitly.
+
 Evidence: [Renderer](../recs/edit/render.py) materializes sources up front and
 allocates arrays through the maximum output end for every track and bus.
 Normalization and gain application can allocate further arrays. See also

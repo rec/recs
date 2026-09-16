@@ -303,13 +303,17 @@ def materialized_autocalibrate_outputs(
 ) -> dict[str, MaterializedAudio]:
     return {
         prepared.track_ids[selector]: MaterializedAudio(
-            source.samples,
+            source.storage,
             source.sample_rate,
             source.start_frame,
             [
                 ObservedFrameRange(start=r.start, end=r.end)
                 for r in prepared.intervals[selector]
             ],
+            storage_start=source.storage_start,
+            frames=source.end_frame - source.start_frame,
+            channel_start=source.channel_start,
+            channels=source.channels,
         )
         for selector, source in prepared.audio.items()
     }
@@ -397,13 +401,17 @@ def level_windows_audio(
         start = _aligned_start(coverage.start, settings.window_frames)
         while start + settings.window_frames <= coverage.end:
             end = start + settings.window_frames
-            block = source.samples[
-                start - source.start_frame : end - source.start_frame
-            ]
+            minima = np.full(source.channels, np.inf, dtype=np.float32)
+            maxima = np.full(source.channels, -np.inf, dtype=np.float32)
+            for block in source.blocks(start, end):
+                minima = np.minimum(minima, np.min(block, axis=0))
+                maxima = np.maximum(maxima, np.max(block, axis=0))
             yield LevelWindow(
                 start=start,
                 end=end,
-                level_dbfs=_level_dbfs(block, settings.analysis_floor_dbfs),
+                level_dbfs=_level_dbfs(
+                    np.stack((minima, maxima)), settings.analysis_floor_dbfs
+                ),
                 coverage_start=coverage.start,
                 coverage_end=coverage.end,
             )
@@ -695,12 +703,8 @@ def _write_track(
         except soundfile.LibsndfileError as e:
             raise RecsError(f'Cannot create output {path}: {e}') from e
         try:
-            fp.write(
-                source.samples[
-                    frame_range.start - source.start_frame : frame_range.end
-                    - source.start_frame
-                ]
-            )
+            for block in source.blocks(frame_range.start, frame_range.end):
+                fp.write(block)
         finally:
             fp.close()
         with soundfile.SoundFile(path) as result:

@@ -1,4 +1,5 @@
-from pathlib import Path
+from collections.abc import Iterator
+from tempfile import TemporaryFile
 
 import numpy as np
 import soundfile
@@ -9,22 +10,66 @@ from recs.base.errors import RecsError
 from recs.edit.graph import FrameRange
 from recs.edit.record import ResolvedSource
 
+BLOCK_FRAMES = 65_536
+
+
+class AudioStorage:
+    """Unencoded float32 scratch storage, released with its last audio view."""
+
+    def __init__(self, frames: int, channels: int) -> None:
+        self.frames = frames
+        self.channels = channels
+        try:
+            self.file = TemporaryFile()
+        except OSError as error:
+            raise RecsError(
+                f'Cannot create temporary audio storage: {error}'
+            ) from error
+        self.peak_buffer_bytes = BLOCK_FRAMES * channels * 8
+        try:
+            self.file.truncate(frames * channels * 4)
+        except OSError as error:
+            self.file.close()
+            raise RecsError(
+                f'Cannot allocate temporary audio storage: {error}'
+            ) from error
+
+    def read(self, start: int, frames: int) -> np.ndarray:
+        try:
+            self.file.seek(start * self.channels * 4)
+            data = self.file.read(frames * self.channels * 4)
+        except OSError as error:
+            raise RecsError(f'Cannot read temporary audio storage: {error}') from error
+        if len(data) != frames * self.channels * 4:
+            raise RecsError('Temporary audio storage is truncated')
+        return np.frombuffer(data, dtype='<f4').reshape(frames, self.channels)
+
+    def write(self, start: int, samples: np.ndarray) -> None:
+        try:
+            self.file.seek(start * self.channels * 4)
+            self.file.write(samples.astype('<f4', copy=False).tobytes())
+        except OSError as error:
+            raise RecsError(f'Cannot write temporary audio storage: {error}') from error
+
 
 class MaterializedAudio:
     def __init__(
         self,
-        samples: np.ndarray,
+        storage: AudioStorage,
         sample_rate: int,
         start_frame: int,
         observed_ranges: list[FrameRange],
+        *,
+        storage_start: int = 0,
+        frames: int | None = None,
+        channel_start: int = 0,
+        channels: int | None = None,
     ) -> None:
-        if samples.dtype != np.float32 or samples.ndim != 2:
-            raise ValueError(
-                'Materialized audio must be a two-dimensional float32 array'
-            )
+        frames = storage.frames - storage_start if frames is None else frames
+        channels = storage.channels - channel_start if channels is None else channels
         if sample_rate <= 0 or start_frame < 0:
             raise ValueError('Invalid materialized audio timebase')
-        end_frame = start_frame + len(samples)
+        end_frame = start_frame + frames
         if any(
             r.start < start_frame or r.end > end_frame or r.end <= r.start
             for r in observed_ranges
@@ -35,22 +80,34 @@ class MaterializedAudio:
             for a, b in zip(observed_ranges, observed_ranges[1:], strict=False)
         ):
             raise ValueError('Observed ranges overlap')
-        self.samples = samples
+        self.storage = storage
+        self.storage_start = storage_start
+        self.channel_start = channel_start
         self.sample_rate = sample_rate
         self.start_frame = start_frame
+        self.end_frame = end_frame
+        self.channels = channels
         self.observed_ranges = observed_ranges
 
-    @property
-    def end_frame(self) -> int:
-        return self.start_frame + len(self.samples)
+    def read(self, start: int, frames: int) -> np.ndarray:
+        if not 0 <= frames <= BLOCK_FRAMES:
+            raise ValueError(f'Audio reads must contain at most {BLOCK_FRAMES} frames')
+        if start < self.start_frame or start + frames > self.end_frame:
+            raise ValueError('Audio read is outside the prepared range')
+        data = self.storage.read(self.storage_start + start - self.start_frame, frames)
+        return data[:, self.channel_start : self.channel_start + self.channels]
 
-    @property
-    def channels(self) -> int:
-        return self.samples.shape[1]
+    def blocks(
+        self, start: int | None = None, end: int | None = None
+    ) -> Iterator[np.ndarray]:
+        start = self.start_frame if start is None else start
+        end = self.end_frame if end is None else end
+        for position in range(start, end, BLOCK_FRAMES):
+            yield self.read(position, min(BLOCK_FRAMES, end - position))
 
     @property
     def nbytes(self) -> int:
-        return self.samples.nbytes
+        return (self.end_frame - self.start_frame) * self.channels * 4
 
     @property
     def timeline_end(self) -> int:
@@ -96,24 +153,36 @@ def allocate_audio(frames: int, channels: int, purpose: str) -> np.ndarray:
 
 
 def materialize_source(source: ResolvedSource) -> MaterializedAudio:
-    samples = allocate_audio(
-        source.timeline_end, source.channels, f'source {source.selector}'
-    )
+    storage = AudioStorage(source.timeline_end, source.channels)
     for fragment in source.fragments:
-        _read_fragment(
-            source,
-            fragment.path,
-            fragment.start,
-            fragment.end,
-            fragment.channel_offset,
-            fragment.asset_start,
-            samples,
-        )
+        try:
+            with soundfile.SoundFile(fragment.path) as fp:
+                storage.peak_buffer_bytes = max(
+                    storage.peak_buffer_bytes,
+                    BLOCK_FRAMES * (fp.channels + source.channels) * 4,
+                )
+                fp.seek(fragment.asset_start)
+                for start in range(fragment.start, fragment.end, BLOCK_FRAMES):
+                    count = min(BLOCK_FRAMES, fragment.end - start)
+                    data = fp.read(count, dtype='float32', always_2d=True)
+                    if len(data) != count:
+                        raise RecsError(f'Source audio {fragment.path} is truncated')
+                    storage.write(
+                        start,
+                        data[
+                            :,
+                            fragment.channel_offset : fragment.channel_offset
+                            + source.channels,
+                        ],
+                    )
+        except soundfile.SoundFileError as error:
+            raise RecsError(
+                f'Cannot read source audio {fragment.path}: {error}'
+            ) from error
     ranges = merge_ranges(
         [FrameRange(start=f.start, end=f.end) for f in source.fragments]
     )
-    samples.flags.writeable = False
-    return MaterializedAudio(samples, source.sample_rate, 0, ranges)
+    return MaterializedAudio(storage, source.sample_rate, 0, ranges)
 
 
 def select_audio(value: MaterializedAudio, start: int, end: int) -> MaterializedAudio:
@@ -125,10 +194,14 @@ def select_audio(value: MaterializedAudio, start: int, end: int) -> Materialized
         if max(start, r.start) < min(end, r.end)
     ]
     return MaterializedAudio(
-        value.samples[start - value.start_frame : end - value.start_frame],
+        value.storage,
         value.sample_rate,
         start,
         ranges,
+        storage_start=value.storage_start + start - value.start_frame,
+        frames=end - start,
+        channel_start=value.channel_start,
+        channels=value.channels,
     )
 
 
@@ -139,9 +212,15 @@ def select_channels(value: MaterializedAudio, channels: list[int]) -> Materializ
         raise ValueError(
             f'Channel selection exceeds width {value.channels}: {channels}'
         )
-    samples = value.samples[:, channels[0] : channels[-1] + 1]
     return MaterializedAudio(
-        samples, value.sample_rate, value.start_frame, value.observed_ranges
+        value.storage,
+        value.sample_rate,
+        value.start_frame,
+        value.observed_ranges,
+        storage_start=value.storage_start,
+        frames=value.end_frame - value.start_frame,
+        channel_start=value.channel_start + channels[0],
+        channels=len(channels),
     )
 
 
@@ -155,41 +234,6 @@ def merge_ranges(values: list[FrameRange]) -> list[FrameRange]:
         else:
             result.append(value)
     return result
-
-
-def _read_fragment(
-    source: ResolvedSource,
-    path: Path,
-    start: int,
-    end: int,
-    channel_offset: int,
-    asset_start: int,
-    destination: np.ndarray,
-) -> None:
-    try:
-        with soundfile.SoundFile(path) as fp:
-            fp.seek(asset_start)
-            frames = end - start
-            if channel_offset == 0 and fp.channels == source.channels:
-                data = fp.read(
-                    frames,
-                    dtype='float32',
-                    always_2d=True,
-                    out=destination[start:end],
-                )
-                count = len(data)
-            else:
-                data = fp.read(frames, dtype='float32', always_2d=True)
-                count = len(data)
-                destination[start : start + count] = data[
-                    :, channel_offset : channel_offset + source.channels
-                ]
-    except soundfile.SoundFileError as e:
-        raise RecsError(f'Cannot read source audio {path}: {e}') from e
-    if count != end - start:
-        raise RecsError(
-            f'Source audio {path} contains {count} frames; expected {end - start}'
-        )
 
 
 def recording_definition(
@@ -229,13 +273,15 @@ def recording_definition(
         end = span.end
     if end < value.end_frame:
         gaps.append(Gap(start=end, end=value.end_frame, reason=GapReason.unknown))
-    payload = value.samples.astype('<f4', copy=False).tobytes()
+    digest = sha256()
+    for block in value.blocks():
+        digest.update(block.astype('<f4', copy=False).tobytes())
     asset = Asset(
         name='samples',
         path='samples.f32',
         encoding='float32le',
-        byte_length=len(payload),
-        sha256=sha256(payload).hexdigest(),
+        byte_length=value.nbytes,
+        sha256=digest.hexdigest(),
     )
     return RecordingScore(
         name=name,
