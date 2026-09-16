@@ -278,6 +278,19 @@ with marker provenance in the `edit_started` entry. Gaps render as silence under
 the existing renderer's rules. Original files are not rewritten, destinations
 inside the original session are refused, and existing destinations are not reused.
 
+Export aligned tracks for another editor:
+
+```console
+recs session handoff /path/to/session --clock audio:device --start-frame 0 --end-frame 480000
+recs session handoff /path/to/session --clock audio:device --start-frame 0 --end-frame 480000 --destination /path/to/handoff
+```
+
+The preview is read-only. Rendering creates equal-length 32-bit float WAVs with
+a shared source-frame origin and a JSON sidecar preserving track identities,
+channel order, gap reasons, and applicable markers. Only one sealed, unlinked
+segment and one capture clock are supported; no cross-device alignment is inferred.
+See [Aligned track handoff](doc/track-handoff.md) for the sidecar contract.
+
 Preview recovery of a stopped, interrupted capture, then create a separate copy:
 
 ```console

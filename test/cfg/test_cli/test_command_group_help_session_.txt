@@ -1,5 +1,5 @@
 $ recs session --help
-usage: recs session [-h] {show,quality,markers,extract,recover,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,markers,extract,handoff,recover,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
@@ -21,6 +21,10 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
                    Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
                    lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
                    rejected, never mapped from wall time.
+    - handoff      Preview aligned tracks from one sealed segment; --destination writes the bundle.
+
+                   Frame bounds are half-open on one capture clock. No resampling or alignment between independent
+                   clocks is inferred. Output is 32-bit float WAV plus JSON.
     - recover      Preview recovery of a stopped version 4 capture; --destination creates a copy.
 
                    Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
@@ -100,6 +104,30 @@ usage: recs session finalize [-h] PATH
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
+
+
+$ recs session handoff --help
+usage: recs session handoff [-h] [OPTIONS] PATH
+
+Preview aligned tracks from one sealed segment; --destination writes the bundle.
+
+Frame bounds are half-open on one capture clock. No resampling or alignment between independent clocks is inferred. Output is 32-bit float WAV plus JSON.
+
+ positional arguments
+ --------------------------------------------------------------------------------------------------
+  PATH             path (required)
+
+ options
+ --------------------------------------------------------------------------------------------------
+  -h, --help       show this help message and exit
+  --clock STR      (required)
+  --start-frame INT
+                   (required)
+  --end-frame INT  (required)
+  --tracks [STR [STR ...]]
+                   Exact stream IDs; default: all audio streams on the selected clock. (default: )
+  --destination {None}|PATH
+                   (default: None)
 
 
 $ recs session markers --help
