@@ -49,10 +49,11 @@ class FileOpener(BaseModel):
         return fp
 
     def create(self, metadata: Mapping[str, str], path: Path) -> soundfile.SoundFile:
+        path = path.with_suffix('.' + self.format)
         path.parent.mkdir(exist_ok=True, parents=True)
 
         for i in itertools.count():
-            f = path.parent / (path.name + bool(i) * f'_{i}')
+            f = path.with_stem(path.stem + (f'_{i}' if i else ''))
             try:
                 return self.open(f, metadata)
             except FileExistsError:
