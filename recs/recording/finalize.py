@@ -40,8 +40,9 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def prepare_recording(journal: Path) -> tuple[RecordingScore, list[str]]:
-    root = journal.resolve().parent
+def read_capture_entries(
+    journal: Path,
+) -> tuple[list[session_record.Record], list[str]]:
     entries, errors = session_record.read_entries(journal)
     notes: list[str] = []
     if errors:
@@ -56,14 +57,28 @@ def prepare_recording(journal: Path) -> tuple[RecordingScore, list[str]]:
         if not recoverable:
             raise RecsError('; '.join(errors))
         notes.append(
-            'Original journal has a truncated final line; candidate remains open.'
+            'Original journal has a truncated final line; '
+            'original capture is incomplete.'
         )
+    if not entries or not isinstance(entries[0], session_record.SessionHeader):
+        raise RecsError('Recording finalization requires a version 4 session header')
+    return entries, notes
+
+
+def prepare_recording(
+    journal: Path, entries: list[session_record.Record] | None = None
+) -> tuple[RecordingScore, list[str]]:
+    root = journal.resolve().parent
+    if entries is None:
+        entries, notes = read_capture_entries(journal)
+    else:
+        notes = []
     if not entries or not isinstance(entries[0], session_record.SessionHeader):
         raise RecsError('Recording finalization requires a version 4 session header')
     header = entries[0]
     footer = (
         entries[-1]
-        if isinstance(entries[-1], session_record.SessionFooter) and not errors
+        if isinstance(entries[-1], session_record.SessionFooter) and not notes
         else None
     )
     starts = [

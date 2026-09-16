@@ -1,0 +1,47 @@
+evidence:
+  byte_length: 1237
+  encoding: recs-session-v4
+  name: capture-evidence
+  path: session-record.jsonl
+  sha256: 0012742d2fcb079d8159b8f9a31de774709c5f1bbe93abe3f3af14e75c36e286
+failures: []
+files:
+- asset:
+    byte_length: 192080
+    encoding: wav
+    name: asset-bdf617d8e8c687e3
+    path: complete.wav
+    sha256: <verified file checksum>
+  decision: included
+  decoded_frames: null
+  path: complete.wav
+  reason: Verified completion evidence and media
+  recovered_path: media/0000.wav
+  stream_id: audio:complete.wav
+- asset: null
+  decision: omitted
+  decoded_frames: null
+  path: missing.wav
+  reason: '[Errno 2] No such file or directory: ''<original>/missing.wav'''
+  recovered_path: null
+  stream_id: audio:missing.wav
+- asset:
+    byte_length: 192080
+    encoding: wav
+    name: unplaced-2
+    path: unfinished.wav
+    sha256: <verified file checksum>
+  decision: unplaced
+  decoded_frames: 48000
+  path: unfinished.wav
+  reason: Readable audio without completion evidence; native placement is unknown
+  recovered_path: media/0002.wav
+  stream_id: audio:unfinished.wav
+journal: <original>/session-record.jsonl
+notes:
+- Original journal has a truncated final line; original capture is incomplete.
+- Sealed output means recovery completed, not that the original capture was complete.
+- Unplaced audio remains an asset only, with no invented frame range or output port.
+- Only journal-referenced files in this segment are inspected; continuations are not
+  followed.
+original_had_footer: false
