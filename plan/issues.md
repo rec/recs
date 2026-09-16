@@ -182,6 +182,10 @@ snapshots.
 
 ### 11. P2: one malformed recording blocks playback selection for the library
 
+Resolved: playback and browsing report unreadable documents and keep healthy
+sessions accessible. Playback still reports an error if no readable sessions
+remain. Mixed-library and all-invalid playback regressions cover this policy.
+
 Evidence: [PlaybackControl._sessions](../recs/ui/playback_control.py) parses every
 discovered `recording.toml` in a list comprehension. Any `RecsError` aborts the
 entire selection, including requests for an unrelated valid session. By contrast,

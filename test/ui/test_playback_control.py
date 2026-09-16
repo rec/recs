@@ -3,6 +3,7 @@ from threading import Thread
 
 import pytest
 from ufor.assets import Asset
+from ufor.codec import score_toml
 from ufor.recording import AudioFragment, AudioStream, Recording, RecordingScore
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
@@ -145,6 +146,43 @@ def test_preparation_failure_leaves_capture_and_current_playback_unchanged(
 
     assert control.runner is runner
     assert len(pauses) == int(already_playing)
+
+
+@pytest.mark.parametrize('has_healthy_session', [False, True])
+def test_invalid_recordings_are_reported_without_blocking_healthy_playback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, has_healthy_session: bool
+) -> None:
+    bad = tmp_path / 'bad' / 'recording.toml'
+    bad.parent.mkdir()
+    bad.write_text('{')
+    good = tmp_path / 'good' / 'recording.toml'
+    if has_healthy_session:
+        good.parent.mkdir()
+        good.write_text(score_toml(_score('2026-09-01T12:00:00Z')))
+    monkeypatch.setattr(playback_control, 'PlaybackRunner', FakeRunner)
+    warnings: list[str] = []
+    control = playback_control.PlaybackControl(
+        lambda: tmp_path,
+        lambda: gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=False
+        ),
+        lambda: None,
+        lambda state: None,
+        warnings.append,
+    )
+    request = gui_protocol.PlaySession(type='play_session', output_channel='1-2')
+
+    if has_healthy_session:
+        state = control.play(request)
+        assert state.path == str(good)
+        assert state.state == 'playing'
+    else:
+        with pytest.raises(RecsError, match='No finalized sessions'):
+            control.play(request)
+        assert control.state().state == 'waiting'
+
+    assert len(warnings) == 1
+    assert f'Cannot read recording {bad}' in warnings[0]
 
 
 class FakeRunner:

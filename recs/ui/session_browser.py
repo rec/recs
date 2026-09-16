@@ -80,7 +80,8 @@ def summarize(path: Path) -> SessionSummary | None:
         return None
     try:
         document = read_recording(record_path)
-    except RecsError:
+    except RecsError as error:
+        print(error, file=sys.stderr)
         return None
     body = document.body
     assets = {a.name: a for a in document.assets}

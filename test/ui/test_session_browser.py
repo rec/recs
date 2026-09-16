@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from ufor import recording
 from ufor.codec import score_toml
 from ufor.streams import AudioType
@@ -61,13 +62,20 @@ def test_session_browser_lists_session_records_as_json(
     ]
 
 
-def test_session_browser_ignores_invalid_records(tmp_path: Path) -> None:
+def test_session_browser_reports_invalid_records_and_keeps_healthy_sessions(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    healthy = _record(tmp_path)
     directory = tmp_path / 'session'
     directory.mkdir(parents=True)
     record = directory / 'recording.toml'
     record.write_text('{')
 
-    assert session_browser.scan(tmp_path) == []
+    summaries = session_browser.scan(tmp_path)
+
+    assert len(summaries) == 1
+    assert summaries[0].path == healthy.as_posix()
+    assert f'Cannot read recording {record}' in capsys.readouterr().err
 
 
 def test_missing_journal_preserves_summary_with_diagnostic_warning(
