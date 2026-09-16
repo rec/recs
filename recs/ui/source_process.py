@@ -237,14 +237,34 @@ class SourceProcess(Runnable):
     def join(self, timeout: float | None = None) -> None:
         if not self.started:
             return
+        finished = threading.Event()
+        reader = threading.Thread(
+            target=self._drain_updates, args=(finished,), name='SourceFinalUpdates'
+        )
+        reader.start()
         self.process.join(STOP_TIMEOUT if timeout is None else timeout)
         forced = False
         if self.process.is_alive():
             self.process.terminate()
             self.process.join()
             forced = True
-        self.pending_updates = []
-        while _connection_ready(self.connection):
+        finished.set()
+        reader.join()
+        self._record_exit_failure(forced)
+        self.control_transport.stop()
+        self.control_connection.close()
+        self.connection.close()
+        self.running = False
+        self.started = False
+        self.stopped = True
+
+    def _drain_updates(self, finished: threading.Event) -> None:
+        while True:
+            if not _connection_ready(self.connection):
+                if finished.wait(0.01):
+                    if not _connection_ready(self.connection):
+                        return
+                continue
             try:
                 update = self.connection.recv()
             except (EOFError, OSError):
@@ -255,13 +275,6 @@ class SourceProcess(Runnable):
                     update,
                 )
             )
-        self._record_exit_failure(forced)
-        self.control_transport.stop()
-        self.control_connection.close()
-        self.connection.close()
-        self.running = False
-        self.started = False
-        self.stopped = True
 
     def _record_exit_failure(self, forced: bool) -> None:
         if any(
