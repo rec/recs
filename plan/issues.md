@@ -254,6 +254,13 @@ long lane; no performance benchmark was run during this review.
 
 ### 15. P2: playback rescans all fragments and reopens files per block
 
+Resolved: binary searches select only intersecting intervals. A single cached
+decoder is reused across blocks and seeks, closed before changing assets, and
+released before completion/failure callbacks or after explicit stop. Regression
+tests cover gaps, random seeks, asset switching, and output/decode failures.
+The same block-and-seek workload measured about 0.01 seconds with either 1,000
+or 10,000 fragments; this is diagnostic timing, not a test threshold.
+
 Evidence: [PlaybackTimeline.read](../recs/audio/playback.py) iterates the complete
 fragment list and opens, seeks, reads, and closes each intersecting file on every
 call. The runner normally requests 2,048 frames at a time.
