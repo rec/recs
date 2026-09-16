@@ -52,6 +52,10 @@ connection with a pending update and require bounded completion.
 
 ### 3. P1: playback resumes recording even when it was already paused
 
+Resolved: playback restores only a pause it acquired. Further manual/disk pauses
+cancel automatic resumption. Explicit resume stops playback before enabling
+capture, as agreed by the user.
+
 Evidence: [PlaybackControl.play, stop, and _finished](../recs/ui/playback_control.py)
 discard the pause callback's result and unconditionally resume recording on
 completion or stop. [pause_recording](../recs/ui/recording_commands.py) now

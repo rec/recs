@@ -31,9 +31,16 @@ def test_play_selects_the_most_recent_session_and_changes_session(
     pauses: list[None] = []
     resumes: list[None] = []
     states: list[gui_protocol.PlaybackState] = []
+
+    def pause() -> gui_protocol.RecordingState:
+        pauses.append(None)
+        return gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=False
+        )
+
     control = playback_control.PlaybackControl(
         lambda: tmp_path,
-        lambda: pauses.append(None),
+        pause,
         lambda: resumes.append(None),
         states.append,
         lambda message: pytest.fail(message),
@@ -51,6 +58,39 @@ def test_play_selects_the_most_recent_session_and_changes_session(
     assert len(pauses) == 2
     assert len(resumes) == 1
     assert states[-1] == previous
+
+
+@pytest.mark.parametrize('was_paused', [False, True])
+@pytest.mark.parametrize('completion', ['stop', 'finished', 'failed'])
+def test_playback_restores_only_its_own_recording_pause(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, was_paused: bool, completion: str
+) -> None:
+    (tmp_path / 'recording.toml').touch()
+    monkeypatch.setattr(
+        playback_control, 'read_recording', lambda path: _score('2026-09-01T12:00:00Z')
+    )
+    monkeypatch.setattr(playback_control, 'PlaybackRunner', FakeRunner)
+    resumes: list[None] = []
+    control = playback_control.PlaybackControl(
+        lambda: tmp_path,
+        lambda: gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=was_paused
+        ),
+        lambda: resumes.append(None),
+        lambda state: None,
+        lambda message: None,
+    )
+    control.play(gui_protocol.PlaySession(type='play_session', output_channel='1-2'))
+    runner = control.runner
+    assert runner is not None
+    if completion == 'stop':
+        control.stop()
+    elif completion == 'finished':
+        runner.finished()
+    else:
+        runner.failed('output failed')
+    assert len(resumes) == int(not was_paused)
+    assert control.state().state == 'waiting'
 
 
 class FakeRunner:
