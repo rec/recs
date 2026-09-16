@@ -5,8 +5,10 @@ import tomllib
 
 import pytest
 import tyro
+from reccy.pytest_plugin import CliHelp
 from ufor.encoding import Format, Subtype
 
+from recs.__main__ import run
 from recs.base.types import MidiTiming, SdType
 from recs.cfg import cli
 
@@ -26,13 +28,8 @@ def test_info():
     json.loads(r)
 
 
-def test_help_has_no_consecutive_empty_lines() -> None:
-    cmd = 'python -m recs --help'
-    help_text = sp.run(cmd, text=True, check=True, stdout=sp.PIPE, shell=True).stdout
-    lines = help_text.splitlines()
-
-    for first, second in zip(lines, lines[1:], strict=False):
-        assert first or second
+def test_help(cli_help: CliHelp) -> None:
+    cli_help('recs', run)
 
 
 def test_option_parsing() -> None:

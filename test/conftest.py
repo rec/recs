@@ -10,6 +10,8 @@ from reccy.device import DeviceDict
 from recs.cfg import device
 from recs.ui import device_poller, source_process, source_recorder
 
+pytest_plugins = ['reccy.pytest_plugin']
+
 DEVICES_FILE = Path(__file__).parent / 'devices.json'
 DEVICES = json.loads(DEVICES_FILE.read_text())
 
