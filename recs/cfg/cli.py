@@ -19,6 +19,7 @@ LINES = (
     'record check PATH validates a recording document and its media.',
     'control pause/resume affect capture; control stop/continue affect playback. '
     'profile manages named saved setups; --profiles loads per-device JSON defaults.',
+    'readiness inspects a setup without recording; preflight checks a running daemon.',
 )
 HELP = '\n\n'.join(LINES)
 
