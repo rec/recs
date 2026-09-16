@@ -161,7 +161,15 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
         selector=RecordSelector(source='Mic', track='1'),
     )
     rendered = materialize_source(resolve_input(edit, tmp_path))
-    soundfile.write(tmp_path / 'restored.wav', rendered.samples, 48000, subtype='FLOAT')
+    with soundfile.SoundFile(
+        tmp_path / 'restored.wav',
+        'w',
+        samplerate=48000,
+        channels=rendered.channels,
+        subtype='FLOAT',
+    ) as fp:
+        for block in rendered.blocks():
+            fp.write(block)
     actual, rate = soundfile.read(tmp_path / 'restored.wav')
     assert rate == 48000 and len(actual) == 384000
     np.testing.assert_array_equal(actual[48000:144000], 0)

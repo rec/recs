@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, Self
 
-import numpy as np
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from ufor.arrangement import Arrangement, ArrangementScore
@@ -90,7 +89,7 @@ class PreparedComposition:
         edit: ArrangementScore,
         graph: EditGraph,
         rendered: dict[str, MaterializedAudio],
-        stage_memory: list[int],
+        stage_storage: list[int],
         peak_memory: int,
         autocalibration: autocalibrate.PreparedAutocalibrate | None = None,
     ) -> None:
@@ -98,7 +97,7 @@ class PreparedComposition:
         self.edit = edit
         self.graph = graph
         self.rendered = rendered
-        self.stage_memory = stage_memory
+        self.stage_storage = stage_storage
         self.peak_memory = peak_memory
         self.autocalibration = autocalibration
 
@@ -170,7 +169,7 @@ def prepare_composition(
     materializer = SourceMaterializer()
     memory: dict[str, MaterializedAudio] = {}
     stages: list[ResolvedStage] = []
-    stage_memory: list[int] = []
+    stage_storage: list[int] = []
     peak_memory = 0
     final_edit: ArrangementScore | None = None
     final_graph: EditGraph | None = None
@@ -221,10 +220,13 @@ def prepare_composition(
             memory, materialized_session, current_tracks = _stage_session(
                 index, rendered, sample_rate
             )
-            stage_memory.append(
+            stage_storage.append(
                 _storage_bytes([t.audio for t in materialized_session.tracks])
             )
-            peak_memory = max(peak_memory, stage_memory[-1])
+            peak_memory = max(
+                peak_memory,
+                max((a.storage.peak_buffer_bytes for a in audio.values()), default=0),
+            )
             stages.append(
                 ResolvedStage(
                     command=resolved_step.step.command,
@@ -275,7 +277,7 @@ def prepare_composition(
             index, rendered, canonical_edit.timebases[0].rate.numerator
         )
         current_bytes = _storage_bytes([t.audio for t in materialized_session.tracks])
-        stage_memory.append(current_bytes)
+        stage_storage.append(current_bytes)
         peak_memory = max(peak_memory, renderer.peak_memory_bytes)
         stages.append(
             ResolvedStage(
@@ -315,13 +317,13 @@ def prepare_composition(
             placeholder,
             placeholder_graph,
             final_rendered,
-            stage_memory,
+            stage_storage,
             peak_memory,
             final_autocalibration,
         )
     assert final_edit is not None and final_graph is not None
     return PreparedComposition(
-        canonical, final_edit, final_graph, final_rendered, stage_memory, peak_memory
+        canonical, final_edit, final_graph, final_rendered, stage_storage, peak_memory
     )
 
 
@@ -377,16 +379,16 @@ def composition_summary(
     lines = [
         f'Record: {record_path}',
         f'Output session: {destination}',
-        'Intermediate media: memory only',
+        'Intermediate media: temporary float32 storage; bounded audio buffers',
     ]
     for index, (step, size) in enumerate(
-        zip(value.edits, prepared.stage_memory, strict=False), 1
+        zip(value.edits, prepared.stage_storage, strict=False), 1
     ):
         selectors = ', '.join(step.channel) or 'all compatible tracks'
         lines.append(f'{index}: {step.command}')
         lines.append(f'   Selectors: {selectors}')
-        lines.append(f'   Materialized audio: {size} bytes')
-    lines.append(f'Estimated peak materialized audio: {prepared.peak_memory} bytes')
+        lines.append(f'   Temporary audio storage: {size} bytes')
+    lines.append(f'Estimated peak audio buffers: {prepared.peak_memory} bytes')
     lines.append(f'Result: {destination / "recording.toml"}')
     return '\n'.join(lines) + '\n'
 
@@ -540,13 +542,8 @@ def _materialize_input_tracks(
 
 
 def _storage_bytes(values: list[MaterializedAudio]) -> int:
-    arrays: dict[int, np.ndarray] = {}
-    for value in values:
-        array = value.samples
-        while isinstance(array.base, np.ndarray):
-            array = array.base
-        arrays[id(array)] = array
-    return sum(a.nbytes for a in arrays.values())
+    stores = {id(v.storage): v.storage for v in values}
+    return sum(s.frames * s.channels * 4 for s in stores.values())
 
 
 def _validate_record(path: Path) -> Path:

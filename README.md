@@ -171,6 +171,17 @@ new session directory containing generated media, the resolved `edit.toml`, and
 a new `recording.toml` and capture journal. Each installed edit command provides
 Tyro-generated `--help`.
 
+Offline edits decode, mix, normalize, hash, and encode audio in blocks of at most
+65,536 frames. Prepared sources and intermediate results use temporary float32
+backing files, preserving the prepared snapshot without lossy intermediate
+encoding. RAM use scales with graph width and block size, not recording duration.
+Temporary storage can require four bytes per sample per channel for each live
+source or output; sparse timeline gaps may use less physical disk space. Files
+are released with their prepared audio objects, including shared channel views.
+The system temporary directory must have enough space. Composition summaries
+distinguish temporary audio storage from estimated audio-buffer memory; these
+estimates exclude interpreter, graph metadata, and codec overhead.
+
 Older sessions require explicit conversion with `recs session migrate` before
 editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
 for conversion, verification, and historical timing limitations.

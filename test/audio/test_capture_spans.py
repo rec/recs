@@ -82,9 +82,15 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     )
     resolved = resolve_input(edit, tmp_path)
     restored = materialize_source(resolved)
-    soundfile.write(
-        tmp_path / 'restored.wav', restored.samples, 48000, subtype='DOUBLE'
-    )
+    with soundfile.SoundFile(
+        tmp_path / 'restored.wav',
+        'w',
+        samplerate=48000,
+        channels=restored.channels,
+        subtype='DOUBLE',
+    ) as fp:
+        for block in restored.blocks():
+            fp.write(block)
     actual, _ = soundfile.read(tmp_path / 'restored.wav')
     np.testing.assert_allclose(
         actual, np.concatenate([tone, np.zeros(144000), tone]), atol=1e-7

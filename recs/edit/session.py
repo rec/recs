@@ -123,10 +123,11 @@ def write_session(
                 audio.sample_rate,
             )
             try:
-                fp.write(audio.samples)
+                for block in audio.blocks():
+                    fp.write(block)
             finally:
                 fp.close()
-            quantity = len(audio.samples)
+            quantity = audio.end_frame - audio.start_frame
             with soundfile.SoundFile(path) as fp:
                 depth = bit_depth(fp)
             writer.write(

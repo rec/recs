@@ -56,7 +56,9 @@ def test_nested_and_flat_recording_mixes_are_identical(tmp_path: Path) -> None:
         outer.outputs[0].name
     ]
     expected = samples[48000:, None]
-    soundfile.write(tmp_path / 'nested.wav', result.samples, 48000, subtype='FLOAT')
+    soundfile.write(
+        tmp_path / 'nested.wav', result.read(0, 48000), 48000, subtype='FLOAT'
+    )
     soundfile.write(tmp_path / 'flat.wav', expected, 48000, subtype='FLOAT')
     assert (tmp_path / 'nested.wav').read_bytes() == (
         tmp_path / 'flat.wav'
@@ -71,7 +73,7 @@ def test_nested_and_flat_recording_mixes_are_identical(tmp_path: Path) -> None:
         block_output = Renderer(
             block, block_sources, validate_graph(block, block_sources)
         ).outputs
-        halves.append(block_output[outer.outputs[0].name].samples)
+        halves.append(block_output[outer.outputs[0].name].read(start, 24000))
     np.testing.assert_array_equal(np.concatenate(halves), expected)
     assert (
         sources[OutputSelection(name='first', output=child.outputs[0].name)]
@@ -111,8 +113,10 @@ def test_forwarded_output_and_package_boundaries(tmp_path: Path) -> None:
     )
     sources = resolve_sources(outer, tmp_path)
     rendered = Renderer(outer, sources, validate_graph(outer, sources)).outputs['main']
-    soundfile.write(tmp_path / 'forward.wav', rendered.samples, 48000, subtype='FLOAT')
-    assert len(rendered.samples) == 48000
+    soundfile.write(
+        tmp_path / 'forward.wav', rendered.read(0, 48000), 48000, subtype='FLOAT'
+    )
+    assert rendered.end_frame == 48000
     package = tmp_path / 'package'
     package.mkdir()
     outside = outer.model_copy(

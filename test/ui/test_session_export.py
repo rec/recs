@@ -44,8 +44,17 @@ def test_export_preserves_native_positions_and_remains_readable_after_source_mov
     source = resolve_input(edit, tmp_path)
     assert [(f.start, f.end) for f in source.fragments] == [(0, 48000), (96000, 144000)]
     rendered = materialize_source(source)
-    assert rendered.samples.shape == (144000, 1)
-    soundfile.write(tmp_path / 'restored.wav', rendered.samples, 48000, subtype='FLOAT')
+    assert rendered.end_frame == 144000
+    assert rendered.channels == 1
+    with soundfile.SoundFile(
+        tmp_path / 'restored.wav',
+        'w',
+        samplerate=48000,
+        channels=rendered.channels,
+        subtype='FLOAT',
+    ) as fp:
+        for block in rendered.blocks():
+            fp.write(block)
     actual, _ = soundfile.read(tmp_path / 'restored.wav')
     np.testing.assert_array_equal(actual[48000:96000], 0)
     summary = tomlkit.parse((result / 'export-summary.toml').read_text())
