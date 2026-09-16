@@ -1770,6 +1770,55 @@ def test_control_request_sets_key_label(
     ]
 
 
+def test_explicit_resume_closes_playback_before_resuming_capture(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_record()
+    rec._control.pause_recording('playback')
+    rec._playback.resume_after_playback = True
+    stopped: list[bool] = []
+
+    class Runner:
+        def stop(self) -> None:
+            stopped.append(rec._control.recording_paused)
+
+    rec._playback.runner = Runner()
+    rec._control.resume_recording('resume_recording')
+
+    assert stopped == [True]
+    assert rec._playback.runner is None
+    assert not rec._control.recording_paused
+    assert [r['type'] for r in read_jsonl(record_path(rec))].count(
+        'recording_resumed'
+    ) == 1
+
+
+def test_manual_pause_during_playback_prevents_automatic_resume(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_record()
+    rec._control.pause_recording('playback')
+    rec._playback.resume_after_playback = True
+
+    class Runner:
+        def stop(self) -> None:
+            pass
+
+    rec._playback.runner = Runner()
+
+    rec._control.pause_recording('pause_recording')
+    rec._playback.stop()
+
+    assert not rec._playback.resume_after_playback
+    assert rec._control.recording_paused
+
+
 def test_control_request_pauses_and_resumes_recording(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

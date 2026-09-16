@@ -21,7 +21,7 @@ class PlaybackControl:
     def __init__(
         self,
         recordings_root: Callable[[], Path],
-        pause_recording: Callable[[], object],
+        pause_recording: Callable[[], gui_protocol.RecordingState],
         resume_recording: Callable[[], object],
         publish: Callable[[gui_protocol.PlaybackState], None],
         warning: Callable[[str], None],
@@ -32,6 +32,7 @@ class PlaybackControl:
         self.publish = publish
         self.warning = warning
         self.runner: PlaybackRunner | None = None
+        self.resume_after_playback = False
         self.session_paths: list[Path] = []
         self.session_index: int | None = None
         self.path: Path | None = None
@@ -65,7 +66,7 @@ class PlaybackControl:
         self.source = stream.source_name or stream.source_id
         self.channel = stream.track_name or _stream_channel(stream)
         self.output_channel = _channel_text(output)
-        self.pause_recording()
+        self.resume_after_playback = not self.pause_recording().was_paused
         self.runner = PlaybackRunner(
             PlaybackTimeline(score_path.parent, score, stream),
             output,
@@ -79,7 +80,9 @@ class PlaybackControl:
         if self.runner is not None:
             self.runner.stop()
             self.runner = None
-            self.resume_recording()
+            if self.resume_after_playback:
+                self.resume_after_playback = False
+                self.resume_recording()
         return self._publish()
 
     def pause(self) -> gui_protocol.PlaybackState:
@@ -147,7 +150,9 @@ class PlaybackControl:
 
     def _finished(self) -> None:
         self.runner = None
-        self.resume_recording()
+        if self.resume_after_playback:
+            self.resume_after_playback = False
+            self.resume_recording()
         self._publish()
 
     def _failed(self, message: str) -> None:
