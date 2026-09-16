@@ -17,8 +17,8 @@ from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_input
 from recs.recording.finalize import prepare_recording
-from recs.ui.recording_session import RecordingSession
-from recs.ui.source_recorder import SourceFileEvents
+from recs.recording.recording_session import RecordingSession
+from recs.runtime.source_recorder import SourceFileEvents
 
 
 def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(

@@ -12,7 +12,7 @@ from recs.cfg import device
 from recs.daemon import gui_ipc, paths
 from recs.daemon.models import DaemonStatus
 from recs.daemon.root_user import raise_if_root
-from recs.ui.recorder import Recorder
+from recs.runtime.recorder import Recorder
 
 from . import settings
 from .cfg import FLAT_FIELDS, Cfg

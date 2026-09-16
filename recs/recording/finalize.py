@@ -26,7 +26,7 @@ from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
 
 from ..base.errors import RecsError
-from ..ui import session_record
+from . import session_record
 from .files import sealed_asset, verify_events
 
 

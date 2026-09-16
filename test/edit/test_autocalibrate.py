@@ -9,8 +9,8 @@ from recs.edit import autocalibrate
 from recs.edit.cli import main
 from recs.edit.composition import execute_composition, parse_composition
 from recs.edit.record import AudioFragment, ResolvedSource
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 SAMPLE_RATE = 48_000
 WINDOW_FRAMES = 4_800

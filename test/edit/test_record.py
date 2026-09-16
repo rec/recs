@@ -14,7 +14,11 @@ from recs.edit.materialized import (
 )
 from recs.edit.record import resolve_input
 from recs.recording.finalize import finalize_recording
-from recs.ui.session_record import AudioFileRecord, SessionFooter, SessionRecordWriter
+from recs.recording.session_record import (
+    AudioFileRecord,
+    SessionFooter,
+    SessionRecordWriter,
+)
 
 
 def test_source_resolution_preserves_gaps_and_selects_mono_offset(

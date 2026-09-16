@@ -11,8 +11,8 @@ from ufor.time import Rate, Timebase
 
 from recs.edit import commands, session
 from recs.edit.cli import EditCli, main
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 
 def test_edit_cli_parses_inputs_and_authored_times() -> None:

@@ -24,8 +24,8 @@ from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
 from recs.edit.record import ResolvedSource, resolve_input
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 HISTOGRAM_BIN_DB = 0.1
 TIME_SPEC = unit_spec(units.Seconds, 'TIME')

@@ -56,7 +56,7 @@ def run() -> int:
             stream_devices()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'sessions':
-            from recs.ui import session_browser
+            from recs.recording import session_browser
 
             return session_browser.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'session':
@@ -73,17 +73,17 @@ def run() -> int:
 
                 return main(sys.argv[3:])
             if len(sys.argv) > 2 and sys.argv[2] == 'export':
-                from recs.ui import session_export
+                from recs.recording import session_export
 
                 return session_export.main(sys.argv[3:])
-            from recs.ui import session_browser
+            from recs.recording import session_browser
 
             if len(sys.argv) > 2 and sys.argv[2] == 'show':
                 return session_browser.show(sys.argv[3:])
             from recs.midi.export import ExportMidi
             from recs.recording.finalize import FinalizeSession
             from recs.recording.migrate import MigrateSession
-            from recs.ui.session_export import ExportCli
+            from recs.recording.session_export import ExportCli
 
             tyro.extras.subcommand_cli_from_dict(
                 {
@@ -102,15 +102,15 @@ def run() -> int:
             )
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'test-input':
-            from recs.ui import input_self_test
+            from recs.runtime import input_self_test
 
             return input_self_test.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'explain':
-            from recs.ui import session_explain
+            from recs.recording import session_explain
 
             return session_explain.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'record':
-            from recs.ui import session_record_check
+            from recs.recording import session_record_check
 
             return session_record_check.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'edit':

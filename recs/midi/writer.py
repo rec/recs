@@ -11,7 +11,7 @@ from ufor.time import ClockObservation, Position, Rate, Timebase
 from recs.base.types import MidiTiming
 from recs.misc import legal_filename
 from recs.recording.events import EventWriter
-from recs.ui.session_record import ClockRecord
+from recs.recording.session_record import ClockRecord
 
 
 class MidiMessage(Protocol):

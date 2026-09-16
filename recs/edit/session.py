@@ -18,8 +18,8 @@ from recs.edit.nested import resolve_sources
 from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource
 from recs.edit.render import Renderer
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 
 class PreparedEdit(BaseModel, frozen=True):
