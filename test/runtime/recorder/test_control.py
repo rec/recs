@@ -9,6 +9,7 @@ from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_protocol
+from recs.recording.session_record import MarkerPosition, read
 from recs.runtime import (
     disk_space_controller,
     recorder,
@@ -348,6 +349,42 @@ def test_control_request_marks_record(
         'timestamp': records[1]['timestamp'],
         'label': 'guitar solo',
     }
+
+
+def test_marks_keep_source_boundaries_but_not_paused_or_restarted_positions(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    rec._start_record()
+    source = rec._devices.sources['Mic']
+    source.start()
+    position = MarkerPosition(
+        source='Mic',
+        clock_id='clock-first',
+        frame=96_000,
+        sample_rate=48_000,
+        observed_at='2026-09-16T12:00:00Z',
+    )
+    rec._devices.receive_message(
+        SourceUpdate(
+            channels={}, files=[], frames=0, source_name='Mic', marker_position=position
+        )
+    )
+    rec._control.mark(gui_protocol.Mark(type='mark', label='anchored'))
+    rec._control.recording_paused = True
+    rec._control.mark(gui_protocol.Mark(type='mark', label='paused'))
+    rec._control.recording_paused = False
+    source.stop()
+    source.start()
+    rec._control.mark(gui_protocol.Mark(type='mark', label='restarted'))
+    marks = [e for e in read(record_path(rec)).events if e.type == 'mark']
+    assert marks[0].positions == [position]
+    assert marks[1].positions is None
+    assert marks[2].positions is None
 
 
 def test_control_request_sets_key_label(

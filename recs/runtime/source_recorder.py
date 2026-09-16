@@ -25,7 +25,8 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
-from recs.recording.capture_events import SourceFileEvents
+from recs.recording.capture_events import SourceFileEvents, capture_clock_id
+from recs.recording.session_record import MarkerPosition, timestamp_to_json
 from recs.runtime.input_buffer import BufferedUpdate, InputBuffer
 from recs.runtime.source_calibration import SourceCalibration
 from recs.runtime.source_messages import SourceUpdate
@@ -402,6 +403,15 @@ class SourceRecorder(Runnables):
                 discarded_files=self.file_events.discarded(self.channel_writers),
                 file_end_timestamps=file_end_timestamps,
                 frame_count=u.end_frame,
+                marker_position=MarkerPosition(
+                    source=self.source.key,
+                    clock_id=capture_clock_id(
+                        self.file_events.capture_id or self.source.name
+                    ),
+                    frame=u.end_frame,
+                    sample_rate=self.source.samplerate,
+                    observed_at=timestamp_to_json(end_timestamp),
+                ),
                 track_state_frames=dict.fromkeys(msgs, u.end_frame),
                 track_state_timestamps=dict.fromkeys(msgs, end_timestamp),
                 calibration=calibration,

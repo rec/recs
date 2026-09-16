@@ -164,11 +164,11 @@ insufficient clock evidence produces an explicit limitation, not guessed alignme
 First-version limit: one source clock at a time. Wall-clock labels and host
 timestamps must not be treated as proof of sample alignment across devices.
 
-Decision pending after inspection: current `mark` records contain a wall-clock
-timestamp and label, not source-frame positions. Audio clock observations have
-unknown timing uncertainty. Proposed prerequisite: capture source-local frame
-evidence for new markers; retain older markers as unpositioned unless explicitly
-aligned. This capture-metadata change needs approval before implementation.
+Approved and implemented prerequisite: explicit `mark` records retain each active
+source's latest processed boundary, capture clock, sample rate, and observed
+timestamp. Backlog may make that boundary older than the button press; it is not
+a wall-clock interpolation. Restarted or paused sources contribute no stale
+positions. Older markers remain unpositioned unless explicitly aligned.
 
 ## 5. Assisted recovery into a new session
 

@@ -1,4 +1,3 @@
-import hashlib
 from pathlib import Path
 from time import monotonic_ns
 
@@ -10,7 +9,7 @@ from ufor.time import ClockObservation, Position, Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.recording import recording_paths, session_record
-from recs.recording.capture_events import SourceFile
+from recs.recording.capture_events import SourceFile, capture_clock_id
 from recs.recording.events import EventWriter, host_clock_observation
 from recs.recording.finalize import finalize_recording
 
@@ -131,10 +130,7 @@ class RecordingSession:
         entry = session_record.AudioFileRecord(
             type='file_started',
             media_type='audio',
-            clock_id='clock-'
-            + hashlib.sha256(
-                (file.capture_id or file.source_name).encode()
-            ).hexdigest()[:16],
+            clock_id=capture_clock_id(file.capture_id or file.source_name),
             timestamp=session_record.timestamp_to_json(
                 recording_paths.timestamp_or_now(file.start_timestamp)
             ),

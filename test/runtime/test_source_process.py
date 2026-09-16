@@ -631,6 +631,11 @@ def test_source_process_join_drains_real_child_final_updates(
     assert any(update.file_records for update in updates)
     assert any(update.file_end_frames for update in updates)
     assert any(path.exists() for update in updates for path in update.files)
+    positions = [u.marker_position for u in updates if u.marker_position is not None]
+    timelines = [t for u in updates for t in u.timelines or []]
+    assert positions
+    assert positions[-1].frame == 48_000
+    assert positions[-1].clock_id == timelines[-1].clock_id
 
 
 def test_source_process_reports_recorder_start_failure(
