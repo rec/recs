@@ -15,6 +15,11 @@ authorize implementation or a broad refactor.
 
 ### 1. P1: shutdown waits before draining the child's output pipe
 
+Resolved: join now drains updates concurrently with the bounded child-exit wait.
+A real spawned child regression verifies a final update larger than the pipe
+buffer is preserved without forced termination. Previously queued updates are
+also retained rather than discarded on join.
+
 Evidence: [SourceProcess.join](../recs/ui/source_process.py) waits for the
 process, terminates it after the timeout, and only then reads pending updates.
 [SourceUpdateTransport.finish](../recs/ui/source_recorder.py) waits indefinitely

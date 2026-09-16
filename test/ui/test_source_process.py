@@ -1,4 +1,6 @@
 import multiprocessing as mp
+import os
+import struct
 import threading
 import time
 from pathlib import Path
@@ -16,6 +18,79 @@ from recs.cfg.track import Track
 from recs.ui import source_process
 from recs.ui.source_process import SourceProcess
 from recs.ui.source_recorder import SourceControl, SourceFailure, SourceUpdate
+
+
+def send_incomplete_final_update(
+    update_connection: mp.connection.Connection, **kwargs: object
+) -> None:
+    os.write(update_connection.fileno(), struct.pack('!i', 1_000_000) + b'x')
+    time.sleep(10)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='Uses a POSIX pipe descriptor')
+def test_join_can_terminate_a_child_during_a_partial_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_process, 'mp', mp.get_context('spawn'))
+    monkeypatch.setattr(
+        source_process, '_run_source_recorder', send_incomplete_final_update
+    )
+    source = InputDevice(
+        {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+    owner.start()
+    try:
+        assert owner.connection.poll(10)
+        owner.join(timeout=0.1)
+        assert not owner.is_alive
+        failures = [u for u in owner.take_updates() if isinstance(u, SourceFailure)]
+        assert len(failures) == 1
+        assert failures[0].stop_kind == 'forced_termination'
+    finally:
+        if owner.is_alive:
+            owner.process.terminate()
+            owner.join()
+
+
+def send_large_final_update(
+    update_connection: mp.connection.Connection, **kwargs: object
+) -> None:
+    update_connection.send(
+        SourceUpdate(
+            channels={},
+            files=[],
+            frames=48_000,
+            source_name='Mic',
+            buffer_warnings=['final update ' * 100_000],
+        )
+    )
+
+
+def test_join_drains_large_final_update_before_waiting_for_child_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_process, 'mp', mp.get_context('spawn'))
+    monkeypatch.setattr(source_process, '_run_source_recorder', send_large_final_update)
+    source = InputDevice(
+        {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+    owner.start()
+    try:
+        assert owner.connection.poll(10)
+        owner.join(timeout=2)
+        updates = owner.take_updates()
+        assert owner.process.exitcode == 0
+        assert len(updates) == 1
+        assert isinstance(updates[0], SourceUpdate)
+        assert updates[0].buffer_warnings == ['final update ' * 100_000]
+        assert updates[0].frames == 48_000
+        assert not owner.is_alive
+    finally:
+        if owner.is_alive:
+            owner.process.terminate()
+            owner.join()
 
 
 class FakeConnection:
