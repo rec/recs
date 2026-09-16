@@ -1,7 +1,7 @@
 # Audio arrangement scores
 
 Implemented initial profile of the [master format](../plan/master/verification-procedures.md#recs-a-common-language-for-things-that-happen-in-time).
-The native audio-edit score is now a Recs score with an arrangement body.
+The native audio-edit score is now a recs score with an arrangement body.
 Old flat edit scores are no longer accepted. Session inputs use
 `recording.toml`; successful renders finalize a new recording score beside
 the generated media and operational journal.
@@ -81,7 +81,7 @@ bind internal tracks, buses or child ports. See the [composition
 design](../../ufor/doc/composition-design.md) for connections and parameters.
 
 Recording exports use stable stream IDs and optional zero-based consecutive
-`channels`. Recs' CLI retains human-facing session selectors while authoring:
+`channels`. recs' CLI retains human-facing session selectors while authoring:
 it writes a recording definition exposing the chosen stream/channel selection.
 Raw audio files likewise receive recording metadata rather than a special source
 variant. The resolver follows recording continuations, verifies selected assets,
@@ -91,7 +91,7 @@ coordinates. Unsupported instrument realization fails during preparation.
 
 Generated automation is an inline `AutomationScore` part with a public `control`
 output. A `body.control_clips` entry places its source interval on the audio
-timeline. The initial Recs renderer accepts only an automation timebase that
+timeline. The initial recs renderer accepts only an automation timebase that
 exactly matches the arrangement's audio rate. An `ArrangementGainTarget` names a
 clip, bus, or route, and route targets also name `destination`. Gain remains a
 linear amplitude multiplier. Equal-power gain interpolation retains its
@@ -106,7 +106,7 @@ composition stages retain their recipe provenance and store the new scores.
 
 ## Validation ownership
 
-Ufor validates identifier uniqueness, clip and routing references, matching route
+uFor validates identifier uniqueness, clip and routing references, matching route
 channel layouts and timebases, acyclic bus routing, control-clip references,
 output references, and destination ports. Frame positions require integers and
 gains must be finite. `Arrangement.bus_order` supplies dependency order to

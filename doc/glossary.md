@@ -1,4 +1,4 @@
-# Recs Glossary
+# recs Glossary
 
 ## Purpose
 

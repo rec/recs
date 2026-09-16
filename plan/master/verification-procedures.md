@@ -1,4 +1,14 @@
-# Verification procedures
+# Architecture roadmap, checkpoints, and verification
+
+This is a mixed-status design reference, not a verification-only checklist.
+Start with [the plan index](../README.md) for current ownership. Historical
+checkpoint counts below describe their commits, not today's test suite.
+
+Navigation: [current checkpoint](#incomplete),
+[verification discipline](#cutover-and-verification-discipline),
+[shared model](#recs-a-common-language-for-things-that-happen-in-time),
+[recordings](#recordings-assets-and-portable-files),
+[time](#time-clocks-and-transport), [uFor boundary](#ufor-extraction-handover).
 
 ## How to build the common model
 
@@ -15,7 +25,7 @@ historical implementation order, not a renewed pause on waveform generation.
 
 ### Implementation status
 
-Stages 1 and 2 are implemented in Recs. The supported
+Stages 1 and 2 are implemented in recs. The supported
 subset has pure common models, exact rational physical timebases, sealed assets, common event envelopes,
 structured source and parameter references, and typed audio ports. Audio editing
 now uses the common arrangement score, with file destinations separate from
@@ -35,7 +45,7 @@ The earlier checkpoint commits, each tested and pushed, are:
 | --- | --- |
 | `0fbf7a9` | Add shared time, asset, and event models |
 | `45c7247` | Use structured references in recs/edit |
-| `fad4d32` | Move audio arrangements into common Recs scores |
+| `fad4d32` | Move audio arrangements into common recs scores |
 | `ce79588` | Separate arrangement audio ports from file destinations |
 | `56cf634` | Add recording and sequence score profiles |
 | `67ea823` | Add verified session migration before reader cutover |
@@ -140,11 +150,11 @@ the named symbols when starting implementation. Existing format models are not
 evidence that playback or cross-application execution has been implemented.
 
 Implemented pure definitions now live in `~/code/ufor`, published as
-[rec/ufor](https://github.com/rec/ufor). Recs imports the shared score model and
-encoding types directly; Tuney imports shared musical semantics through its
+[rec/ufor](https://github.com/rec/ufor). recs imports the shared score model and
+encoding types directly; tuney imports shared musical semantics through its
 application configuration adapters. Neither application is required to read a
-Ufor score. Reccy remains Python application infrastructure. The old
-`recs/model` implementations and Tuney's copied number/accidental modules have
+uFor score. reccy remains Python application infrastructure. The old
+`recs/model` implementations and tuney's copied number/accidental modules have
 been removed rather than retained as compatibility shims.
 
 Keep specifications, schemas, examples, and language-neutral conformance cases
@@ -157,6 +167,11 @@ Future language ports implement the same semantics, not Python class layouts.
 
 ### Existing structures and their replacements
 
+This table records the extraction baseline and intended cutovers. It is
+historical rationale, not a current inventory of unfinished work. Use the
+opening checkpoint and project handovers for present status; links point to
+the current owners where available.
+
 | Existing source | What exists | Proposed change |
 | --- | --- | --- |
 | [Edit schema](../../recs/edit/schema.py) | `EditSpec`, audio channels, frame clips, gain routes, string automation targets, output encoding | Common arrangement body; named timebases, typed ports, structured addresses; separate exported ports from run destinations |
@@ -164,20 +179,20 @@ Future language ports implement the same semantics, not Python class layouts.
 | [Composition](../../recs/edit/composition.py) | `CompositionEdit`, command recipes, materialized stages | Compile authored operations to nested arrangements/derived assets; retain recipe history as provenance |
 | [Session records](../../recs/recording/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
 | [Session export](../../recs/recording/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common scores/assets and preserve timeline gaps |
-| [Ufor instrument](../../../ufor/ufor/samples/instrument.py) | Common root, body, slots, musical validation | Implemented; Recsam definitions removed |
-| [Ufor events](../../../ufor/ufor/events.py) | `Trigger`, `Release`, `ControlChange` | Implemented common tick/ordinal envelope; Recs consumes these directly |
-| [Ufor sample types](../../../ufor/ufor/samples/) | Controls, EQ, selection, crossfades, slices, loops, pitch mapping | Implemented with shared envelopes/LFOs/routes; generic DSP remains separate |
-| [Ufor SFZ](../../../ufor/ufor/sfz.py), [Recs file adapter](../../recs/recsam/sfz.py) | Pure conversion versus local asset acquisition | Implemented native score conversion, sealed metadata and diagnostics |
+| [uFor instrument](../../../ufor/ufor/samples/instrument.py) | Common root, body, slots, musical validation | Implemented; Recsam definitions removed |
+| [uFor events](../../../ufor/ufor/events.py) | `Trigger`, `Release`, `ControlChange` | Implemented common tick/ordinal envelope; recs consumes these directly |
+| [uFor sample types](../../../ufor/ufor/samples/) | Controls, EQ, selection, crossfades, slices, loops, pitch mapping | Implemented with shared envelopes/LFOs/routes; generic DSP remains separate |
+| [uFor SFZ](../../../ufor/ufor/sfz.py), [recs file adapter](../../recs/recsam/sfz.py) | Pure conversion versus local asset acquisition | Implemented native score conversion, sealed metadata and diagnostics |
 | [MIDI writer](../../recs/midi/writer.py), [OSC recorder](../../recs/osc/recorder.py) | Native-timed common event JSONL | Implemented; SMF is explicit export and OSC retains raw bytes alongside decoded values |
-| [Lyte show](../../../lyte/lyte/show.py) | `ShowFile`, Python factory lookup, animation/mixer graph | Common graph definitions and installed implementation bindings |
-| [Lyte installation](../../../lyte/lyte/installation.py) | Twinkly/DMX targets, pixel/DMX programs, output driver interface | Common definition references plus physical bindings; retain driver implementations |
-| [Lyte DMX](../../../lyte/lyte/dmx.py), [Art-Net](../../../lyte/lyte/artnet.py) | Typed categories/values, patch addresses, universe packet encoding | Reusable fixture profiles separate from patch/transport; explicit numbering and quantization |
-| [Lyte patches](../../../lyte/lyte/patches.py), [animation](../../../lyte/lyte/animation.py) | Physical regions, MIDI bindings, LED count, render state/arrays | Shared layouts and control mappings; explicit spatial/color types around existing renderers |
-| [Streamo config](../../../streamo/streamo/config.py), [services](../../../streamo/streamo/services.py) | Audio device input and streaming-service realization | Programme stream binding alongside application-local delivery configuration; video remains outside the model |
-| [Showco models](../../../showco/showco/models.py) | Actions and status snapshots | Keep runtime status models; report common run IDs/observations without making status the content authority |
-| [Tuney timing](../../../tuney/tuney/time/char_press.py), [sequencer](../../../tuney/tuney/time/sequencer.py) | Millisecond key events and callback playback | Shared key/performance events and explicit timing conversion at the host boundary |
-| [Tuney tuning](../../../tuney/tuney/scale/tuning.py), [scale](../../../tuney/tuney/scale/scale.py) | Tuning functions, note naming, ratio expressions, finite-table host fallback | Extract intended musical semantics in stage 3; explicit repetition and fractional notation; keep host/UI policy separate |
-| [Tuney oscillator](../../../tuney/tuney/audio/oscillator.py) | Waveforms, duty cycle, sample-position generation, key-scaled gain | Extract the definition and equations in stage 3; plan reuse of the existing implementation after the waveform-generation deferral |
+| [lyte show](../../../lyte/lyte/show.py) | `ShowFile`, Python factory lookup, animation/mixer graph | Common graph definitions and installed implementation bindings |
+| [lyte installation](../../../lyte/lyte/installation.py) | Twinkly/DMX targets, pixel/DMX programs, output driver interface | Common definition references plus physical bindings; retain driver implementations |
+| [lyte DMX](../../../lyte/lyte/dmx.py), [Art-Net](../../../lyte/lyte/artnet.py) | Typed categories/values, patch addresses, universe packet encoding | Reusable fixture profiles separate from patch/transport; explicit numbering and quantization |
+| [lyte patches](../../../lyte/lyte/patches.py), [animation](../../../lyte/lyte/animation.py) | Physical regions, MIDI bindings, LED count, render state/arrays | Shared layouts and control mappings; explicit spatial/color types around existing renderers |
+| [streamO config](../../../streamo/streamo/config.py), [providers](../../../streamo/streamo/providers.py) | Audio device input and streaming-service realization | Programme stream binding alongside application-local delivery configuration; video remains outside the model |
+| [showCo models](../../../showco/showco/runtime/models.py) | Actions and status snapshots | Keep runtime status models; report common run IDs/observations without making status the content authority |
+| [tuney timing](../../../tuney/tuney/time/char_press.py), [sequencer](../../../tuney/tuney/time/sequencer.py) | Millisecond key events and callback playback | Shared key/performance events and explicit timing conversion at the host boundary |
+| [tuney tuning](../../../tuney/tuney/scale/tuning.py), [scale](../../../tuney/tuney/scale/scale.py) | Tuning functions, note naming, ratio expressions, finite-table host fallback | Extract intended musical semantics in stage 3; explicit repetition and fractional notation; keep host/UI policy separate |
+| [tuney oscillator](../../../tuney/tuney/audio/oscillator.py) | Waveforms, duty cycle, sample-position generation, key-scaled gain | Extract the definition and equations in stage 3; plan reuse of the existing implementation after the waveform-generation deferral |
 
 Sibling source links assume the repositories remain adjacent under `~/code`.
 
@@ -248,7 +263,7 @@ in-memory or local file observations, not live networks or hardware.
 This stage no longer includes sampler implementation or new audio waveform
 generation. Work in this order:
 
-Steps 1 through 3 have an implemented initial extraction in Ufor. This includes
+Steps 1 through 3 have an implemented initial extraction in uFor. This includes
 finite contiguous tables, repeating ratios and intervals, expression strings,
 Scala text conversion, scale naming, and oscillator parameters/equations. The
 portable grammar is documented from the stated `/` and `^` requirements; a
@@ -263,22 +278,22 @@ complete.
 
 1. Settle the shared-format ownership and extraction boundary. Capture the
    specification and language-neutral fixtures independently of Python classes.
-2. Extract Tuney's intended tuning/scale semantics: finite Hz and ratio tables,
+2. Extract tuney's intended tuning/scale semantics: finite Hz and ratio tables,
    repeating ratio patterns, explicit reference pitch, spelling, and selection.
    Preserve fractional authoring and the user's frequency/ratio minilanguage
-   with `/` and `^`. Locate its grammar and reconcile it with current Tuney
+   with `/` and `^`. Locate its grammar and reconcile it with current tuney
    parsing before implementing it. Specify Scala and MTS adapters explicitly.
-3. Extract Tuney's oscillator definition, equations, and parameter behavior.
+3. Extract tuney's oscillator definition, equations, and parameter behavior.
    Separate waveform shape, phase evolution, and key-scaled gain; record how
    the existing implementation can be reused later without a new renderer now.
 4. The first [envelope and LFO profile](deferred-work.md#envelopes-lfos-and-modulation) now defines timing,
-   curves, retrigger/release, scope, phase, and modulation combination. Ufor
+   curves, retrigger/release, scope, phase, and modulation combination. uFor
    implements the scores and scalar state calculations. Loops, random
    sources, and continuous rate ramps are explicitly deferred. Sample instruments
    now consume the same definitions directly.
 5. The [small instrument contract](../../../ufor/doc/instrument-format.md)
    implements the native root, slices, channel maps, source bindings, shared
-   events/routes and SFZ conversion. All portable Recsam types now live in Ufor.
+   events/routes and SFZ conversion. All portable Recsam types now live in uFor.
    Prepared settings and selection/gate/retirement action traces are implemented.
    Their semantics remain separate from enge's waveform realization.
 6. Define MIDI interchange before extending device-specific MIDI work. Keep
@@ -291,7 +306,7 @@ complete.
    SysEx work is a bounded MIDI 1.0 proof of concept, not this layer.
 
 Acceptance: scores round-trip; exact fractions remain exact; repeating and
-finite domains differ explicitly; existing intended Tuney pitch examples agree;
+finite domains differ explicitly; existing intended tuney pitch examples agree;
 Scala and MTS mappings have defined boundaries; oscillator parameters and
 envelope/LFO event/state behavior have language-neutral cases. Numerical pitch
 and scalar-control checks are allowed; no new audio rendering is needed to
@@ -329,9 +344,9 @@ reference and compiled implementations where both exist.
 Stages 5 through 7 may reuse existing engines and captured media; new host or
 device integrations require their own scope and verification.
 
-#### 5. Integrate Lyte and physical control bindings
+#### 5. Integrate lyte and physical control bindings
 
-Replace Lyte's native show/installation parsing with definitions and bindings
+Replace lyte's native show/installation parsing with definitions and bindings
 as each entry point is cut over. Reuse its drivers, DMX encoder, region mapping,
 and render state. Establish layout IDs, color interpretation, fixture profiles,
 physical patching, and control mappings. Do not retain an old parser as a
@@ -348,7 +363,7 @@ verification and must not be inferred from unit-test success.
 #### 6. Add programme transport and as-aired capture
 
 Implement fixed, follow-on, and bounded cue sections. Give one transport
-authority to each run. Integrate Recs recording, Streamo delivery, and Showco
+authority to each run. Integrate recs recording, streamO delivery, and showCo
 operator actions through their existing operational boundaries. Generate an
 as-aired arrangement from observed decisions and captured material.
 
@@ -358,11 +373,11 @@ live input prevents a complete offline render. A recorded as-aired programme
 can be rendered without its original live endpoints. Network delivery and
 physical playout are separate integration validation, not unit-test claims.
 
-#### 7. Complete Tuney's host and synthesis integration
+#### 7. Complete tuney's host and synthesis integration
 
 Tuning/scale and oscillator model extraction belongs to stage 3, not this later
 stage. Complete authoring, key/performance export, and host integration around
-those shared definitions, retaining Tuney's presentation and learning features.
+those shared definitions, retaining tuney's presentation and learning features.
 Reuse or move its existing oscillator implementation under the settled contract
 when execution work resumes. Do not create duplicate portable schemas or a
 parallel waveform engine. Host note-substitution policy remains separate from
@@ -384,7 +399,7 @@ for conversion; never bulk-rewrite or delete recording directories.
 Each implementation stage must be a usable, tested change, and may need several
 small commits. Dependency changes, if required for the chosen implementation,
 get their own `pyproject.toml`/`uv.lock` commit. Follow each repository's current
-instructions and preserve unrelated worktree changes. Recs requires commits and
+instructions and preserve unrelated worktree changes. recs requires commits and
 pushes for requested edits, and pre-commit verification for Python/data changes:
 pytest, targeted Ruff fixes, formatting, type checking, and pyupgrade. Use the
 current repository commands and configured Python version when executing them.
@@ -406,7 +421,7 @@ waveform-generation pause is historical; implemented format documentation
 describes current portable semantics, not engine support for every field.
 
 
-## Recs: a common language for things that happen in time
+## recs: a common language for things that happen in time
 
 ### Incomplete
 
@@ -455,7 +470,7 @@ network protocol, operating system, or database.
 | [Broadcasts](future-proposals.md#radio-programmes-live-sections-and-rebroadcast) | Future programmes, live sections, live relays, and rebroadcast |
 | [Lighting](future-proposals.md#fixture-controls-dmx-and-spatial-light-fields) | Fixture state, DMX/Art-Net, pixel fields, and geometry |
 | [Bindings](future-proposals.md#implementations-endpoints-and-parameter-mappings) | Implementations, device profiles, parameter translation, and limitations |
-| [Tunings](deferred-work.md#pitch-tunings-and-scales) | Pitch, scales, and the connection to Tuney |
+| [Tunings](deferred-work.md#pitch-tunings-and-scales) | Pitch, scales, and the connection to tuney |
 | [Live slideshow](future-proposals.md#live-slideshow-format) | Timed visual assets, accompaniment, accessibility, and live presentation |
 | [New formats](future-proposals.md#new-data-domains-and-interchange-formats) | Candidate editable domains and their existing interchange formats |
 | [How to implement](verification-procedures.md#how-to-build-the-common-model) | Current structures, replacements, ownership, and staged work |
@@ -551,24 +566,24 @@ reproducing a particular performance.
 
 | Application | Role in the proposed system |
 | --- | --- |
-| Ufor | Common definitions, pure musical mathematics, codecs, schemas, and portable conformance cases |
-| Recs | Capture, asset preparation, timeline editing, verification, and eventual playback transport |
-| Lyte | Lighting generators, fixture and geometry interpretation, and physical lighting outputs |
-| Streamo | Live stream input/output adapters and broadcast delivery; its existing video features stay outside this format |
-| Showco | Installation coordination, bindings, operator controls, and observable run status |
-| Tuney | Tuning/scale authoring and experiments; provide explicit pitched performance and synthesis definitions |
+| uFor | Common definitions, pure musical mathematics, codecs, schemas, and portable conformance cases |
+| recs | Capture, asset preparation, timeline editing, verification, and eventual playback transport |
+| lyte | Lighting generators, fixture and geometry interpretation, and physical lighting outputs |
+| streamO | Live stream input/output adapters and broadcast delivery; its existing video features stay outside this format |
+| showCo | Installation coordination, bindings, operator controls, and observable run status |
+| tuney | Tuning/scale authoring and experiments; provide explicit pitched performance and synthesis definitions |
 
 The implemented shared definitions live in `~/code/ufor`, published as
-[rec/ufor](https://github.com/rec/ufor). Recs and Tuney consume that shared core
-through direct imports. Tuney's UI and host policy, Recs's
-capture and file-verification operations, and Reccy's application infrastructure
+[rec/ufor](https://github.com/rec/ufor). recs and tuney consume that shared core
+through direct imports. tuney's UI and host policy, recs's
+capture and file-verification operations, and reccy's application infrastructure
 remain in their own projects. See the [extraction handover](verification-procedures.md#ufor-extraction-handover) for the
 implemented boundary and remaining design work.
 
 ### First useful result
 
 Stages 1 and 2 already cover arrangements and native capture. Tuning, scale,
-oscillator, envelope, and LFO definitions now have portable Ufor models and
+oscillator, envelope, and LFO definitions now have portable uFor models and
 musical or scalar/state conformance cases. The instrument contract now includes
 shared performance events, typed routes, native instrument scores and SFZ
 conversion, preparation, and portable voice-action traces. enge owns the shared
@@ -666,7 +681,7 @@ even if its decoded samples are identical. Keep source lineage separately.
 
 Definitions are immutable inputs to a run. Use an append-only JSONL journal for
 fragment start/finish, clock observations, gaps, requests/results, operator
-decisions, and errors. This extends the useful pattern of the existing Recs
+decisions, and errors. This extends the useful pattern of the existing recs
 session record rather than rewriting TOML on every audio block.
 
 Only a finished fragment with verified metadata becomes a sealed asset.
@@ -828,11 +843,11 @@ timing. Preserve those counts while moving the rate into a named timebase.
 Recsam events currently inherit an output-frame clock; give them a sequence
 timebase. MIDI capture in `recs/midi/writer.py` currently quantizes deltas into
 SMF ticks. Record native timing first and make SMF a deliberate export.
-Tuney's `CharPress.time` is in milliseconds; convert it explicitly rather than
+tuney's `CharPress.time` is in milliseconds; convert it explicitly rather than
 reinterpreting that number as sample frames.
 
 
-## Ufor extraction handover
+## uFor extraction handover
 
 ### Incomplete
 
@@ -845,22 +860,22 @@ implemented by recs or uFor. Consult enge's own plan for engine progress.
 
 | Owner | Implemented responsibility |
 | --- | --- |
-| Ufor | Timebases, assets, references, stream/encoding types, events, recordings, sequences, arrangements, score codec and schema |
-| Ufor | Frequency/ratio expressions, computed tuning, finite frequency and ratio tables, repeating ratios and adjacent intervals, Scala text conversion, scale naming, accidentals, and oscillator parameters/gain |
-| Ufor | Segmented envelope and LFO scores, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
-| Ufor | Shared performance events in native sequences/JSONL; typed parameter/source/route declarations and scalar route evaluation |
-| Ufor | Native sample-instrument scores, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
-| Ufor | Lossless VL70m MIDI 1.0 SysEx inspection and bounded patch relocation, retaining opaque message spans and duplicate occurrences |
-| Recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
-| Tuney | Editable configuration and UI annotations, broader expressions, Scala file/browser access, instrument-range wrapping, and MIDI/device host policy |
+| uFor | Timebases, assets, references, stream/encoding types, events, recordings, sequences, arrangements, score codec and schema |
+| uFor | Frequency/ratio expressions, computed tuning, finite frequency and ratio tables, repeating ratios and adjacent intervals, Scala text conversion, scale naming, accidentals, and oscillator parameters/gain |
+| uFor | Segmented envelope and LFO scores, exact control-clock coordinates, event/state calculations, scalar shape/curve observations, and modulation conformance cases |
+| uFor | Shared performance events in native sequences/JSONL; typed parameter/source/route declarations and scalar route evaluation |
+| uFor | Native sample-instrument scores, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
+| uFor | Lossless VL70m MIDI 1.0 SysEx inspection and bounded patch relocation, retaining opaque message spans and duplicate occurrences |
+| recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
+| tuney | Editable configuration and UI annotations, broader expressions, Scala file/browser access, instrument-range wrapping, and MIDI/device host policy |
 | enge | Shared synth and sampler engines, waveform realization, voice state, routing, and audio conformance |
-| Reccy | Shared Python application infrastructure, with no ownership of the portable format |
+| reccy | Shared Python application infrastructure, with no ownership of the portable format |
 
 The old `recs.model` implementations are removed. Direct imports use the defining
 `ufor` module, including `ufor.encoding.Format` and `Subtype`. The core model
-tests moved to Ufor; Recs retains its application integration tests. Tuney's
-Scale and Oscillator classes add UI fields/runtime realization to Ufor models;
-its computed/ratio/table/tuning configurations compile to Ufor definitions.
+tests moved to uFor; recs retains its application integration tests. tuney's
+Scale and Oscillator classes add UI fields/runtime realization to uFor models;
+its computed/ratio/table/tuning configurations compile to uFor definitions.
 
 ### Scores and musical semantics
 
@@ -870,14 +885,14 @@ its computed/ratio/table/tuning configurations compile to Ufor definitions.
 live with the implementation. The common codec handles recording, sequence,
 arrangement, tuning, scale, oscillator, envelope, LFO and instrument scores. The
 [modulation profile](../../../ufor/doc/modulation-format.md) specifies the new
-control models now used directly by sample instruments. Recs now imports performance
+control models now used directly by sample instruments. recs now imports performance
 events directly from `ufor.events`; its old `recs/recsam/events.py` is removed.
 The [instrument contract](../../../ufor/doc/instrument-format.md) specifies
-the implemented native instrument/SFZ cutover and its remaining preparation
+the implemented native instrument/SFZ cutover and its preparation
 boundary. All portable Recsam definitions and pure SFZ conversion now live
-in Ufor; Recs retains only asset and SFZ file acquisition.
+in uFor; recs retains only asset and SFZ file acquisition.
 
-Frequency tables never wrap. Tuney explicitly wraps keys within an instrument's
+Frequency tables never wrap. tuney explicitly wraps keys within an instrument's
 configured range before consulting its finite definition. Ratio tables are
 finite unless they declare a repeat multiplier. Adjacent interval patterns
 declare whether they repeat; one `2^(1/12)` interval is a one-step equal-tempered
@@ -885,44 +900,44 @@ pattern. Fractions such as `5/4` and `2/3` remain valid human-readable values.
 
 The portable grammar supports numbers, division, powers, signs and parentheses.
 It records the user's stated `/` and `^` behavior; no separate original grammar
-implementation was found. Tuney retains its broader math authoring language and
+implementation was found. tuney retains its broader math authoring language and
 also accepts `^`. Scala imports distinguish integer ratios from decimal cents.
 Finite MTS tables have an explicit representation, but MTS byte decoding and
 sparse update messages are not part of this extraction.
 The VL70m proof of concept is intentionally MIDI 1.0 byte-stream only. UMP,
 native MIDI 2.0 messages, SysEx8, MIDI-CI, Profiles, and Property Exchange need
-their own transport and capability design before Ufor adds further
+their own transport and capability design before uFor adds further
 device-specific MIDI descriptions.
 
 `Computed.limit` retains its actual maximum-denominator behavior. The earlier
-Tuney comment calling it N-limit just intonation was inaccurate. Oscillator
+tuney comment calling it N-limit just intonation was inaccurate. Oscillator
 gain retains its twelve-key-step convention independently of tuning period.
 
 ### Installation and verification
 
-For sibling development, clone Ufor beside Recs and Tuney, then run `uv sync`
+For sibling development, clone uFor beside recs and tuney, then run `uv sync`
 in each application. Ordinary package installations use the pinned public
 archive; `UV_NO_SOURCES=1` release builds also use it. The archive was tested in
-an isolated environment with no Recs, Tuney, Reccy, NumPy, audio, or GUI packages.
+an isolated environment with no recs, tuney, reccy, NumPy, audio, or GUI packages.
 
-Checks passed: 65 Ufor tests, 892 Recs tests, and 513 Tuney tests, plus Ruff,
+Checks passed: 65 uFor tests, 892 recs tests, and 513 tuney tests, plus Ruff,
 formatting, type checking and Python syntax modernization. Existing audio
 regressions remain unchanged. These counts describe the initial extraction;
-the subsequent modulation milestone passes 132 Ufor tests, including 67 new
+the subsequent modulation milestone passes 132 uFor tests, including 67 new
 modulation checks, plus Ruff, formatting, type checking, and pyupgrade.
-The performance/route milestone passes 192 Ufor tests and 865 Recs tests,
-plus those static checks. Thirty shared event tests moved from Recs into Ufor;
-Recs retains instrument-specific event validation tests. Tuney was not changed
+The performance/route milestone passes 192 uFor tests and 865 recs tests,
+plus those static checks. Thirty shared event tests moved from recs into uFor;
+recs retains instrument-specific event validation tests. tuney was not changed
 or retested in this milestone.
-The completed Recsam consolidation passes 306 Ufor tests and 741 Recs tests,
+The completed Recsam consolidation passes 306 uFor tests and 741 recs tests,
 plus Ruff, formatting, type checking, pyupgrade and diff checks. The wheel
-contains all 35 Python modules. Pure musical/model tests now live in Ufor;
-Recs retains SFZ file/asset integration tests, including byte-preserving import
+contains all 35 Python modules. Pure musical/model tests now live in uFor;
+recs retains SFZ file/asset integration tests, including byte-preserving import
 and symlink containment. No production media was touched in this consolidation.
-Ufor has no GitHub workflows, as requested. Automated checks do not
+uFor has no GitHub workflows, as requested. Automated checks do not
 claim live hardware or packaged application validation.
 
-Both production recordings were verified again with Ufor-owned models. The
+Both production recordings were verified again with uFor-owned models. The
 short recording has five MIDI files; the full one has 56 audio files and five
 MIDI files. Media and original journals were unchanged. The full recording's
 39 unresolved audio placements remain explicit and are still rejected when

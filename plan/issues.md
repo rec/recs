@@ -309,7 +309,7 @@ Measured source lengths at review time:
 | [recorder.py](../recs/runtime/recorder.py) | 904 | application wiring, control flow, session transitions, status, and collaborator forwarding |
 | [autocalibrate.py](../recs/edit/autocalibrate.py) | 889 | schema, preparation, statistics, interval detection, rendering, and output persistence |
 | [cfg.py](../recs/cfg/cfg.py) | 856 | option sections, flat compatibility access, profiles, units, and derived runtime settings |
-| [test_recorder.py](../test/runtime/test_recorder.py) | 2,409 | shared fakes and many unrelated recorder behavior families |
+| [recorder tests](../test/runtime/recorder/) | 2,409 before splitting | shared fakes and many unrelated recorder behavior families |
 
 These are maintenance judgments, not line-count rules. Extract along stable
 responsibilities when changing those areas; do not split by arbitrary size.
@@ -339,6 +339,13 @@ and link to one current owner for each remaining task. General automation rate
 conversion remains a separate design decision; its absence is not itself a bug.
 
 ### 19. P3: document titles and package metadata obscure authority
+
+Resolved: the plan index distinguishes implemented contracts, owner handovers,
+proposals, and physical acceptance. Master-document titles and navigation expose
+their mixed scope; the archive policy no longer implies completed profiles are
+unfinished. Project capitalization is consistent in prose. `[project]` is the
+single package metadata source; obsolete Poetry tables are removed and
+`uv lock --check --offline` passes without dependency or lockfile changes.
 
 Evidence: `plan/master/verification-procedures.md` is 946 lines of roadmap,
 architecture, history, and verification; `future-proposals.md` is 1,184 lines

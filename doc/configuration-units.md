@@ -3,7 +3,7 @@
 Physical configuration values accept numbers in their existing units or strings
 with explicit units. The same validation applies to CLI options, API `set_cfg`
 values, saved settings, and per-device profiles. OSC configuration uses the
-same duration and frequency parsers. Native Ufor instrument documents instead
+same duration and frequency parsers. Native uFor instrument documents instead
 use numeric magnitudes and exact rational control times; normalize application
 unit strings before constructing those models.
 
@@ -35,7 +35,7 @@ Second-valued fields also retain `MM:SS` and `HH:MM:SS` input. A bare numeric
 string has the same meaning as a number. Existing zero-as-unlimited settings
 remain unchanged; positive-only settings still reject zero.
 
-Converted values must fit the field's existing type and range. Recs rejects
+Converted values must fit the field's existing type and range. recs rejects
 wrong dimensions, nonfinite values, and fractional values in integer fields.
 For example, a `0.5ms` waveform bucket is invalid. A memory reserve of `1MiB`
 is also invalid because it is not a whole decimal megabyte; a disk reserve of
@@ -58,7 +58,7 @@ a fixed relationship between time and storage.
 
 ## Storage And Runtime
 
-Reccy supplies the shared unit types and Tyro conversion using Pint, then
+reccy supplies the shared unit types and Tyro conversion using Pint, then
 immediately extracts numeric magnitudes. Field names and canonical units do not
 change: `quiet_before_start = "250ms"` becomes
 `0.25`, while `waveform_bucket_milliseconds = "0.02s"` becomes `20`.

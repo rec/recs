@@ -1,4 +1,12 @@
-# Deferred work
+# Musical-model inventory and remaining decisions
+
+This is a mixed implemented/proposed inventory, not a list of wholly deferred
+features. Use [the plan index](../README.md) for ownership and current status.
+Each extension still needs concrete semantics and conformance cases.
+
+Navigation: [instruments](#sample-instruments-and-performance-objects),
+[modulation](#envelopes-lfos-and-modulation),
+[DSP](#synthesizers-dsp-and-analysis-graphs), [pitch](#pitch-tunings-and-scales).
 
 ## Sample instruments and performance objects
 
@@ -12,7 +20,7 @@ wrapping, and recs host integration remain separate work.
 
 ### Preserve the useful recsam model
 
-The [Ufor sample format](../../../ufor/doc/instrument-format.md) and
+The [uFor sample format](../../../ufor/doc/instrument-format.md) and
 `ufor/samples/` models describe slots, key/velocity selection, loops,
 articulations, sustain, choke groups, crossfades, envelopes, LFOs, scoped
 controls, EQ, and independent reference pitch. Keep those musical concepts.
@@ -46,11 +54,11 @@ Do not replace every combination rule with a generic dictionary merge:
 additive gain in dB, envelope overrides, and local modulation references have
 different existing meanings. Preserve them explicitly during the first cutover.
 
-The Ufor envelope/LFO profile intentionally changes some current rules.
+The uFor envelope/LFO profile intentionally changes some current rules.
 Its [cutover table](../../../ufor/doc/modulation-format.md#changes-from-recsam-and-remaining-boundaries)
 specifies segment expansion, curve translation, exact timing, retriggering,
 and phase during delay. Resolve inheritance into a complete envelope before
-constructing its Ufor definition; do not layer partial segment lists through
+constructing its uFor definition; do not layer partial segment lists through
 a generic merge.
 
 ### Voice and layer behavior
@@ -107,7 +115,7 @@ See [the playback boundary](../sample-playback.md) for recs host acceptance.
 `InstrumentScore` is now the common root; `SampleInstrument` is its typed
 body. The former `format_version` root and Recsam model modules are removed.
 `ufor.sfz` owns pure conversion with explicit unsupported-feature diagnostics.
-Recs retains local path resolution, symlink containment, hashing, decoding and
+recs retains local path resolution, symlink containment, hashing, decoding and
 embedded-loop inspection. There is no parallel native format.
 
 Existing `Processing` and `SoundSettings` represent a limited sound-processing
@@ -144,7 +152,7 @@ seeded sample selection and variation are complete format work.
 | Completion | Hold the terminal level and report completion; voice retirement is separate |
 | LFO phase | Exact rational phase with continuous accumulation across stepped rate changes; zero rate freezes |
 | LFO reset | Free, trigger-reset, or transport-reset policy; explicit reset always applies |
-| Shapes | Tuney's sine, square, and duty/skew triangle equations with exact transition conventions |
+| Shapes | tuney's sine, square, and duty/skew triangle equations with exact transition conventions |
 | Activation | Phase advances during delay; separate activation weight preserves neutral routes and supports fade-in |
 | Ownership | State per voice or per instrument instance, never shared through definition identity |
 | Ordering | Strict time/ordinal order; completed and zero-time segments are consumed before each event |
@@ -175,7 +183,7 @@ remains separate.
 
 ### Cutover and remaining work
 
-Recsam now uses the shared Ufor envelope/LFO definitions. The old fixed classes
+Recsam now uses the shared uFor envelope/LFO definitions. The old fixed classes
 and route hierarchy are removed. Native slot envelopes are whole overrides,
 playback inheritance survives serialization, and SFZ adapters report unsupported
 curves and behavior explicitly. There is no alternate Recsam reader.
@@ -185,7 +193,7 @@ exponential curves and the changed phase behavior during LFO delay. Instrument
 preparation now supplies pedal/legato gate delivery, voice retirement, and
 portable action traces for these models. Audio oscillator lifecycle integration
 must also use the phase/reset contract without copying a waveform engine into
-Ufor.
+uFor.
 
 Looped envelopes, random/sample-and-hold sources, continuous LFO rate ramps,
 modulation feedback, and audio-rate execution remain deferred. A looped contour
@@ -243,7 +251,7 @@ compressor describes intent; an exact operation contract additionally fixes its
 detector, knee, envelope equations, channel linking, and numerical behavior.
 Bind abstract intent only to a declared matching profile, and record the choice.
 
-### Extract Tuney's oscillator contract
+### Extract tuney's oscillator contract
 
 Use `tuney/audio/oscillator.py` and its existing waveform functions as the
 starting implementation evidence. Extract the definition and pure mathematical
@@ -259,7 +267,7 @@ execution work resumes; do not build a second oscillator during model work.
 | Start, length, and period | Replace implicit sample-index conventions with an explicit phase/clock contract; settle reset and phase continuity under changing frequency |
 | Key-scaled gain | Keep reference selection key and dB-per-key-interval mapping separate from oscillator Hz and waveform shape |
 
-Tuney's gain calculation currently uses twelve key steps per scaling interval.
+tuney's gain calculation currently uses twelve key steps per scaling interval.
 Do not reinterpret that as a frequency octave under an arbitrary tuning without
 an explicit decision. Its square and saw/triangle implementations are not
 band-limited; a future anti-aliased realization must declare the chosen profile
@@ -348,14 +356,14 @@ sample-identical results on every machine.
 
 ### Change from today
 
-Reuse Recs's existing separation of graph validation, materialized audio,
+Reuse recs's existing separation of graph validation, materialized audio,
 rendering, and output encoding. Generalize port types and processing nodes
 instead of adding parallel renderers to each CLI edit command. Keep recsam
 voice rendering as a planned specialized engine behind its common ports.
 
-Lyte's `AnimationSpec`/`MixerSpec` already describe source graphs, but `impl`
+lyte's `AnimationSpec`/`MixerSpec` already describe source graphs, but `impl`
 currently resolves Python factories. Move that executable lookup to installed
-bindings. Tuney's `Oscillator` currently combines waveform selection and runtime
+bindings. tuney's `Oscillator` currently combines waveform selection and runtime
 generation; extract its specification and plan reuse of its implementation,
 while leaving its tuning UI local. A compiled engine and VST instrument wrapper
 are later options. Keep any Python reference, compiled realization, and host
@@ -369,7 +377,7 @@ plugin host is implemented by this documentation change.
 
 Noncontiguous tuning maps, broader keyboard mappings, MTS byte import and
 sparse updates, plus host realization rules, remain future model or adapter
-work. The current portable model deliberately does not inherit Tuney's
+work. The current portable model deliberately does not inherit tuney's
 instrument-range fallback.
 
 ### Repetition is musical data
@@ -450,12 +458,12 @@ than treating their decimals as ordinary ratios. Publish accepted and rejected
 examples, zero-denominator handling, and positive finite-result requirements.
 Do not invent unspecified operators while extracting the existing language.
 
-Tuney's currently inspected `scale/evaluate.py` uses Python AST arithmetic and
+tuney's currently inspected `scale/evaluate.py` uses Python AST arithmetic and
 math/random calls. It is not evidence that the requested `/` and `^` language
 is already implemented there. Locate and reconcile the user's minilanguage
 before porting a parser; Python `^` must not acquire XOR semantics. The portable
 frequency language does not inherit arbitrary functions, randomness, or Python
-evaluation from Tuney's broader expression UI.
+evaluation from tuney's broader expression UI.
 
 ### Scala and MIDI interchange
 
@@ -476,7 +484,7 @@ table to a repeating format requires an explicit musical decision.
 
 ### Scales and performance
 
-A scale selects and names degrees from a tuning. Preserve Tuney's selection,
+A scale selects and names degrees from a tuning. Preserve tuney's selection,
 spelling, accidentals, offsets, reference frequency, and detuning semantics.
 Keyboard mappings and educational presentation do not change the underlying
 frequency definition. Avoid baking MIDI's key range into the common degree type.
@@ -494,17 +502,17 @@ generating audio or implementing a sampler.
 
 ### Extraction and acceptance
 
-Extract musical definitions and pure calculations from Tuney's `Tuning`,
+Extract musical definitions and pure calculations from tuney's `Tuning`,
 `Computed`, `Ratios`, `Table`, and `Scale`. Keep UI annotations, file dialogs,
 and fallback selection local. `Table.__call__` currently uses modulo indexing
-to keep Tuney's instrument playable; that is explicitly not the finite-table
+to keep tuney's instrument playable; that is explicitly not the finite-table
 contract. Review the host mapping when adopting the new model rather than
-silently copying that fallback or changing Tuney in this planning revision.
+silently copying that fallback or changing tuney in this planning revision.
 
 Use language-neutral fixtures for exact fractions, fractional powers, a
 one-step equal-tempered pattern, a twelve-step just-intonation example,
 non-octave cycles, negative degrees, finite ratio/Hz boundaries, Scala import,
-and MTS per-key tables. Preserve Tuney examples where they express intended
+and MTS per-key tables. Preserve tuney examples where they express intended
 musical behavior; identify intentional corrections separately. Define numeric
 tolerances for irrational results. Extensions to portable pitch semantics need
 parser, model, and pitch-value tests before corresponding engine support.

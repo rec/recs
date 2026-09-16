@@ -1,6 +1,6 @@
-# Recs protocol
+# recs protocol
 
-Recs exposes a local RPC API while a recorder is running. Clients can use it
+recs exposes a local RPC API while a recorder is running. Clients can use it
 to inspect recording state, change mutable recording settings, configure
 tracks, add marks to the session record, play a finalized recorded-audio
 session, pause or resume recording, and shut down the daemon.
@@ -32,7 +32,7 @@ a new connection, or call `Client.call()` again, for the next request.
 
 Successful commands return either a JSON object or the string `"ok"`.
 `rpc.Client.call()` returns the decoded value. It raises `ConnectionError` when
-Recs returns an error.
+recs returns an error.
 
 ## Command-line client
 
@@ -128,7 +128,7 @@ an endpoint before sending its request.
 
 ## Daemon endpoints
 
-On macOS and Linux, Recs owns these Unix sockets:
+On macOS and Linux, recs owns these Unix sockets:
 
 - `~/.local/state/recs/control.sock` for requests
 - `~/.local/state/recs/events.sock` for subscriptions
@@ -141,7 +141,7 @@ On Windows, it owns these named pipes:
 Clients should call `recs.daemon.paths.external_control_endpoint()` and
 `external_event_endpoint()` instead of duplicating these paths.
 
-The API is local only. Recs does not open a TCP port or provide authentication
+The API is local only. recs does not open a TCP port or provide authentication
 or network transport.
 
 ## Versions
@@ -150,7 +150,7 @@ There are two independent versions:
 
 - `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
-- `recs.daemon.gui_protocol.VERSION` is the Recs payload version. It is
+- `recs.daemon.gui_protocol.VERSION` is the recs payload version. It is
   currently `9` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
@@ -196,7 +196,7 @@ response return the JSON string `"ok"`.
 
 ### Capabilities
 
-Call this first when a client needs to adapt to different Recs versions:
+Call this first when a client needs to adapt to different recs versions:
 
 ```json
 {
@@ -275,7 +275,7 @@ nearest existing ancestor when the record does not exist yet:
 }
 ```
 
-`estimated_seconds_remaining` is `null` until Recs has measured a nonzero
+`estimated_seconds_remaining` is `null` until recs has measured a nonzero
 write rate. `resume_disk` is the path of a removable disk with enough free
 space to resume, or `null`.
 
@@ -307,7 +307,7 @@ client.call(
 ```
 
 `get_cfg` can read any valid configuration address. `set_cfg` can change only
-addresses returned by `mutable_attributes`. Recs validates and coerces the new
+addresses returned by `mutable_attributes`. recs validates and coerces the new
 value, applies it to active source processes, records the change in the
 record, and saves it when `save_settings` is enabled.
 
@@ -374,7 +374,7 @@ result = client.call(
 
 For a stereo track, either channel selects the whole track. Repeated channels
 from the same track are deduplicated. The response contains flattened measured
-levels and the per-source noise floors that Recs applied:
+levels and the per-source noise floors that recs applied:
 
 ```json
 {
@@ -397,7 +397,7 @@ Calibration also updates `recording.channel_noise_floors`.
 ### Recording control
 
 `new_session` ends the current session and starts another without stopping
-capture. Recs closes the current media files and session record, creates a new
+capture. recs closes the current media files and session record, creates a new
 session directory under the configured output directory, and starts a new
 session record with a new session ID. The response identifies both records:
 
@@ -415,7 +415,7 @@ The old record contains a `session_continued_at` entry pointing to the new
 record, and the new record header uses `continued_from` to point back to the
 old record. Both links are relative to the record containing them.
 
-Audio input remains open during the transition. Recs temporarily queues input
+Audio input remains open during the transition. recs temporarily queues input
 blocks while it closes the old files and opens the new files, then drains them
 in order. Each device keeps its existing timeline, so the first audio file in
 the new session continues the device's sample index from the old session.
@@ -424,14 +424,14 @@ retained and written to the new session.
 
 ### Card replacement
 
-`card_replace` prepares Recs for replacing the removable card that contains
+`card_replace` prepares recs for replacing the removable card that contains
 the current output directory. It is intended for a machine with a single card
 reader: send the command before removing the old card, then insert the new
 one in the same reader.
 
 The command closes and syncs every active audio, MIDI, and OSC file and
 record on the old card, records the old card's filesystem UUID in those
-records, and leaves the card mounted. Capture continues, but Recs holds
+records, and leaves the card mounted. Capture continues, but recs holds
 received audio blocks, MIDI messages, and OSC packets in memory instead of
 writing to the old card. The success response identifies the old card and the
 replacement deadline:
@@ -445,30 +445,30 @@ replacement deadline:
 }
 ```
 
-Recs polls mounted recording disks every
+recs polls mounted recording disks every
 `recording.card_replace_poll_seconds` (default `1`) for a disk whose UUID
 differs from `old_uuid` and has at least the configured removable-disk
 emergency reserve free. If such a disk is already mounted when replacement
-begins, Recs switches immediately. On finding one, it creates a new session
+begins, recs switches immediately. On finding one, it creates a new session
 directory on that disk, writes the retained audio blocks, MIDI messages, and
 OSC packets to their new session files, and then writes newly received data
-normally. The configured output directory is not changed or saved: Recs applies
+normally. The configured output directory is not changed or saved: recs applies
 the relative path from the old card's mount point to the new card's mount point
 for this session only.
 
-While Recs is waiting for a replacement card, `rows` events and
+While recs is waiting for a replacement card, `rows` events and
 `status_snapshot` include an error record with `message` set to `"awaiting
-card"` and `value` set to `true`. When Recs finds a destination card, that
+card"` and `value` set to `true`. When recs finds a destination card, that
 same record has `value` set to `false`.
 
 If no different UUID appears within
-`recording.card_replace_timeout_seconds` (default `300`), Recs resumes on the
+`recording.card_replace_timeout_seconds` (default `300`), recs resumes on the
 old card only when that card is still mounted. It creates a new session
 directory there before draining all retained media.
 
 The retained audio backlog is bounded by
 `recording.audio_buffer_seconds` and the memory reserve. Once a source buffer
-fills, Recs drops subsequent frames and records the existing `buffer_overflow`
+fills, recs drops subsequent frames and records the existing `buffer_overflow`
 information when recording resumes. Set `audio_buffer_seconds` high enough for
 the expected physical card-change time and the available memory.
 `card_replace` fails without changing recording when the current output
@@ -493,7 +493,7 @@ session; `-2` selects the one before it. A session number must be negative.
 adjacent pair such as `9-10`. A selected input and output must have the same
 width. The output is the operating system default output device.
 
-When no source or channel is supplied, Recs selects the recorded source with
+When no source or channel is supplied, recs selects the recorded source with
 the highest numbered input and then its highest numbered stereo pair. If no
 `output_channel` is supplied, it selects the highest mono channel or adjacent
 stereo pair available on the default output device. Playback supports recorded
@@ -689,7 +689,7 @@ The JSON form writes the initial `status_snapshot` followed by each public event
 as one JSON object per line. Neither form starts a recorder or polls the selected
 recorder.
 
-Recs publishes these events:
+recs publishes these events:
 
 | Event | Data |
 | --- | --- |
@@ -697,8 +697,8 @@ Recs publishes these events:
 | `playback_state` | A `playback_state` object without its `type` field, published when playback starts or returns to waiting |
 | `waveform_layout` | Current track layout and waveform generation for one source |
 | `waveform` | One min/max envelope batch for one source |
-| `shutdown` | empty; Recs has begun shutting down |
-| `stopped` | empty; the Reccy service lifecycle has stopped |
+| `shutdown` | empty; recs has begun shutting down |
+| `stopped` | empty; the reccy service lifecycle has stopped |
 
 A `rows` event looks like this:
 
@@ -740,8 +740,8 @@ configured bucket and batch cadence.
 `shutdown` returns `"ok"` after scheduling the daemon's existing one-shot
 shutdown. Repeating it does not start a second shutdown.
 
-Before closing event subscriptions, Recs publishes one `shutdown` event and
-then the Reccy lifecycle publishes one `stopped` event.
+Before closing event subscriptions, recs publishes one `shutdown` event and
+then the reccy lifecycle publishes one `stopped` event.
 
 ## Errors and limits
 
@@ -754,11 +754,11 @@ Errors use this wire shape:
 `reccy.protocol.rpc.Client` converts this to `ConnectionError(message)`. Raw clients
 must decode it themselves.
 
-Only one control request may be awaiting the Recs recorder at a time. A second
+Only one control request may be awaiting the recs recorder at a time. A second
 request receives `recs already has an active control client`.
 
-Recs waits at most five seconds for the recorder loop to answer an external
-request. The Reccy client has its own timeout, which defaults to one second;
+recs waits at most five seconds for the recorder loop to answer an external
+request. The reccy client has its own timeout, which defaults to one second;
 choose a timeout appropriate for the command. A client timeout closes only the
 client connection and does not cancel a command that the recorder has already
 received.
@@ -768,7 +768,7 @@ which is longer than the external five-second response limit. A slow
 calibration can therefore return a timeout even though processing continues in
 the recorder. This is a current protocol limitation.
 
-The Reccy transport allows at most 64 KiB in one request and requires the
+The reccy transport allows at most 64 KiB in one request and requires the
 version handshake to complete within one second.
 
 ## Raw wire format
@@ -798,4 +798,4 @@ A request contains a command and all command-specific fields in `params`:
 
 An event client performs the same handshake on the event endpoint, then sends
 `{"type":"subscribe"}` and keeps the connection open. Every subsequent line
-is a Reccy `event` object until the client or server closes the connection.
+is a reccy `event` object until the client or server closes the connection.

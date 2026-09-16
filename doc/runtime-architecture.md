@@ -157,9 +157,9 @@ entries are not lost when the current disk is close to full.
 ## GUI and external IPC flow
 
 The daemon GUI socket is a private GUI transport. External clients should use
-the public Recs RPC endpoints documented in `doc/recs_protocol.md`.
+the public recs RPC endpoints documented in `doc/recs_protocol.md`.
 
-Public control connections carry one request each. Recs queues only one
+Public control connections carry one request each. recs queues only one
 outstanding public control request; another request received before that one
 finishes is rejected instead of introducing multiclient coordination.
 
