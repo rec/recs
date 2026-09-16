@@ -248,6 +248,13 @@ export worker. No remote storage, background service, or automatic retention pol
 
 ## 7. Aligned track handoff
 
+Implemented: `recs session handoff` previews a source-frame interval and writes
+32-bit float WAV tracks plus a documented JSON sidecar with `--destination`.
+The shared editor preserves offsets, channels, and silent gaps; source identities,
+gap reasons, and positioned markers remain in the sidecar and edit provenance.
+The first version accepts one sealed, unlinked segment on one integer-rate clock.
+Publication waits for all audio and sidecar writes to finish.
+
 Question answered: “Can I import these tracks into another editor at the right positions?”
 
 Existing foundation: exact source spans, explicit gaps, channel maps, and offline
@@ -268,8 +275,8 @@ Acceptance: tracks from one recorded device import with their original relative
 offsets, gaps, and duration. Unresolved placement and unsupported clock/rate
 combinations are rejected before output generation.
 
-Decision before implementation: choose one first handoff profile, such as WAV
-plus a documented sidecar, rather than promising every DAW project format.
+Decided: 32-bit float WAV plus a documented JSON sidecar, matching the existing
+renderer and preserving headroom without promising DAW-specific project formats.
 
 ## 8. Edit resource planning
 

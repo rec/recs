@@ -1,0 +1,53 @@
+clock: mic
+encoding: WAV/FLOAT
+end_frame: 84000
+markers:
+- label: marker
+  number: 2
+  positions:
+  - clock_id: mic
+    frame: 12000
+    observed_at: observed
+    sample_rate: 48000
+    source: Mic
+    timing_source: latest_processed_boundary
+  timestamp: marked
+- label: marker
+  number: 3
+  positions:
+  - clock_id: mic
+    frame: 72000
+    observed_at: observed
+    sample_rate: 48000
+    source: Mic
+    timing_source: latest_processed_boundary
+  timestamp: marked
+recording: <recording>
+sample_rate: 48000
+start_frame: 12000
+tracks:
+- channels:
+  - left
+  - right
+  gaps:
+  - end: 84000
+    reason: silence_suppressed
+    start: 48000
+  path: audio/0001.wav
+  source_id: Mic
+  source_name: null
+  stream_id: a
+  track_name: Voice
+- channels:
+  - left
+  - right
+  gaps:
+  - end: 24000
+    reason: input_overflow
+    start: 12000
+  path: audio/0002.wav
+  source_id: Mic
+  source_name: null
+  stream_id: b
+  track_name: Room
+version: 1
