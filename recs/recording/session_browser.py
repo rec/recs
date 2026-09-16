@@ -1,10 +1,11 @@
 import json
 import sys
+from datetime import date, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
 import tyro
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from ufor.recording import AudioStream, EventStream
 
 from ..base.errors import RecsError
@@ -15,10 +16,41 @@ RECORD_GLOB = 'recording.toml'
 
 
 class SessionsCli(BaseModel, frozen=True):
-    """List finalized recording sessions under a directory."""
+    """Search recording documents and journals without decoding media.
+
+    Filters combine with AND. Text matching is case-insensitive substring matching.
+    Results use path order; dates use the calendar date as recorded, not file times.
+    """
 
     root: Annotated[Path, tyro.conf.Positional] = Path()
     json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
+    since: date | None = None
+    """Inclusive capture date (YYYY-MM-DD); unknown dates do not match."""
+    before: date | None = None
+    """Exclusive capture date (YYYY-MM-DD); unknown dates do not match."""
+    source: str | None = None
+    """Source name or identity, including event sources."""
+    track: str | None = None
+    """Source-qualified audio track name."""
+    marker: str | None = None
+    """Journal marker label or pressed key."""
+    media: Literal['audio', 'midi', 'osc', 'key', 'ump', 'events'] | None = None
+    incomplete: bool = False
+    """Only open recordings or recordings with unresolved audio placement."""
+    warning: str | None = None
+    """Warning/diagnostic text; an empty string matches any warning."""
+    limit: int = Field(default=100, ge=1)
+    """Maximum matching sessions returned; unreadable entries still report errors."""
+
+    @model_validator(mode='after')
+    def date_range(self) -> Self:
+        if (
+            self.since is not None
+            and self.before is not None
+            and self.since >= self.before
+        ):
+            raise ValueError('before must be later than since')
+        return self
 
 
 class ShowCli(BaseModel, frozen=True):
@@ -49,11 +81,15 @@ class SessionSummary(BaseModel):
     markers: int = 0
     continued_from: str | None = None
     continued_at: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    marker_labels: list[str] = Field(default_factory=list)
+    media_kinds: list[str] = Field(default_factory=list)
+    matched_filters: list[str] = Field(default_factory=list)
 
 
 def main(argv: list[str]) -> int:
     cfg = tyro.cli(SessionsCli, args=argv, prog='recs sessions')
-    summaries = scan(cfg.root)
+    summaries = scan(cfg)
     if cfg.json_output:
         print(json.dumps([s.model_dump(mode='json') for s in summaries], indent=2))
     else:
@@ -61,14 +97,31 @@ def main(argv: list[str]) -> int:
     return 0
 
 
-def scan(root: Path) -> list[SessionSummary]:
+def scan(cfg: SessionsCli) -> list[SessionSummary]:
+    root = cfg.root
     if root.match(RECORD_GLOB):
         directories = [root.parent]
     elif any(root.glob(RECORD_GLOB)):
         directories = [root]
     else:
-        directories = sorted({path.parent for path in root.glob(f'**/{RECORD_GLOB}')})
-    return [summary for path in directories if (summary := summarize(path))]
+        directories = sorted({p.parent for p in root.glob(f'**/{RECORD_GLOB}')})
+    summaries: list[SessionSummary] = []
+    truncated = False
+    for path in directories:
+        if (summary := summarize(path)) is None:
+            continue
+        if (matches := _matches(summary, cfg)) is None:
+            continue
+        if len(summaries) >= cfg.limit:
+            truncated = True
+            continue
+        summaries.append(summary.model_copy(update={'matched_filters': matches}))
+    if truncated:
+        print(
+            f'Results limited to {cfg.limit}; increase --limit for more matches.',
+            file=sys.stderr,
+        )
+    return summaries
 
 
 def summarize(path: Path) -> SessionSummary | None:
@@ -79,8 +132,8 @@ def summarize(path: Path) -> SessionSummary | None:
         return None
     try:
         document = read_recording(record_path)
-    except RecsError as error:
-        print(error, file=sys.stderr)
+    except (RecsError, ValueError) as error:
+        print(f'{record_path}: {error}', file=sys.stderr)
         return None
     body = document.body
     assets = {a.name: a for a in document.assets}
@@ -95,12 +148,15 @@ def summarize(path: Path) -> SessionSummary | None:
         journal = None
         if body.journal is not None:
             asset = assets[body.journal]
+            journal_path = (path / asset.path).resolve()
+            if not journal_path.is_relative_to(path.resolve()):
+                raise RecsError('Journal escapes the session directory')
             journal = (
-                legacy.read(path / asset.path)
+                legacy.read(journal_path)
                 if asset.encoding == 'recs-session-v3'
-                else session_record.read(path / asset.path)
+                else session_record.read(journal_path)
             )
-    except OSError as error:
+    except (OSError, ValueError, RecsError) as error:
         journal = None
         warnings = [f'Cannot read capture diagnostics: {error}']
     else:
@@ -157,6 +213,30 @@ def summarize(path: Path) -> SessionSummary | None:
         else 0,
         continued_from=body.continued_from,
         continued_at=body.continued_at,
+        sources=sorted(
+            {s.source_id for s in body.streams}
+            | {s.source_name for s in audio if s.source_name}
+        ),
+        marker_labels=sorted(
+            {
+                e.label or e.key or ''
+                for e in journal.events
+                if e.type in {'mark', 'key_pressed'}
+            }
+        )
+        if journal
+        else [],
+        media_kinds=sorted(
+            ({'audio'} if audio else set())
+            | {
+                s.event_kind
+                if s.event_kind in {'midi', 'osc', 'key', 'ump'}
+                else s.event_schema
+                if s.event_schema in {'midi', 'osc'}
+                else 'events'
+                for s in events
+            }
+        ),
     )
 
 
@@ -179,6 +259,48 @@ def _print_summaries(summaries: list[SessionSummary]) -> None:
             f'midi={value.midi_files}  '
             f'bytes={value.total_bytes}  {value.path}'
         )
+        for match in value.matched_filters:
+            print(f'  matched: {match}')
+
+
+def _matches(summary: SessionSummary, cfg: SessionsCli) -> list[str] | None:
+    matches: list[str] = []
+    if cfg.since is not None or cfg.before is not None:
+        try:
+            captured = datetime.fromisoformat(summary.started_at).date()
+        except ValueError:
+            return None
+        if cfg.since is not None:
+            if captured < cfg.since:
+                return None
+            matches.append(f'capture date {captured} >= {cfg.since}')
+        if cfg.before is not None:
+            if captured >= cfg.before:
+                return None
+            matches.append(f'capture date {captured} < {cfg.before}')
+    for label, needle, values in (
+        ('source', cfg.source, summary.sources),
+        ('track', cfg.track, summary.tracks),
+        ('marker', cfg.marker, summary.marker_labels),
+        ('warning', cfg.warning, summary.warnings),
+    ):
+        if needle is not None:
+            found = [v for v in values if needle.casefold() in v.casefold()]
+            if not found:
+                return None
+            matches.append(f'{label}: {", ".join(found)}')
+    if cfg.media is not None:
+        if cfg.media not in summary.media_kinds:
+            return None
+        matches.append(f'media: {cfg.media}')
+    if cfg.incomplete:
+        if summary.state == 'sealed' and not summary.unresolved_audio_files:
+            return None
+        matches.append(
+            f'incomplete: state={summary.state}, '
+            f'unresolved audio files={summary.unresolved_audio_files}'
+        )
+    return matches
 
 
 def _print_summary(value: SessionSummary) -> None:
