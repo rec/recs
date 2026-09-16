@@ -90,7 +90,7 @@ def test_session_browser_shows_one_session(
 ) -> None:
     session = _record(tmp_path)
 
-    assert session_browser.main(['show', str(session)]) == 0
+    assert session_browser.show([str(session)]) == 0
 
     output = capsys.readouterr().out
     assert 'audio_files: 1\n' in output

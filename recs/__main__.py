@@ -2,7 +2,7 @@ import multiprocessing as mp
 import sys
 
 import tyro
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from reccy.runtime import logging
 
 from recs.base._query_device import devices_json, stream_devices
@@ -10,6 +10,10 @@ from recs.base.errors import RecsError
 from recs.cfg import cli, run_cli
 
 LOGGER = logging.get_logger(__name__)
+
+
+class DeviceQueryCli(BaseModel, frozen=True):
+    """Internal device discovery helper, not a recording command."""
 
 
 def run() -> int:
@@ -42,9 +46,13 @@ def run() -> int:
             main()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
+            tyro.cli(DeviceQueryCli, args=sys.argv[2:], prog='recs query-devices')
             print(devices_json())
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices-stream':
+            tyro.cli(
+                DeviceQueryCli, args=sys.argv[2:], prog='recs query-devices-stream'
+            )
             stream_devices()
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'sessions':
@@ -70,7 +78,29 @@ def run() -> int:
                 return session_export.main(sys.argv[3:])
             from recs.ui import session_browser
 
-            return session_browser.main(sys.argv[2:])
+            if len(sys.argv) > 2 and sys.argv[2] == 'show':
+                return session_browser.show(sys.argv[3:])
+            from recs.midi.export import ExportMidi
+            from recs.recording.finalize import FinalizeSession
+            from recs.recording.migrate import MigrateSession
+            from recs.ui.session_export import ExportCli
+
+            tyro.extras.subcommand_cli_from_dict(
+                {
+                    'show': session_browser.ShowCli,
+                    'finalize': FinalizeSession,
+                    'export-midi': ExportMidi,
+                    'migrate': MigrateSession,
+                    'export': ExportCli,
+                },
+                args=sys.argv[2:],
+                prog='recs session',
+                description=(
+                    'Inspect or manage one session. '
+                    'Use recs sessions ROOT to list sessions.'
+                ),
+            )
+            return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'test-input':
             from recs.ui import input_self_test
 
