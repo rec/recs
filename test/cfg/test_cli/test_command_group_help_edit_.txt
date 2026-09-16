@@ -1,0 +1,33 @@
+$ recs edit --help
+usage: recs edit [-h] STR [[STR [STR ...]]]
+
+Run a named edit recipe or TOML file. Use COMMAND --help for its options.
+
+Use compose COMPOSITION.toml to combine recordings into a composition.
+
+ positional arguments
+ ----------------------------------------------------
+  STR                command (required)
+  [[STR [STR ...]]]  arguments (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+
+
+$ recs edit compose --help
+usage: recs edit compose COMPOSITION.toml [-h] [{None}|PATH] [-o {None}|PATH] [--dry-run | --no-dry-run]
+
+Combine recordings using a composition TOML file.
+
+ positional arguments
+ -----------------------------------------------------------
+  [{None}|PATH]  record (default: None)
+
+ options
+ -----------------------------------------------------------
+  -h, --help     show this help message and exit
+  -o {None}|PATH, --destination {None}|PATH
+                 Composite output directory (default: None)
+  --dry-run, --no-dry-run
+                 (default: False)

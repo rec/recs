@@ -1,0 +1,76 @@
+$ recs profile --help
+usage: recs profile [-h] {save,use,show,list,delete}
+
+Save and use named recording setups.
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+ subcommands
+ ---------------------------------------------
+  (required)
+    - save
+    - use
+    - show
+    - list
+    - delete
+
+
+$ recs profile delete --help
+usage: recs profile delete [-h] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs profile list --help
+usage: recs profile list [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs profile save --help
+usage: recs profile save [-h] STR [[STR [STR ...]]] [--replace | --no-replace]
+
+ positional arguments
+ ----------------------------------------------------------
+  STR                      name (required)
+  [[STR [STR ...]]]        recs-options (default: )
+
+ options
+ ----------------------------------------------------------
+  -h, --help               show this help message and exit
+  --replace, --no-replace  (default: False)
+
+
+$ recs profile show --help
+usage: recs profile show [-h] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs profile use --help
+usage: recs profile use [-h] STR [[STR [STR ...]]]
+
+ positional arguments
+ ----------------------------------------------------
+  STR                name (required)
+  [[STR [STR ...]]]  recs-options (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit

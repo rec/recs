@@ -1,13 +1,21 @@
 import sys
 from pathlib import Path
-from typing import cast
+from typing import Annotated, cast
 
+import tyro
 from pydantic import BaseModel, Field
 from reccy.protocol import rpc
 
 from recs.daemon import paths
 
 from . import session_record
+
+
+class ExplainCli(BaseModel, frozen=True):
+    """Explain recording diagnostics from a journal, or from the running daemon."""
+
+    path: Annotated[Path | None, tyro.conf.Positional] = None
+    json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
 
 
 class Explanation(BaseModel):
@@ -21,12 +29,9 @@ class ExplanationReport(BaseModel):
 
 
 def main(argv: list[str]) -> int:
-    json_output = False
-    if '--json' in argv:
-        json_output = True
-        argv = [arg for arg in argv if arg != '--json']
-    report = explain(Path(argv[0])) if argv else explain_daemon()
-    if json_output:
+    cfg = tyro.cli(ExplainCli, args=argv, prog='recs explain')
+    report = explain(cfg.path) if cfg.path is not None else explain_daemon()
+    if cfg.json_output:
         print(report.model_dump_json(indent=2))
     else:
         for explanation in report.explanations:
