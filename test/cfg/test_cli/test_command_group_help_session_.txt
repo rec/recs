@@ -1,5 +1,5 @@
 $ recs session --help
-usage: recs session [-h] {show,quality,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,markers,extract,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
@@ -15,6 +15,12 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
                    Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
                    advisories are not proof of clipping. No quietness verdicts.
+    - markers      List numbered markers and their available source-frame evidence.
+    - extract      Preview marker extraction; supply --destination to render a new session.
+
+                   Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
+                   lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
+                   rejected, never mapped from wall time.
     - finalize
     - export-midi
     - migrate
@@ -50,6 +56,35 @@ usage: recs session export-midi [-h] PATH STR PATH
   -h, --help  show this help message and exit
 
 
+$ recs session extract --help
+usage: recs session extract [-h] [OPTIONS] PATH
+
+Preview marker extraction; supply --destination to render a new session.
+
+Use numbers from session markers, not labels. Select one capture clock. Without --end-marker, lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are rejected, never mapped from wall time.
+
+ positional arguments
+ ---------------------------------------------------------------------------------------------------
+  PATH          path (required)
+
+ options
+ ---------------------------------------------------------------------------------------------------
+  -h, --help    show this help message and exit
+  --clock STR   (required)
+  --start-marker INT
+                (required)
+  --end-marker {None}|INT
+                (default: None)
+  --lead FLOAT  (default: 0)
+  --tail FLOAT  (default: 0)
+  --tracks [STR [STR ...]]
+                Exact stream IDs on the selected clock; default: all its audio streams. (default: )
+  --destination {None}|PATH
+                (default: None)
+  --json, --no-json
+                (default: False)
+
+
 $ recs session finalize --help
 usage: recs session finalize [-h] PATH
 
@@ -60,6 +95,21 @@ usage: recs session finalize [-h] PATH
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
+
+
+$ recs session markers --help
+usage: recs session markers [-h] PATH [--json | --no-json]
+
+List numbered markers and their available source-frame evidence.
+
+ positional arguments
+ ----------------------------------------------------
+  PATH               path (required)
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+  --json, --no-json  (default: False)
 
 
 $ recs session migrate --help
