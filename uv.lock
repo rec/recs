@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-09-09T10:54:58.14137Z"
+exclude-newer = "2026-09-10T09:06:01.270232Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -697,7 +697,7 @@ requires-dist = [
     { name = "threa", specifier = ">=1.9.0" },
     { name = "tomlkit", specifier = ">=0.15.1" },
     { name = "tyro", specifier = ">=1.0.13" },
-    { name = "ufor", url = "https://github.com/rec/ufor/archive/5f6f1df9cec42890f31044e90a363f8ed1920eb3.tar.gz" },
+    { name = "ufor", git = "https://github.com/rec/ufor.git?branch=main" },
 ]
 
 [package.metadata.requires-dev]
@@ -926,17 +926,10 @@ wheels = [
 [[package]]
 name = "ufor"
 version = "0.1.0"
-source = { url = "https://github.com/rec/ufor/archive/5f6f1df9cec42890f31044e90a363f8ed1920eb3.tar.gz" }
+source = { git = "https://github.com/rec/ufor.git?branch=main#1239e4586cee42032be5fc29bfb9516e21324b92" }
 dependencies = [
     { name = "pydantic" },
     { name = "tomlkit" },
-]
-sdist = { hash = "sha256:53ab2710456e7942dfb4a429af2279f0608ec8ccc10b69967340b291fddb0b7d" }
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "tomlkit", specifier = ">=0.15.1" },
 ]
 
 [[package]]
