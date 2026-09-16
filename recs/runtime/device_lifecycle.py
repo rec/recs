@@ -16,11 +16,11 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
+from recs.runtime.source_messages import BufferStats, SourceFailure, SourceUpdate
 
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .source_process import SourceProcess
-from .source_recorder import BufferStats, SourceFailure, SourceUpdate
 from .source_tracks import input_device_tracks, source_tracks
 
 FRAME_CLOCK_GRACE = 5.0

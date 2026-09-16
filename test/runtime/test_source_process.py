@@ -16,8 +16,8 @@ from recs.cfg.device import InputDevice
 from recs.cfg.file_source import FileSource
 from recs.cfg.track import Track
 from recs.runtime import source_process
+from recs.runtime.source_messages import SourceControl, SourceFailure, SourceUpdate
 from recs.runtime.source_process import SourceProcess
-from recs.runtime.source_recorder import SourceControl, SourceFailure, SourceUpdate
 
 
 def send_incomplete_final_update(

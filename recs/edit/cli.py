@@ -9,7 +9,7 @@ from ufor.codec import score_toml
 from ufor.interface import MixBinding, Part, ScoreVersion
 
 from recs.base.errors import RecsError
-from recs.edit import autocalibrate, commands, composition, session
+from recs.edit import autocalibrate, calibration_schema, commands, composition, session
 from recs.edit.options import EditOptions
 from recs.edit.schema import CommandKind
 from recs.recording import recording_paths
@@ -51,7 +51,7 @@ class CompositionCli(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-class AutocalibrateCli(autocalibrate.AutocalibrateOptions, frozen=True):
+class AutocalibrateCli(calibration_schema.AutocalibrateOptions, frozen=True):
     record: Annotated[Path | None, tyro.conf.Positional] = None
 
     destination: Annotated[

@@ -5,7 +5,7 @@ import pytest
 import soundfile
 
 from recs.base.errors import RecsError
-from recs.edit import autocalibrate
+from recs.edit import autocalibrate, calibration_analysis, calibration_schema
 from recs.edit.cli import main
 from recs.edit.composition import execute_composition, parse_composition
 from recs.edit.record import AudioFragment, ResolvedSource
@@ -23,16 +23,16 @@ def test_calibration_uses_each_tracks_first_sustained_silence(
     noisy = _session_audio(0.02)
     quiet_source = _source(tmp_path, 'quiet.wav', quiet)
     noisy_source = _source(tmp_path, 'noisy.wav', noisy)
-    settings = autocalibrate.CalibrationSettings()
+    settings = calibration_schema.CalibrationSettings()
 
-    quiet_result = autocalibrate.calibrate_threshold(
+    quiet_result = calibration_analysis.calibrate_threshold(
         'device:quiet',
-        lambda: autocalibrate.level_windows(quiet_source, settings),
+        lambda: calibration_analysis.level_windows(quiet_source, settings),
         settings,
     )
-    noisy_result = autocalibrate.calibrate_threshold(
+    noisy_result = calibration_analysis.calibrate_threshold(
         'device:noisy',
-        lambda: autocalibrate.level_windows(noisy_source, settings),
+        lambda: calibration_analysis.level_windows(noisy_source, settings),
         settings,
     )
 
@@ -50,31 +50,31 @@ def test_detection_uses_fixed_calibration_when_noise_later_changes(
     audio = _session_audio(0.001)
     audio[SAMPLE_RATE * 5 // 2 :] += _tone(len(audio) - SAMPLE_RATE * 5 // 2, 0.02)
     source = _source(tmp_path, 'changed-noise.wav', audio)
-    calibration = autocalibrate.CalibrationSettings()
-    threshold = autocalibrate.calibrate_threshold(
+    calibration = calibration_schema.CalibrationSettings()
+    threshold = calibration_analysis.calibrate_threshold(
         'device:voice',
-        lambda: autocalibrate.level_windows(source, calibration),
+        lambda: calibration_analysis.level_windows(source, calibration),
         calibration,
     )
-    silence = autocalibrate.SilenceSettings(
+    silence = calibration_schema.SilenceSettings(
         quiet_before_frames=0,
         quiet_after_frames=0,
         stop_after_quiet_frames=0,
         shortest_file_frames=1,
     )
 
-    intervals = autocalibrate.detect_intervals(
-        autocalibrate.level_windows(source, calibration), threshold, silence
+    intervals = calibration_analysis.detect_intervals(
+        calibration_analysis.level_windows(source, calibration), threshold, silence
     )
 
     assert intervals == [
-        autocalibrate.FrameRange(start=0, end=SAMPLE_RATE // 2),
-        autocalibrate.FrameRange(start=SAMPLE_RATE * 3 // 2, end=SAMPLE_RATE * 4),
+        calibration_schema.FrameRange(start=0, end=SAMPLE_RATE // 2),
+        calibration_schema.FrameRange(start=SAMPLE_RATE * 3 // 2, end=SAMPLE_RATE * 4),
     ]
 
 
 def test_silence_detection_pads_splits_and_respects_source_gaps() -> None:
-    threshold = autocalibrate.CalibratedThreshold(
+    threshold = calibration_schema.CalibratedThreshold(
         source='device:voice',
         silence_start=0,
         silence_end=WINDOW_FRAMES * 2,
@@ -92,7 +92,7 @@ def test_silence_detection_pads_splits_and_respects_source_gaps() -> None:
         _window(5, -20, WINDOW_FRAMES * 5, WINDOW_FRAMES * 7),
         _window(6, -20, WINDOW_FRAMES * 5, WINDOW_FRAMES * 7),
     ]
-    settings = autocalibrate.SilenceSettings(
+    settings = calibration_schema.SilenceSettings(
         quiet_before_frames=WINDOW_FRAMES,
         quiet_after_frames=WINDOW_FRAMES,
         stop_after_quiet_frames=WINDOW_FRAMES,
@@ -100,15 +100,15 @@ def test_silence_detection_pads_splits_and_respects_source_gaps() -> None:
         longest_file_frames=WINDOW_FRAMES * 2,
     )
 
-    assert autocalibrate.detect_intervals(windows, threshold, settings) == [
-        autocalibrate.FrameRange(start=0, end=WINDOW_FRAMES * 2),
-        autocalibrate.FrameRange(start=WINDOW_FRAMES * 2, end=WINDOW_FRAMES * 4),
-        autocalibrate.FrameRange(start=WINDOW_FRAMES * 5, end=WINDOW_FRAMES * 7),
+    assert calibration_analysis.detect_intervals(windows, threshold, settings) == [
+        calibration_schema.FrameRange(start=0, end=WINDOW_FRAMES * 2),
+        calibration_schema.FrameRange(start=WINDOW_FRAMES * 2, end=WINDOW_FRAMES * 4),
+        calibration_schema.FrameRange(start=WINDOW_FRAMES * 5, end=WINDOW_FRAMES * 7),
     ]
 
 
 def test_calibration_rejects_tracks_without_sustained_quiet() -> None:
-    settings = autocalibrate.CalibrationSettings(
+    settings = calibration_schema.CalibrationSettings(
         window_frames=WINDOW_FRAMES,
         minimum_silence_frames=WINDOW_FRAMES * 2,
         candidate_tolerance_db=0,
@@ -118,18 +118,18 @@ def test_calibration_rejects_tracks_without_sustained_quiet() -> None:
     ]
 
     with pytest.raises(RecsError, match='no sustained silence'):
-        autocalibrate.calibrate_threshold(
+        calibration_analysis.calibrate_threshold(
             'device:voice', lambda: iter(windows), settings
         )
 
 
 def test_autocalibrate_toml_round_trips() -> None:
-    value = autocalibrate.AutocalibrateEdit(
+    value = calibration_schema.AutocalibrateEdit(
         record=Path('../recording.toml'),
         channels=['device:voice'],
         sample_rate=SAMPLE_RATE,
         thresholds=[
-            autocalibrate.CalibratedThreshold(
+            calibration_schema.CalibratedThreshold(
                 source='device:voice',
                 silence_start=WINDOW_FRAMES,
                 silence_end=WINDOW_FRAMES * 2,
@@ -152,16 +152,16 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
     audio = _session_audio(0.001)
     record_path, audio_path = _record(tmp_path, audio)
     original = audio_path.read_bytes()
-    edit = autocalibrate.AutocalibrateEdit(
+    edit = calibration_schema.AutocalibrateEdit(
         record=Path('recording.toml'),
         channels=['device:voice'],
-        silence=autocalibrate.SilenceSettings(
+        silence=calibration_schema.SilenceSettings(
             quiet_before_frames=0,
             quiet_after_frames=0,
             stop_after_quiet_frames=0,
             shortest_file_frames=1,
         ),
-        output=autocalibrate.AutocalibrateOutput(
+        output=calibration_schema.AutocalibrateOutput(
             format='wav',
             subtype='float',
         ),
@@ -209,7 +209,7 @@ def test_autocalibrate_writes_segmented_session(tmp_path: Path) -> None:
 def test_options_convert_durations_to_source_frames(tmp_path: Path) -> None:
     source = _session_audio(0.001)
     record_path, _ = _record(tmp_path, source)
-    options = autocalibrate.AutocalibrateOptions(
+    options = calibration_schema.AutocalibrateOptions(
         channel=['device:voice'],
         window_time=0.05,
         minimum_silence_time=0.25,
@@ -226,7 +226,7 @@ def test_options_convert_durations_to_source_frames(tmp_path: Path) -> None:
 
     assert value.calibration.window_frames == 2_400
     assert value.calibration.minimum_silence_frames == 12_000
-    assert value.silence == autocalibrate.SilenceSettings(
+    assert value.silence == calibration_schema.SilenceSettings(
         quiet_before_frames=24_000,
         quiet_after_frames=36_000,
         stop_after_quiet_frames=144_000,
@@ -439,8 +439,8 @@ def _source(directory: Path, name: str, audio: np.ndarray) -> ResolvedSource:
 
 def _window(
     index: int, level_dbfs: float, coverage_start: int, coverage_end: int
-) -> autocalibrate.LevelWindow:
-    return autocalibrate.LevelWindow(
+) -> calibration_schema.LevelWindow:
+    return calibration_schema.LevelWindow(
         start=index * WINDOW_FRAMES,
         end=(index + 1) * WINDOW_FRAMES,
         level_dbfs=level_dbfs,

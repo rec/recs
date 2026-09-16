@@ -291,6 +291,16 @@ before moving anything, and migrate only a coherent area when authorized.
 
 ### 17. P3: several modules and tests combine too many responsibilities
 
+Resolved by extracting existing responsibilities, not introducing alternate
+implementations: source messages, update transport, buffering, calibration,
+and capture file events now have their own modules. Configuration sections are
+separate from Cfg resolution; offline calibration schema and analysis are
+separate from preparation/output. Recorder summary formatting belongs to ui,
+and its tests exercise public output without constructing a recorder.
+Recorder tests are grouped by devices, controls, sessions, and lifecycle, sharing
+one set of fakes. Recorder remains the application wiring and lifecycle owner;
+its remaining length alone does not justify another controller layer.
+
 Measured source lengths at review time:
 
 | File | Lines | Review concern |

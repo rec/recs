@@ -24,6 +24,17 @@ still the top-level owner of the run, but most mutable domains now live outside
 Tests mirror these packages. Imports refer directly to the owning module;
 there are no compatibility modules under the former `recs/ui` paths.
 
+Within capture, `source_messages` defines the parent/child payloads,
+`source_transport` delivers and coalesces updates, `input_buffer` accounts for
+callback frames and dropped blocks, and `source_calibration` measures live noise.
+`recording/capture_events` translates writer state into durable file evidence.
+`source_recorder` owns the capture loop and applies controls to its writers.
+
+Configuration option sections live in `cfg/sections`; `cfg/cfg` resolves them
+into one run configuration. Offline calibration models and measurements live in
+`edit/calibration_schema` and `edit/calibration_analysis`; `edit/autocalibrate`
+prepares sources and persists the resulting edit/session.
+
 Important collaborators:
 
 - `DeviceLifecycle`: source discovery, source child processes, source updates,

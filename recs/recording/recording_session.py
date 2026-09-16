@@ -10,9 +10,9 @@ from ufor.time import ClockObservation, Position, Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.recording import recording_paths, session_record
+from recs.recording.capture_events import SourceFile
 from recs.recording.events import EventWriter, host_clock_observation
 from recs.recording.finalize import finalize_recording
-from recs.runtime.source_recorder import SourceFile
 
 
 class RecordingSession:
