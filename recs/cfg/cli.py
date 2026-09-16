@@ -3,8 +3,7 @@ from typing import Annotated, cast
 import tyro
 
 from recs.base import pyproject
-
-from .cfg import Cfg
+from recs.cfg.cfg import Cfg
 
 INTRO = f"""  {pyproject.message()}
 ============================================="""

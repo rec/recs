@@ -9,6 +9,7 @@ import pytest
 from threa import Runnable
 
 from recs.audio.block import Block
+from recs.base import memory
 from recs.base.state import ChannelState
 from recs.base.types import Active
 from recs.base.waveform import WaveformBatchData, WaveformTrackData
@@ -17,20 +18,24 @@ from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
 from recs.cfg.time_settings import amplitude_to_db
 from recs.cfg.track import Track
-from recs.runtime import source_recorder
-from recs.runtime.source_recorder import (
-    InputBuffer,
-    SourceCalibration,
-    SourceRecorder,
-    SourceUpdate,
-    SourceUpdateTransport,
+from recs.recording import capture_events
+from recs.runtime import (
+    input_buffer,
+    source_messages,
+    source_recorder,
+    source_transport,
 )
+from recs.runtime.input_buffer import InputBuffer
+from recs.runtime.source_calibration import SourceCalibration
+from recs.runtime.source_messages import SourceUpdate
+from recs.runtime.source_recorder import SourceRecorder
+from recs.runtime.source_transport import SourceUpdateTransport
 
 
 def test_input_buffer_drops_updates_when_memory_reserve_is_reached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 0)
+    monkeypatch.setattr(memory, 'available_bytes', lambda: 0)
     buffer = InputBuffer(Cfg(memory_reserve_megabytes=200), samplerate=48_000)
     update = Update(np.zeros((512, 1)), 10.0)
 
@@ -44,7 +49,7 @@ def test_input_buffer_drops_updates_when_memory_reserve_is_reached(
 def test_input_buffer_queue_uses_audio_seconds_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 400_000_000)
+    monkeypatch.setattr(memory, 'available_bytes', lambda: 400_000_000)
     buffer = InputBuffer(
         Cfg(audio_buffer_seconds=1, memory_reserve_megabytes=200), samplerate=1_000
     )
@@ -57,7 +62,7 @@ def test_input_buffer_queue_uses_audio_seconds_limit(
 def test_input_buffer_drops_updates_when_queue_is_full(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 400_000_000)
+    monkeypatch.setattr(memory, 'available_bytes', lambda: 400_000_000)
     buffer = InputBuffer(
         Cfg(audio_buffer_seconds=0.1, memory_reserve_megabytes=200), samplerate=1_000
     )
@@ -89,8 +94,8 @@ def test_input_buffer_timeline_includes_dropped_updates(
 ) -> None:
     values = iter([400_000_000, 0, 400_000_000])
     timestamps = iter([1.0, 2.0, 3.0])
-    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: next(values))
-    monkeypatch.setattr(source_recorder, 'monotonic', lambda: next(timestamps))
+    monkeypatch.setattr(memory, 'available_bytes', lambda: next(values))
+    monkeypatch.setattr(input_buffer, 'monotonic', lambda: next(timestamps))
     buffer = InputBuffer(
         Cfg(memory_check_period=1, memory_reserve_megabytes=200), samplerate=48_000
     )
@@ -111,7 +116,7 @@ def test_input_buffer_timeline_includes_dropped_updates(
 def test_input_buffer_reports_dropped_frames_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(source_recorder.memory, 'available_bytes', lambda: 0)
+    monkeypatch.setattr(memory, 'available_bytes', lambda: 0)
     cfg = Cfg(memory_reserve_megabytes=200)
     buffer = InputBuffer(cfg, samplerate=48_000)
     update = Update(np.zeros((512, 1)), 10.0)
@@ -200,7 +205,7 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
         files=[],
         frames=512,
         source_name='Mic',
-        buffer_stats=source_recorder.BufferStats(),
+        buffer_stats=source_messages.BufferStats(),
     )
     transport.start()
 
@@ -233,7 +238,7 @@ def test_source_recorder_runs_control_updates_without_audio(
     stop_event = threading.Event()
     cfg = Cfg(record_everything=True)
     connection = OneMessageControlConnection(
-        source_recorder.SourceControl(
+        source_messages.SourceControl(
             cfg=cfg,
             cfg_revision=1,
             waveforms_enabled=True,
@@ -275,10 +280,10 @@ def test_source_update_merge_summarizes_warning_backlog() -> None:
         frames=2, buffer_warnings=[f'warning {i}' for i in range(40, 80)]
     )
 
-    result = source_recorder._merge_updates(first, second)
+    result = source_transport._merge_updates(first, second)
 
     assert result.buffer_warnings is not None
-    assert len(result.buffer_warnings) == source_recorder.MAX_MERGED_WARNINGS
+    assert len(result.buffer_warnings) == source_transport.MAX_MERGED_WARNINGS
     assert result.buffer_warnings[0] == (
         'Dropped 17 older source warnings while parent was busy'
     )
@@ -306,7 +311,7 @@ def test_source_update_merge_preserves_earliest_track_state_timing() -> None:
         track_state_timestamps={'1': 2.0},
     )
 
-    result = source_recorder._merge_updates(first, second)
+    result = source_transport._merge_updates(first, second)
 
     assert result.frame_count == 8192
     assert result.timestamp == 2.0
@@ -333,14 +338,14 @@ def test_source_update_merge_uses_new_track_state_timing_after_transition() -> N
         track_state_timestamps={'1': 2.0},
     )
 
-    result = source_recorder._merge_updates(first, second)
+    result = source_transport._merge_updates(first, second)
 
     assert result.track_state_frames == {'1': 8192}
     assert result.track_state_timestamps == {'1': 2.0}
 
 
 def test_source_update_merge_bounds_file_metadata_backlog() -> None:
-    files = [Path(f'{i}.wav') for i in range(source_recorder.MAX_MERGED_FILES + 2)]
+    files = [Path(f'{i}.wav') for i in range(source_transport.MAX_MERGED_FILES + 2)]
     first_files = files[:400]
     second_files = files[400:]
     first = SourceUpdate(
@@ -349,7 +354,7 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
         frames=1,
         source_name='Mic',
         file_records=[
-            source_recorder.SourceFile(
+            capture_events.SourceFile(
                 path=p,
                 source_name='Mic',
                 track_name='1',
@@ -366,7 +371,7 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
         files=second_files,
         frames=2,
         file_records=[
-            source_recorder.SourceFile(
+            capture_events.SourceFile(
                 path=p,
                 source_name='Mic',
                 track_name='1',
@@ -380,15 +385,15 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
         file_end_frames=dict.fromkeys(second_files, 2),
     )
 
-    result = source_recorder._merge_updates(first, second)
+    result = source_transport._merge_updates(first, second)
 
-    assert len(result.files) == source_recorder.MAX_MERGED_FILES
+    assert len(result.files) == source_transport.MAX_MERGED_FILES
     assert result.files[0] == files[2]
     assert result.files[-1] == files[-1]
     assert result.file_records is not None
-    assert len(result.file_records) == source_recorder.MAX_MERGED_FILES
+    assert len(result.file_records) == source_transport.MAX_MERGED_FILES
     assert result.file_end_frames is not None
-    assert len(result.file_end_frames) == source_recorder.MAX_MERGED_FILES
+    assert len(result.file_end_frames) == source_transport.MAX_MERGED_FILES
 
 
 def test_source_update_merge_bounds_live_waveform_backlog() -> None:
@@ -404,7 +409,7 @@ def test_source_update_merge_bounds_live_waveform_backlog() -> None:
         waveform_batches=[_waveform_batch(i) for i in range(4, 8)],
     )
 
-    result = source_recorder._merge_updates(first, second)
+    result = source_transport._merge_updates(first, second)
 
     assert result.waveform_batches is not None
     assert [b.sequence for b in result.waveform_batches] == [3, 4, 5, 6, 7]
@@ -453,7 +458,7 @@ def test_source_track_change_closes_writers_before_next_buffer(
     original = ReconfiguredWriter(recorder.cfg, recorder.times, Track(source, '1-2'))
     recorder.channel_writers = (original,)
     recorder.file_counts = [0]
-    recorder.file_events = source_recorder.SourceFileEvents(recorder.channel_writers)
+    recorder.file_events = capture_events.SourceFileEvents(recorder.channel_writers)
     recorder.pending_active_channels = set()
     recorder.pending_track_layout = None
     recorder.waveforms_enabled = False
@@ -478,7 +483,7 @@ def test_source_file_events_handles_discarded_candidate_files() -> None:
         }
     )
     writer = EventWriter(Track(source, '1'))
-    events = source_recorder.SourceFileEvents([writer])
+    events = capture_events.SourceFileEvents([writer])
     first = Path('discarded.wav')
     second = Path('kept.wav')
 
@@ -502,7 +507,7 @@ def test_source_file_events_records_track_name_and_source_channels() -> None:
     )
     writer = EventWriter(Track(source, '2-3'))
     writer.track_names = {source.key: {'Room': 2}}
-    events = source_recorder.SourceFileEvents([writer])
+    events = capture_events.SourceFileEvents([writer])
     path = Path('room.wav')
     writer.add_file(path)
 
@@ -510,7 +515,7 @@ def test_source_file_events_records_track_name_and_source_channels() -> None:
 
     assert files == [path]
     assert records == [
-        source_recorder.SourceFile(
+        capture_events.SourceFile(
             path=path,
             source_name='Mic',
             track_name='Room',

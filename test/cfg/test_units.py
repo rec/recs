@@ -5,8 +5,9 @@ import tyro
 from pydantic import ValidationError
 from reccy.configuration import units
 
-from recs.cfg.cfg import Cfg, Console, Recording
+from recs.cfg.cfg import Cfg
 from recs.cfg.cli import CliCfg
+from recs.cfg.sections import Console, Recording
 from recs.osc.config import Poll, Subscription
 
 

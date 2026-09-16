@@ -23,6 +23,8 @@ from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_ipc, gui_protocol, instances
 from recs.midi.recorder import MidiRecorder
 from recs.osc.recorder import OscRecorder
+from recs.runtime.source_messages import BufferStats, SourceFailure, SourceUpdate
+from recs.runtime.source_recorder import POLL_TIMEOUT
 
 from ..recording import (
     recording_paths,
@@ -30,7 +32,7 @@ from ..recording import (
     recovery_report,
     session_record,
 )
-from ..ui import gui_process, live
+from ..ui import gui_process, live, recording_summary
 from ..ui.key_events import KeyEvent, make_key_recorder
 from . import (
     calibration,
@@ -45,7 +47,6 @@ from . import (
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .source_process import SourceProcess
-from .source_recorder import POLL_TIMEOUT, BufferStats, SourceFailure, SourceUpdate
 
 LOGGER = logging.get_logger(__name__)
 SOURCE_STALL_TIMEOUT = device_lifecycle.SOURCE_STALL_TIMEOUT
@@ -372,38 +373,15 @@ class Recorder(Runnables):
                     print(json.dumps(self._silence_preview_report(), indent=2))
                 elif self.cfg.general.calibrate or self.cfg.general.verbose:
                     print(json.dumps(self.state.db_ranges(), indent=2))
-        self._summary()
+        recording_summary.print_summary(
+            self.cfg,
+            self.state.elapsed_time,
+            self.session.files_written,
+            sorted(self._devices.failed),
+            any(self._devices.frames.values()),
+        )
         if self.cfg.console.open_output_folder:
             recording_paths.open_folder(self._output_folder())
-
-    def _summary(self) -> None:
-        print(f'Recording time: {_summary_time(self.state.elapsed_time)}')
-        files = sorted(path for path in self.session.files_written if path.exists())
-        if files:
-            print('Files written:')
-            for path in files:
-                print(f'  {path}')
-        else:
-            print('Files written: none')
-            print(f'No files written because {self._no_file_explanation()}.')
-
-    def _no_file_explanation(self) -> str:
-        if self.cfg.general.dry_run:
-            return 'dry-run mode does not write files'
-        if self.cfg.general.calibrate:
-            return 'calibration mode does not write files'
-        if self.cfg.general.silence_preview:
-            return 'silence preview mode does not write files'
-        if self._devices.failed:
-            return f'sources failed: {", ".join(sorted(self._devices.failed))}'
-        if self.session.files_written:
-            return 'all candidate files were removed or are no longer present'
-        if not any(self._devices.frames.values()):
-            return 'no audio updates were received'
-        return (
-            'audio stayed below the noise floor or candidate files were shorter '
-            'than shortest_file_time'
-        )
 
     def _run(self) -> None:
         if self.cfg.console.gui:
@@ -893,13 +871,6 @@ class Recorder(Runnables):
         if paths:
             return Path(os.path.commonpath([path.parent for path in paths]))
         return recording_paths.existing_parent(self._record_path()).resolve()
-
-
-def _summary_time(seconds: float) -> str:
-    value = times.to_str(seconds)
-    if seconds < 60:
-        return f'0:{value:0>6}'
-    return value
 
 
 def _relative_record_path(path: Path, record_path: Path) -> str:

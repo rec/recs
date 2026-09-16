@@ -1,6 +1,6 @@
 import pytest
 
-from recs.cfg.cfg import Recording
+from recs.cfg.sections import Recording
 from recs.runtime import disk_space
 
 
