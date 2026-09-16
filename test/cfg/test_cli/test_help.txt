@@ -1,0 +1,177 @@
+$ recs --help
+usage: recs [-h] [OPTIONS] [[PATH [PATH ...]]]
+
+  🎙 recs: The Universal Recorder 🎙
+=============================================
+
+Why should there be a record button at all?
+
+I wanted to digitize a huge number of cassettes and LPs, so I wanted a program that ran in the background and recorded everything except quiet.
+
+Nothing like that existed so I wrote it.  Free, open-source, configurable.
+
+Full documentation here: https://github.com/rec/recs
+
+ positional arguments
+ -------------------------------------------------------------------------------------------
+  [[PATH [PATH ...]]]
+        One or more files to split for silence (default: )
+
+ options
+ -------------------------------------------------------------------------------------------
+  -h, --help
+        show this help message and exit
+
+ directory options
+ -------------------------------------------------------------------------------------------
+  -o STR, --output-directory STR
+        Path or output_directory pattern for recorded file locations (default: '')
+  --short-file-names, --no-short-file-names
+        Omit the device from generated names when there is only one (default: True)
+
+ general options
+ -------------------------------------------------------------------------------------------
+  --calibrate, --no-calibrate
+        Detect and print noise levels, do not record (default: False)
+  --default-record-directory STR
+        Directory name to use for automatic daemon recordings (default: recs)
+  -n, --dry-run, --no-dry-run
+        Display levels only, do not record (default: False)
+  -v, --verbose, --no-verbose
+        Print more stuff (default: False)
+  --info, --no-info
+        Display device info as JSON (default: False)
+  --list-types, --no-list-types
+        List all subtypes for each format as JSON (default: False)
+  --silence-preview, --no-silence-preview
+        Show live silence measurements and suggested recording thresholds (default: False)
+  --save-settings {None,True,False}
+        Save mutable API settings for the next recording run (default: None)
+
+ device options
+ -------------------------------------------------------------------------------------------
+  -a STR, --alias STR
+        Set aliases for devices or channels (repeatable)
+  --devices PATH
+        A path to a JSON file with device definitions (default: .)
+  --profiles PATH
+        A JSON file with per-device default profiles (default: .)
+
+ selection options
+ -------------------------------------------------------------------------------------------
+  -e STR, --exclude STR
+        Exclude devices or channels (repeatable)
+  -i STR, --include STR
+        Only include these devices or channels (repeatable)
+
+ audio options
+ -------------------------------------------------------------------------------------------
+  -f AUDIO FORMAT, --formats AUDIO FORMAT
+        Audio file formats (repeatable, appends to: flac)
+  -m STR, --metadata STR
+        Metadata fields to add to output files (repeatable)
+  -d {None}|{NUMERIC TYPE}, --sdtype {None}|{NUMERIC TYPE}
+        Integer or float number type for recording (default: float32)
+  -u {None}|{AUDIO SUBTYPE}, --subtype {None}|{AUDIO SUBTYPE}
+        Audio file subtype (default: None)
+
+ midi options
+ -------------------------------------------------------------------------------------------
+  --midi, --no-midi, --record-midi, --no-record-midi
+        Record MIDI inputs (default: True)
+  --midi-include STR
+        Only record these MIDI input name prefixes (repeatable)
+  --midi-exclude STR
+        Exclude these MIDI input name prefixes (repeatable)
+  --midi-timing {mido,system}
+        MIDI timing: system callback clock, or mido source deltas (default: system)
+
+ osc options
+ -------------------------------------------------------------------------------------------
+  --osc-nodes PATH
+        TOML file describing OSC nodes to record (default: .)
+
+ console options
+ -------------------------------------------------------------------------------------------
+  -r, --clear-terminal, --no-clear-terminal
+        Clear display on shutdown (default: True)
+  --gui, --no-gui
+        Display live updates in a PySide6 window (default: False)
+  --open-output-folder, --no-open-output-folder
+        Open the output folder when recording finishes (default: False)
+  --remote, --no-remote
+        Connect to an already-running recs daemon instead of recording (default: False)
+  -s, --silent, --no-silent
+        Do not display live updates (default: False)
+  --sleep-time-device TIME
+        How long to sleep between checking device (default: 0.1)
+  --ui-refresh-rate HZ
+        How many UI refreshes per second (default: 10.0)
+  --waveform-bucket-milliseconds MILLISECONDS
+        Milliseconds represented by each live waveform bucket (default: 20)
+  --waveform-batch-milliseconds MILLISECONDS
+        Milliseconds represented by each live waveform batch (default: 100)
+
+ keys options
+ -------------------------------------------------------------------------------------------
+  --key-label STR
+        Add a record label for a key, for example g=guitar too soft (repeatable)
+  --record-keys {None}|{KEY RECORDING MODE}
+        Record keys in the session record: none, press, or all (default: None)
+  --record-key-all-apps {None,True,False}
+        Record key events from all applications; must be explicitly enabled (default: None)
+
+ recording options
+ -------------------------------------------------------------------------------------------
+  --audio-buffer-seconds TIME
+        Seconds of audio to buffer before dropping delayed callbacks (default: 10.0)
+  --memory-reserve-megabytes MB
+        Free system memory to reserve while buffering audio (default: 200)
+  --memory-check-period TIME
+        How often to check available system memory (default: 2.0)
+  -B, --band-mode, --no-band-mode
+        Band mode: any track starting starts them all (default: False)
+  --channel-noise-floors [STR [STR {None}|FLOAT [STR {None}|FLOAT ...]] [...]]
+        Per-device mono or stereo track noise floor overrides (default: )
+  --infinite-length, --no-infinite-length
+        Ignore file size limit: 4G on .wav (default: False)
+  --longest-file-time TIME
+        Longest amount of time per file: 0 means infinite (default: 0.0)
+  --minimum-free-space BYTES
+        Absolute disk-space reserve used with the emergency threshold (default: 0)
+  --disk-alert-thresholds STR
+        Free-space alerts, such as 30m or 500MB (repeatable, appends to: 1800s 600s 120s)
+  --disk-removable-emergency STR
+        Emergency reserve on removable disks (repeatable, appends to: 200000000 30s)
+  --disk-system-emergency STR
+        Emergency reserve on the system disk (repeatable, appends to: 2000000000 120s)
+  --disk-removable-pause STR
+        Pause reserve on removable disks (repeatable, appends to: 200000000 30s)
+  --disk-system-pause STR
+        Pause reserve on the system disk (repeatable, appends to: 2000000000 120s)
+  --disk-poll-seconds TIME
+        How often to check recording disk space (default: 1.0)
+  --card-replace-poll-seconds TIME
+        How often to poll for a replacement recording card (default: 1.0)
+  --card-replace-timeout-seconds TIME
+        How long to wait for a replacement recording card (default: 300.0)
+  --disk-auto-switch, --no-disk-auto-switch
+        Switch to a better removable disk after a disk-space alert (default: True)
+  --moving-average-time TIME
+        How long to average the volume display over (default: 1.0)
+  -z FLOAT, --noise-floor FLOAT
+        The noise floor in decibels (default: 70.0)
+  --preview-headroom FLOAT
+        Headroom in decibels to add to silence preview measurements (default: 6.0)
+  -R, --record-everything, --no-record-everything
+        Start immediately, record everything until end (default: False)
+  --shortest-file-time TIME
+        Files shorter than this duration get deleted (default: 1.0)
+  -c TIME, --quiet-after-end TIME
+        How much quiet after the end (default: 2.0)
+  -b TIME, --quiet-before-start TIME
+        How much quiet before a recording (default: 1.0)
+  --stop-after-quiet TIME
+        How much quiet before stopping a recording (default: 20.0)
+  -t TIME, --total-run-time TIME
+        How many seconds to record? 0 means forever (default: 0.0)
