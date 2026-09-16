@@ -134,6 +134,10 @@ and a malformed one while a source is active.
 
 ### 8. P2: watch help performs instance discovery before parsing help
 
+Resolved: help and watch options are parsed before resolving an instance.
+Regressions prohibit discovery and connections for default and explicit-instance
+help requests.
+
 Evidence: [watch.main](../recs/daemon/watch.py) calls `instances.resolve()` before
 `tyro.cli()`. [Discovery](../recs/daemon/instances.py) probes descriptors serially
 with one-second RPC timeouts. An unavailable explicit instance can reject
