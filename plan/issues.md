@@ -237,6 +237,13 @@ a representative long edit. A streaming redesign requires separate scope.
 
 ### 14. P2: gain automation evaluates Python code once per audio frame
 
+Resolved: interpolation and multiplication operate on array segments within
+render blocks. Multiple additive writers retain uFor's `fsum` cancellation
+semantics. WAV regressions compare every interpolation mode, cropped placement,
+block boundaries, and combined writers against the scalar reference. A one-minute
+linear lane measured 4.963 seconds scalar versus 0.016 seconds block evaluation
+on this machine; timing is diagnostic, not a test threshold.
+
 Evidence: [gain_values](../recs/edit/automation.py) builds full position and gain
 arrays, then calls the scalar uFor evaluator through a list comprehension for
 every selected tick. At 48 kHz, one hour means 172.8 million calls per lane.
