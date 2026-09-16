@@ -235,7 +235,7 @@ def test_options_convert_durations_to_source_frames(tmp_path: Path) -> None:
     )
 
 
-def test_cli_dry_run_discovers_silence_without_writing(
+def test_cli_dry_run_reports_unknown_analysis_without_writing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -247,13 +247,9 @@ def test_cli_dry_run_discovers_silence_without_writing(
     assert main(['autocalibrate', str(record_path), '--dry-run']) == 0
 
     output = capsys.readouterr().out
-    assert 'device:voice:' in output
-    assert 'Calibration: first sustained silence per track; fixed thereafter' in output
-    assert 'Provisional quiet: -60.0 dBFS' in output
-    assert 'First silence: 24000:72000' in output
-    assert 'Observed windows: 40' in output
-    assert 'Measured noise: -60.0 dBFS' in output
-    assert 'Output: 1 file, 192000 frames (4.000 seconds)' in output
+    assert 'Source float32 storage: 768000 bytes' in output
+    assert 'require audio analysis' in output
+    assert 'Destination audio estimate: unknown' in output
     assert list(tmp_path.glob('* edit')) == []
 
 

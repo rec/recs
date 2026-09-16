@@ -1,5 +1,4 @@
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -9,7 +8,7 @@ from ufor.arrangement import Arrangement, ArrangementScore
 from ufor.codec import score_toml
 from ufor.time import Rate, Timebase
 
-from recs.edit import commands, session
+from recs.edit import commands
 from recs.edit.cli import EditCli, main
 from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
@@ -38,7 +37,7 @@ def test_edit_cli_inputs_are_optional() -> None:
     assert cfg.inputs == []
 
 
-def test_dry_run_prints_only_score_toml(
+def test_dry_run_prints_score_toml_with_resource_comments(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -56,18 +55,13 @@ def test_dry_run_prints_only_score_toml(
     monkeypatch.setattr(
         commands, 'resolve_command', lambda command, cwd: (recipe, command_path)
     )
-    monkeypatch.setattr(
-        session,
-        'prepare_edit',
-        lambda complete, edit_directory, destination, definitions: SimpleNamespace(
-            edit=complete
-        ),
-    )
     monkeypatch.chdir(tmp_path)
 
     assert main(['command', '--dry-run']) == 0
 
-    assert capsys.readouterr().out == score_toml(edit)
+    output = capsys.readouterr().out
+    assert output.endswith(score_toml(edit))
+    assert '# Source float32 storage:' in output
     assert list(tmp_path.iterdir()) == []
 
 

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
-from tempfile import TemporaryFile
+from pathlib import Path
+from tempfile import TemporaryFile, gettempdir
 
 import numpy as np
 import soundfile
@@ -9,6 +10,7 @@ from ufor.recording import RecordingScore
 from recs.base.errors import RecsError
 from recs.edit.graph import FrameRange
 from recs.edit.record import ResolvedSource
+from recs.edit.workspace import SCRATCH_DIRECTORY, check_space
 
 BLOCK_FRAMES = 65_536
 
@@ -20,7 +22,9 @@ class AudioStorage:
         self.frames = frames
         self.channels = channels
         try:
-            self.file = TemporaryFile()
+            directory = SCRATCH_DIRECTORY.get() or Path(gettempdir())
+            check_space(frames * channels * 4, directory, 0)
+            self.file = TemporaryFile(dir=directory)
         except OSError as error:
             raise RecsError(
                 f'Cannot create temporary audio storage: {error}'
@@ -140,6 +144,11 @@ class SourceMaterializer:
         if key not in self.audio:
             self.audio[key] = materialize_source(source)
         return self.audio[key]
+
+
+def estimate_audio_buffers(widths: dict[str, int], source_width: int) -> int:
+    width = max(widths.values(), default=1)
+    return BLOCK_FRAMES * 4 * (sum(widths.values()) + source_width + 4 * width + 32)
 
 
 def allocate_audio(frames: int, channels: int, purpose: str) -> np.ndarray:
