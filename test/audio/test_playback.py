@@ -12,9 +12,10 @@ from ufor.recording import (
     GapReason,
     Recording,
     RecordingScore,
+    UnmappedAudioFragment,
 )
 from ufor.streams import AudioType
-from ufor.time import Rate, Timebase
+from ufor.time import Rate, TickRange, Timebase
 
 from recs.audio import playback
 from recs.base.errors import RecsError
@@ -30,6 +31,86 @@ def test_timeline_reads_audio_at_its_recorded_position(tmp_path: Path) -> None:
 
     np.testing.assert_array_equal(data[:48_000], np.zeros((48_000, 2)))
     np.testing.assert_allclose(data[48_000:], samples, atol=1e-4)
+
+
+@pytest.mark.parametrize('variants', [False, True])
+def test_timeline_preserves_separate_spans_of_one_asset(
+    tmp_path: Path, variants: bool
+) -> None:
+    score, stream, _ = _score(tmp_path)
+    samples = np.column_stack(
+        (np.linspace(-0.5, 0.5, 48_000), np.linspace(0.5, -0.5, 48_000))
+    )
+    soundfile.write(tmp_path / 'audio.wav', samples, 48_000, subtype='FLOAT')
+    fragments = [
+        AudioFragment(
+            asset='audio',
+            start=0,
+            count=24_000,
+            asset_start=24_000,
+            variant_group='encoding' if variants else None,
+        ),
+        AudioFragment(
+            asset='audio',
+            start=48_000,
+            count=24_000,
+            asset_start=0,
+            variant_group='encoding' if variants else None,
+        ),
+    ]
+    assets = [sealed_asset(tmp_path / 'audio.wav', tmp_path, 'audio', 'wav')]
+    if variants:
+        soundfile.write(
+            tmp_path / 'alternative.wav',
+            np.zeros_like(samples),
+            48_000,
+            subtype='FLOAT',
+        )
+        assets.append(
+            sealed_asset(tmp_path / 'alternative.wav', tmp_path, 'other', 'wav')
+        )
+        fragments += [f.model_copy(update={'asset': 'other'}) for f in fragments]
+    stream = AudioStream.model_validate(
+        {
+            **stream.model_dump(),
+            'end': 72_000,
+            'fragments': fragments,
+            'gaps': [
+                Gap(start=24_000, end=48_000, reason=GapReason.silence_suppressed)
+            ],
+        }
+    )
+    score = score.model_copy(
+        update={
+            'assets': assets,
+            'body': score.body.model_copy(update={'streams': [stream]}),
+        }
+    )
+    result = playback.PlaybackTimeline(tmp_path, score, stream).read(0, 72_000)
+    soundfile.write(tmp_path / 'playback.wav', result, 48_000, subtype='FLOAT')
+    expected = np.concatenate(
+        (samples[24_000:], np.zeros((24_000, 2)), samples[:24_000])
+    ).astype(np.float32)
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_timeline_rejects_unresolved_audio_placement(tmp_path: Path) -> None:
+    score, stream, _ = _score(tmp_path)
+    stream = AudioStream.model_validate(
+        {
+            **stream.model_dump(),
+            'fragments': [],
+            'unmapped_fragments': [
+                UnmappedAudioFragment(
+                    asset='audio',
+                    count=48_000,
+                    journal_range=TickRange(start=0, end=48_000),
+                )
+            ],
+        }
+    )
+    with pytest.raises(RecsError, match='unresolved audio placement'):
+        playback.PlaybackTimeline(tmp_path, score, stream)
 
 
 def test_default_stream_uses_the_highest_stereo_pair_on_the_widest_source(
