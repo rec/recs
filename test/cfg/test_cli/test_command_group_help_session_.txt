@@ -1,0 +1,87 @@
+$ recs session --help
+usage: recs session [-h] {show,finalize,export-midi,migrate,export}
+
+Inspect or manage one session. Use recs sessions ROOT to list sessions.
+
+ options
+ -----------------------------------------------------------
+  -h, --help       show this help message and exit
+
+ subcommands
+ -----------------------------------------------------------
+  (required)
+    - show         Inspect one finalized recording session.
+    - finalize
+    - export-midi
+    - migrate
+    - export
+
+
+$ recs session export --help
+usage: recs session export [-h] PATH PATH
+
+Copy a recording and its continuations into a portable directory.
+
+ positional arguments
+ ---------------------------------------------
+  PATH        record (required)
+  PATH        destination (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs session export-midi --help
+usage: recs session export-midi [-h] PATH STR PATH
+
+ positional arguments
+ ---------------------------------------------
+  PATH        recording (required)
+  STR         source (required)
+  PATH        destination (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs session finalize --help
+usage: recs session finalize [-h] PATH
+
+ positional arguments
+ ---------------------------------------------
+  PATH        session (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs session migrate --help
+usage: recs session migrate [-h] PATH [--paths-relative-to {None}|PATH]
+
+ positional arguments
+ ---------------------------------------------
+  PATH        session (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --paths-relative-to {None}|PATH
+              (default: None)
+
+
+$ recs session show --help
+usage: recs session show [-h] PATH [--json | --no-json]
+
+Inspect one finalized recording session.
+
+ positional arguments
+ ----------------------------------------------------
+  PATH               path (required)
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+  --json, --no-json  (default: False)

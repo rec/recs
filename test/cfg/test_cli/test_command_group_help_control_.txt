@@ -1,0 +1,222 @@
+$ recs control --help
+usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles}
+
+Send one command to a running recs instance.
+
+ options
+ -------------------------------------------------------------------------
+  -h, --help           show this help message and exit
+
+ subcommands
+ -------------------------------------------------------------------------
+  (required)
+    - instances        List running instances without selecting a target.
+    - status
+    - disk
+    - devices
+    - capabilities
+    - mutable
+    - get
+    - set
+    - mark
+    - pause
+    - play
+    - stop
+    - pause-playback
+    - continue
+    - jump
+    - jump-session
+    - resume
+    - calibrate
+    - card-replace
+    - reload-profiles
+
+
+$ recs control calibrate --help
+usage: recs control calibrate [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control capabilities --help
+usage: recs control capabilities [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control card-replace --help
+usage: recs control card-replace [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control continue --help
+usage: recs control continue [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control devices --help
+usage: recs control devices [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control disk --help
+usage: recs control disk [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control get --help
+usage: recs control get [-h] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         address (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control instances --help
+usage: recs control instances [-h]
+
+List running instances without selecting a target.
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control jump --help
+usage: recs control jump [-h] FLOAT
+
+ positional arguments
+ ---------------------------------------------
+  FLOAT       seconds (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control jump-session --help
+usage: recs control jump-session [-h] INT
+
+ positional arguments
+ ---------------------------------------------
+  INT         offset (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control mark --help
+usage: recs control mark [-h] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         label (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control mutable --help
+usage: recs control mutable [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control pause --help
+usage: recs control pause [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control pause-playback --help
+usage: recs control pause-playback [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control play --help
+usage: recs control play [-h] [PLAY OPTIONS]
+
+ options
+ ------------------------------------------------
+  -h, --help     show this help message and exit
+  --session INT  (default: -1)
+  --source {None}|STR
+                 (default: None)
+  --channel {None}|STR
+                 (default: None)
+  --output-channel {None}|STR
+                 (default: None)
+
+
+$ recs control reload-profiles --help
+usage: recs control reload-profiles [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control resume --help
+usage: recs control resume [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control set --help
+usage: recs control set [-h] STR STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         address (required)
+  STR         value (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control status --help
+usage: recs control status [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control stop --help
+usage: recs control stop [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit

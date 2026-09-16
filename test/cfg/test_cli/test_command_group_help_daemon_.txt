@@ -1,16 +1,19 @@
-$ recs --help
-usage: recs [-h] [OPTIONS] [[PATH [PATH ...]]]
+$ recs daemon --help
+Usage: recs daemon COMMAND [recs options...]
 
-  🎙 recs: The Universal Recorder 🎙
-=============================================
+Commands:
+  install      Install and start the per-user background recorder.
+  uninstall    Stop and remove the per-user background recorder.
+  start        Start the installed background recorder.
+  stop         Stop the installed background recorder.
+  restart      Restart the installed background recorder.
+  status       Print daemon installation and running status as JSON.
 
-Why should there be a record button at all?
+Install stores the remaining arguments and runs recs with --silent.
 
-I wanted to digitize a huge number of cassettes and LPs, so I wanted a program that ran in the background and recorded everything except quiet.
 
-Nothing like that existed so I wrote it.  Free, open-source, configurable.
-
-Full documentation here: https://github.com/rec/recs
+$ recs daemon install --help
+usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
 
  positional arguments
  -------------------------------------------------------------------------------------------
@@ -177,79 +180,28 @@ Full documentation here: https://github.com/rec/recs
         How many seconds to record? 0 means forever (default: 0.0)
 
 
-$ recs control --help
-usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles}
+$ recs daemon restart --help
+usage: recs daemon restart [-h]
 
-Send one command to a running recs instance.
-
- options
- -------------------------------------------------------------------------
-  -h, --help           show this help message and exit
-
- subcommands
- -------------------------------------------------------------------------
-  (required)
-    - instances        List running instances without selecting a target.
-    - status
-    - disk
-    - devices
-    - capabilities
-    - mutable
-    - get
-    - set
-    - mark
-    - pause
-    - play
-    - stop
-    - pause-playback
-    - continue
-    - jump
-    - jump-session
-    - resume
-    - calibrate
-    - card-replace
-    - reload-profiles
-
-
-$ recs daemon --help
-Usage: recs daemon COMMAND [recs options...]
-
-Commands:
-  install      Install and start the per-user background recorder.
-  uninstall    Stop and remove the per-user background recorder.
-  start        Start the installed background recorder.
-  stop         Stop the installed background recorder.
-  restart      Restart the installed background recorder.
-  status       Print daemon installation and running status as JSON.
-
-Install stores the remaining arguments and runs recs with --silent.
-
-
-$ recs edit --help
-usage: recs edit [-h] STR [[STR [STR ...]]]
-
-Run a named edit recipe or TOML file. Use COMMAND --help for its options.
-
-Use compose COMPOSITION.toml to combine recordings into a composition.
-
- positional arguments
- ----------------------------------------------------
-  STR                command (required)
-  [[STR [STR ...]]]  arguments (default: )
+Manage the recs background recording service.
 
  options
- ----------------------------------------------------
-  -h, --help         show this help message and exit
+ ---------------------------------------------
+  -h, --help  show this help message and exit
 
 
-$ recs explain --help
-usage: recs explain [-h] [{None}|PATH] [--json | --no-json]
+$ recs daemon start --help
+usage: recs daemon start [-h]
 
-Explain recording diagnostics from a journal, or from the running daemon.
+Manage the recs background recording service.
 
- positional arguments
- ----------------------------------------------------
-  [{None}|PATH]      path (default: None)
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs daemon status --help
+usage: recs daemon status [-h] [--json | --no-json]
 
  options
  ----------------------------------------------------
@@ -257,97 +209,21 @@ Explain recording diagnostics from a journal, or from the running daemon.
   --json, --no-json  (default: False)
 
 
-$ recs preflight --help
-usage: recs preflight [-h]
+$ recs daemon stop --help
+usage: recs daemon stop [-h]
+
+Manage the recs background recording service.
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
 
 
-$ recs profile --help
-usage: recs profile [-h] {save,use,show,list,delete}
+$ recs daemon uninstall --help
+usage: recs daemon uninstall [-h]
 
-Save and use named recording setups.
-
- options
- ---------------------------------------------
-  -h, --help  show this help message and exit
-
- subcommands
- ---------------------------------------------
-  (required)
-    - save
-    - use
-    - show
-    - list
-    - delete
-
-
-$ recs record --help
-usage: recs record [-h] {check}
-
-Validate recording documents and their media, not start capture.
+Manage the recs background recording service.
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
-
- subcommands
- ---------------------------------------------
-  (required)
-    - check
-
-
-$ recs session --help
-usage: recs session [-h] {show,finalize,export-midi,migrate,export}
-
-Inspect or manage one session. Use recs sessions ROOT to list sessions.
-
- options
- -----------------------------------------------------------
-  -h, --help       show this help message and exit
-
- subcommands
- -----------------------------------------------------------
-  (required)
-    - show         Inspect one finalized recording session.
-    - finalize
-    - export-midi
-    - migrate
-    - export
-
-
-$ recs sessions --help
-usage: recs sessions [-h] [PATH] [--json | --no-json]
-
-List finalized recording sessions under a directory.
-
- positional arguments
- ----------------------------------------------------
-  [PATH]             root (default: .)
-
- options
- ----------------------------------------------------
-  -h, --help         show this help message and exit
-  --json, --no-json  (default: False)
-
-
-$ recs test-input --help
-usage: recs test-input [-h] [--include INCLUDE] [--seconds SECONDS] [--output OUTPUT]
-
-options:
-  -h, --help         show this help message and exit
-  --include INCLUDE
-  --seconds SECONDS
-  --output OUTPUT
-
-$ recs watch --help
-usage: recs watch [-h] [----json | --no---json]
-
-Watch a running recs instance.
-
- options
- --------------------------------------------------------
-  -h, --help             show this help message and exit
-  ----json, --no---json  (default: False)
