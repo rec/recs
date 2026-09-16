@@ -326,18 +326,22 @@ Validate recording documents and their media, not start capture.
 
 
 $ recs session --help
-usage: recs session [-h] {show,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
  options
- -----------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   -h, --help       show this help message and exit
 
  subcommands
- -----------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   (required)
     - show         Inspect one finalized recording session.
+    - quality      Report one recording document's evidence; audio decoding is opt-in.
+
+                   Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
+                   advisories are not proof of clipping. No quietness verdicts.
     - finalize
     - export-midi
     - migrate

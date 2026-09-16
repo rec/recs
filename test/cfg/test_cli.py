@@ -55,7 +55,10 @@ def test_help(cli_help: CliHelp) -> None:
 @pytest.mark.parametrize(
     ('group', 'commands'),
     [
-        ('session', ['show', 'finalize', 'export-midi', 'migrate', 'export']),
+        (
+            'session',
+            ['show', 'quality', 'finalize', 'export-midi', 'migrate', 'export'],
+        ),
         ('record', ['check']),
         ('profile', ['save', 'use', 'show', 'list', 'delete']),
         ('daemon', ['install', 'uninstall', 'start', 'stop', 'restart', 'status']),
@@ -102,6 +105,7 @@ def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) 
         ['sessions'],
         ['session'],
         ['session', 'show'],
+        ['session', 'quality'],
         ['record'],
         ['record', 'check'],
         ['edit'],
@@ -126,6 +130,7 @@ def test_help_exits_before_discovery_or_execution(
 
     monkeypatch.setattr(session_browser, 'scan', unexpected)
     monkeypatch.setattr(session_browser, 'summarize', unexpected)
+    monkeypatch.setattr('recs.recording.session_quality.inspect', unexpected)
     monkeypatch.setattr(commands, 'resolve_command', unexpected)
     monkeypatch.setattr('recs.__main__.devices_json', unexpected)
     monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
