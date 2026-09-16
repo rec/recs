@@ -1,7 +1,9 @@
 import json
 import sys
 from pathlib import Path
+from typing import Annotated
 
+import tyro
 from pydantic import BaseModel, Field
 from ufor.recording import AudioStream, EventStream
 
@@ -11,6 +13,20 @@ from ..recording.read import read_recording
 from . import session_record
 
 RECORD_GLOB = 'recording.toml'
+
+
+class SessionsCli(BaseModel, frozen=True):
+    """List finalized recording sessions under a directory."""
+
+    root: Annotated[Path, tyro.conf.Positional] = Path()
+    json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
+
+
+class ShowCli(BaseModel, frozen=True):
+    """Inspect one finalized recording session."""
+
+    path: Annotated[Path, tyro.conf.Positional]
+    json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
 
 
 class SessionSummary(BaseModel):
@@ -37,15 +53,9 @@ class SessionSummary(BaseModel):
 
 
 def main(argv: list[str]) -> int:
-    if argv and argv[0] == 'show':
-        return _show(argv[1:])
-    json_output = False
-    if '--json' in argv:
-        json_output = True
-        argv = [arg for arg in argv if arg != '--json']
-    root = Path(argv[0]) if argv else Path()
-    summaries = list(scan(root))
-    if json_output:
+    cfg = tyro.cli(SessionsCli, args=argv, prog='recs sessions')
+    summaries = scan(cfg.root)
+    if cfg.json_output:
         print(json.dumps([s.model_dump(mode='json') for s in summaries], indent=2))
     else:
         _print_summaries(summaries)
@@ -150,18 +160,12 @@ def summarize(path: Path) -> SessionSummary | None:
     )
 
 
-def _show(argv: list[str]) -> int:
-    json_output = False
-    if '--json' in argv:
-        json_output = True
-        argv = [arg for arg in argv if arg != '--json']
-    if len(argv) != 1:
-        print('Usage: recs session show PATH [--json]', file=sys.stderr)
-        return 2
-    if (value := summarize(Path(argv[0]))) is None:
-        print(f'{argv[0]}: not a readable recs record', file=sys.stderr)
+def show(argv: list[str]) -> int:
+    cfg = tyro.cli(ShowCli, args=argv, prog='recs session show')
+    if (value := summarize(cfg.path)) is None:
+        print(f'{cfg.path}: not a readable recs record', file=sys.stderr)
         return 1
-    if json_output:
+    if cfg.json_output:
         print(value.model_dump_json(indent=2))
     else:
         _print_summary(value)

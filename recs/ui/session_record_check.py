@@ -16,9 +16,12 @@ class CheckCli(BaseModel, frozen=True):
 
 
 def main(argv: list[str]) -> int:
-    if not argv or argv[0] != 'check':
-        sys.exit('Usage: recs record check RECORDING.toml')
-    config = tyro.cli(CheckCli, args=argv[1:], prog='recs record check')
+    config = tyro.extras.subcommand_cli_from_dict(
+        {'check': CheckCli},
+        args=argv,
+        prog='recs record',
+        description='Validate recording documents and their media, not start capture.',
+    )
     errors = check(config.path)
     for error in errors:
         print(error, file=sys.stderr)

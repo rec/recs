@@ -28,6 +28,16 @@ class EditCli(EditOptions, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
+class EditCommandCli(BaseModel, frozen=True):
+    """Run a named edit recipe or TOML file. Use COMMAND --help for its options.
+
+    Use compose COMPOSITION.toml to combine recordings into a composition.
+    """
+
+    command: Annotated[str, tyro.conf.Positional]
+    arguments: Annotated[list[str], tyro.conf.Positional] = Field(default_factory=list)
+
+
 class CompositionCli(BaseModel, frozen=True):
     record: Annotated[Path | None, tyro.conf.Positional] = None
 
@@ -67,11 +77,20 @@ class AutocalibrateFileCli(BaseModel, frozen=True):
 
 def main(args: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if args is None else args)
-    if not args:
-        raise RecsError('Expected an edit command name or TOML path')
+    if not args or args[0] in {'-h', '--help'}:
+        tyro.cli(EditCommandCli, args=args, prog='recs edit')
+        return 0
     command = args.pop(0)
     cwd = Path.cwd()
     if command == 'compose':
+        if args and args[0] in {'-h', '--help'}:
+            tyro.cli(
+                CompositionCli,
+                args=args,
+                prog='recs edit compose COMPOSITION.toml',
+                description='Combine recordings using a composition TOML file.',
+            )
+            return 0
         if not args:
             raise RecsError('Expected a composition TOML path')
         composition_path = (cwd / Path(args.pop(0))).resolve()

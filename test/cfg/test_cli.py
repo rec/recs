@@ -1,6 +1,7 @@
 import importlib
 import json
 import subprocess as sp
+import sys
 import tomllib
 
 import pytest
@@ -11,6 +12,8 @@ from ufor.encoding import Format, Subtype
 from recs.__main__ import run
 from recs.base.types import MidiTiming, SdType
 from recs.cfg import cli
+from recs.edit import commands
+from recs.ui import session_browser
 
 
 def test_console_script_entry_point() -> None:
@@ -30,6 +33,63 @@ def test_info():
 
 def test_help(cli_help: CliHelp) -> None:
     cli_help('recs', run)
+
+
+@pytest.mark.parametrize(
+    'command',
+    [
+        ['sessions'],
+        ['session'],
+        ['session', 'show'],
+        ['record'],
+        ['record', 'check'],
+        ['edit'],
+        ['edit', 'compose'],
+        ['query-devices'],
+        ['query-devices-stream'],
+        ['daemon', 'install'],
+        ['daemon', 'start'],
+        ['daemon', 'stop'],
+        ['daemon', 'restart'],
+        ['daemon', 'uninstall'],
+        ['daemon', 'status'],
+        ['control', 'instances'],
+    ],
+)
+def test_help_exits_before_discovery_or_execution(
+    monkeypatch: pytest.MonkeyPatch, command: list[str]
+) -> None:
+    def unexpected(*args: object, **kwargs: object) -> None:
+        pytest.fail('Help must not discover recordings, recipes, or devices')
+
+    monkeypatch.setattr(session_browser, 'scan', unexpected)
+    monkeypatch.setattr(session_browser, 'summarize', unexpected)
+    monkeypatch.setattr(commands, 'resolve_command', unexpected)
+    monkeypatch.setattr('recs.__main__.devices_json', unexpected)
+    monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
+    monkeypatch.setattr('recs.daemon.cli.ServiceController', unexpected)
+    monkeypatch.setattr('recs.daemon.control_cli.instances.list_instances', unexpected)
+    monkeypatch.setattr(sys, 'argv', ['recs', *command, '--help'])
+
+    with pytest.raises(SystemExit) as result:
+        run()
+
+    assert result.value.code == 0
+
+
+@pytest.mark.parametrize('argument', ['shwo', '/existing/session'])
+def test_unknown_session_command_is_not_a_directory_scan(
+    monkeypatch: pytest.MonkeyPatch, argument: str
+) -> None:
+    monkeypatch.setattr(
+        session_browser, 'scan', lambda root: pytest.fail('Unexpected directory scan')
+    )
+    monkeypatch.setattr(sys, 'argv', ['recs', 'session', argument])
+
+    with pytest.raises(SystemExit) as result:
+        run()
+
+    assert result.value.code == 2
 
 
 def test_option_parsing() -> None:

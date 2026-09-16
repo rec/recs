@@ -1,6 +1,8 @@
 import json
-from typing import cast
+from typing import Annotated, cast
 
+import tyro
+from pydantic import BaseModel
 from reccy.protocol import rpc
 from reccy.services import models
 
@@ -23,6 +25,14 @@ INTERACTIVE_OPTIONS = {
 }
 
 
+class ServiceCommand(BaseModel, frozen=True):
+    """Manage the recs background recording service."""
+
+
+class ServiceStatus(ServiceCommand):
+    json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
+
+
 def main(argv: list[str]) -> int:
     if not argv or argv[0] in {'-h', '--help'}:
         print(HELP)
@@ -31,6 +41,18 @@ def main(argv: list[str]) -> int:
     command, args = argv[0], argv[1:]
     if command not in COMMANDS:
         raise RecsError(f'Unknown daemon command: {command}')
+    if '-h' in args or '--help' in args:
+        if command == 'install':
+            from recs.cfg.cli import CliCfg
+
+            tyro.cli(CliCfg, args=['--help'], prog='recs daemon install')
+        else:
+            tyro.cli(
+                ServiceStatus if command == 'status' else ServiceCommand,
+                args=['--help'],
+                prog=f'recs daemon {command}',
+            )
+        return 0
     if command == 'status' and args == ['--json']:
         args = []
     if command == 'status' and args:
