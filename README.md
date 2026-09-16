@@ -1,6 +1,9 @@
 # recs: the Universal Recorder
 
-Recs continuously records audio, MIDI, OSC, and key events into timestamped
+See [plans and ownership](plan/README.md) for implemented contracts, remaining
+proposals, and the boundaries between recs, uFor, and enge.
+
+recs continuously records audio, MIDI, OSC, and key events into timestamped
 sessions. Audio can be recorded continuously or split around quiet passages.
 Each completed session has a `recording.toml` indexing its media and native
 timelines. Its `session-record.jsonl` preserves capture lifecycle, source,
@@ -12,7 +15,7 @@ and can continue a session on another removable disk.
 
 ## Requirements And Installation
 
-Recs requires Python 3.13 or newer and the system libraries required by
+recs requires Python 3.13 or newer and the system libraries required by
 PortAudio and libsndfile.
 
 ```console
@@ -29,14 +32,14 @@ recs --info
 
 ## Recording
 
-Run Recs with no arguments to record available audio inputs in the current
+Run recs with no arguments to record available audio inputs in the current
 directory:
 
 ```console
 recs
 ```
 
-By default, Recs records audio as FLAC, records MIDI inputs, and omits quiet
+By default, recs records audio as FLAC, records MIDI inputs, and omits quiet
 audio between files. A run creates a timestamped session directory:
 
 ```text
@@ -57,7 +60,7 @@ Select inputs and an output root with ordinary recording options:
 recs --include xr18 --output-directory /mnt/openloop/recs
 ```
 
-The output directory is the root for sessions. Recs computes each session
+The output directory is the root for sessions. recs computes each session
 directory below it; that computed path is not configuration and is not saved.
 An output-directory pattern may include time and source placeholders.
 
@@ -110,7 +113,7 @@ device:
 
 ## Daemon And Control
 
-Recs can install and manage a per-user background service:
+recs can install and manage a per-user background service:
 
 ```console
 recs daemon install --output-directory /mnt/openloop/recs
@@ -137,7 +140,7 @@ recs control --instance -1 pause
 ```
 
 The complete local RPC and event interface, including live waveforms and the
-`new_session` command, is documented in [Recs Protocol](doc/recs_protocol.md).
+`new_session` command, is documented in [recs Protocol](doc/recs_protocol.md).
 
 ## Sessions And Editing
 
@@ -186,11 +189,11 @@ Older sessions require explicit conversion with `recs session migrate` before
 editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
 for conversion, verification, and historical timing limitations.
 
-Before opening a new record, Recs scans the configured output root for
+Before opening a new record, recs scans the configured output root for
 unfinished sessions. Each one receives a `recs-recovery-report.toml` beside its
-session record, and Recs logs a one-line summary with the report path.
+session record, and recs logs a one-line summary with the report path.
 
-Recsam provides Pydantic models for the Recs sample-instrument format and SFZ
+Recsam provides Pydantic models for the recs sample-instrument format and SFZ
 import/export with explicit reporting of unsupported features. Audio playback
 of Recsam instruments is not implemented yet.
 
@@ -201,7 +204,7 @@ of Recsam instruments is not implemented yet.
 - [Session Record Format](doc/session-record-format.md)
 - [Recording and Sequence Scores](doc/recording-format.md)
 - [Audio Arrangement Scores](doc/arrangement-format.md)
-- [Recs Protocol](doc/recs_protocol.md)
+- [recs Protocol](doc/recs_protocol.md)
 - [Configuration Units](doc/configuration-units.md)
 - [Sample Instrument Scores](doc/sample-format.md)
 

@@ -123,13 +123,13 @@ MIDI records contain raw byte integers. OSC records preserve `data_b64`, an
 `in`/`out` direction, and optionally a source time; an undecodable OSC payload
 can still be retained. Key records contain `key`, `press`/`release` action,
 optional text, modifiers, and a repeat flag. These are stored events, not yet a
-universal performance engine. Recs also captures its observed key transitions
+universal performance engine. recs also captures its observed key transitions
 through the same event model.
 
 Semantic `trigger`, `release`, and `control_change` records use that same
 envelope. Their payload and addressing rules are defined in the
-[instrument contract](instrument-format.md#performance-input). A
-[portable performance sequence](../conformance/performance.json) demonstrates
+[instrument contract](../../ufor/doc/instrument-format.md#performance-input). A
+[portable performance sequence](../../ufor/conformance/performance.json) demonstrates
 preroll controls and overlapping triggers with distinct identities.
 
 ```toml

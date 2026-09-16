@@ -1,6 +1,6 @@
 # Sample instrument scores
 
-The canonical format, models, examples and schema now live in Ufor:
+The canonical format, models, examples and schema now live in uFor:
 
 - [Instrument format](../../ufor/doc/instrument-format.md)
 - [Envelope and LFO semantics](../../ufor/doc/modulation-format.md)
@@ -14,11 +14,11 @@ musical declarations; `ufor.envelope`, `ufor.lfo` and `ufor.modulation` provide
 their shared control definitions. The old Recsam classes and `format_version`
 root are removed, with no forwarding modules or compatibility reader.
 
-## Recs' application boundary
+## recs' application boundary
 
 `recs/recsam/assets.py` reads audio metadata, embedded WAV loops, file size and
 SHA-256. `recs/recsam/sfz.py` resolves safe local paths and supplies that metadata
-to Ufor. No portable model remains defined in Recsam.
+to uFor. No portable model remains defined in Recsam.
 
 ```python
 from pathlib import Path
@@ -34,14 +34,14 @@ if result.complete and result.instrument is not None:
 ```
 
 Check `complete` and inspect `unimplemented` before accepting either conversion.
-SFZ import uses Recs' explicit 48 kHz stereo output default; `output_rate` and
+SFZ import uses recs' explicit 48 kHz stereo output default; `output_rate` and
 `output_channels` may select another supported rate/layout. Imported assets keep
 their measured native rate, frames and channels. Import does not rewrite audio.
 Export is pure text conversion in `ufor.sfz`; it reports nonrepresentable
 envelopes, routes, channel maps, controls and other features.
 
 For another application, use `ufor.sfz.parse`, `sample_paths`, and `compile`
-with that application's asset facts and output choices. Ufor does no file I/O,
+with that application's asset facts and output choices. uFor does no file I/O,
 decoding, hashing, device access or waveform generation.
 
 ## Changes to authored documents
@@ -52,7 +52,7 @@ slice IDs, and declare output clocks/channels. Envelope overrides are complete
 segment definitions. Playback overrides use explicit nullable fields so
 inheritance survives serialization. Routes use structured targets and declared
 source bindings. Unit strings such as `10ms` are authoring input, not native
-data: normalize them before constructing Ufor models.
+data: normalize them before constructing uFor models.
 
 This changes instrument documents, not recording descriptors or production
 sessions. Creating samples from edits and implementing a sampler remain deferred
