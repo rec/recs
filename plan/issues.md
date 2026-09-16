@@ -86,6 +86,9 @@ ordering with fake output streams before hardware verification.
 
 ### 5. P2: playback preparation errors can leave recording paused
 
+Resolved: the timeline is prepared before stopping existing playback or pausing
+capture. Fractional-rate regressions cover both idle and active playback.
+
 Evidence: [PlaybackControl.play](../recs/ui/playback_control.py) pauses recording
 before constructing `PlaybackTimeline`; that constructor can reject a fractional
 audio rate in [audio/playback.py](../recs/audio/playback.py).
