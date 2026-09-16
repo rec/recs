@@ -68,6 +68,11 @@ natural end, failure, explicit stop, and session changes.
 
 ### 4. P1: playback failure resumes capture before closing playback output
 
+Resolved: terminal callbacks run only after output closure and enqueue results.
+The recorder loop consumes those results and owns state transitions; explicit
+stop joins the worker and consumes any pending result before a new run starts.
+Fake-output and worker-completion regressions cover closure and deferred resume.
+
 Evidence: [PlaybackRunner._run](../recs/audio/playback.py) invokes `failed()`
 inside its processing exception handler, before `stream.close()` in `finally`.
 The [failure callback](../recs/ui/playback_control.py) clears the runner and

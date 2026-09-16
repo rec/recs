@@ -416,6 +416,7 @@ class Recorder(Runnables):
                         self._monitor_disk_space()
                     self._receive_key_events()
                     self._receive_control_requests()
+                    self._playback.poll()
                     self._midi.poll()
                     self._osc.poll()
                     self._poll_devices()

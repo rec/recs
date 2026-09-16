@@ -127,7 +127,7 @@ class PlaybackRunner:
         ) as error:
             self.failed(str(error))
             return
-        playback_failed = False
+        failure: str | None = None
         try:
             stream.start()
             while True:
@@ -150,17 +150,18 @@ class PlaybackRunner:
             soundfile.SoundFileError,
             sounddevice.PortAudioError,
         ) as error:
-            playback_failed = True
-            self.failed(str(error))
+            failure = str(error)
         finally:
             stream.close()
             with self._condition:
                 natural_end = (
-                    not playback_failed
+                    failure is None
                     and not self.stopped
                     and self.position >= self.timeline.end
                 )
-            if natural_end:
+            if failure is not None:
+                self.failed(failure)
+            elif natural_end:
                 self.finished()
 
 
