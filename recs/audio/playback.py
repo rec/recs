@@ -1,6 +1,7 @@
 """Timed playback of a selected recorded audio stream."""
 
 import threading
+from bisect import bisect_left, bisect_right
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,6 +24,10 @@ class PlaybackTimeline:
         self.end = stream.end
         self._assets = {asset.name: asset for asset in score.assets}
         self._fragments = _fragments(stream)
+        self._starts = [f.start for f in self._fragments]
+        self._ends = [f.start + f.count for f in self._fragments]
+        self._source: soundfile.SoundFile | None = None
+        self._asset: str | None = None
 
     @property
     def duration(self) -> float:
@@ -31,7 +36,10 @@ class PlaybackTimeline:
     def read(self, start: int, frames: int) -> np.ndarray:
         output = np.zeros((frames, self.channels), dtype=np.float32)
         finish = start + frames
-        for fragment in self._fragments:
+        first = bisect_right(self._ends, start)
+        last = bisect_left(self._starts, finish)
+        for index in range(first, last):
+            fragment = self._fragments[index]
             overlap_start = max(start, fragment.start)
             overlap_end = min(finish, fragment.start + fragment.count)
             if overlap_start >= overlap_end:
@@ -39,15 +47,26 @@ class PlaybackTimeline:
             if (asset := self._assets.get(fragment.asset)) is None:
                 raise RecsError(f'Audio fragment has no asset: {fragment.asset}')
             path = self.root / asset.path
-            with soundfile.SoundFile(path) as source:
-                source.seek(fragment.asset_start + overlap_start - fragment.start)
-                data = source.read(
-                    overlap_end - overlap_start, dtype='float32', always_2d=True
-                )
+            if self._asset != fragment.asset:
+                self.close()
+                self._source = soundfile.SoundFile(path)
+                self._asset = fragment.asset
+            assert self._source is not None
+            self._source.seek(fragment.asset_start + overlap_start - fragment.start)
+            data = self._source.read(
+                overlap_end - overlap_start, dtype='float32', always_2d=True
+            )
             if len(data) != overlap_end - overlap_start:
                 raise RecsError(f'Audio payload is truncated: {path}')
             output[overlap_start - start : overlap_end - start] = data
         return output
+
+    def close(self) -> None:
+        """Release the single cached decoder, including when playback stops early."""
+        source, self._source = self._source, None
+        self._asset = None
+        if source is not None:
+            source.close()
 
 
 class PlaybackRunner:
@@ -87,6 +106,8 @@ class PlaybackRunner:
             self._condition.notify_all()
         if self._thread is not None:
             self._thread.join()
+        else:
+            self.timeline.close()
 
     def pause(self) -> None:
         with self._condition:
@@ -112,6 +133,8 @@ class PlaybackRunner:
     def _run(self) -> None:
         import sounddevice
 
+        stream = None
+        failure: str | None = None
         try:
             channels = max(self.output_channels)
             stream = sounddevice.OutputStream(
@@ -119,16 +142,6 @@ class PlaybackRunner:
                 dtype='float32',
                 samplerate=self.timeline.rate,
             )
-        except (
-            OSError,
-            RecsError,
-            soundfile.SoundFileError,
-            sounddevice.PortAudioError,
-        ) as error:
-            self.failed(str(error))
-            return
-        failure: str | None = None
-        try:
             stream.start()
             while True:
                 with self._condition:
@@ -152,7 +165,16 @@ class PlaybackRunner:
         ) as error:
             failure = str(error)
         finally:
-            stream.close()
+            for resource in (stream, self.timeline):
+                if resource is not None:
+                    try:
+                        resource.close()
+                    except (
+                        OSError,
+                        soundfile.SoundFileError,
+                        sounddevice.PortAudioError,
+                    ) as error:
+                        failure = failure or str(error)
             with self._condition:
                 natural_end = (
                     failure is None
@@ -256,6 +278,8 @@ def _fragments(stream: AudioStream) -> list[AudioFragment]:
     selected: list[AudioFragment] = []
     variants: set[tuple[str, int, int]] = set()
     for fragment in sorted(stream.fragments, key=lambda f: (f.start, f.asset)):
+        if fragment.count == 0:
+            continue
         if fragment.variant_group is not None:
             key = (fragment.variant_group, fragment.start, fragment.count)
             if key in variants:
