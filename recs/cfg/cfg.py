@@ -820,6 +820,27 @@ class Cfg(BaseModel):
                 raise ValueError(f'Unknown profile field: {field}')
         return type(self)(**data)
 
+    def reload_device_profiles(self) -> Self:
+        """Validate a replacement snapshot without changing this configuration."""
+        previous = self.device_profiles
+        candidate = self.model_copy()
+        candidate.__dict__.pop('device_profiles', None)
+        names = previous.keys() | candidate.device_profiles.keys()
+        for name in sorted(names):
+            before = self.with_device_profile(name).model_dump()
+            after = candidate.with_device_profile(name).model_dump()
+            for part in CFG_PARTS:
+                for field, value in before[part].items():
+                    address = f'{part}.{field}'
+                    if (
+                        address not in self.mutable_attributes
+                        and value != after[part][field]
+                    ):
+                        raise ValueError(
+                            f'Profile {name}: startup-only setting changed: {address}'
+                        )
+        return candidate
+
     @cached_property
     def metadata_dict(self) -> dict[str, str]:
         return metadata.to_dict(self.audio.metadata)
