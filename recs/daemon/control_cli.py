@@ -55,10 +55,14 @@ class Mark(ControlCommand):
 
 
 class Pause(ControlCommand):
+    """Pause capture and release input devices; this is not a playback pause."""
+
     rpc_command = 'pause_recording'
 
 
 class Play(ControlCommand):
+    """Play a recorded session, temporarily pausing capture if it is active."""
+
     rpc_command = 'play_session'
     session: int = -1
     source: str | None = None
@@ -67,14 +71,20 @@ class Play(ControlCommand):
 
 
 class Stop(ControlCommand):
+    """Stop playback; restore capture only if playback owned the capture pause."""
+
     rpc_command = 'stop_playback'
 
 
 class PausePlayback(ControlCommand):
+    """Pause playback without resuming capture."""
+
     rpc_command = 'pause_playback'
 
 
 class Continue(ControlCommand):
+    """Continue paused playback, not capture."""
+
     rpc_command = 'continue_playback'
 
 
@@ -89,6 +99,8 @@ class JumpSession(ControlCommand):
 
 
 class Resume(ControlCommand):
+    """Resume capture, first stopping any active playback."""
+
     rpc_command = 'resume_recording'
 
 
@@ -101,6 +113,8 @@ class CardReplace(ControlCommand):
 
 
 class ReloadProfiles(ControlCommand):
+    """Reload per-device JSON defaults from --profiles, not a named saved setup."""
+
     rpc_command = 'reload_profiles'
 
 

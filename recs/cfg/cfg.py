@@ -122,7 +122,7 @@ class Device(BaseModel):
     profiles: Annotated[
         Path,
         Mutable,
-        tyro.conf.arg(help='A JSON file with per-device default profiles'),
+        tyro.conf.arg(help='Per-device JSON defaults, not a named saved setup'),
     ] = Path()
 
     @field_validator('devices')

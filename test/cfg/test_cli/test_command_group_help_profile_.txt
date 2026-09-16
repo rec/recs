@@ -1,7 +1,7 @@
 $ recs profile --help
 usage: recs profile [-h] {save,use,show,list,delete}
 
-Save and use named recording setups.
+Save and use named recording setups. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
  ---------------------------------------------

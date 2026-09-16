@@ -96,7 +96,10 @@ def main(argv: list[str]) -> int:
         COMMANDS,
         args=argv,
         prog='recs profile',
-        description='Save and use named recording setups.',
+        description=(
+            'Save and use named recording setups. '
+            'These differ from the per-device JSON defaults loaded by --profiles.'
+        ),
     )
     if isinstance(command, Save):
         current = settings.load(Cfg(save_settings=True))
