@@ -175,3 +175,179 @@ Full documentation here: https://github.com/rec/recs
         How much quiet before stopping a recording (default: 20.0)
   -t TIME, --total-run-time TIME
         How many seconds to record? 0 means forever (default: 0.0)
+
+
+$ recs control --help
+usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles}
+
+Send one command to a running recs instance.
+
+ options
+ -------------------------------------------------------------------------
+  -h, --help           show this help message and exit
+
+ subcommands
+ -------------------------------------------------------------------------
+  (required)
+    - instances        List running instances without selecting a target.
+    - status
+    - disk
+    - devices
+    - capabilities
+    - mutable
+    - get
+    - set
+    - mark
+    - pause
+    - play
+    - stop
+    - pause-playback
+    - continue
+    - jump
+    - jump-session
+    - resume
+    - calibrate
+    - card-replace
+    - reload-profiles
+
+
+$ recs daemon --help
+Usage: recs daemon COMMAND [recs options...]
+
+Commands:
+  install      Install and start the per-user background recorder.
+  uninstall    Stop and remove the per-user background recorder.
+  start        Start the installed background recorder.
+  stop         Stop the installed background recorder.
+  restart      Restart the installed background recorder.
+  status       Print daemon installation and running status as JSON.
+
+Install stores the remaining arguments and runs recs with --silent.
+
+
+$ recs edit --help
+usage: recs edit [-h] STR [[STR [STR ...]]]
+
+Run a named edit recipe or TOML file. Use COMMAND --help for its options.
+
+Use compose COMPOSITION.toml to combine recordings into a composition.
+
+ positional arguments
+ ----------------------------------------------------
+  STR                command (required)
+  [[STR [STR ...]]]  arguments (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+
+
+$ recs explain --help
+usage: recs explain [-h] [{None}|PATH] [--json | --no-json]
+
+Explain recording diagnostics from a journal, or from the running daemon.
+
+ positional arguments
+ ----------------------------------------------------
+  [{None}|PATH]      path (default: None)
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+  --json, --no-json  (default: False)
+
+
+$ recs preflight --help
+usage: recs preflight [-h]
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs profile --help
+usage: recs profile [-h] {save,use,show,list,delete}
+
+Save and use named recording setups.
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+ subcommands
+ ---------------------------------------------
+  (required)
+    - save
+    - use
+    - show
+    - list
+    - delete
+
+
+$ recs record --help
+usage: recs record [-h] {check}
+
+Validate recording documents and their media, not start capture.
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+ subcommands
+ ---------------------------------------------
+  (required)
+    - check
+
+
+$ recs session --help
+usage: recs session [-h] {show,finalize,export-midi,migrate,export}
+
+Inspect or manage one session. Use recs sessions ROOT to list sessions.
+
+ options
+ -----------------------------------------------------------
+  -h, --help       show this help message and exit
+
+ subcommands
+ -----------------------------------------------------------
+  (required)
+    - show         Inspect one finalized recording session.
+    - finalize
+    - export-midi
+    - migrate
+    - export
+
+
+$ recs sessions --help
+usage: recs sessions [-h] [PATH] [--json | --no-json]
+
+List finalized recording sessions under a directory.
+
+ positional arguments
+ ----------------------------------------------------
+  [PATH]             root (default: .)
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+  --json, --no-json  (default: False)
+
+
+$ recs test-input --help
+usage: recs test-input [-h] [--include INCLUDE] [--seconds SECONDS] [--output OUTPUT]
+
+options:
+  -h, --help         show this help message and exit
+  --include INCLUDE
+  --seconds SECONDS
+  --output OUTPUT
+
+$ recs watch --help
+usage: recs watch [-h] [----json | --no---json]
+
+Watch a running recs instance.
+
+ options
+ --------------------------------------------------------
+  -h, --help             show this help message and exit
+  ----json, --no---json  (default: False)

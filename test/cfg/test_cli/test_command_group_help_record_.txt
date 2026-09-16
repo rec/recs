@@ -1,0 +1,25 @@
+$ recs record --help
+usage: recs record [-h] {check}
+
+Validate recording documents and their media, not start capture.
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+ subcommands
+ ---------------------------------------------
+  (required)
+    - check
+
+
+$ recs record check --help
+usage: recs record check [-h] PATH
+
+ positional arguments
+ ---------------------------------------------
+  PATH        path (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit

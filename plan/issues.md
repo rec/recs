@@ -165,6 +165,11 @@ enumeration: the dispatcher currently executes them without checking `--help`.
 
 ### 10. P2: help regression coverage omits the public subcommands
 
+Resolved: reccy's shared fixture now snapshots all public top-level commands and
+the session, record, profile, daemon, control, and edit command groups. Internal
+helpers are excluded from enumeration; behavior tests still check safe help.
+Snapshot review also found and fixed `explain --help` treating help as a file.
+
 Evidence: [test_help](../test/cfg/test_cli.py) calls `cli_help('recs', run)`
 without subcommands. Its [snapshot](../test/cfg/test_cli/test_help.txt) describes
 recording options but does not discover the daemon, control, profile, session,

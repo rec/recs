@@ -32,7 +32,67 @@ def test_info():
 
 
 def test_help(cli_help: CliHelp) -> None:
-    cli_help('recs', run)
+    cli_help(
+        'recs',
+        run,
+        subcommands=[
+            'daemon',
+            'preflight',
+            'control',
+            'watch',
+            'profile',
+            'sessions',
+            'session',
+            'test-input',
+            'explain',
+            'record',
+            'edit',
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ('group', 'commands'),
+    [
+        ('session', ['show', 'finalize', 'export-midi', 'migrate', 'export']),
+        ('record', ['check']),
+        ('profile', ['save', 'use', 'show', 'list', 'delete']),
+        ('daemon', ['install', 'uninstall', 'start', 'stop', 'restart', 'status']),
+        (
+            'control',
+            [
+                'instances',
+                'status',
+                'disk',
+                'devices',
+                'capabilities',
+                'mutable',
+                'get',
+                'set',
+                'mark',
+                'pause',
+                'play',
+                'stop',
+                'pause-playback',
+                'continue',
+                'jump',
+                'jump-session',
+                'resume',
+                'calibrate',
+                'card-replace',
+                'reload-profiles',
+            ],
+        ),
+        ('edit', ['compose']),
+    ],
+    ids=['session', 'record', 'profile', 'daemon', 'control', 'edit'],
+)
+def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) -> None:
+    def invoke() -> int:
+        sys.argv = ['recs', group, *sys.argv[1:]]
+        return run()
+
+    cli_help(f'recs {group}', invoke, subcommands=commands)
 
 
 @pytest.mark.parametrize(
@@ -47,6 +107,7 @@ def test_help(cli_help: CliHelp) -> None:
         ['edit', 'compose'],
         ['query-devices'],
         ['query-devices-stream'],
+        ['explain'],
         ['daemon', 'install'],
         ['daemon', 'start'],
         ['daemon', 'stop'],
@@ -67,6 +128,8 @@ def test_help_exits_before_discovery_or_execution(
     monkeypatch.setattr(commands, 'resolve_command', unexpected)
     monkeypatch.setattr('recs.__main__.devices_json', unexpected)
     monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
+    monkeypatch.setattr('recs.ui.session_explain.explain', unexpected)
+    monkeypatch.setattr('recs.ui.session_explain.explain_daemon', unexpected)
     monkeypatch.setattr('recs.daemon.cli.ServiceController', unexpected)
     monkeypatch.setattr('recs.daemon.control_cli.instances.list_instances', unexpected)
     monkeypatch.setattr(sys, 'argv', ['recs', *command, '--help'])
