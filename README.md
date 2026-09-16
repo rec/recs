@@ -257,6 +257,34 @@ with marker provenance in the `edit_started` entry. Gaps render as silence under
 the existing renderer's rules. Original files are not rewritten, destinations
 inside the original session are refused, and existing destinations are not reused.
 
+Preview recovery of a stopped, interrupted capture, then create a separate copy:
+
+```console
+recs session recover /path/to/interrupted --json
+recs session recover /path/to/interrupted --destination /path/to/recovered
+```
+
+Recovery verifies journal-referenced media in one version 4 capture segment.
+Completed files with valid native timing become ordinary streams. Readable audio
+without completion evidence is copied as unplaced assets, listed in
+`recovery-report.json` without invented ranges or output ports. Missing, invalid,
+ambiguous, and unsupported unfinished event files are explicitly omitted.
+Intentional discards remain discards. Continuations and unreferenced files are
+not scanned. A torn final JSON line is supported; interior journal corruption
+requires separate investigation.
+
+The original journal is preserved byte-for-byte under `evidence/`; media bytes
+are unchanged. A new operation journal and sealed `recording.toml` describe the
+recovered subset. Sealing means the recovery completed, not that the original
+capture was complete. Original timestamps remain in the preserved evidence;
+the new header/footer describe the recovery operation.
+
+Recovery writes to a staging directory beside the destination, verifies the
+copy, and only then publishes it. Failures leave originals unchanged and report
+the retained partial directory. Existing destinations and destinations inside
+the original session are refused. Stop capture before inspection or recovery;
+changed evidence causes recovery to fail rather than silently use another version.
+
 `recs edit` reads TOML edit definitions or installed edit commands and writes a
 new session directory containing generated media, the resolved `edit.toml`, and
 a new `recording.toml` and capture journal. Each installed edit command provides
