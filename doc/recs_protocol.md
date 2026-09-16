@@ -528,7 +528,8 @@ Every transport command returns this state shape:
 
 `state` is `waiting`, `playing`, or `paused`. In `waiting`, all selection and
 position fields are `null`. A playback file or output-device failure records a
-warning, ends playback, and resumes audio capture.
+warning and ends playback after closing its output. The recorder thread then
+resumes audio capture only if playback owns the recording pause.
 
 `mark` appends a labeled event to the current record. `set_key_label`
 updates the label associated with a recorded key. `reload_profiles` reloads the

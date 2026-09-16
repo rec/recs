@@ -237,7 +237,10 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
     result.pop('continued_from', None)
     result.pop('errors', None)
     result.pop('session_id', None)
-    result['files'] = [f for f in result['files'] if f['type'] == 'file_finished']
+    result['files'] = sorted(
+        (f for f in result['files'] if f['type'] == 'file_finished'),
+        key=lambda f: f['path'],
+    )
     for file in result['files']:
         assert isinstance(file, dict)
         file.pop('timestamp')
