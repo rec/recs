@@ -12,6 +12,10 @@ Nothing like that existed so I wrote it.  Free, open-source, configurable.
 
 Full documentation here: https://github.com/rec/recs
 
+With no subcommand, recs starts recording. sessions ROOT lists recordings; session COMMAND manages one recording; record check PATH validates a recording document and its media.
+
+control pause/resume affect capture; control stop/continue affect playback. profile manages named saved setups; --profiles loads per-device JSON defaults.
+
  positional arguments
  -------------------------------------------------------------------------------------------
   [[PATH [PATH ...]]]
@@ -55,7 +59,7 @@ Full documentation here: https://github.com/rec/recs
   --devices PATH
         A path to a JSON file with device definitions (default: .)
   --profiles PATH
-        A JSON file with per-device default profiles (default: .)
+        Per-device JSON defaults, not a named saved setup (default: .)
 
  selection options
  -------------------------------------------------------------------------------------------
@@ -183,11 +187,11 @@ usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get
 Send one command to a running recs instance.
 
  options
- -------------------------------------------------------------------------
+ ------------------------------------------------------------------------------------------------
   -h, --help           show this help message and exit
 
  subcommands
- -------------------------------------------------------------------------
+ ------------------------------------------------------------------------------------------------
   (required)
     - instances        List running instances without selecting a target.
     - status
@@ -198,17 +202,17 @@ Send one command to a running recs instance.
     - get
     - set
     - mark
-    - pause
-    - play
-    - stop
-    - pause-playback
-    - continue
+    - pause            Pause capture and release input devices; this is not a playback pause.
+    - play             Play a recorded session, temporarily pausing capture if it is active.
+    - stop             Stop playback; restore capture only if playback owned the capture pause.
+    - pause-playback   Pause playback without resuming capture.
+    - continue         Continue paused playback, not capture.
     - jump
     - jump-session
-    - resume
+    - resume           Resume capture, first stopping any active playback.
     - calibrate
     - card-replace
-    - reload-profiles
+    - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
 
 
 $ recs daemon --help
@@ -268,7 +272,7 @@ usage: recs preflight [-h]
 $ recs profile --help
 usage: recs profile [-h] {save,use,show,list,delete}
 
-Save and use named recording setups.
+Save and use named recording setups. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
  ---------------------------------------------

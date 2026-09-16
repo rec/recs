@@ -4,11 +4,11 @@ usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get
 Send one command to a running recs instance.
 
  options
- -------------------------------------------------------------------------
+ ------------------------------------------------------------------------------------------------
   -h, --help           show this help message and exit
 
  subcommands
- -------------------------------------------------------------------------
+ ------------------------------------------------------------------------------------------------
   (required)
     - instances        List running instances without selecting a target.
     - status
@@ -19,17 +19,17 @@ Send one command to a running recs instance.
     - get
     - set
     - mark
-    - pause
-    - play
-    - stop
-    - pause-playback
-    - continue
+    - pause            Pause capture and release input devices; this is not a playback pause.
+    - play             Play a recorded session, temporarily pausing capture if it is active.
+    - stop             Stop playback; restore capture only if playback owned the capture pause.
+    - pause-playback   Pause playback without resuming capture.
+    - continue         Continue paused playback, not capture.
     - jump
     - jump-session
-    - resume
+    - resume           Resume capture, first stopping any active playback.
     - calibrate
     - card-replace
-    - reload-profiles
+    - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
 
 
 $ recs control calibrate --help
@@ -58,6 +58,8 @@ usage: recs control card-replace [-h]
 
 $ recs control continue --help
 usage: recs control continue [-h]
+
+Continue paused playback, not capture.
 
  options
  ---------------------------------------------
@@ -149,6 +151,8 @@ usage: recs control mutable [-h]
 $ recs control pause --help
 usage: recs control pause [-h]
 
+Pause capture and release input devices; this is not a playback pause.
+
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
@@ -157,6 +161,8 @@ usage: recs control pause [-h]
 $ recs control pause-playback --help
 usage: recs control pause-playback [-h]
 
+Pause playback without resuming capture.
+
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
@@ -164,6 +170,8 @@ usage: recs control pause-playback [-h]
 
 $ recs control play --help
 usage: recs control play [-h] [PLAY OPTIONS]
+
+Play a recorded session, temporarily pausing capture if it is active.
 
  options
  ------------------------------------------------
@@ -180,6 +188,8 @@ usage: recs control play [-h] [PLAY OPTIONS]
 $ recs control reload-profiles --help
 usage: recs control reload-profiles [-h]
 
+Reload per-device JSON defaults from --profiles, not a named saved setup.
+
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
@@ -187,6 +197,8 @@ usage: recs control reload-profiles [-h]
 
 $ recs control resume --help
 usage: recs control resume [-h]
+
+Resume capture, first stopping any active playback.
 
  options
  ---------------------------------------------
@@ -216,6 +228,8 @@ usage: recs control status [-h]
 
 $ recs control stop --help
 usage: recs control stop [-h]
+
+Stop playback; restore capture only if playback owned the capture pause.
 
  options
  ---------------------------------------------

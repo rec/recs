@@ -197,6 +197,10 @@ recordings accessible. Test a library containing both valid and malformed scores
 
 ### 12. P3: similar CLI words name different operations
 
+Resolved within the existing vocabulary: top-level and command-specific help,
+plus the README, explicitly distinguish capture, playback, session operations,
+and the two profile concepts. No additional aliases or command renames were made.
+
 Evidence: [the dispatcher](../recs/__main__.py) exposes `sessions`, `session`, and
 `record`, while capture itself uses the bare command. In
 [control_cli.py](../recs/daemon/control_cli.py), `pause` and `resume` concern
