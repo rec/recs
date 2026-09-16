@@ -33,7 +33,13 @@ uFor determines what a score means. enge determines how the supported synth and
 sample profiles turn its prepared actions into audio. A host decides when to run
 enge and where audio goes.
 
-## Current implementation
+## Current implementation checkpoint
+
+Checked 16 September 2026. The authoritative implementation inventory and next
+engine work live in [enge's README](../../enge/README.md) and
+[execution contract](../../enge/plan/engine-execution.md). The latter remains a
+proposal where it goes beyond the implemented reference. This handover governs
+project ownership, not a competing engine task list.
 
 `~/code/enge/src/enge/synth.py` is the initial synth engine. It already:
 
@@ -50,12 +56,14 @@ enge and where audio goes.
   `waveform_samples()`.
 
 This narrow synth profile is an implemented first step, not a project limit.
-Unsupported modulation, processing, curved envelopes, and richer generators
-currently fail explicitly until their engine behavior is added with tests.
+Live amplitude/tuning routes and scoped smoothing are now implemented too.
+Other modulation targets, filters, sample traversal, curved envelopes, and richer
+generators remain unsupported and fail explicitly.
 
 ## Synth goal
 
-Finish consolidating reusable synth behavior in enge. Keep one canonical
+The shared `OscillatorState`, `oscillator_samples()`, and `envelope_samples()`
+now serve tuney and enge's offline synth. Preserve one canonical
 implementation of waveform shape, phase evolution, gain, envelope/release,
 routes, state snapshots, and block partitioning. tuney should call or adapt this
 engine rather than retaining an independently evolving waveform renderer.
@@ -87,7 +95,8 @@ partitions.
 
 ## Next agent guidance
 
-Work toward the two engine goals without widening into a host:
+Use enge's own execution plan for current sequencing. The milestones below
+describe the project goals, not evidence that already-completed work is missing:
 
 1. Define the common enge preparation/result API for prepared synth and sample
    instruments, bounded `advance()` calls, snapshots, restoration, and visible

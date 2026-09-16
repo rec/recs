@@ -5,9 +5,10 @@
 ### Incomplete
 
 The sample preparation trace, including pedal/legato gate delivery and voice
-retirement, is complete. A portable synth-instrument definition and a shared
-offline instrument contract remain model work. Sampler and synth rendering,
-engine selection, and a VST wrapper remain deferred.
+retirement, is complete. Synth definitions and lifecycle traces are implemented
+too. Both engine goals belong to [enge](../enge.md): shared synthesis (an initial
+reference exists) and sampler implementation. Native backend selection, VST
+wrapping, and recs host integration remain separate work.
 
 ### Preserve the useful recsam model
 
@@ -93,19 +94,13 @@ those transport protocols.
 
 ### Small sampler contract and later implementations
 
-First define a bounded contract for prepared sample and synth definitions,
-performance events, voice state, snapshots, and the modulation model. Keep
-authoring and host concerns outside that core. Publish event/state examples
-without rendering audio; do not let a Python-specific class layout become the
-portable contract. The synth definition must be added before either renderer so
-the common lifecycle is designed once rather than retrofitted from the sampler.
-
-A later implementation decision should compare a compiled core, an optional
-Python reference followed by a compiled port, and reuse of a suitable existing
-engine. A VST instrument is a possible host wrapper for the core, not the
-instrument score format. No language, plugin SDK, or Python-first engine is
-selected by this plan revision. See [Sample Playback](../sample-playback.md)
-for the deferred implementation and shared conformance requirements.
+The initial sample/synth definitions and portable event/state contract exist.
+uFor prepares actions; enge owns their bounded audio realization and snapshots.
+Keep authoring and host concerns outside that core, and do not make Python class
+layout the portable specification. enge currently has a NumPy synth reference;
+its [execution plan](../../../enge/plan/engine-execution.md) owns engine extension
+and backend decisions. A VST wrapper is a separate host, not an instrument score.
+See [the playback boundary](../sample-playback.md) for recs host acceptance.
 
 ### External samplers and change from today
 
@@ -131,8 +126,8 @@ None.
 ### Incomplete
 
 Looped envelopes, continuous LFO rate ramps, modulation feedback, oscillator
-lifecycle integration, and audio-rate execution remain unfinished. Sampler and
-VST work remain separate deferred execution decisions. Instrument preparation,
+lifecycle extensions, and general audio-rate execution remain unfinished.
+Sampler work belongs to enge; VST hosting remains separately deferred. Instrument preparation,
 pedal and legato gate delivery, voice retirement, portable action traces, and
 seeded sample selection and variation are complete format work.
 
@@ -207,24 +202,23 @@ None.
 
 ### Incomplete
 
-Oscillator lifecycle integration, processor execution, graph preparation,
-latency handling in a host, plugin hosting, and all new audio generation remain
-deferred. The extracted oscillator definitions and scalar LFO semantics are
-the completed model foundation.
+General processor execution, graph preparation, host latency handling, and
+plugin hosting remain deferred. The initial oscillator lifecycle and audio
+reference are implemented in enge; broader engine support follows its own plan.
 
 ### First synth-instrument definition
 
-Before any renderer, define a typed synth instrument as a sibling of the sample
+Implemented in uFor: a typed synth instrument is a sibling of the sample
 instrument score. Its mapped voice templates reuse the extracted oscillator,
 envelope, LFO, modulation, processing, controls, and performance-event models.
 It must explicitly specify output routes, trigger/lifecycle behavior, and
 oscillator pitch and phase/reset inputs. It does not model samples, loops,
 arbitrary processor graphs, feedback, or transport-specific MIDI behavior.
 
-Acceptance before implementation is schema and codec round trips, mapping and
+Portable acceptance includes schema and codec round trips, mapping and
 reference validation, exact oscillator phase/state observations, shared
 sustain/choke/voice-limit traces, snapshot restoration, and rejection of features
-outside the first profile. Audio fixtures wait for the separate execution decision.
+outside the first profile. Engine audio fixtures live in enge.
 
 ### Operation and instance
 
@@ -512,8 +506,8 @@ one-step equal-tempered pattern, a twelve-step just-intonation example,
 non-octave cycles, negative degrees, finite ratio/Hz boundaries, Scala import,
 and MTS per-key tables. Preserve Tuney examples where they express intended
 musical behavior; identify intentional corrections separately. Define numeric
-tolerances for irrational results. Parser, model, and pitch-value tests come
-before any new waveform generation.
+tolerances for irrational results. Extensions to portable pitch semantics need
+parser, model, and pitch-value tests before corresponding engine support.
 
 ### Additional work beyond the prompt
 
