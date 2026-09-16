@@ -340,6 +340,10 @@ def execute_composition(
         return record_path
     if destination is None:
         raise RecsError('A non-empty composition requires a destination')
+    from .composition_resources import plan_composition
+
+    plan, _ = plan_composition(value, composition_path, record_path, destination)
+    plan.check()
     prepared = prepare_composition(value, composition_path, record_path, destination)
     metadata = {
         'source_record': record_path.as_posix(),
@@ -375,20 +379,16 @@ def composition_summary(
         return f'Record: {record_path}\nEdits: none\nResult: {record_path}\n'
     if destination is None:
         raise RecsError('A non-empty composition requires a destination')
-    prepared = prepare_composition(value, composition_path, record_path, destination)
+    from .composition_resources import plan_composition
+
+    plan, stages = plan_composition(value, composition_path, record_path, destination)
     lines = [
         f'Record: {record_path}',
         f'Output session: {destination}',
         'Intermediate media: temporary float32 storage; bounded audio buffers',
     ]
-    for index, (step, size) in enumerate(
-        zip(value.edits, prepared.stage_storage, strict=False), 1
-    ):
-        selectors = ', '.join(step.channel) or 'all compatible tracks'
-        lines.append(f'{index}: {step.command}')
-        lines.append(f'   Selectors: {selectors}')
-        lines.append(f'   Temporary audio storage: {size} bytes')
-    lines.append(f'Estimated peak audio buffers: {prepared.peak_memory} bytes')
+    lines.extend(stages)
+    lines.append(plan.summary().rstrip())
     lines.append(f'Result: {destination / "recording.toml"}')
     return '\n'.join(lines) + '\n'
 

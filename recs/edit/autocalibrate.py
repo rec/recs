@@ -136,6 +136,12 @@ def autocalibrate_summary(prepared: PreparedAutocalibrate) -> str:
 def execute_autocalibrate(
     edit: AutocalibrateEdit, edit_directory: Path, destination: Path
 ) -> Path:
+    from .resources import plan_calibration
+
+    if edit.record is not None:
+        plan_calibration(
+            edit_directory / edit.record, edit.channels, destination
+        ).check()
     prepared = prepare_autocalibrate(edit, edit_directory, destination)
     metadata = {
         'sources': {

@@ -16,18 +16,19 @@ Use compose COMPOSITION.toml to combine recordings into a composition.
 
 
 $ recs edit compose --help
-usage: recs edit compose COMPOSITION.toml [-h] [{None}|PATH] [-o {None}|PATH] [--dry-run | --no-dry-run]
+usage: recs edit compose COMPOSITION.toml [-h] [OPTIONS] [{None}|PATH]
 
 Combine recordings using a composition TOML file.
 
  positional arguments
- -----------------------------------------------------------
-  [{None}|PATH]  record (default: None)
+ ---------------------------------------------------------------------
+  [{None}|PATH]            record (default: None)
 
  options
- -----------------------------------------------------------
-  -h, --help     show this help message and exit
+ ---------------------------------------------------------------------
+  -h, --help               show this help message and exit
+  --scratch-directory {None}|PATH
+                           (default: None)
   -o {None}|PATH, --destination {None}|PATH
-                 Composite output directory (default: None)
-  --dry-run, --no-dry-run
-                 (default: False)
+                           Composite output directory (default: None)
+  --dry-run, --no-dry-run  (default: False)

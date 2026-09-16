@@ -1,0 +1,10 @@
+destination: <root>/output
+destination_bytes: 19200004096
+intermediate_storage_bytes: 19200000000
+known_destination_bytes: 19200004096
+output_frames:
+  voice-wav-audio: 4800000000
+scratch_directory: <root>
+source_storage_bytes: 19200000000
+unknown: []
+working_ram_bytes: 9961472
