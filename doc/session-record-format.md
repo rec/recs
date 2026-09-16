@@ -138,6 +138,16 @@ claim of sample-perfect synchronization between devices.
 
 ## Operational records and continuations
 
+New explicit `mark` events may carry `positions`: one source, capture `clock_id`,
+nonnegative `frame`, sample rate, and `observed_at` timestamp per active source.
+`timing_source = "latest_processed_boundary"` means the most recent processed
+block boundary delivered to the recorder, including known dropped-frame offsets.
+It is an exact anchor on that capture clock, not the sample at the physical
+button press. Processing/transport backlog can make the anchor older. Different
+sources remain independent. Paused, stopped, not-yet-observed, and restarted
+sources contribute no stale positions. Historical wall-clock-only marks and key
+events without positions remain unpositioned; no frame mapping is inferred.
+
 `EventRecord` retains typed diagnostic fields for source discovery/failure,
 pause/resume, configuration, marks, key transitions, disk events, queue pressure,
 and continuation decisions. Unknown event names remain inspectable; unknown

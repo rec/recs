@@ -12,6 +12,7 @@ from threa import Runnable
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
+from recs.recording.session_record import MarkerPosition
 from recs.runtime import source_messages, source_transport
 
 from . import source_recorder
@@ -123,6 +124,7 @@ class SourceProcess(Runnable):
             source_messages.SourceUpdate | source_messages.SourceFailure
         ] = []
         self.expected_stop = False
+        self.marker_position: MarkerPosition | None = None
 
     @property
     def required_channels(self) -> int:
@@ -140,6 +142,7 @@ class SourceProcess(Runnable):
 
     def start(self) -> None:
         assert not self.started
+        self.marker_position = None
         if self.waveforms_enabled:
             self.waveform_generation += 1
         self.connection, child_updates = mp.Pipe(duplex=False)
@@ -172,6 +175,7 @@ class SourceProcess(Runnable):
         super().start()
 
     def stop(self) -> None:
+        self.marker_position = None
         if not self.started:
             return
         self.running = False

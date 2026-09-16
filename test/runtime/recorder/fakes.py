@@ -9,6 +9,7 @@ from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import gui_protocol
+from recs.recording.session_record import MarkerPosition
 from recs.runtime.recorder import Recorder
 from recs.runtime.source_messages import SourceUpdate
 from recs.ui.key_events import KeyEvent
@@ -78,6 +79,8 @@ class FakeSourceProcess:
         self.session_directory = session_directory
         self.pending_updates: list[SourceUpdate] = []
         self.waveforms_enabled = False
+        self.writing_enabled = True
+        self.marker_position: MarkerPosition | None = None
 
     @property
     def is_alive(self) -> bool:
@@ -93,12 +96,14 @@ class FakeSourceProcess:
         self.started = False
 
     def start(self) -> None:
+        self.marker_position = None
         self.started = True
         self.running = True
         self.alive = True
         self.start_count += 1
 
     def stop(self) -> None:
+        self.marker_position = None
         self.stop_count += 1
         self.running = False
         self.alive = False

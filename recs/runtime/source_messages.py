@@ -13,7 +13,7 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.recording.capture_events import SourceFile
-from recs.recording.session_record import AudioTimelineRecord
+from recs.recording.session_record import AudioTimelineRecord, MarkerPosition
 
 
 class BufferStats(BaseModel):
@@ -54,6 +54,7 @@ class SourceUpdate(NamedTuple):
     timelines: list[AudioTimelineRecord] | None = None
     finished_files: list[Path] | None = None
     discarded_files: list[Path] | None = None
+    marker_position: MarkerPosition | None = None
 
 
 class SourceFailure(NamedTuple):

@@ -128,6 +128,10 @@ class SourceFileEvents:
         return result
 
 
+def capture_clock_id(identity: str) -> str:
+    return 'clock-' + hashlib.sha256(identity.encode()).hexdigest()[:16]
+
+
 def audio_timeline(
     writer: ChannelWriter, capture_id: str | None = None
 ) -> AudioTimelineRecord:
@@ -159,10 +163,7 @@ def audio_timeline(
     name = track_name(writer.track_names, writer.track) or writer.track.name
     channels = '-'.join(str(c) for c in writer.track.channels)
     return AudioTimelineRecord(
-        clock_id='clock-'
-        + hashlib.sha256((capture_id or writer.track.source.name).encode()).hexdigest()[
-            :16
-        ],
+        clock_id=capture_clock_id(capture_id or writer.track.source.name),
         stream_id=f'audio:{writer.track.source.name}:{channels}'
         + (f':{capture_id}' if capture_id else ''),
         source=writer.track.source.name,

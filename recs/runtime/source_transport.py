@@ -212,6 +212,7 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
             first.file_end_timestamps, second.file_end_timestamps
         ),
         frame_count=second.frame_count,
+        marker_position=second.marker_position or first.marker_position,
         calibration=first.calibration or second.calibration,
         track_layout=first.track_layout or second.track_layout,
         config_revisions_applied=[
