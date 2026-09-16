@@ -2,8 +2,8 @@
 
 ## Scope
 
-Proposed 16 September 2026, against the current repository. These are product
-suggestions, not implementation instructions or claims that the features exist.
+Proposed 16 September 2026, against the current repository. Implementation status
+is recorded under each feature; unmarked features remain proposals.
 The focus is recording, reviewing, editing, recovering, and handing off captured
 material. No changes to other projects are proposed.
 
@@ -35,6 +35,17 @@ a new rendering engine or changing recorded media.
 
 ## 1. Recording readiness report
 
+Implemented: `recs readiness`, with saved setups, mutable overlays, explicit
+option overrides, text/JSON reports, and independent diagnostics. Missing devices
+warn; invalid settings/channels/output paths fail. No capture streams, sessions,
+or write probes are created. Alias targets that cannot currently resolve are
+reported explicitly. MIDI/OSC availability is not probed.
+
+Storage reporting uses a labelled continuous input-PCM equivalent estimate,
+subtracting the minimum free-space reserve. It does not invent a compression
+ratio or finite upper duration bound; actual compressed/silence-suppressed
+duration remains unknown. Other disk policy and overhead are stated limitations.
+
 Question answered: “Will this setup record the sources and tracks I intend?”
 
 Existing foundation: device inspection, saved setups, resolved configuration,
@@ -48,8 +59,8 @@ First version:
   effective settings, including saved mutable overrides.
 - Distinguish present sources, configured sources not currently present, and
   selectors that match nothing. Explain which omissions prevent the intended run.
-- Report available storage and an estimated duration range. For compressed
-  audio, label the estimate rather than treating compression as a fixed ratio.
+- Report available storage and a labelled input-PCM equivalent duration. Do not
+  treat compression as a fixed ratio or imply a guaranteed recording duration.
 - Offer an explicit short input-test step separately. Inspection must not open
   capture streams, create a session, or claim to prove device availability.
 
@@ -58,9 +69,9 @@ unusable output path reports each problem without starting capture. Structured
 and readable output agree. Device changes after inspection remain possible and
 are described as such.
 
-Decision before implementation: what counts as a blocking failure versus a
-warning for deliberately optional sources? Do not silently make every configured
-source mandatory.
+Decided: absent selected devices are warnings; invalid configuration, channel
+selections, and unusable output paths are failures. No required/optional source
+schema was added.
 
 ## 2. Session quality report
 
