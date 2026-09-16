@@ -16,6 +16,8 @@ With no subcommand, recs starts recording. sessions ROOT lists recordings; sessi
 
 control pause/resume affect capture; control stop/continue affect playback. profile manages named saved setups; --profiles loads per-device JSON defaults.
 
+readiness inspects a setup without recording; preflight checks a running daemon.
+
  positional arguments
  -------------------------------------------------------------------------------------------
   [[PATH [PATH ...]]]
@@ -286,6 +288,26 @@ Save and use named recording setups. These differ from the per-device JSON defau
     - show
     - list
     - delete
+
+
+$ recs readiness --help
+usage: recs readiness [-h] [[STR [STR ...]]] [--profile {None}|STR] [--json-output | --no-json-output]
+
+Inspect setup readiness; unlike preflight, no running daemon is required.
+
+Put recording options after --. Missing devices warn; invalid settings fail. This command never opens input streams or performs the test-input recording.
+
+ positional arguments
+ ----------------------------------------------------
+  [[STR [STR ...]]]  recs-options (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+  --profile {None}|STR
+                     (default: None)
+  --json-output, --no-json-output
+                     (default: False)
 
 
 $ recs record --help

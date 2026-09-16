@@ -38,6 +38,7 @@ def test_help(cli_help: CliHelp) -> None:
         subcommands=[
             'daemon',
             'preflight',
+            'readiness',
             'control',
             'watch',
             'profile',

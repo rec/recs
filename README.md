@@ -75,6 +75,24 @@ Configuration values accept explicit units, for example
 
 ## Recording Setups
 
+Inspect a setup without starting capture or requiring a daemon:
+
+```console
+recs readiness --profile x18-show
+recs readiness --json-output -- --include xr18 --output-directory /mnt/recordings
+```
+
+Missing devices produce warnings; invalid settings, channels, and unusable output
+paths produce failures (exit status 1). Inspection uses the same settings overlay
+and explicit-option precedence as capture. `--save-settings` enables reading the
+saved overlay when it would otherwise be disabled; readiness never writes it.
+The report includes tracks, effective settings, free space, and an input-PCM
+duration estimate. This is not a compression forecast or a reserved storage
+guarantee. MIDI/OSC endpoint availability is not probed. Output permission checks
+are read-only and do not prove a future write will succeed. Input streams are
+never opened; use the separate `recs test-input` only to make an actual test
+recording. `recs preflight` remains the check for an already-running daemon.
+
 A named setup stores a complete recording configuration together with track
 names and mono/stereo layouts. Options for `save` and `use` follow `--`:
 
