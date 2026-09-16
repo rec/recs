@@ -1,6 +1,7 @@
 import threading
 import time
 from collections.abc import Callable
+from multiprocessing import Pipe
 from pathlib import Path
 
 import numpy as np
@@ -167,6 +168,28 @@ def test_source_update_finish_waits_for_final_send() -> None:
     thread.join(0.1)
 
     assert finished.is_set()
+
+
+def test_source_update_finish_returns_after_the_reader_disconnects() -> None:
+    reader, writer = Pipe(duplex=False)
+    reader.close()
+    transport = SourceUpdateTransport(writer)
+    transport.start()
+    update = SourceUpdate(channels={}, files=[], frames=0, source_name='Mic')
+    transport.publish(update)
+    transport.thread.join(1)
+    # Updates arriving after the failed send must not create another finish wait.
+    transport.publish(update)
+    finisher = threading.Thread(target=transport.finish, daemon=True)
+    finisher.start()
+    try:
+        finisher.join(1)
+        assert not finisher.is_alive()
+        assert not transport.thread.is_alive()
+    finally:
+        transport.idle.set()
+        finisher.join(1)
+        writer.close()
 
 
 def test_source_update_transport_reports_blocked_send_time() -> None:

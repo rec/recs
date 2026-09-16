@@ -175,6 +175,8 @@ class SourceUpdateTransport:
 
     def publish(self, message: SourceUpdate | SourceFailure) -> None:
         with self.lock:
+            if self.stopped.is_set():
+                return
             if self.message is None:
                 self.message_timestamp = monotonic()
             if isinstance(self.message, SourceUpdate) and isinstance(
@@ -209,6 +211,10 @@ class SourceUpdateTransport:
                 self.connection.send(message)
                 self.max_send_seconds = max(self.max_send_seconds, monotonic() - start)
             except (BrokenPipeError, EOFError, OSError):
+                with self.lock:
+                    self.stopped.set()
+                    self.message = None
+                    self.idle.set()
                 return
             with self.lock:
                 if self.message is None:
