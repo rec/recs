@@ -32,18 +32,19 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
 
 $ recs session export --help
-usage: recs session export [-h] PATH PATH
+usage: recs session export [-h] PATH PATH [--resume {None}|PATH]
 
 Copy a recording and its continuations into a portable directory.
 
  positional arguments
- ---------------------------------------------
-  PATH        record (required)
-  PATH        destination (required)
+ ----------------------------------------------------------------------------------------------------------
+  PATH                  record (required)
+  PATH                  destination (required)
 
  options
- ---------------------------------------------
-  -h, --help  show this help message and exit
+ ----------------------------------------------------------------------------------------------------------
+  -h, --help            show this help message and exit
+  --resume {None}|PATH  Resume the reported staging directory after an interrupted export. (default: None)
 
 
 $ recs session export-midi --help

@@ -217,6 +217,13 @@ an aligned track. The generated header/footer describe the recovery operation.
 
 ## 6. Resumable verified export
 
+Implemented: `recs session export --resume STAGING` verifies the same sealed
+source documents and all completed staged assets before reuse, restarts partial
+files, and retains atomic progress reports on interruption. Copied, reused and
+verified, remaining, and failed files are reported separately. Publication follows
+full staged-asset verification; changed documents, corrupted completed assets,
+unsafe paths, and existing destinations are refused. Originals are never removed.
+
 Question answered: “Can I finish this large archive copy after the disk disconnects?”
 
 Existing foundation: export already follows continuation chains, verifies assets,

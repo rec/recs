@@ -189,6 +189,27 @@ recs session export /path/to/session/recording.toml /path/to/export
 recs session export-midi /path/to/session/recording.toml midi:Launchkey take.mid
 ```
 
+`session export` verifies sealed source documents and their assets, copies into
+a staging directory, then publishes the destination only after verifying all
+copied assets. An interrupted copy retains its staging directory and reports
+the path. Resume explicitly with the same source and destination:
+
+```console
+recs session export /path/to/session/recording.toml /path/to/export --resume /path/to/.export.recs-export-EXAMPLE
+```
+
+Resume requires the original source documents and media to remain available and
+unchanged. It rechecks completed staged files before reuse and restarts partial
+files from the beginning. A changed document, corrupt completed copy, or existing
+destination is refused. No originals or partial directories are deleted.
+`export-progress.json` lists files copied in this attempt, previously completed
+files verified for reuse, remaining files, and failed files. The terminal reports
+these counts on success or the failed item on interruption. If a disconnected or
+full disk prevents saving progress, resume uses the last successfully saved report.
+This is a local, single-worker copy; do not run concurrent resumes on one staging
+directory. Moving the final directory does not depend on the original paths in
+the progress report.
+
 `session quality` reports one document's source-local captured durations, explicit
 gaps, unfinished files, unresolved placement, and journal diagnostics. It does
 not follow continuation documents or hash media. Intentional silence suppression
