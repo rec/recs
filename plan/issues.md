@@ -148,6 +148,10 @@ RPC calls, including when an instance selector is supplied.
 
 ### 9. P2: several command groups have no usable help path
 
+Resolved: sessions, session, record, and edit have explicit help paths. Session
+commands no longer fall back to directory scans; the user approved removing the
+undocumented shorthand. Device-query helpers parse help before touching devices.
+
 Evidence: [session_browser.main](../recs/ui/session_browser.py) treats its first
 argument as a path, so `recs sessions --help` scans a path called `--help` and
 returns success. The `session` fallback in [the dispatcher](../recs/__main__.py)

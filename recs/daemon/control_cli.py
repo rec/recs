@@ -18,6 +18,10 @@ class Status(ControlCommand):
     rpc_command = 'status_snapshot'
 
 
+class Instances(ControlCommand):
+    """List running instances without selecting a target."""
+
+
 class Disk(ControlCommand):
     rpc_command = 'disk_status'
 
@@ -106,7 +110,13 @@ def main(argv: list[str]) -> int:
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1
-    if arguments == ['instances']:
+    command = tyro.extras.subcommand_cli_from_dict(
+        COMMANDS,
+        args=arguments,
+        prog='recs control',
+        description='Send one command to a running recs instance.',
+    )
+    if isinstance(command, Instances):
         if selector != instances.Selector():
             print(
                 'recs control instances does not accept a target selector',
@@ -115,12 +125,6 @@ def main(argv: list[str]) -> int:
             return 1
         print(json.dumps(instances.list_instances(), separators=(',', ':')))
         return 0
-    command = tyro.extras.subcommand_cli_from_dict(
-        COMMANDS,
-        args=arguments,
-        prog='recs control',
-        description='Send one command to a running Recs instance.',
-    )
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
@@ -146,6 +150,7 @@ def _json_or_string(value: str) -> object:
 
 
 COMMANDS: dict[str, Callable[..., ControlCommand]] = {
+    'instances': Instances,
     'status': Status,
     'disk': Disk,
     'devices': Devices,
