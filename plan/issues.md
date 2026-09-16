@@ -327,6 +327,12 @@ agreed names: lyte, streamO, recs, uFor, reccy, tuney, enge, showCo.
 
 ### 20. P1: playback discards multiple spans of the same asset
 
+Resolved: playback preserves every non-variant fragment and selects one encoding
+per variant group and exact timeline interval, not per asset or whole group.
+Unmapped audio is rejected during preparation before capture is paused.
+Tests cover repeated assets with different offsets, gaps, repeated variant groups
+across intervals, and unresolved historical placement.
+
 Evidence: [_fragments](../recs/audio/playback.py) deduplicates by
 `fragment.variant_group or fragment.asset` using `setdefault`. Multiple fragments
 without a variant group that reference different ranges of the same asset keep

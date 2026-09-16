@@ -249,11 +249,20 @@ def _rate(score: RecordingScore, stream: AudioStream) -> int:
 
 
 def _fragments(stream: AudioStream) -> list[AudioFragment]:
-    selected: dict[str, AudioFragment] = {}
+    if stream.unmapped_fragments:
+        raise RecsError(
+            f'Recorded stream has unresolved audio placement: {stream.name}'
+        )
+    selected: list[AudioFragment] = []
+    variants: set[tuple[str, int, int]] = set()
     for fragment in sorted(stream.fragments, key=lambda f: (f.start, f.asset)):
-        key = fragment.variant_group or fragment.asset
-        selected.setdefault(key, fragment)
-    return sorted(selected.values(), key=lambda f: f.start)
+        if fragment.variant_group is not None:
+            key = (fragment.variant_group, fragment.start, fragment.count)
+            if key in variants:
+                continue
+            variants.add(key)
+        selected.append(fragment)
+    return selected
 
 
 def _channel_name(stream: AudioStream) -> str:
