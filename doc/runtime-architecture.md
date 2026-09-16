@@ -5,7 +5,24 @@
 `recs` starts in the CLI, builds a `Cfg`, constructs a `Recorder`, and then lets
 the recorder coordinate a set of smaller runtime collaborators. The recorder is
 still the top-level owner of the run, but most mutable domains now live outside
-`recs/ui/recorder.py`.
+`recs/runtime/recorder.py`.
+
+## Package ownership
+
+- `recs/runtime`: application wiring, capture processes and buffering, live
+  control, device discovery, calibration, and disk-switch policy.
+- `recs/ui`: terminal and GUI presentation, GUI child management, and keyboard
+  input. It no longer owns capture or persistence.
+- `recs/recording`: session journals, finalization, recording documents, paths,
+  recovery, inspection, and export. `RecordingSession` consumes file events
+  reported by capture; it does not own source processes.
+- `recs/audio`: audio block processing, file writing, and recorded-audio playback.
+- `recs/edit`: offline edit preparation, bounded rendering, and output encoding.
+- `recs/cfg`: configuration models and resolution; `recs/daemon`: IPC and CLI
+  control transport. Shared primitives remain in `recs/base`.
+
+Tests mirror these packages. Imports refer directly to the owning module;
+there are no compatibility modules under the former `recs/ui` paths.
 
 Important collaborators:
 

@@ -23,9 +23,9 @@ def _forbidden(module, forbidden):
 forbidden = (
     'recs.audio',
     'recs.cfg.device',
-    'recs.ui.recorder',
-    'recs.ui.source_process',
-    'recs.ui.source_recorder',
+    'recs.runtime.recorder',
+    'recs.runtime.source_process',
+    'recs.runtime.source_recorder',
     'sounddevice',
 )
 loaded = sorted(module for module in sys.modules if _forbidden(module, forbidden))

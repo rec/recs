@@ -2,7 +2,7 @@
 
 This document provides project-specific context for AI agents working in this repository. Use this alongside the global AGENTS.md rules.
 
-## 1. What is Recs?
+## 1. What is recs?
 
 `recs` is a CLI  program that records any or every audio input on your machine, intelligently filters
 out quiet, and stores the results in named, organized files.
@@ -17,7 +17,10 @@ out quiet, and stores the results in named, organized files.
 - `recs/__main__.py`: CLI entry point.
 
 - `recs/cfg/`: Configuration code: `Cfg` validates and resolves raw CLI values into runtime settings.
-- `recs/ui/`: Recording orchestration and live terminal status.
+- `recs/runtime/`: Capture/process lifecycle, live controls, disk policy, and application orchestration.
+- `recs/ui/`: Terminal/GUI presentation and keyboard input.
+- `recs/recording/`: Session persistence, recording documents, recovery, inspection, and export.
+- `recs/edit/`: Offline arrangement preparation, rendering, and encoding.
 - `recs/audio/`: Audio block processing and file output.
 - `recs/base/`: Shared low-level functions. Nothing in .base can depend on anything outside .base
 - `recs/misc/`: Small supporting utilities

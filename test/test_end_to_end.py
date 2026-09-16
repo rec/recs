@@ -15,7 +15,7 @@ from ufor.encoding import Format
 from recs.base import times
 from recs.cfg import device, run_cli
 from recs.cfg.cfg import Cfg
-from recs.ui import session_record
+from recs.recording import session_record
 
 from .conftest import BLOCK_SIZE, DEVICES, DEVICES_FILE
 from .recs_runner import RecsRunner

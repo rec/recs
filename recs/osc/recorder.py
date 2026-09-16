@@ -16,11 +16,7 @@ from ufor.time import Rate, Timebase
 from recs.base import times
 from recs.cfg.cfg import Cfg
 from recs.recording.events import EventWriter
-from recs.ui.session_record import (
-    EventRecord,
-    Record,
-    timestamp_to_json,
-)
+from recs.recording.session_record import EventRecord, Record, timestamp_to_json
 
 from . import codec, config
 

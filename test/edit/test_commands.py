@@ -12,8 +12,8 @@ from ufor.recording import RecordingScore
 from recs.base.errors import RecsError
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
 from recs.edit.options import EditOptions
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 
 def test_packaged_commands_are_discovered(tmp_path: Path) -> None:

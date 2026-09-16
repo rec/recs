@@ -12,7 +12,7 @@ from recs.base.errors import RecsError
 from recs.edit import autocalibrate, commands, composition, session
 from recs.edit.options import EditOptions
 from recs.edit.schema import CommandKind
-from recs.ui import recording_paths
+from recs.recording import recording_paths
 
 
 class EditCli(EditOptions, frozen=True):

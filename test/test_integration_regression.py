@@ -9,7 +9,7 @@ from reccy.device import DeviceDict
 from ufor.encoding import Format
 
 from recs.cfg import device
-from recs.ui import device_poller
+from recs.runtime import device_poller
 
 from .conftest import FakeDeviceQueryStream
 from .recs_runner import RecsRunner

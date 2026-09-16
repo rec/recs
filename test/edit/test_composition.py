@@ -14,8 +14,8 @@ from recs.edit.composition import (
     parse_composition,
     resolve_composition,
 )
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-from recs.ui import session_record
 
 
 def test_composition_round_trips_and_allows_no_edits() -> None:
