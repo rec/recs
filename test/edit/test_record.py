@@ -49,14 +49,15 @@ def test_source_resolution_preserves_gaps_and_selects_mono_offset(
 
     materialized = materialize_source(source)
 
-    assert materialized.samples.shape == (144_000, 1)
-    assert materialized.samples.dtype == np.float32
-    assert not materialized.samples.flags.writeable
+    assert materialized.end_frame == 144_000
+    assert materialized.channels == 1
+    assert materialized.read(0, 48_000).dtype == np.float32
+    assert not materialized.read(0, 48_000).flags.writeable
     assert [(r.start, r.end) for r in materialized.observed_ranges] == [
         (0, 48_000),
         (96_000, 144_000),
     ]
-    np.testing.assert_array_equal(materialized.samples[48_000:96_000], 0)
+    np.testing.assert_array_equal(materialized.read(48_000, 48_000), 0)
 
     materializer = SourceMaterializer()
     assert materializer.materialize(source) is materializer.materialize(

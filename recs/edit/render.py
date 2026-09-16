@@ -7,14 +7,10 @@ from ufor.automation import ArrangementGainTarget, AutomationScore
 from ufor.interface import MixBinding, NormalizeMode, Output, OutputSelection
 
 from recs.base.errors import RecsError
+from recs.edit import materialized
 from recs.edit.automation import gain_values
 from recs.edit.graph import EditGraph, FrameRange
-from recs.edit.materialized import (
-    MaterializedAudio,
-    SourceMaterializer,
-    allocate_audio,
-    merge_ranges,
-)
+from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.record import ResolvedSource
 
 
@@ -33,114 +29,128 @@ class Renderer:
             for k, v in sources.items()
         }
         self.graph = graph
-        self.peak_memory_bytes = self._estimated_peak_memory_bytes()
+        width = max(graph.widths.values(), default=1)
+        source_width = max(
+            (s.storage.channels for s in self.sources.values()), default=0
+        )
+        self.peak_memory_bytes = max(
+            max(
+                (s.storage.peak_buffer_bytes for s in self.sources.values()), default=0
+            ),
+            materialized.BLOCK_FRAMES
+            * 4
+            * (sum(graph.widths.values()) + source_width + 4 * width + 32),
+        )
 
     def render(self, output: Output) -> MaterializedAudio:
         return self.outputs[output.name]
 
     @cached_property
     def outputs(self) -> dict[str, MaterializedAudio]:
-        try:
-            return self._outputs()
-        except MemoryError as e:
-            raise RecsError(
-                'Cannot allocate materialized edit audio; '
-                f'at least {self.peak_memory_bytes} bytes are already live'
-            ) from e
-
-    def _outputs(self) -> dict[str, MaterializedAudio]:
-        parts, ranges = self._nodes()
+        ranges = self._ranges()
+        automation = self._automation()
         result: dict[str, MaterializedAudio] = {}
+        mixes = []
+        peaks: dict[str, float] = {}
         for output in self.edit.outputs:
             if isinstance(output.binding, OutputSelection):
                 result[output.name] = self.sources[output.binding]
                 continue
-            assert isinstance(output.binding, MixBinding)
-            frame_range = self.graph.output_extents[output.name]
-            samples = parts[str(output.binding.track or output.binding.bus)][
-                frame_range.start : frame_range.end
-            ]
-            scale = output.binding.gain
-            if output.binding.normalize != NormalizeMode.none:
-                peak = float(np.max(np.abs(samples))) if samples.size else 0.0
-                if peak > 0 and (
-                    output.binding.normalize == NormalizeMode.normalize or peak > 1
-                ):
-                    scale /= peak
-            if scale != 1:
-                samples = samples * np.float32(scale)
-            samples.flags.writeable = False
-            observed = _intersect_ranges(
-                ranges[str(output.binding.track or output.binding.bus)], frame_range
-            )
+            binding = output.binding
+            assert isinstance(binding, MixBinding)
+            mixes.append(output)
+            extent = self.graph.output_extents[output.name]
+            node = str(binding.track or binding.bus)
             result[output.name] = MaterializedAudio(
-                np.asarray(samples, dtype=np.float32),
+                materialized.AudioStorage(
+                    extent.end - extent.start, self.graph.widths[node]
+                ),
                 self.edit.timebases[0].rate.numerator,
-                frame_range.start,
-                observed,
+                extent.start,
+                _intersect_ranges(ranges[node], extent),
             )
-        self.peak_memory_bytes = max(
-            self.peak_memory_bytes,
-            _storage_bytes(
-                [s.samples for s in self.sources.values()]
-                + list(parts.values())
-                + [a.samples for a in result.values()]
-            ),
-        )
+            peaks[output.name] = 0.0
+        if not mixes:
+            return result
+        start = min(self.graph.output_extents[o.name].start for o in mixes)
+        end = max(self.graph.output_extents[o.name].end for o in mixes)
+        for position in range(start, end, materialized.BLOCK_FRAMES):
+            frames = min(materialized.BLOCK_FRAMES, end - position)
+            parts = self._nodes(position, frames, automation)
+            for output in mixes:
+                binding = output.binding
+                assert isinstance(binding, MixBinding)
+                audio = result[output.name]
+                left = max(position, audio.start_frame)
+                right = min(position + frames, audio.end_frame)
+                if left >= right:
+                    continue
+                samples = parts[str(binding.track or binding.bus)][
+                    left - position : right - position
+                ]
+                audio.storage.write(left - audio.start_frame, samples)
+                if binding.normalize != NormalizeMode.none:
+                    peaks[output.name] = max(
+                        peaks[output.name], float(np.max(np.abs(samples)))
+                    )
+            # Do not retain the previous node buffers during the next allocation.
+            samples = None
+            del parts
+        for output in mixes:
+            binding = output.binding
+            assert isinstance(binding, MixBinding)
+            scale = binding.gain
+            peak = peaks[output.name]
+            if peak > 0 and (binding.normalize == NormalizeMode.normalize or peak > 1):
+                scale /= peak
+            if scale != 1:
+                audio = result[output.name]
+                position = 0
+                for block in audio.blocks():
+                    audio.storage.write(position, block * np.float32(scale))
+                    position += len(block)
         return result
 
-    def _nodes(self) -> tuple[dict[str, np.ndarray], dict[str, list[FrameRange]]]:
-        timeline_end = max(r.end for r in self.graph.output_extents.values())
+    def _nodes(
+        self,
+        start: int,
+        frames: int,
+        automation: dict[ArrangementGainTarget, tuple[ControlClip, AutomationScore]],
+    ) -> dict[str, np.ndarray]:
+        end = start + frames
         parts = {
-            t.name: allocate_audio(
-                timeline_end, len(t.stream.channels), f'track {t.name}'
+            t.name: materialized.allocate_audio(
+                frames, len(t.stream.channels), f'track {t.name}'
             )
             for t in self.edit.body.tracks
         }
-        ranges: dict[str, list[FrameRange]] = {
-            t.name: [] for t in self.edit.body.tracks
-        }
-        automation = self._automation()
         for clip in self.edit.body.clips:
-            clip_start = clip.timeline_start
-            clip_end = clip_start + clip.source_end - clip.source_start
-            overlap_start = max(0, clip_start)
-            overlap_end = min(timeline_end, clip_end)
-            if overlap_start >= overlap_end:
+            left = max(start, clip.timeline_start)
+            right = min(end, clip.timeline_start + clip.source_end - clip.source_start)
+            if left >= right:
                 continue
-            source = self.sources[clip.source]
-            source_start = clip.source_start + overlap_start - clip_start
-            source_end = source_start + overlap_end - overlap_start
-            source_samples = _source_samples(source, source_start, source_end)
+            source_start = clip.source_start + left - clip.timeline_start
+            samples = _source_samples(
+                self.sources[clip.source], source_start, source_start + right - left
+            )
             gains = gain_values(
                 automation.get(ArrangementGainTarget(kind='clip', name=clip.name)),
                 clip.gain,
-                overlap_start,
-                overlap_end - overlap_start,
+                left,
+                right - left,
             )
-            parts[clip.track][overlap_start:overlap_end] += (
-                source_samples * gains[:, np.newaxis]
+            parts[clip.track][left - start : right - start] += (
+                samples * gains[:, np.newaxis]
             )
-            ranges[clip.track].extend(
-                _map_ranges(
-                    source.observed_ranges,
-                    source_start,
-                    source_end,
-                    overlap_start,
-                )
-            )
-
         buses = {b.name: b for b in self.edit.body.buses}
-        routes = {b.name: [] for b in self.edit.body.buses}
-        for route in self.edit.body.routes:
-            routes[route.destination].append(route)
         for bus_id in self.graph.bus_order:
             bus = buses[bus_id]
-            block = allocate_audio(
-                timeline_end, len(bus.stream.channels), f'bus {bus.name}'
+            block = materialized.allocate_audio(
+                frames, len(bus.stream.channels), f'bus {bus.name}'
             )
-            observed: list[FrameRange] = []
-            for route in routes[bus_id]:
+            for route in self.edit.body.routes:
+                if route.destination != bus_id:
+                    continue
                 gains = gain_values(
                     automation.get(
                         ArrangementGainTarget(
@@ -150,25 +160,47 @@ class Renderer:
                         )
                     ),
                     route.gain,
-                    0,
-                    timeline_end,
+                    start,
+                    frames,
                 )
                 block += parts[route.source] * gains[:, np.newaxis]
-                observed.extend(ranges[route.source])
             block *= gain_values(
                 automation.get(ArrangementGainTarget(kind='bus', name=bus.name)),
                 bus.gain,
-                0,
-                timeline_end,
+                start,
+                frames,
             )[:, np.newaxis]
             parts[bus_id] = block
-            ranges[bus_id] = merge_ranges(observed)
-        return parts, {k: merge_ranges(v) for k, v in ranges.items()}
+        return parts
+
+    def _ranges(self) -> dict[str, list[FrameRange]]:
+        ranges: dict[str, list[FrameRange]] = {
+            t.name: [] for t in self.edit.body.tracks
+        }
+        for clip in self.edit.body.clips:
+            ranges[clip.track].extend(
+                _map_ranges(
+                    self.sources[clip.source].observed_ranges,
+                    clip.source_start,
+                    clip.source_end,
+                    clip.timeline_start,
+                )
+            )
+        for bus in self.graph.bus_order:
+            ranges[bus] = materialized.merge_ranges(
+                [
+                    r
+                    for route in self.edit.body.routes
+                    if route.destination == bus
+                    for r in ranges[route.source]
+                ]
+            )
+        return {k: materialized.merge_ranges(v) for k, v in ranges.items()}
 
     def _automation(
         self,
     ) -> dict[ArrangementGainTarget, tuple[ControlClip, AutomationScore]]:
-        parts = {part.name: part for part in self.edit.body.parts}
+        parts = {p.name: p for p in self.edit.body.parts}
         result = {}
         for clip in self.edit.body.control_clips:
             part = parts[clip.source.name]
@@ -186,56 +218,6 @@ class Renderer:
                 )
             result[score.body.target] = clip, score
         return result
-
-    def _estimated_peak_memory_bytes(self) -> int:
-        timeline_end = max(r.end for r in self.graph.output_extents.values())
-        itemsize = np.dtype(np.float32).itemsize
-        sources = _storage_bytes([s.samples for s in self.sources.values()])
-        parts = (
-            timeline_end
-            * itemsize
-            * (
-                sum(len(t.stream.channels) for t in self.edit.body.tracks)
-                + sum(len(b.stream.channels) for b in self.edit.body.buses)
-            )
-        )
-        clip_temporary = max(
-            (
-                (c.source_end - c.source_start)
-                * (2 * self.sources[c.source].channels + 1)
-                * itemsize
-                for c in self.edit.body.clips
-            ),
-            default=0,
-        )
-        route_temporary = max(
-            (
-                timeline_end * (self.graph.widths[r.source] + 1) * itemsize
-                for r in self.edit.body.routes
-            ),
-            default=0,
-        )
-        persistent_outputs = 0
-        peak = sources + parts + max(clip_temporary, route_temporary)
-        for output in self.edit.outputs:
-            if isinstance(output.binding, OutputSelection):
-                continue
-            assert isinstance(output.binding, MixBinding)
-            frame_range = self.graph.output_extents[output.name]
-            size = (
-                (frame_range.end - frame_range.start)
-                * self.graph.widths[str(output.binding.track or output.binding.bus)]
-                * itemsize
-            )
-            transient = size if output.binding.normalize != NormalizeMode.none else 0
-            peak = max(peak, sources + parts + persistent_outputs + transient)
-            if (
-                output.binding.gain != 1
-                or output.binding.normalize != NormalizeMode.none
-            ):
-                persistent_outputs += size
-            peak = max(peak, sources + parts + persistent_outputs)
-        return peak
 
 
 def _map_ranges(
@@ -256,8 +238,7 @@ def _intersect_ranges(
 ) -> list[FrameRange]:
     return [
         FrameRange(
-            start=max(frame_range.start, r.start),
-            end=min(frame_range.end, r.end),
+            start=max(frame_range.start, r.start), end=min(frame_range.end, r.end)
         )
         for r in values
         if max(frame_range.start, r.start) < min(frame_range.end, r.end)
@@ -265,21 +246,12 @@ def _intersect_ranges(
 
 
 def _source_samples(source: MaterializedAudio, start: int, end: int) -> np.ndarray:
-    result = allocate_audio(end - start, source.channels, 'clip source interval')
+    result = materialized.allocate_audio(
+        end - start, source.channels, 'clip source interval'
+    )
     for observed in source.observed_ranges:
-        overlap_start = max(start, observed.start)
-        overlap_end = min(end, observed.end)
-        if overlap_start < overlap_end:
-            result[overlap_start - start : overlap_end - start] = source.samples[
-                overlap_start - source.start_frame : overlap_end - source.start_frame
-            ]
+        left = max(start, observed.start)
+        right = min(end, observed.end)
+        if left < right:
+            result[left - start : right - start] = source.read(left, right - left)
     return result
-
-
-def _storage_bytes(values: list[np.ndarray]) -> int:
-    arrays: dict[int, np.ndarray] = {}
-    for value in values:
-        while isinstance(value.base, np.ndarray):
-            value = value.base
-        arrays[id(value)] = value
-    return sum(a.nbytes for a in arrays.values())

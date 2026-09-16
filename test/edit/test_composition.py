@@ -165,9 +165,12 @@ def test_composition_summary_resolves_stages_without_writing(
     assert f'Record: {record_path.resolve()}' in summary
     assert '1: clip' in summary
     assert 'Selectors: device:voice' in summary
-    assert 'Intermediate media: memory only' in summary
-    assert 'Materialized audio: 192000 bytes' in summary
-    assert 'Estimated peak materialized audio:' in summary
+    assert (
+        'Intermediate media: temporary float32 storage; bounded audio buffers'
+        in summary
+    )
+    assert 'Temporary audio storage: 192000 bytes' in summary
+    assert 'Estimated peak audio buffers:' in summary
     assert f'Result: {destination / "recording.toml"}' in summary
     assert not destination.exists()
 
