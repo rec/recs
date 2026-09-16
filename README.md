@@ -141,6 +141,19 @@ The complete local RPC and event interface, including live waveforms and the
 
 ## Sessions And Editing
 
+The bare `recs` command starts capture. `recs sessions ROOT` lists recordings;
+`recs session COMMAND` operates on one session. `recs record check PATH` validates
+a recording document and its media; it does not start recording. The old implicit
+`recs session PATH` listing shorthand is not supported.
+
+For a running instance, `control pause` and `control resume` affect capture.
+`control stop`, `control pause-playback`, and `control continue` affect playback.
+Resuming capture stops playback first; stopping playback restores capture only
+when playback acquired the pause.
+
+`recs profile` manages named saved recording setups. The `--profiles` option
+instead reads a JSON file containing defaults for individual devices.
+
 Inspect, validate, explain, and export recordings without starting the
 recorder:
 

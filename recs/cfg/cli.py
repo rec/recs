@@ -15,6 +15,11 @@ LINES = (
     + 'program that ran in the background and recorded everything except quiet.',
     'Nothing like that existed so I wrote it.  Free, open-source, configurable.',
     'Full documentation here: https://github.com/rec/recs',
+    'With no subcommand, recs starts recording. '
+    'sessions ROOT lists recordings; session COMMAND manages one recording; '
+    'record check PATH validates a recording document and its media.',
+    'control pause/resume affect capture; control stop/continue affect playback. '
+    'profile manages named saved setups; --profiles loads per-device JSON defaults.',
 )
 HELP = '\n\n'.join(LINES)
 
