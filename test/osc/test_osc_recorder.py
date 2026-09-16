@@ -9,7 +9,7 @@ import pytest
 from recs.cfg.cfg import Cfg
 from recs.osc import codec, recorder
 from recs.osc.recorder import OscRecorder
-from recs.ui.session_record import Record
+from recs.recording.session_record import Record
 
 
 class FakeSocket:

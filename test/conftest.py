@@ -8,7 +8,7 @@ import pytest
 from reccy.device import DeviceDict
 
 from recs.cfg import device
-from recs.ui import device_poller, source_process, source_recorder
+from recs.runtime import device_poller, source_process, source_recorder
 
 pytest_plugins = ['reccy.pytest_plugin']
 

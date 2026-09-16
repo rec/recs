@@ -158,8 +158,8 @@ Future language ports implement the same semantics, not Python class layouts.
 | [Edit schema](../../recs/edit/schema.py) | `EditSpec`, audio channels, frame clips, gain routes, string automation targets, output encoding | Common arrangement body; named timebases, typed ports, structured addresses; separate exported ports from run destinations |
 | [Edit record resolution](../../recs/edit/record.py) | `ResolvedSource`, `AudioFragment`, session selectors, native-rate matching | Resolve typed recording streams/assets; keep native fragments and gap behavior; explicit conversion nodes for mismatched rates |
 | [Composition](../../recs/edit/composition.py) | `CompositionEdit`, command recipes, materialized stages | Compile authored operations to nested arrangements/derived assets; retain recipe history as provenance |
-| [Session records](../../recs/ui/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
-| [Session export](../../recs/ui/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common scores/assets and preserve timeline gaps |
+| [Session records](../../recs/recording/session_record.py) | Version 4 typed audio/event lifecycle, audio timelines, clock observations, operational events | Implemented; historical version 3 parsing is isolated in explicit migration |
+| [Session export](../../recs/recording/session_export.py) | Existing portable session export workflow | Extend its dependency collection to common scores/assets and preserve timeline gaps |
 | [Ufor instrument](../../../ufor/ufor/samples/instrument.py) | Common root, body, slots, musical validation | Implemented; Recsam definitions removed |
 | [Ufor events](../../../ufor/ufor/events.py) | `Trigger`, `Release`, `ControlChange` | Implemented common tick/ordinal envelope; Recs consumes these directly |
 | [Ufor sample types](../../../ufor/ufor/samples/) | Controls, EQ, selection, crossfades, slices, loops, pitch mapping | Implemented with shared envelopes/LFOs/routes; generic DSP remains separate |
@@ -696,7 +696,7 @@ search the network for a vaguely similar replacement.
 ### Change from today
 
 The original `SessionHeader` version 3, `FileRecord`, and `EventRecord` in
-`recs/ui/session_record.py` already capture stream identity, file lifecycle,
+`recs/recording/session_record.py` already capture stream identity, file lifecycle,
 quantities, and diagnostic events. Replace their optional audio/MIDI/OSC field
 mixture with typed stream and observation records. Keep the journal write and
 recovery behavior where suitable. Replace `SOURCE:TRACK[:OFFSET]` parsing in

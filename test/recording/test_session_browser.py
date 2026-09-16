@@ -1,0 +1,179 @@
+import json
+from pathlib import Path
+
+import pytest
+from ufor import recording
+from ufor.codec import score_toml
+from ufor.streams import AudioType
+from ufor.time import Rate, Timebase
+
+from recs.recording import session_browser
+from recs.recording.files import sealed_asset
+
+
+def test_session_browser_lists_session_records(
+    capsys,
+    tmp_path: Path,
+) -> None:
+    session = _record(tmp_path)
+
+    assert session_browser.main([str(tmp_path)]) == 0
+
+    assert capsys.readouterr().out == (
+        f'start  audio=1  midi=1  bytes=8  {session.as_posix()}\n'
+    )
+
+
+def test_session_browser_lists_session_records_as_json(
+    capsys,
+    tmp_path: Path,
+) -> None:
+    session = _record(tmp_path)
+
+    assert session_browser.main(['--json', str(tmp_path)]) == 0
+
+    data = json.loads(capsys.readouterr().out)
+    assert data == [
+        {
+            'path': session.as_posix(),
+            'started_at': 'start',
+            'ended_at': 'end',
+            'duration': 1.5,
+            'output_directories': [
+                (session / 'audio').as_posix(),
+                (session / 'midi').as_posix(),
+            ],
+            'devices': ['Mic'],
+            'tracks': ['Mic:1'],
+            'midi_ports': ['Launchkey'],
+            'files': 2,
+            'audio_files': 1,
+            'midi_files': 1,
+            'midi_messages': 3,
+            'total_bytes': 8,
+            'state': 'sealed',
+            'unresolved_audio_files': 0,
+            'warnings': ['quiet'],
+            'disk_events': 1,
+            'markers': 2,
+            'continued_from': None,
+            'continued_at': ['next/recording.toml'],
+        }
+    ]
+
+
+def test_session_browser_reports_invalid_records_and_keeps_healthy_sessions(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    healthy = _record(tmp_path)
+    directory = tmp_path / 'session'
+    directory.mkdir(parents=True)
+    record = directory / 'recording.toml'
+    record.write_text('{')
+
+    summaries = session_browser.scan(tmp_path)
+
+    assert len(summaries) == 1
+    assert summaries[0].path == healthy.as_posix()
+    assert f'Cannot read recording {record}' in capsys.readouterr().err
+
+
+def test_missing_journal_preserves_summary_with_diagnostic_warning(
+    tmp_path: Path,
+) -> None:
+    session = _record(tmp_path)
+    (session / 'session-record.jsonl').rename(session / 'moved-journal.jsonl')
+
+    summary = session_browser.summarize(session)
+
+    assert summary is not None
+    assert summary.audio_files == 1
+    assert summary.midi_messages == 3
+    assert summary.warnings[0].startswith('Cannot read capture diagnostics:')
+
+
+def test_session_browser_shows_one_session(
+    capsys,
+    tmp_path: Path,
+) -> None:
+    session = _record(tmp_path)
+
+    assert session_browser.show([str(session)]) == 0
+
+    output = capsys.readouterr().out
+    assert 'audio_files: 1\n' in output
+    assert 'midi_files: 1\n' in output
+    assert 'midi_messages: 3\n' in output
+    assert 'midi_ports: Launchkey\n' in output
+
+
+def _record(tmp_path: Path) -> Path:
+    session = tmp_path / 'take'
+    audio = session / 'audio'
+    midi = session / 'midi'
+    audio.mkdir(parents=True)
+    midi.mkdir()
+    (audio / 'take.wav').write_bytes(b'data')
+    (midi / 'keys.mid').write_bytes(b'midi')
+    (session / 'session-record.jsonl').write_text(
+        '{"type":"header","version":3,"started_at":"start"}\n'
+        '{"type":"key_pressed","timestamp":"mark","key":"g"}\n'
+        '{"type":"mark","timestamp":"mark","label":"solo"}\n'
+        '{"type":"disk_switch_continued_at","timestamp":"switch",'
+        '"continued_at":"next/session-record.jsonl"}\n'
+        '{"type":"file_finished","media_type":"audio","stream_id":"audio:test:1","format":"wav","timestamp":"done","path":"audio/take.wav",'
+        '"source":"Mic","track_name":"1","source_channels":[1],'
+        '"channels":1,"sample_rate":48000,'
+        '"bit_depth":32}\n'
+        '{"type":"file_finished","media_type":"midi","stream_id":"midi:test","format":"smf","timestamp":"done",'
+        '"path":"midi/keys.mid","source":"Launchkey","quantity_count":3,'
+        '"midi_port":"Launchkey","timing_source":"mido"}\n'
+        '{"type":"warning","timestamp":"warn","message":"quiet"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1.5}\n'
+    )
+    value = recording.RecordingScore(
+        name='take',
+        title='Take',
+        assets=[
+            sealed_asset(session / p, session, i, e)
+            for p, i, e in (
+                ('session-record.jsonl', 'journal', 'recs-session-v3'),
+                ('audio/take.wav', 'audio', 'wav'),
+                ('midi/keys.mid', 'midi', 'smf'),
+            )
+        ],
+        timebases=[Timebase(name='audio', rate=Rate(numerator=48000))],
+        body=recording.Recording(
+            state='sealed',
+            started_at='start',
+            ended_at='end',
+            observed_duration_seconds=1.5,
+            journal='journal',
+            continued_at=['next/recording.toml'],
+            streams=[
+                recording.AudioStream(
+                    name='mic',
+                    source_id='audio:Mic:1',
+                    source_name='Mic',
+                    track_name='1',
+                    end=48000,
+                    stream=AudioType(timebase='audio', channels=['mono']),
+                    fragments=[
+                        recording.AudioFragment(asset='audio', start=0, count=48000)
+                    ],
+                ),
+                recording.EventStream(
+                    name='midi',
+                    source_id='midi:Launchkey',
+                    event_schema='midi',
+                    fragments=[
+                        recording.EventFragment(
+                            asset='midi', event_count=3, timing='smf'
+                        )
+                    ],
+                ),
+            ],
+        ),
+    )
+    (session / 'recording.toml').write_text(score_toml(value))
+    return session

@@ -20,9 +20,9 @@ A real spawned child regression verifies a final update larger than the pipe
 buffer is preserved without forced termination. Previously queued updates are
 also retained rather than discarded on join.
 
-Evidence: [SourceProcess.join](../recs/ui/source_process.py) waits for the
+Evidence: [SourceProcess.join](../recs/runtime/source_process.py) waits for the
 process, terminates it after the timeout, and only then reads pending updates.
-[SourceUpdateTransport.finish](../recs/ui/source_recorder.py) waits indefinitely
+[SourceUpdateTransport.finish](../recs/runtime/source_recorder.py) waits indefinitely
 for its sender to become idle; that sender uses blocking `Connection.send`.
 
 Conditional failure: if final updates fill the pipe, the child cannot finish
@@ -41,7 +41,7 @@ Resolved: a failed send marks the transport stopped and wakes the finish waiter.
 Later publications cannot reset the waiter. A closed-pipe regression covers
 both the failed send and a subsequent publication before finish.
 
-Evidence: [SourceUpdateTransport](../recs/ui/source_recorder.py) clears `idle`
+Evidence: [SourceUpdateTransport](../recs/runtime/source_recorder.py) clears `idle`
 when publishing. Its send-error branch returns without setting `idle` or
 recording a terminal transport state. `finish()` still calls `idle.wait()`.
 
@@ -56,9 +56,9 @@ Resolved: playback restores only a pause it acquired. Further manual/disk pauses
 cancel automatic resumption. Explicit resume stops playback before enabling
 capture, as agreed by the user.
 
-Evidence: [PlaybackControl.play, stop, and _finished](../recs/ui/playback_control.py)
+Evidence: [PlaybackControl.play, stop, and _finished](../recs/runtime/playback_control.py)
 discard the pause callback's result and unconditionally resume recording on
-completion or stop. [pause_recording](../recs/ui/recording_commands.py) now
+completion or stop. [pause_recording](../recs/runtime/recording_commands.py) now
 returns `was_paused`, but playback does not consume it.
 
 A manual or disk-space pause followed by playback can therefore end with capture
@@ -75,7 +75,7 @@ Fake-output and worker-completion regressions cover closure and deferred resume.
 
 Evidence: [PlaybackRunner._run](../recs/audio/playback.py) invokes `failed()`
 inside its processing exception handler, before `stream.close()` in `finally`.
-The [failure callback](../recs/ui/playback_control.py) clears the runner and
+The [failure callback](../recs/runtime/playback_control.py) clears the runner and
 resumes capture immediately.
 
 This creates a device-ownership race on systems that cannot open capture while
@@ -89,7 +89,7 @@ ordering with fake output streams before hardware verification.
 Resolved: the timeline is prepared before stopping existing playback or pausing
 capture. Fractional-rate regressions cover both idle and active playback.
 
-Evidence: [PlaybackControl.play](../recs/ui/playback_control.py) pauses recording
+Evidence: [PlaybackControl.play](../recs/runtime/playback_control.py) pauses recording
 before constructing `PlaybackTimeline`; that constructor can reject a fractional
 audio rate in [audio/playback.py](../recs/audio/playback.py).
 
@@ -120,9 +120,9 @@ Resolved: replacement profiles are validated together, startup-only changes
 reject the entire reload, and accepted configuration is sent to children with
 revision acknowledgments. Invalid reloads preserve the current snapshot.
 
-Evidence: [reload_profiles](../recs/ui/recording_commands.py) invalidates the
+Evidence: [reload_profiles](../recs/runtime/recording_commands.py) invalidates the
 parent's cache and assigns `source.cfg`. It neither validates the replacement
-file immediately nor calls [SourceProcess.set_cfg](../recs/ui/source_process.py),
+file immediately nor calls [SourceProcess.set_cfg](../recs/runtime/source_process.py),
 which sends the resolved configuration to the child.
 
 Running capture can continue with old settings after a successful response;
@@ -152,11 +152,11 @@ Resolved: sessions, session, record, and edit have explicit help paths. Session
 commands no longer fall back to directory scans; the user approved removing the
 undocumented shorthand. Device-query helpers parse help before touching devices.
 
-Evidence: [session_browser.main](../recs/ui/session_browser.py) treats its first
+Evidence: [session_browser.main](../recs/recording/session_browser.py) treats its first
 argument as a path, so `recs sessions --help` scans a path called `--help` and
 returns success. The `session` fallback in [the dispatcher](../recs/__main__.py)
 also lets a misspelled subcommand become a directory scan. `record --help`
-exits with a usage error in [session_record_check](../recs/ui/session_record_check.py);
+exits with a usage error in [session_record_check](../recs/recording/session_record_check.py);
 `edit --help` enters recipe resolution in [edit/cli.py](../recs/edit/cli.py).
 
 Provide explicit group help and distinguish unknown commands from paths.
@@ -186,10 +186,10 @@ Resolved: playback and browsing report unreadable documents and keep healthy
 sessions accessible. Playback still reports an error if no readable sessions
 remain. Mixed-library and all-invalid playback regressions cover this policy.
 
-Evidence: [PlaybackControl._sessions](../recs/ui/playback_control.py) parses every
+Evidence: [PlaybackControl._sessions](../recs/runtime/playback_control.py) parses every
 discovered `recording.toml` in a list comprehension. Any `RecsError` aborts the
 entire selection, including requests for an unrelated valid session. By contrast,
-[session_browser.summarize](../recs/ui/session_browser.py) silently omits documents
+[session_browser.summarize](../recs/recording/session_browser.py) silently omits documents
 it cannot read.
 
 Choose a consistent policy that reports bad entries while keeping healthy
@@ -274,6 +274,12 @@ preserving gap behavior and random seeks.
 
 ### 16. P3: ui contains most of the capture and persistence subsystem
 
+Resolved with the approved package split: capture/process orchestration and
+runtime policy live in `recs/runtime`; persistence, recovery, inspection, and
+export live in `recs/recording`. Display and input remain in `recs/ui`.
+Tests and imports move with their owners, without compatibility re-exports.
+The architecture document and AGENTS.md describe the current package map.
+
 Evidence: `recs/ui/` has 34 tracked-source entries in this review, including
 source processes, audio buffering, disk policy, session records, export,
 recovery, and playback control. [AGENTS.md](../AGENTS.md) describes the directory
@@ -289,11 +295,11 @@ Measured source lengths at review time:
 
 | File | Lines | Review concern |
 | --- | ---: | --- |
-| [source_recorder.py](../recs/ui/source_recorder.py) | 1,054 | transport, buffers, calibration, file events, control application, capture, and update merging |
-| [recorder.py](../recs/ui/recorder.py) | 904 | application wiring, control flow, session transitions, status, and collaborator forwarding |
+| [source_recorder.py](../recs/runtime/source_recorder.py) | 1,054 | transport, buffers, calibration, file events, control application, capture, and update merging |
+| [recorder.py](../recs/runtime/recorder.py) | 904 | application wiring, control flow, session transitions, status, and collaborator forwarding |
 | [autocalibrate.py](../recs/edit/autocalibrate.py) | 889 | schema, preparation, statistics, interval detection, rendering, and output persistence |
 | [cfg.py](../recs/cfg/cfg.py) | 856 | option sections, flat compatibility access, profiles, units, and derived runtime settings |
-| [test_recorder.py](../test/ui/test_recorder.py) | 2,409 | shared fakes and many unrelated recorder behavior families |
+| [test_recorder.py](../test/runtime/test_recorder.py) | 2,409 | shared fakes and many unrelated recorder behavior families |
 
 These are maintenance judgments, not line-count rules. Extract along stable
 responsibilities when changing those areas; do not split by arbitrary size.

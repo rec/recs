@@ -13,7 +13,7 @@ from recs.__main__ import run
 from recs.base.types import MidiTiming, SdType
 from recs.cfg import cli
 from recs.edit import commands
-from recs.ui import session_browser
+from recs.recording import session_browser
 
 
 def test_console_script_entry_point() -> None:
@@ -128,8 +128,8 @@ def test_help_exits_before_discovery_or_execution(
     monkeypatch.setattr(commands, 'resolve_command', unexpected)
     monkeypatch.setattr('recs.__main__.devices_json', unexpected)
     monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
-    monkeypatch.setattr('recs.ui.session_explain.explain', unexpected)
-    monkeypatch.setattr('recs.ui.session_explain.explain_daemon', unexpected)
+    monkeypatch.setattr('recs.recording.session_explain.explain', unexpected)
+    monkeypatch.setattr('recs.recording.session_explain.explain_daemon', unexpected)
     monkeypatch.setattr('recs.daemon.cli.ServiceController', unexpected)
     monkeypatch.setattr('recs.daemon.control_cli.instances.list_instances', unexpected)
     monkeypatch.setattr(sys, 'argv', ['recs', *command, '--help'])

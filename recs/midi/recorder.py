@@ -10,7 +10,7 @@ from ufor.events import MidiEvent
 
 from recs.base import times
 from recs.cfg.cfg import Cfg
-from recs.ui.session_record import EventRecord, Record, timestamp_to_json
+from recs.recording.session_record import EventRecord, Record, timestamp_to_json
 
 from . import device
 from .writer import MidiClock, MidiMessage, MidiWriter

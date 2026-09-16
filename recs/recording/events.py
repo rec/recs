@@ -7,7 +7,11 @@ from typing import Literal
 from ufor.events import StoredEvent
 from ufor.time import ClockObservation, Position, Rate, Timebase
 
-from recs.ui.session_record import ClockRecord, EventFileRecord, timestamp_to_json
+from recs.recording.session_record import (
+    ClockRecord,
+    EventFileRecord,
+    timestamp_to_json,
+)
 
 
 class EventWriter:

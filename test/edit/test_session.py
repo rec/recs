@@ -6,9 +6,9 @@ from ufor.interface import NormalizeMode
 
 from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
+from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
 from recs.recording.read import read_recording
-from recs.ui import session_record
 
 
 def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) -> None:

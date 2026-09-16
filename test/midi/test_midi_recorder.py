@@ -8,7 +8,7 @@ from ufor.events import MidiEvent
 from recs.cfg.cfg import Cfg
 from recs.midi import recorder
 from recs.midi.recorder import MidiPacket, MidiRecorder
-from recs.ui.session_record import Record
+from recs.recording.session_record import Record
 
 
 class FakePort:
