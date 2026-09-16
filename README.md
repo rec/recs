@@ -229,6 +229,34 @@ limit is 100; additional matches and unreadable documents are reported to stderr
 including with JSON output. A malformed document does not hide healthy sessions.
 Search reads metadata and journals afresh, so moving a library needs no reindexing.
 
+List markers, preview an extraction, then render it into a new session:
+
+```console
+recs session markers /path/to/session
+recs session extract /path/to/session --clock clock-EXAMPLE --start-marker 1 --end-marker 2
+recs session extract /path/to/session --clock clock-EXAMPLE --start-marker 1 --end-marker 2 --destination /path/to/extracted
+```
+
+Use the clock ID and numbered markers shown by `session markers`; repeated labels
+are deliberately not selectors. `--tracks` restricts extraction to exact stream
+IDs on that clock; otherwise all its audio streams are selected. For a passage
+around one marker, omit `--end-marker` and provide `--lead` and/or `--tail` in
+seconds. Durations round once to source frames; lead/tail are trimmed to the
+common selected-track extent. Preview JSON (`--json`) includes requested and
+resolved half-open frame ranges and the original marker evidence.
+
+New explicit marks anchor to the latest processed block boundary received from
+each active source. They do not claim the sample at button-press time: backlog
+can make those anchors older. Historical marks and keyboard events without frame
+evidence remain listable but cannot be extracted automatically. Independent
+capture clocks, including reconnects, are never aligned by this command.
+
+Extraction requires a sealed, mapped recording with full-channel output ports.
+It writes float32 WAV tracks, `edit.toml`, and the usual recording/journal files,
+with marker provenance in the `edit_started` entry. Gaps render as silence under
+the existing renderer's rules. Original files are not rewritten, destinations
+inside the original session are refused, and existing destinations are not reused.
+
 `recs edit` reads TOML edit definitions or installed edit commands and writes a
 new session directory containing generated media, the resolved `edit.toml`, and
 a new `recording.toml` and capture journal. Each installed edit command provides

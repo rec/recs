@@ -143,6 +143,14 @@ schema. Measure ordinary filesystem search before considering a cache.
 
 ## 4. Marker-based extraction
 
+Implemented: `recs session markers` lists numbered evidence, and `recs session
+extract` previews a one-clock range by default. `--destination` invokes the
+existing renderer, writes float32 WAV tracks and a resolved edit, and retains
+marker provenance in the new session journal. Numbered selections disambiguate
+labels. Lead/tail seconds round once to frames and trim to the common selected
+extent. Unpositioned marks, mixed clocks, open recordings, and unresolved audio
+are refused. Original sessions are never modified.
+
 Question answered: “Can I save the passage I marked without writing frame ranges?”
 
 Existing foundation: live marks/key events and non-destructive clip/edit commands.

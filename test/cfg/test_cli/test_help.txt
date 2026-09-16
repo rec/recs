@@ -326,7 +326,7 @@ Validate recording documents and their media, not start capture.
 
 
 $ recs session --help
-usage: recs session [-h] {show,quality,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,markers,extract,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
@@ -342,6 +342,12 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
                    Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
                    advisories are not proof of clipping. No quietness verdicts.
+    - markers      List numbered markers and their available source-frame evidence.
+    - extract      Preview marker extraction; supply --destination to render a new session.
+
+                   Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
+                   lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
+                   rejected, never mapped from wall time.
     - finalize
     - export-midi
     - migrate

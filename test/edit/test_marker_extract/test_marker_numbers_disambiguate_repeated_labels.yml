@@ -1,0 +1,25 @@
+markers:
+- label: solo
+  number: 1
+  positions:
+  - clock_id: mic-clock
+    frame: 12000
+    observed_at: observed
+    sample_rate: 48000
+    source: Mic
+    timing_source: latest_processed_boundary
+  timestamp: marked
+- label: solo
+  number: 2
+  positions:
+  - clock_id: mic-clock
+    frame: 60000
+    observed_at: observed
+    sample_rate: 48000
+    source: Mic
+    timing_source: latest_processed_boundary
+  timestamp: marked
+- label: legacy
+  number: 3
+  positions: []
+  timestamp: old

@@ -64,6 +64,14 @@ def run() -> int:
 
             return session_browser.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'session':
+            if len(sys.argv) > 2 and sys.argv[2] == 'markers':
+                from recs.recording.markers import main
+
+                return main(sys.argv[3:])
+            if len(sys.argv) > 2 and sys.argv[2] == 'extract':
+                from recs.edit.marker_extract import main
+
+                return main(sys.argv[3:])
             if len(sys.argv) > 2 and sys.argv[2] == 'quality':
                 from recs.recording.session_quality import main
 
@@ -88,8 +96,10 @@ def run() -> int:
 
             if len(sys.argv) > 2 and sys.argv[2] == 'show':
                 return session_browser.show(sys.argv[3:])
+            from recs.edit.marker_extract import ExtractCli
             from recs.midi.export import ExportMidi
             from recs.recording.finalize import FinalizeSession
+            from recs.recording.markers import MarkersCli
             from recs.recording.migrate import MigrateSession
             from recs.recording.session_export import ExportCli
             from recs.recording.session_quality import QualityCli
@@ -98,6 +108,8 @@ def run() -> int:
                 {
                     'show': session_browser.ShowCli,
                     'quality': QualityCli,
+                    'markers': MarkersCli,
+                    'extract': ExtractCli,
                     'finalize': FinalizeSession,
                     'export-midi': ExportMidi,
                     'migrate': MigrateSession,

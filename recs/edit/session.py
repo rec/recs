@@ -49,7 +49,10 @@ def prepare_edit(
 
 
 def execute_edit(
-    edit: ArrangementScore, edit_directory: Path, destination: Path
+    edit: ArrangementScore,
+    edit_directory: Path,
+    destination: Path,
+    provenance: dict[str, object] | None = None,
 ) -> Path:
     prepared = prepare_edit(edit, edit_directory, destination)
     canonical = prepared.edit
@@ -60,7 +63,8 @@ def execute_edit(
         prepared.graph,
         rendered,
         destination,
-        _resolution_metadata(prepared.sources, prepared.graph),
+        _resolution_metadata(prepared.sources, prepared.graph)
+        | ({'provenance': provenance} if provenance is not None else {}),
     )
 
 

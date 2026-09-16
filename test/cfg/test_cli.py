@@ -57,7 +57,16 @@ def test_help(cli_help: CliHelp) -> None:
     [
         (
             'session',
-            ['show', 'quality', 'finalize', 'export-midi', 'migrate', 'export'],
+            [
+                'show',
+                'quality',
+                'markers',
+                'extract',
+                'finalize',
+                'export-midi',
+                'migrate',
+                'export',
+            ],
         ),
         ('record', ['check']),
         ('profile', ['save', 'use', 'show', 'list', 'delete']),
@@ -106,6 +115,8 @@ def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) 
         ['session'],
         ['session', 'show'],
         ['session', 'quality'],
+        ['session', 'markers'],
+        ['session', 'extract'],
         ['record'],
         ['record', 'check'],
         ['edit'],
@@ -131,6 +142,8 @@ def test_help_exits_before_discovery_or_execution(
     monkeypatch.setattr(session_browser, 'scan', unexpected)
     monkeypatch.setattr(session_browser, 'summarize', unexpected)
     monkeypatch.setattr('recs.recording.session_quality.inspect', unexpected)
+    monkeypatch.setattr('recs.recording.markers.read_markers', unexpected)
+    monkeypatch.setattr('recs.edit.marker_extract.plan_extraction', unexpected)
     monkeypatch.setattr(commands, 'resolve_command', unexpected)
     monkeypatch.setattr('recs.__main__.devices_json', unexpected)
     monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
