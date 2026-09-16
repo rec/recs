@@ -181,11 +181,31 @@ recorder:
 ```console
 recs sessions /path/to/recordings
 recs session show /path/to/session
+recs session quality /path/to/session
+recs session quality /path/to/session --analyze-audio --json
 recs record check /path/to/session/recording.toml
 recs explain /path/to/session/session-record.jsonl
 recs session export /path/to/session/recording.toml /path/to/export
 recs session export-midi /path/to/session/recording.toml midi:Launchkey take.mid
 ```
+
+`session quality` reports one document's source-local captured durations, explicit
+gaps, unfinished files, unresolved placement, and journal diagnostics. It does
+not follow continuation documents or hash media. Intentional silence suppression
+and discarded short captures are informational; known loss and incomplete
+evidence are warnings. Unreadable documents, journals, or analyzed audio produce
+errors and exit status 1. Advisories and warnings alone do not fail the command.
+
+Audio analysis is opt-in and reads blocks of at most 48,000 frames. By default it
+measures the first 60 seconds of each fragment and retains up to 100
+near-full-scale runs per channel. Configure these limits with
+`--analysis.max-seconds` and `--analysis.max-runs`; omitted frames/runs are reported.
+`--analysis.near-full-scale-dbfs` defaults to −0.1 dBFS. These advisories do not
+prove clipping, and quiet channels receive measured peak/RMS levels, not a
+“bad microphone” verdict. Peak/RMS use normalized linear amplitude, with 1 as
+full scale. Run ranges are half-open and clipped to the analyzed range.
+Unmapped audio retains asset offsets without invented source positions. The
+report never changes the recording; use `record check` for full media integrity.
 
 `recs edit` reads TOML edit definitions or installed edit commands and writes a
 new session directory containing generated media, the resolved `edit.toml`, and
