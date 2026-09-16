@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from pathlib import Path
+from queue import Empty, SimpleQueue
 
 from ufor.recording import AudioStream
 
@@ -33,6 +34,7 @@ class PlaybackControl:
         self.warning = warning
         self.runner: PlaybackRunner | None = None
         self.resume_after_playback = False
+        self._results: SimpleQueue[str | None] = SimpleQueue()
         self.session_paths: list[Path] = []
         self.session_index: int | None = None
         self.path: Path | None = None
@@ -70,8 +72,8 @@ class PlaybackControl:
         self.runner = PlaybackRunner(
             PlaybackTimeline(score_path.parent, score, stream),
             output,
-            self._finished,
-            self._failed,
+            lambda: self._results.put(None),
+            self._results.put,
         )
         self.runner.start()
         return self._publish()
@@ -79,11 +81,22 @@ class PlaybackControl:
     def stop(self) -> gui_protocol.PlaybackState:
         if self.runner is not None:
             self.runner.stop()
+            self.poll()
             self.runner = None
             if self.resume_after_playback:
                 self.resume_after_playback = False
                 self.resume_recording()
         return self._publish()
+
+    def poll(self) -> None:
+        """Apply worker completion on the recorder thread, after output closure."""
+        try:
+            message = self._results.get_nowait()
+        except Empty:
+            return
+        if message is not None:
+            self.warning(f'Playback stopped: {message}')
+        self._finished()
 
     def pause(self) -> gui_protocol.PlaybackState:
         if self.runner is None:
@@ -149,15 +162,13 @@ class PlaybackControl:
         return [path for _, path in sorted(sessions)]
 
     def _finished(self) -> None:
+        if self.runner is not None:
+            self.runner.stop()
         self.runner = None
         if self.resume_after_playback:
             self.resume_after_playback = False
             self.resume_recording()
         self._publish()
-
-    def _failed(self, message: str) -> None:
-        self.warning(f'Playback stopped: {message}')
-        self._finished()
 
     def _publish(self) -> gui_protocol.PlaybackState:
         state = self.state()

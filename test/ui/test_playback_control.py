@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import Thread
 
 import pytest
 from ufor.assets import Asset
@@ -86,11 +87,21 @@ def test_playback_restores_only_its_own_recording_pause(
     if completion == 'stop':
         control.stop()
     elif completion == 'finished':
-        runner.finished()
+        worker = Thread(target=runner.finished)
+        worker.start()
+        worker.join()
     else:
-        runner.failed('output failed')
+        worker = Thread(target=runner.failed, args=('output failed',))
+        worker.start()
+        worker.join()
+    if completion != 'stop':
+        assert resumes == []
+        assert control.state().state == 'playing'
+        control.poll()
     assert len(resumes) == int(not was_paused)
     assert control.state().state == 'waiting'
+    control.poll()
+    assert len(resumes) == int(not was_paused)
 
 
 class FakeRunner:

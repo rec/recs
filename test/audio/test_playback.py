@@ -111,6 +111,47 @@ def test_runner_maps_recorded_stereo_to_selected_output_pair(
     np.testing.assert_allclose(writes[0][:, 2:], samples, atol=1e-4)
 
 
+@pytest.mark.parametrize('failure_stage', ['open', 'start', 'write'])
+def test_runner_reports_failure_after_output_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_stage: str
+) -> None:
+    score, stream, _ = _score(tmp_path)
+    events: list[str] = []
+
+    class OutputStream:
+        def __init__(self, **kwargs: object) -> None:
+            if failure_stage == 'open':
+                raise OSError('open failed')
+
+        def start(self) -> None:
+            if failure_stage == 'start':
+                raise OSError('start failed')
+
+        def write(self, data: np.ndarray) -> None:
+            raise OSError('write failed')
+
+        def close(self) -> None:
+            events.append('closed')
+
+    monkeypatch.setitem(
+        sys.modules,
+        'sounddevice',
+        SimpleNamespace(OutputStream=OutputStream, PortAudioError=RuntimeError),
+    )
+    runner = playback.PlaybackRunner(
+        playback.PlaybackTimeline(tmp_path, score, stream),
+        (1, 2),
+        lambda: events.append('finished'),
+        events.append,
+    )
+    runner.start()
+    assert runner._thread is not None
+    runner._thread.join(timeout=2)
+    assert not runner._thread.is_alive()
+    expected = [] if failure_stage == 'open' else ['closed']
+    assert events == [*expected, f'{failure_stage} failed']
+
+
 def _score(
     root: Path,
     *,
