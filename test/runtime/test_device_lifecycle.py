@@ -7,7 +7,7 @@ from recs.cfg.device import InputDevice
 from recs.cfg.track import Track
 from recs.runtime.device_lifecycle import DeviceLifecycle
 from recs.runtime.full_state import FullState
-from recs.runtime.source_recorder import SourceUpdate
+from recs.runtime.source_messages import SourceUpdate
 
 
 class DrainingConnection:

@@ -27,13 +27,13 @@ from recs.midi.recorder import MidiPacket, MidiRecorder
 from recs.osc import recorder
 from recs.osc.config import Node
 from recs.recording import session_record
+from recs.recording.capture_events import SourceFileEvents
 from recs.recording.files import verify_recording
 from recs.recording.finalize import prepare_recording
 from recs.recording.read import read_recording, read_recording_chain
 from recs.recording.recording_session import RecordingSession
 from recs.recording.session_explain import explain
 from recs.recording.session_export import export
-from recs.runtime.source_recorder import SourceFileEvents
 
 
 class MidiPort:

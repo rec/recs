@@ -9,7 +9,7 @@ from ufor.interface import OutputSelection, ScoreVersion
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
-from recs.edit import autocalibrate, commands, session
+from recs.edit import autocalibrate, calibration_schema, commands, session
 from recs.edit.graph import EditGraph, validate_graph
 from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import (
@@ -91,7 +91,7 @@ class PreparedComposition:
         rendered: dict[str, MaterializedAudio],
         stage_storage: list[int],
         peak_memory: int,
-        autocalibration: autocalibrate.PreparedAutocalibrate | None = None,
+        autocalibration: calibration_schema.PreparedAutocalibrate | None = None,
     ) -> None:
         self.canonical = canonical
         self.edit = edit
@@ -174,7 +174,7 @@ def prepare_composition(
     final_edit: ArrangementScore | None = None
     final_graph: EditGraph | None = None
     final_rendered: dict[str, MaterializedAudio] = {}
-    final_autocalibration: autocalibrate.PreparedAutocalibrate | None = None
+    final_autocalibration: calibration_schema.PreparedAutocalibrate | None = None
     for index, resolved_step in enumerate(resolved, 1):
         operation = commands.command_operation(resolved_step.recipe)
         assert operation is not None
@@ -189,7 +189,7 @@ def prepare_composition(
                     f'Selected tracks have mixed sample rates: {sample_rates}'
                 )
             sample_rate = next(iter(sample_rates))
-            options = autocalibrate.AutocalibrateOptions(
+            options = calibration_schema.AutocalibrateOptions(
                 channel=selectors,
                 format=resolved_step.step.format,
                 subtype=resolved_step.step.subtype,
@@ -201,8 +201,8 @@ def prepare_composition(
                     or stage.operation != operation
                 ):
                     raise RecsError(f'Resolved stage {index} does not match its edit')
-                autocalibrate_edit = autocalibrate.AutocalibrateEdit.model_validate(
-                    stage.edit
+                autocalibrate_edit = (
+                    calibration_schema.AutocalibrateEdit.model_validate(stage.edit)
                 )
             else:
                 autocalibrate_edit = autocalibrate.autocalibrate_from_materialized(
@@ -394,11 +394,11 @@ def composition_summary(
 
 
 def _canonical_stage(
-    edit: ArrangementScore | autocalibrate.AutocalibrateEdit, *, final: bool
+    edit: ArrangementScore | calibration_schema.AutocalibrateEdit, *, final: bool
 ) -> dict[str, object]:
     if final:
         return edit.model_dump(mode='json', exclude_none=True)
-    if isinstance(edit, autocalibrate.AutocalibrateEdit):
+    if isinstance(edit, calibration_schema.AutocalibrateEdit):
         edit = edit.model_copy(
             update={
                 'output': edit.output.model_copy(

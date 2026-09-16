@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from reccy.configuration import settings
 
 from recs.base.errors import RecsError
+from recs.cfg.cfg import Cfg
 
-from .cfg import Cfg
 from .track_names import SourceTrackNames, validate_track_names
 
 

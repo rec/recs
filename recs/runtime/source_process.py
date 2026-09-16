@@ -12,6 +12,7 @@ from threa import Runnable
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
+from recs.runtime import source_messages, source_transport
 
 from . import source_recorder
 
@@ -24,7 +25,7 @@ class SourceControlTransport:
     def __init__(self, connection: connection.Connection) -> None:
         self.connection = connection
         self.lock = threading.Lock()
-        self.control = source_recorder.SourceControl()
+        self.control = source_messages.SourceControl()
         self.available = threading.Event()
         self.stopped = threading.Event()
         self.thread = threading.Thread(
@@ -36,9 +37,9 @@ class SourceControlTransport:
     def start(self) -> None:
         self.thread.start()
 
-    def publish(self, control: source_recorder.SourceControl) -> None:
+    def publish(self, control: source_messages.SourceControl) -> None:
         with self.lock:
-            self.control = source_recorder.SourceControl(
+            self.control = source_messages.SourceControl(
                 cfg=control.cfg if control.cfg is not None else self.control.cfg,
                 cfg_revision=(
                     control.cfg_revision
@@ -85,8 +86,8 @@ class SourceControlTransport:
             self.available.wait()
             self.available.clear()
             with self.lock:
-                control, self.control = self.control, source_recorder.SourceControl()
-            if control == source_recorder.SourceControl():
+                control, self.control = self.control, source_messages.SourceControl()
+            if control == source_messages.SourceControl():
                 continue
             try:
                 self.connection.send(control)
@@ -119,7 +120,7 @@ class SourceProcess(Runnable):
         self.waveform_generation = 0
         self.started: bool = False
         self.pending_updates: list[
-            source_recorder.SourceUpdate | source_recorder.SourceFailure
+            source_messages.SourceUpdate | source_messages.SourceFailure
         ] = []
         self.expected_stop = False
 
@@ -184,7 +185,7 @@ class SourceProcess(Runnable):
         self.track_names = track_names
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(track_names=track_names)
+                source_messages.SourceControl(track_names=track_names)
             )
 
     def set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
@@ -192,7 +193,7 @@ class SourceProcess(Runnable):
         self.track_names = track_names
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(
+                source_messages.SourceControl(
                     track_names=track_names,
                     tracks=tracks,
                 )
@@ -202,7 +203,7 @@ class SourceProcess(Runnable):
         self.cfg = cfg
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(
+                source_messages.SourceControl(
                     cfg=self.recorder_cfg, cfg_revision=revision
                 )
             )
@@ -211,27 +212,27 @@ class SourceProcess(Runnable):
         self.session_directory = session_directory
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(session_directory=session_directory)
+                source_messages.SourceControl(session_directory=session_directory)
             )
 
     def calibrate(self, tracks: list[str]) -> None:
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(calibration_tracks=tracks)
+                source_messages.SourceControl(calibration_tracks=tracks)
             )
 
     def set_waveforms_enabled(self, enabled: bool) -> None:
         self.waveforms_enabled = enabled
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(waveforms_enabled=enabled)
+                source_messages.SourceControl(waveforms_enabled=enabled)
             )
 
     def set_writing_enabled(self, enabled: bool) -> None:
         self.writing_enabled = enabled
         if self.started:
             self.control_transport.publish(
-                source_recorder.SourceControl(writing_enabled=enabled)
+                source_messages.SourceControl(writing_enabled=enabled)
             )
 
     def join(self, timeout: float | None = None) -> None:
@@ -271,14 +272,14 @@ class SourceProcess(Runnable):
                 break
             self.pending_updates.append(
                 cast(
-                    source_recorder.SourceUpdate | source_recorder.SourceFailure,
+                    source_messages.SourceUpdate | source_messages.SourceFailure,
                     update,
                 )
             )
 
     def _record_exit_failure(self, forced: bool) -> None:
         if any(
-            isinstance(update, source_recorder.SourceFailure)
+            isinstance(update, source_messages.SourceFailure)
             for update in self.pending_updates
         ):
             return
@@ -290,13 +291,13 @@ class SourceProcess(Runnable):
             (
                 update
                 for update in reversed(self.pending_updates)
-                if isinstance(update, source_recorder.SourceUpdate)
+                if isinstance(update, source_messages.SourceUpdate)
             ),
             None,
         )
         stop_kind = 'forced_termination' if forced else 'unexpected_exit'
         self.pending_updates.append(
-            source_recorder.SourceFailure(
+            source_messages.SourceFailure(
                 message=f'{self.name} source process {stop_kind}',
                 source_name=self.name,
                 exitcode=exitcode,
@@ -310,7 +311,7 @@ class SourceProcess(Runnable):
 
     def take_updates(
         self,
-    ) -> list[source_recorder.SourceUpdate | source_recorder.SourceFailure]:
+    ) -> list[source_messages.SourceUpdate | source_messages.SourceFailure]:
         updates, self.pending_updates = self.pending_updates, []
         return updates
 
@@ -329,7 +330,7 @@ def _run_source_recorder(
     writing_enabled: bool = True,
 ) -> None:
     _set_process_name(process_name)
-    transport = source_recorder.SourceUpdateTransport(update_connection)
+    transport = source_transport.SourceUpdateTransport(update_connection)
     transport.start()
     try:
         recorder = source_recorder.SourceRecorder(
@@ -361,12 +362,12 @@ def _connection_ready(conn: connection.Connection) -> bool:
 
 def _source_failure(
     error: Exception, source_name: str
-) -> source_recorder.SourceFailure:
+) -> source_messages.SourceFailure:
     import sounddevice
 
     message = f'{type(error).__name__}: {error}'
     if not isinstance(error, sounddevice.PortAudioError):
-        return source_recorder.SourceFailure(
+        return source_messages.SourceFailure(
             message=message,
             source_name=source_name,
             exception_type=type(error).__name__,
@@ -392,7 +393,7 @@ def _source_failure(
             '. The audio device may already be in use by another Recs instance '
             'or application'
         )
-    return source_recorder.SourceFailure(
+    return source_messages.SourceFailure(
         message=message,
         source_name=source_name,
         exception_type=type(error).__name__,

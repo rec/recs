@@ -5,10 +5,11 @@ import pytest
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.recording import recording_paths, session_record
+from recs.recording.capture_events import SourceFile
 from recs.runtime import disk_space, disk_space_controller, recorder
 from recs.runtime.recorder import Recorder
-from recs.runtime.source_recorder import SourceFile, SourceUpdate
-from test.runtime.test_recorder import DiskUsage, FakePoller, FakeSourceProcess
+from recs.runtime.source_messages import SourceUpdate
+from test.runtime.recorder.fakes import DiskUsage, FakePoller, FakeSourceProcess
 
 
 def test_minimum_free_space_is_an_emergency_reserve(

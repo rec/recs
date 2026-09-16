@@ -9,13 +9,13 @@ from ufor.encoding import Format
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.types import SdType
 from recs.cfg import device
+from recs.cfg.cfg import FLAT_FIELDS, Cfg
 from recs.daemon import gui_ipc, paths
 from recs.daemon.models import DaemonStatus
 from recs.daemon.root_user import raise_if_root
 from recs.runtime.recorder import Recorder
 
 from . import settings
-from .cfg import FLAT_FIELDS, Cfg
 
 
 def run_cli(cfg: Cfg, loaded_settings: settings.LoadedSettings | None = None) -> None:

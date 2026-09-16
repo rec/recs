@@ -1,23 +1,30 @@
-import math
 import os
 import re
 import uuid
-from collections.abc import Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal, Self
 
-import numpy as np
 import soundfile
 import tomlkit
-import tyro
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-from reccy.configuration import units
-from reccy.configuration.tyro import unit_spec
 from ufor.encoding import Format, Subtype
 from ufor.references import RecordSelector
 
 from recs.base.errors import RecsError
+from recs.edit.calibration_analysis import (
+    calibrate_threshold,
+    detect_intervals,
+    level_windows_audio,
+)
+from recs.edit.calibration_schema import (
+    AutocalibrateEdit,
+    AutocalibrateOptions,
+    AutocalibrateOutput,
+    CalibratedThreshold,
+    CalibrationSettings,
+    FrameRange,
+    PreparedAutocalibrate,
+    SilenceSettings,
+)
 from recs.edit.commands import input_tracks
 from recs.edit.graph import FrameRange as ObservedFrameRange
 from recs.edit.inputs import SourceSpec
@@ -26,157 +33,6 @@ from recs.edit.output import bit_depth
 from recs.edit.record import ResolvedSource, resolve_input
 from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
-
-HISTOGRAM_BIN_DB = 0.1
-TIME_SPEC = unit_spec(units.Seconds, 'TIME')
-
-
-class AutocalibrateOptions(BaseModel, frozen=True):
-    """Infer noise from each track's first sustained silence and keep it fixed."""
-
-    channel: Annotated[
-        list[str], tyro.conf.arg(help='SOURCE:TRACK selector; repeat to select several')
-    ] = Field(default_factory=list)
-
-    window_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.1, gt=0)
-
-    candidate_percentile: float = Field(default=20.0, ge=0, le=100)
-
-    candidate_tolerance_db: float = Field(default=3.0, ge=0)
-
-    minimum_silence_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.5, gt=0)
-
-    noise_percentile: float = Field(default=95.0, ge=0, le=100)
-
-    signal_margin_db: float = Field(default=6.0, ge=0)
-
-    analysis_floor_dbfs: float = Field(default=-160.0, lt=0)
-
-    quiet_before: Annotated[units.Seconds, TIME_SPEC] = Field(default=1.0, ge=0)
-
-    quiet_after: Annotated[units.Seconds, TIME_SPEC] = Field(default=2.0, ge=0)
-
-    stop_after_quiet: Annotated[units.Seconds, TIME_SPEC] = Field(default=20.0, ge=0)
-
-    shortest_file_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=1.0, ge=0)
-
-    longest_file_time: Annotated[units.Seconds, TIME_SPEC] = Field(default=0.0, ge=0)
-
-    format: Format | None = None
-
-    subtype: Subtype | None = None
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class CalibrationSettings(BaseModel, frozen=True):
-    window_frames: int = Field(default=4_800, gt=0)
-    candidate_percentile: float = Field(default=20.0, ge=0, le=100)
-    candidate_tolerance_db: float = Field(default=3.0, ge=0)
-    minimum_silence_frames: int = Field(default=24_000, gt=0)
-    noise_percentile: float = Field(default=95.0, ge=0, le=100)
-    signal_margin_db: float = Field(default=6.0, ge=0)
-    analysis_floor_dbfs: float = Field(default=-160.0, lt=0)
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class SilenceSettings(BaseModel, frozen=True):
-    quiet_before_frames: int = Field(default=48_000, ge=0)
-    quiet_after_frames: int = Field(default=96_000, ge=0)
-    stop_after_quiet_frames: int = Field(default=960_000, ge=0)
-    shortest_file_frames: int = Field(default=48_000, ge=0)
-    longest_file_frames: int = Field(default=0, ge=0)
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class AutocalibrateOutput(BaseModel, frozen=True):
-    format: Format | None = Format.flac
-    subtype: Subtype | None = Subtype.pcm_24
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class CalibratedThreshold(BaseModel, frozen=True):
-    source: str
-    silence_start: int = Field(ge=0)
-    silence_end: int = Field(gt=0)
-    provisional_quiet_level_dbfs: float = Field(le=0)
-    measured_noise_floor: float = Field(ge=0)
-    noise_floor: float = Field(ge=0)
-    observed_window_count: int = Field(gt=0)
-    window_count: int = Field(gt=0)
-
-    @model_validator(mode='after')
-    def validate_range(self) -> Self:
-        if self.silence_end <= self.silence_start:
-            raise ValueError('silence_end must be greater than silence_start')
-        return self
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class AutocalibrateEdit(BaseModel, frozen=True):
-    schema_version: Literal[1] = 1
-    kind: Literal['autocalibrate'] = 'autocalibrate'
-    record: Path | None = None
-    memory: str | None = None
-    channels: list[str] = Field(default_factory=list)
-    sample_rate: int | None = Field(default=None, gt=0)
-    calibration: CalibrationSettings = CalibrationSettings()
-    silence: SilenceSettings = SilenceSettings()
-    output: AutocalibrateOutput = AutocalibrateOutput()
-    thresholds: list[CalibratedThreshold] = Field(default_factory=list)
-
-    @model_validator(mode='after')
-    def validate_source(self) -> Self:
-        if (self.record is None) == (self.memory is None):
-            raise ValueError('autocalibration requires exactly one of record or memory')
-        return self
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class LevelWindow(BaseModel, frozen=True):
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
-    level_dbfs: float
-    coverage_start: int = Field(ge=0)
-    coverage_end: int = Field(gt=0)
-
-    @model_validator(mode='after')
-    def validate_ranges(self) -> Self:
-        if self.end <= self.start:
-            raise ValueError('window end must be greater than start')
-        if not self.coverage_start <= self.start < self.end <= self.coverage_end:
-            raise ValueError('window must remain inside observed coverage')
-        return self
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class FrameRange(BaseModel, frozen=True):
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
-
-    @model_validator(mode='after')
-    def validate_range(self) -> Self:
-        if self.end <= self.start:
-            raise ValueError('range end must be greater than start')
-        return self
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class PreparedAutocalibrate(BaseModel, frozen=True):
-    edit: AutocalibrateEdit
-    sources: dict[str, ResolvedSource]
-    audio: dict[str, MaterializedAudio]
-    track_ids: dict[str, str]
-    intervals: dict[str, list[FrameRange]]
-
-    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
 
 def parse_autocalibrate(text: str) -> AutocalibrateEdit:
@@ -386,105 +242,6 @@ def write_autocalibrate_session(
     )
     writer.close()
     return finalize_recording(writer.path)
-
-
-def level_windows(
-    source: ResolvedSource, settings: CalibrationSettings
-) -> Iterator[LevelWindow]:
-    yield from level_windows_audio(SourceMaterializer().materialize(source), settings)
-
-
-def level_windows_audio(
-    source: MaterializedAudio, settings: CalibrationSettings
-) -> Iterator[LevelWindow]:
-    for coverage in source.observed_ranges:
-        start = _aligned_start(coverage.start, settings.window_frames)
-        while start + settings.window_frames <= coverage.end:
-            end = start + settings.window_frames
-            minima = np.full(source.channels, np.inf, dtype=np.float32)
-            maxima = np.full(source.channels, -np.inf, dtype=np.float32)
-            for block in source.blocks(start, end):
-                minima = np.minimum(minima, np.min(block, axis=0))
-                maxima = np.maximum(maxima, np.max(block, axis=0))
-            yield LevelWindow(
-                start=start,
-                end=end,
-                level_dbfs=_level_dbfs(
-                    np.stack((minima, maxima)), settings.analysis_floor_dbfs
-                ),
-                coverage_start=coverage.start,
-                coverage_end=coverage.end,
-            )
-            start = end
-
-
-def calibrate_threshold(
-    source: str,
-    windows: Callable[[], Iterable[LevelWindow]],
-    settings: CalibrationSettings,
-) -> CalibratedThreshold:
-    all_levels = _Histogram(settings.analysis_floor_dbfs)
-    for window in windows():
-        all_levels.add(window.level_dbfs)
-    if not all_levels.count:
-        raise RecsError(f'{source}: no complete observed analysis window')
-
-    provisional = all_levels.percentile(settings.candidate_percentile)
-    ceiling = provisional + settings.candidate_tolerance_db
-    result, closest = _first_silence(windows(), ceiling, settings)
-    if result is None:
-        raise RecsError(
-            f'{source}: no sustained silence; provisional quiet level '
-            f'{provisional:.1f} dBFS, required {settings.minimum_silence_frames} '
-            f'frames, closest candidate {closest} frames'
-        )
-    start, end, levels = result
-    measured_dbfs = levels.percentile(settings.noise_percentile)
-    threshold_dbfs = min(0.0, measured_dbfs + settings.signal_margin_db)
-    return CalibratedThreshold(
-        source=source,
-        silence_start=start,
-        silence_end=end,
-        provisional_quiet_level_dbfs=round(provisional, 1),
-        measured_noise_floor=round(-measured_dbfs, 1),
-        noise_floor=round(-threshold_dbfs, 1),
-        observed_window_count=all_levels.count,
-        window_count=levels.count,
-    )
-
-
-def detect_intervals(
-    windows: Iterable[LevelWindow],
-    threshold: CalibratedThreshold,
-    settings: SilenceSettings,
-) -> list[FrameRange]:
-    active = _active_ranges(windows, -threshold.noise_floor)
-    joined = _join_nearby(active, settings.stop_after_quiet_frames)
-    padded = [
-        _ObservedRange(
-            start=max(r.coverage_start, r.start - settings.quiet_before_frames),
-            end=min(r.coverage_end, r.end + settings.quiet_after_frames),
-            coverage_start=r.coverage_start,
-            coverage_end=r.coverage_end,
-        )
-        for r in joined
-    ]
-    merged = _join_overlapping(padded)
-    result: list[FrameRange] = []
-    for item in merged:
-        if item.end - item.start < settings.shortest_file_frames:
-            continue
-        if not settings.longest_file_frames:
-            result.append(FrameRange(start=item.start, end=item.end))
-            continue
-        for start in range(item.start, item.end, settings.longest_file_frames):
-            result.append(
-                FrameRange(
-                    start=start,
-                    end=min(start + settings.longest_file_frames, item.end),
-                )
-            )
-    return result
 
 
 def _autocalibrate_from_options(
@@ -743,151 +500,3 @@ def _relative_path(path: Path, directory: Path) -> Path:
 
 def _timestamp(value: datetime) -> str:
     return value.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
-
-
-class _ObservedRange(BaseModel, frozen=True):
-    start: int
-    end: int
-    coverage_start: int
-    coverage_end: int
-
-    model_config = ConfigDict(extra='forbid')
-
-
-class _Histogram:
-    def __init__(self, floor: float) -> None:
-        self.floor = floor
-        self.bins = [0] * (math.ceil(-floor / HISTOGRAM_BIN_DB) + 1)
-        self.count = 0
-
-    def add(self, value: float) -> None:
-        value = min(0.0, max(self.floor, value))
-        index = min(len(self.bins) - 1, int((value - self.floor) / HISTOGRAM_BIN_DB))
-        self.bins[index] += 1
-        self.count += 1
-
-    def percentile(self, percentile: float) -> float:
-        if not self.count:
-            raise ValueError('Cannot find percentile of empty histogram')
-        target = max(1, math.ceil(self.count * percentile / 100))
-        cumulative = 0
-        for index, count in enumerate(self.bins):
-            cumulative += count
-            if cumulative >= target:
-                return self.floor + index * HISTOGRAM_BIN_DB
-        return 0.0
-
-
-def _aligned_start(start: int, window_frames: int) -> int:
-    return math.ceil(start / window_frames) * window_frames
-
-
-def _level_dbfs(block: np.ndarray, floor: float) -> float:
-    amplitudes = (np.max(block, axis=0) - np.min(block, axis=0)) / 2
-    amplitude = float(np.mean(amplitudes))
-    if amplitude <= 0:
-        return floor
-    return max(floor, 20 * math.log10(amplitude))
-
-
-def _first_silence(
-    windows: Iterable[LevelWindow],
-    ceiling: float,
-    settings: CalibrationSettings,
-) -> tuple[tuple[int, int, _Histogram] | None, int]:
-    start: int | None = None
-    end = 0
-    coverage_end = 0
-    levels = _Histogram(settings.analysis_floor_dbfs)
-    qualified = False
-    closest = 0
-    for window in windows:
-        contiguous = start is not None and end == window.start
-        quiet = window.level_dbfs <= ceiling
-        if not quiet or (start is not None and not contiguous):
-            if start is not None:
-                duration = end - start
-                closest = max(closest, duration)
-                if qualified:
-                    return (start, end, levels), closest
-            start = None
-            levels = _Histogram(settings.analysis_floor_dbfs)
-            qualified = False
-        if not quiet:
-            continue
-        if start is None:
-            start = window.start
-            coverage_end = window.coverage_end
-        elif window.coverage_end != coverage_end:
-            raise RecsError('Silence candidate crossed an unobserved source gap')
-        end = window.end
-        levels.add(window.level_dbfs)
-        qualified = end - start >= settings.minimum_silence_frames
-    if start is not None:
-        closest = max(closest, end - start)
-        if qualified:
-            return (start, end, levels), closest
-    return None, closest
-
-
-def _active_ranges(
-    windows: Iterable[LevelWindow], threshold_dbfs: float
-) -> list[_ObservedRange]:
-    result: list[_ObservedRange] = []
-    current: _ObservedRange | None = None
-    for window in windows:
-        if window.level_dbfs < threshold_dbfs:
-            if current is not None:
-                result.append(current)
-                current = None
-            continue
-        if (
-            current is not None
-            and current.end == window.start
-            and current.coverage_end == window.coverage_end
-        ):
-            current = current.model_copy(update={'end': window.end})
-        else:
-            if current is not None:
-                result.append(current)
-            current = _ObservedRange(
-                start=window.start,
-                end=window.end,
-                coverage_start=window.coverage_start,
-                coverage_end=window.coverage_end,
-            )
-    if current is not None:
-        result.append(current)
-    return result
-
-
-def _join_nearby(
-    values: list[_ObservedRange], maximum_gap: int
-) -> list[_ObservedRange]:
-    result: list[_ObservedRange] = []
-    for value in values:
-        if (
-            result
-            and result[-1].coverage_end == value.coverage_end
-            and value.start - result[-1].end <= maximum_gap
-        ):
-            result[-1] = result[-1].model_copy(update={'end': value.end})
-        else:
-            result.append(value)
-    return result
-
-
-def _join_overlapping(values: list[_ObservedRange]) -> list[_ObservedRange]:
-    result: list[_ObservedRange] = []
-    for value in values:
-        if (
-            result
-            and result[-1].coverage_end == value.coverage_end
-            and value.start <= result[-1].end
-        ):
-            result[-1] = result[-1].model_copy(
-                update={'end': max(result[-1].end, value.end)}
-            )
-        else:
-            result.append(value)
-    return result

@@ -8,7 +8,7 @@ from recs.cfg.device import InputDevice
 from recs.cfg.track import Track
 from recs.recording import recording_session
 from recs.runtime import input_self_test
-from recs.runtime.source_recorder import BufferStats
+from recs.runtime.source_messages import BufferStats
 
 
 class FakeRecorder:
