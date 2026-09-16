@@ -133,17 +133,18 @@ def watch(
 def main(argv: list[str]) -> int:
     try:
         selector, arguments = instances.selector_arguments(argv)
+        command = tyro.cli(
+            Watch,
+            args=arguments,
+            prog='recs watch',
+            description='Watch a running recs instance.',
+        )
         target = instances.resolve(selector)
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1
     return watch(
-        tyro.cli(
-            Watch,
-            args=arguments,
-            prog='recs watch',
-            description='Watch a running Recs instance.',
-        ),
+        command,
         event_endpoint=target.event_endpoint,
         control_endpoint=target.control_endpoint,
     )
