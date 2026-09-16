@@ -180,6 +180,15 @@ positions. Older markers remain unpositioned unless explicitly aligned.
 
 ## 5. Assisted recovery into a new session
 
+Implemented: `recs session recover` previews a stopped version 4 segment and
+creates a separate copy only with `--destination`. Completed media is verified
+through the existing finalizer/checker; readable unfinished audio is preserved
+as unplaced assets, without stream ports or invented ranges. Missing/invalid
+files and unsupported unfinished event files are reported as omissions.
+Original journal bytes and a detailed report are included as sealed assets.
+Staged copies are verified before publication; failed partial work is retained
+and reported. No uFor schema change was needed.
+
 Question answered: “What usable material can I recover from an interrupted run?”
 
 Existing foundation: unfinished-session reports, journal parsing, finalization,
@@ -201,9 +210,10 @@ Acceptance: interrupted journals, missing media, and readable files lacking a
 completion entry produce deterministic plans. A failed recovery leaves originals
 unchanged and cannot expose an incomplete destination as a completed session.
 
-Decision before implementation: how the existing recording format represents
-recovered-but-incomplete evidence. If this needs a portable schema change, stop
-for a separate design decision rather than extending uFor implicitly.
+Decided: the new session is sealed when recovery completes; that is not a claim
+that the original capture was complete. Omissions and uncertain timing remain
+explicit in the report and original evidence. Unplaced audio is not exposed as
+an aligned track. The generated header/footer describe the recovery operation.
 
 ## 6. Resumable verified export
 

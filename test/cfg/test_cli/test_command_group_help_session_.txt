@@ -1,5 +1,5 @@
 $ recs session --help
-usage: recs session [-h] {show,quality,markers,extract,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,markers,extract,recover,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
@@ -21,6 +21,10 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
                    Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
                    lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
                    rejected, never mapped from wall time.
+    - recover      Preview recovery of a stopped version 4 capture; --destination creates a copy.
+
+                   Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
+                   not aligned tracks. No original files are changed.
     - finalize
     - export-midi
     - migrate
@@ -154,6 +158,26 @@ Frame positions are source-local, half-open ranges, not cross-device alignment. 
                      Analyze at most this prefix of each fragment, in seconds. (default: 60)
   --analysis.max-runs INT
                      Retain at most this many run ranges per channel; count omitted runs. (default: 100)
+
+
+$ recs session recover --help
+usage: recs session recover [-h] PATH [--destination {None}|PATH] [--json | --no-json]
+
+Preview recovery of a stopped version 4 capture; --destination creates a copy.
+
+Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets, not aligned tracks. No original files are changed.
+
+ positional arguments
+ ---------------------------------------------
+  PATH        path (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --destination {None}|PATH
+              (default: None)
+  --json, --no-json
+              (default: False)
 
 
 $ recs session show --help
