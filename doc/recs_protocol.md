@@ -500,8 +500,11 @@ stereo pair available on the default output device. Playback supports recorded
 mono streams and stereo pairs.
 
 Playback preserves the stream's timeline: recorded gaps are silence. It ends
-at the session's recorded end and resumes audio capture. `stop_playback` also
-resumes capture. `pause_playback` holds the playback position;
+at the session's recorded end and resumes audio capture only if playback paused
+it. `stop_playback` follows the same rule. A manual or disk-space pause before
+or during playback remains in force afterwards. An explicit `resume_recording`
+stops playback and closes its output before allowing capture to resume.
+`pause_playback` holds the playback position;
 `continue_playback` resumes it. `jump_playback` moves by signed seconds,
 clamped to the session's beginning and end. `jump_session` accepts `-1` or
 `1`, selecting the preceding or following session while retaining the source,

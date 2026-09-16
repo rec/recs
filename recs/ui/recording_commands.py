@@ -30,6 +30,8 @@ def pause_recording(
     reason: str,
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
+    if reason != 'playback' and control.playback is not None:
+        control.playback.resume_after_playback = False
     if control.recording_paused:
         return recording_state(control, was_paused=True)
     control.recording_paused = True
@@ -54,6 +56,10 @@ def resume_recording(
     reason: str,
     disk: disk_space.Disk | None = None,
 ) -> gui_protocol.RecordingState:
+    if control.playback is not None:
+        control.playback.resume_after_playback = False
+        if control.playback.runner is not None:
+            control.playback.stop()
     control.runtime_state.resume()
     control.write_entry(
         EventRecord(
