@@ -61,6 +61,7 @@ class PlaybackControl:
             raise RecsError(
                 'Output channel count must match the selected recorded channel count'
             )
+        timeline = PlaybackTimeline(score_path.parent, score, stream)
         self.stop()
         self.session_paths = paths
         self.session_index = index
@@ -70,7 +71,7 @@ class PlaybackControl:
         self.output_channel = _channel_text(output)
         self.resume_after_playback = not self.pause_recording().was_paused
         self.runner = PlaybackRunner(
-            PlaybackTimeline(score_path.parent, score, stream),
+            timeline,
             output,
             lambda: self._results.put(None),
             self._results.put,
