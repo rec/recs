@@ -533,8 +533,13 @@ resumes audio capture only if playback owns the recording pause.
 
 `mark` appends a labeled event to the current record. `set_key_label`
 updates the label associated with a recorded key. `reload_profiles` reloads the
-configured profiles file and fails if Recs was not started with a profiles
-path.
+configured profiles file and fails if recs was not started with a profiles
+path. The entire replacement is validated before any configuration changes.
+Changes to startup-only settings, including audio formats and sample types,
+reject the whole reload; restart recording to apply those changes. A successful
+reload queues mutable settings to live source processes. The session record's
+`profiles_reloaded` revision is acknowledged by each child's existing
+`cfg_applied` event; the command response does not wait for those acknowledgments.
 
 ## Live waveforms
 

@@ -77,9 +77,22 @@ def resume_recording(
 def reload_profiles(control: 'RecordingControl') -> gui_protocol.ProfilesReloaded:
     if not control.cfg.device.profiles.name:
         raise RecsError('Cannot reload profiles without --profiles')
-    control.cfg.__dict__.pop('device_profiles', None)
-    for source in control.devices.sources.values():
-        source.cfg = control.cfg
+    try:
+        cfg = control.cfg.reload_device_profiles()
+    except (OSError, ValueError) as error:
+        raise RecsError(str(error)) from error
+    control.cfg = cfg
+    control.cfg_revision += 1
+    control.devices.set_cfg(cfg, revision=control.cfg_revision)
+    control.cfg_changed(cfg)
+    control.write_entry(
+        EventRecord(
+            timestamp=timestamp_to_json(times.timestamp()),
+            type='profiles_reloaded',
+            path=str(cfg.device.profiles),
+            cfg_revision=control.cfg_revision,
+        )
+    )
     return gui_protocol.ProfilesReloaded(
         type='profiles_reloaded', profiles_path=str(control.cfg.device.profiles)
     )

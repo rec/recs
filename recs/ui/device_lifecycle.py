@@ -59,6 +59,8 @@ class DeviceLifecycle:
         ]
         | None = None,
     ) -> None:
+        # Pin the profile snapshot before making source-specific configuration copies.
+        _ = cfg.device_profiles
         self.cfg = cfg
         self.state = state
         self.session_directory = session_directory

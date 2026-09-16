@@ -116,6 +116,10 @@ with an extension as well as the ordinary extensionless path.
 
 ### 7. P2: profile reload reports success without updating live children
 
+Resolved: replacement profiles are validated together, startup-only changes
+reject the entire reload, and accepted configuration is sent to children with
+revision acknowledgments. Invalid reloads preserve the current snapshot.
+
 Evidence: [reload_profiles](../recs/ui/recording_commands.py) invalidates the
 parent's cache and assigns `source.cfg`. It neither validates the replacement
 file immediately nor calls [SourceProcess.set_cfg](../recs/ui/source_process.py),
