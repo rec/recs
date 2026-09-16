@@ -4,10 +4,14 @@
 
 ### Incomplete
 
-Stage 3 still needs preparation and portable performance-action traces, MIDI
-2.0/UMP interchange, and the remaining musical-model decisions. Stages 4–7,
-including playback, physical bindings, broadcasts, and Tuney host integration,
-are future work.
+Current checkpoint, 16 September 2026: sample and synth definitions,
+preparation, and portable performance-action traces are implemented in uFor.
+MIDI 2.0/UMP and the remaining musical-model decisions are still open. enge owns
+both engines and has an implemented synth reference; sample traversal remains
+enge work. General recs instrument-host integration, physical bindings, and
+broadcast execution are separate work. See [enge](../enge.md) and
+[uFor](../ufor.md) for current ownership. The numbered stages below retain
+historical implementation order, not a renewed pause on waveform generation.
 
 ### Implementation status
 
@@ -253,7 +257,7 @@ MTS byte import and audio oscillator lifecycle integration remain open. Step 4
 now has an implemented first modulation profile with scalar conformance cases;
 step 5 now has shared performance events, typed routes, the native instrument
 root, asset slices, channel maps, source bindings and pure SFZ conversion.
-Recsam consolidation is complete. Preparation/action traces remain open. See
+Recsam consolidation and sample/synth preparation/action traces are complete. See
 [the exact extraction boundary](verification-procedures.md#ufor-extraction-handover) rather than treating all of stage 3 as
 complete.
 
@@ -275,8 +279,8 @@ complete.
 5. The [small instrument contract](../../../ufor/doc/instrument-format.md)
    implements the native root, slices, channel maps, source bindings, shared
    events/routes and SFZ conversion. All portable Recsam types now live in Ufor.
-   Next settle prepared settings and selection/gate/retirement action traces.
-   These stateful additions remain separate from sampler waveform generation.
+   Prepared settings and selection/gate/retirement action traces are implemented.
+   Their semantics remain separate from enge's waveform realization.
 6. Define MIDI interchange before extending device-specific MIDI work. Keep
    semantic performance/control events independent of their wire encoding;
    specify MIDI 1.0 byte streams and UMP separately, including UMP-carried
@@ -296,18 +300,16 @@ words exactly, make protocol conversion limits visible, and retain unfamiliar
 SysEx7/SysEx8 packets without inventing semantic fields. Record unresolved
 design choices rather than guess defaults.
 
-#### 4. Resume execution only after the model gate
+#### 4. Engine execution and later host integration
 
-Deferred pending completion of stage 3 and a separate decision to resume audio
-generation. First add and validate a synth-instrument definition beside the
-sample score, then publish their shared offline lifecycle, snapshot, event-order,
-and split-interval conformance cases. Compare a compiled instrument core, an
-optional Python reference with a compiled port, and a suitable existing engine.
-A VST instrument may wrap the core later. Neither Python-first rendering nor a
-particular language or plugin SDK is selected.
+The former model-first gate is passed for the initial instrument profile.
+uFor has both definitions and lifecycle cases; enge has a NumPy synth reference
+shared with tuney. Its sampler and further engine profiles belong to the
+[enge execution plan](../../../enge/plan/engine-execution.md). Native backend
+selection and VST hosting remain separate decisions.
 
-Use the [deferred playback plan](../sample-playback.md) for the later sampler.
-Then generalize the existing renderer's scheduling boundary to typed processors.
+Use the [playback boundary](../sample-playback.md) for recs host acceptance.
+A later, separately scoped step may generalize scheduling to typed processors.
 Start with acyclic audio/control graphs and existing built-in operations.
 Add one concrete installed adapter with a documented parameter mapping, not
 simultaneous support for every plugin system. Keep missing implementations
@@ -320,12 +322,12 @@ unsupported live/offline capabilities. Adapter unit tests check mapping logic;
 actual plugin integration and live behavior require separately requested runs.
 Later instrument acceptance covers sample and synth scores, overlapping same-key
 triggers, sustain/release, loops, independent instances, tuning, snapshots, and
-split intervals across block sizes. Only after audio generation resumes add the
+split intervals across block sizes. Engine work uses
 48 kHz, at-least-one-second WAV cases, with declared tolerances comparing
 reference and compiled implementations where both exist.
 
-Stages 5 through 7 may reuse existing engines and captured media; they must not
-implicitly bypass the pause on new waveform generation.
+Stages 5 through 7 may reuse existing engines and captured media; new host or
+device integrations require their own scope and verification.
 
 #### 5. Integrate Lyte and physical control bindings
 
@@ -399,20 +401,19 @@ The [recsam format](../../doc/sample-format.md),
 This master proposal broadens their scope, including generic processing,
 shared assets, and tuning dependencies. Reconcile the relevant documents and
 remove superseded restrictions when implementing those changes. The playback
-and remaining-format plans now explicitly defer rendering and reopen envelope
-and LFO design; implemented format documentation remains a description of
-current code until a later cutover changes it.
+and remaining-format plans now point to enge for both engines. Their former
+waveform-generation pause is historical; implemented format documentation
+describes current portable semantics, not engine support for every field.
 
 
 ## Recs: a common language for things that happen in time
 
 ### Incomplete
 
-Stage 3 still needs portable preparation and performance-action traces, MIDI
-2.0/UMP interchange, and the remaining model decisions named in
+Stage 3 still needs MIDI 2.0/UMP interchange and the remaining model decisions named in
 [How to build the common model](verification-procedures.md#how-to-build-the-common-model). Playback, device bindings,
-lighting, broadcasts, synthesis, and the still-image slideshow player remain
-future work.
+lighting, broadcasts, and the still-image slideshow player remain future host
+work. Portable instrument traces and enge's synth reference already exist.
 
 ### The central decision
 
@@ -559,7 +560,7 @@ reproducing a particular performance.
 
 The implemented shared definitions live in `~/code/ufor`, published as
 [rec/ufor](https://github.com/rec/ufor). Recs and Tuney consume that shared core
-through direct imports. Tuney's UI and existing waveform generation, Recs's
+through direct imports. Tuney's UI and host policy, Recs's
 capture and file-verification operations, and Reccy's application infrastructure
 remain in their own projects. See the [extraction handover](verification-procedures.md#ufor-extraction-handover) for the
 implemented boundary and remaining design work.
@@ -570,10 +571,9 @@ Stages 1 and 2 already cover arrangements and native capture. Tuning, scale,
 oscillator, envelope, and LFO definitions now have portable Ufor models and
 musical or scalar/state conformance cases. The instrument contract now includes
 shared performance events, typed routes, native instrument scores and SFZ
-conversion. Next settle preparation and portable voice-action traces. Design the
-sampler's interface without selecting its implementation language or producing
-new audio. Later rendering and a possible VST realization require the model
-gate to pass and a separate implementation decision. Cross-domain control and
+conversion, preparation, and portable voice-action traces. enge owns the shared
+synth and sampler engines, including tuney's reusable waveform implementation.
+VST integration remains a separate decision. Cross-domain control and
 broadcast work can reuse existing recordings and engines. Each stage has its
 own acceptance gate in
 [How to implement](verification-procedures.md#how-to-build-the-common-model).
@@ -836,9 +836,10 @@ reinterpreting that number as sample frames.
 
 ### Incomplete
 
-Portable preparation and performance-action traces, sparse tunings and MTS
-byte import, oscillator lifecycle integration, and MIDI 2.0/UMP interchange
-remain model work. No sampler, waveform renderer, plugin host, or VST exists.
+Sparse tunings, MTS byte import, and MIDI 2.0/UMP interchange remain model work.
+Portable preparation and sample/synth action traces are implemented. enge has
+the shared synth reference; sample traversal, plugins, and VST hosting are not
+implemented by recs or uFor. Consult enge's own plan for engine progress.
 
 ### Ownership
 
@@ -851,7 +852,8 @@ remain model work. No sampler, waveform renderer, plugin host, or VST exists.
 | Ufor | Native sample-instrument scores, asset slices, explicit channel maps, controls/selection/chokes/articulations/EQ, generator bindings, and pure SFZ conversion |
 | Ufor | Lossless VL70m MIDI 1.0 SysEx inspection and bounded patch relocation, retaining opaque message spans and duplicate occurrences |
 | Recs | Capture, journals, finalization, verification, media I/O, session migration, editing and existing rendering |
-| Tuney | Editable configuration and UI annotations, units and broader expressions, Scala file/browser access, instrument-range wrapping, MIDI protocol delivery, and existing NumPy waveform generation |
+| Tuney | Editable configuration and UI annotations, broader expressions, Scala file/browser access, instrument-range wrapping, and MIDI/device host policy |
+| enge | Shared synth and sampler engines, waveform realization, voice state, routing, and audio conformance |
 | Reccy | Shared Python application infrastructure, with no ownership of the portable format |
 
 The old `recs.model` implementations are removed. Direct imports use the defining
@@ -931,15 +933,12 @@ marker and version 1, so it requires no new production metadata migration.
 
 The first envelope/LFO profile, shared performance events, typed routes, native
 instrument root, slices, channel maps, source bindings and SFZ conversion are
-implemented. Next define resolved preparation settings and portable
-selection/gate/retirement action traces. These stateful components never existed
-in Recsam and are not part of the completed type consolidation. Sparse tuning
-maps, Scala keyboard mapping, MTS byte import, audio oscillator lifecycle
-integration, the MIDI 2.0/UMP interchange layer, and richer cross-domain graphs
-remain future model work. No sampler engine,
-new waveform renderer, compiled-language implementation, or VST was added.
-Existing implementations can realize later contracts after an explicit design
-and conformance decision. Stage 3 as a whole is not yet complete.
+implemented, as are resolved preparation settings, synth definitions, and portable
+selection/gate/retirement action traces. Sparse tuning maps, Scala keyboard
+mapping, MTS byte import, MIDI 2.0/UMP interchange, and richer cross-domain graphs
+remain future model work. enge owns the implemented synth reference and remaining
+sampler/backend work. No renderer or VST belongs inside uFor. Stage 3 as a whole
+is not yet complete; remaining semantic changes need their own design and cases.
 
 ### Additional work beyond the prompt
 

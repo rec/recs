@@ -7,10 +7,10 @@ below are not a claim that every described feature is missing.
 The order puts shared editing rules before the tools that need them, and makes the
 slideshow the first new performance application. Build only the foundation each
 milestone needs: a slideshow need not wait for all MIDI-CI, CV, or plugin work.
-Production sampler and synthesis engines remain deferred. The next musical-model
-step is to [settle a minimum envelope and voice-lifecycle contract](#minimum-envelope-and-voice-lifecycle-contract)
-for one simple instrument, rather than wait for the entire musical model to be
-finished. Waveform generation still requires an explicit decision to resume it.
+The initial envelope and voice-lifecycle contracts are implemented in uFor.
+[enge](../enge.md) owns shared synth and sampler implementation; its synth
+reference exists and sample traversal remains engine work. This proposal does
+not reinstate the former waveform-generation pause or authorize new hosts.
 Existing recordings and engines can support these proposals.
 
 See [Deferred work](deferred-work.md) for the musical-model and engine decisions
@@ -1037,30 +1037,26 @@ stretching, and physical modeling are useful later processor capabilities. Prefe
 binding an existing implementation when it meets the contract. Add a new universal
 parameter only when its meaning across implementations can actually be stated.
 
-### Sampler and synthesis work remain deferred
+### Synth and sampler work belongs to enge
 
-The [deferred musical work](deferred-work.md) owns engine selection, a possible
-compiled sampler or VST, and language-neutral conformance tests. These are not
-prerequisites for the slideshow, lighting, or broadcast milestones.
+The [enge handover](../enge.md) assigns both engine goals; enge's execution plan
+owns backend and audio-conformance work. uFor owns portable semantics and cases.
+VST hosting is a separate decision. These engine extensions are not prerequisites
+for the slideshow, lighting, or broadcast milestones.
 
 #### Minimum envelope and voice-lifecycle contract
 
-The first step on this separate musical-model track is to settle the rules for
-one simple instrument. Build on the existing envelope model and specify:
+The initial uFor contract and conformance cases now specify:
 
 - How a trigger starts a voice and its envelope, including retriggering.
 - How release, sustain-pedal changes, and legato affect the envelope and voice.
 - Which trigger owns each voice, including overlapping notes of the same pitch.
 - When a voice finishes, and how it is retired on stop or when capacity is reached.
 
-The result should be a small written contract with concrete event sequences and
-expected envelope states and voice lifetimes. Resolve the behavior of those cases
-without choosing an engine language, plugin format, or adding waveform generation.
-
-Next, turn the examples into portable conformance cases. Once those rules are
-settled, a separately approved small reference renderer can test the design before
-committing to a production sampler or VST. Finishing every tuning, LFO, or synthesis
-extension is not a prerequisite for that experiment.
+These rules have concrete event sequences, expected states, and voice lifetimes.
+enge's existing synth reference realizes the supported subset. Further portable
+semantics need uFor cases before engine support; finishing every tuning, LFO, or
+synthesis extension is not a prerequisite for the initial engines.
 
 ### Connect sound, gesture, and space
 
