@@ -2,7 +2,7 @@
 
 ## Scope
 
-The current Ufor sample-instrument model specifies sustain loops,
+The current uFor sample-instrument model specifies sustain loops,
 alternative selection, choke groups, layer crossfades, release and sustain
 samples, articulations, named live controls, modulation envelopes, LFOs,
 panning, stereo balance, and pitch bend. The 8 September 2026 model-first pause
@@ -12,7 +12,7 @@ format fields are not proof that every feature has engine support.
 
 The Recsam type extraction, named slices, explicit channel maps, richer
 envelopes/LFOs, SFZ cutover, voice policy, deterministic preparation trace, and
-reproducible selection and variation are implemented in Ufor. SFZ `lorand` and
+reproducible selection and variation are implemented in uFor. SFZ `lorand` and
 `hirand` map to portable random-range conditions; engine-dependent random
 parameter opcodes remain diagnosed as unsupported.
 
@@ -41,7 +41,7 @@ trace conformance tests.
 
 ## Named Slices
 
-Implemented in Ufor. Slots reference named half-open native-frame ranges in
+Implemented in uFor. Slots reference named half-open native-frame ranges in
 sealed audio assets, with contained loop ranges. There is no duplicated sample
 path or trim interval on each slot. Linked microphone take selection is
 implemented.

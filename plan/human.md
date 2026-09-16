@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This is the single checklist for Recs behavior that requires real recordings,
+This is the single checklist for recs behavior that requires real recordings,
 physical devices, deployed hardware, third-party applications, or performance
 measurement. Automated checks remain in the feature plans and test suite.
 
 Use expendable media for failure tests and back up source recordings. For every
-run, record the Recs revision, date, host, operating system, configuration,
+run, record the recs revision, date, host, operating system, configuration,
 connected devices, and resulting session-record path in a test note.
 
 ## Autocalibration On A Noisy Session
@@ -41,7 +41,7 @@ known noise-only regions are omitted, and the resolved edit is repeatable.
 
 ## MIDI Recording And Rediscovery
 
-1. Connect a MIDI controller and identify its exact input name. Start Recs with
+1. Connect a MIDI controller and identify its exact input name. Start recs with
    MIDI enabled and, if needed, select it with `--midi-include NAME`.
 2. Record for at least two minutes while playing isolated notes, chords,
    controls, and closely spaced events. Independently note the times of several
@@ -49,10 +49,10 @@ known noise-only regions are omitted, and the resolved edit is repeatable.
 3. Stop cleanly. Open the file under `midi/` in another MIDI application and
    check event order, channel, values, note durations, and approximate timing.
    Run `recs record check` on the session record.
-4. Start Recs with the selected controller disconnected. Confirm status says
+4. Start recs with the selected controller disconnected. Confirm status says
    `waiting`, audio continues, and no MIDI file is created yet.
 5. Attach the controller, play events, disconnect it, reconnect it, and play
-   more events without restarting Recs.
+   more events without restarting recs.
 6. Confirm status follows the connection state, separate files cover each
    connected period, and the session record contains matching lifecycle entries
    without repeated warning floods.
@@ -63,16 +63,16 @@ cycles do not interrupt audio recording.
 
 ## OSC With A Real X18
 
-1. Put Recs and the X18 on an isolated local network. Create an OSC node file
+1. Put recs and the X18 on an isolated local network. Create an OSC node file
    with the documented `/xremote` subscription and a 10-second resubscription
    period.
-2. Start Recs with `--osc-nodes /path/to/nodes.toml` and record for at least one
+2. Start recs with `--osc-nodes /path/to/nodes.toml` and record for at least one
    minute.
 3. Change several mixer controls at noted times while watching the OSC JSONL
    file size.
 4. Capture UDP traffic with `tcpdump` or Wireshark. Confirm `/xremote` is sent at
    startup and approximately every 10 seconds, without a rapid retry loop.
-5. Stop Recs, decompress the JSONL if configured, and match incoming records to
+5. Stop recs, decompress the JSONL if configured, and match incoming records to
    the mixer changes. Run `recs record check` and
    `recs explain /path/to/session-record.jsonl`.
 6. Temporarily disconnect the mixer network while audio continues, then restore
@@ -104,7 +104,7 @@ unacceptable sustained resource increase.
 
 ## Editing And DAW Interoperability
 
-1. Select a real Recs session containing stereo tracks and silence-induced
+1. Select a real recs session containing stereo tracks and silence-induced
    gaps. Include an 18-channel session when available.
 2. Use `recs edit clip`, `split`, `stitch`, and `mix` to make separate test
    sessions. Include overlapping clips, aligned stems, and an equal-power
@@ -122,7 +122,7 @@ unacceptable sustained resource increase.
 Pass when channel order and frame alignment are exact, gaps remain correctly
 positioned, transitions have no unexpected discontinuities, and reruns agree.
 
-Before retiring `~/code/fmix`, use Recs for at least three representative real
+Before retiring `~/code/fmix`, use recs for at least three representative real
 editing jobs, including one multitrack mix and one edit with gaps. Record every
 workflow or output that still requires fmix. Retire it only when that list is
 empty or explicitly accepted.
@@ -155,12 +155,12 @@ Use only expendable USB media.
 2. Separately test a full disk, unplugged disk, read-only mount, deliberately
    slow disk, and removal followed by remounting. Note the last frame, status,
    `awaiting card`, logs, and audio, MIDI, and OSC backlog behavior.
-3. Insert another suitable disk. Confirm Recs switches automatically, creates a
+3. Insert another suitable disk. Confirm recs switches automatically, creates a
    new session directory, flushes backlog in order, and resumes current data.
-4. Accidentally unmount and then remount the original disk. Confirm Recs uses it
+4. Accidentally unmount and then remount the original disk. Confirm recs uses it
    immediately.
 5. Exercise the replacement timeout while the original disk remains mounted.
-   Confirm Recs returns to it after the configured interval and flushes backlog.
+   Confirm recs returns to it after the configured interval and flushes backlog.
 6. During another recording, disconnect and reconnect X18 USB audio. Confirm the
    real child process stops cleanly, final record entries stay ordered, late
    updates do not corrupt status, and capture resumes when the device returns.

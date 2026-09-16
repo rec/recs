@@ -1,6 +1,19 @@
-# Future proposals
+# Cross-domain proposals and implemented profiles
 
-This is a suggested implementation order for extending Recs and Ufor. Existing
+This document mixes proposed applications with implemented portable profiles.
+See [the plan index](../README.md) for current owners and authoritative contracts.
+An implemented definition does not imply that its live host or player exists.
+
+Navigation: [controls](#sampled-quantities-curves-and-physical-controls),
+[events](#events-requests-and-sequences),
+[arrangements](#arrangements-sequences-and-nested-mixes),
+[bindings](#implementations-endpoints-and-parameter-mappings),
+[slideshow](#live-slideshow-format),
+[lighting](#fixture-controls-dmx-and-spatial-light-fields),
+[broadcasts](#radio-programmes-live-sections-and-rebroadcast),
+[later features](#future-features-worth-building).
+
+This is a suggested implementation order for extending recs and uFor. Existing
 format documentation remains authoritative for what works today; the proposals
 below are not a claim that every described feature is missing.
 
@@ -51,7 +64,7 @@ concrete device needs them.
 **First useful result:** Edit gain, frequency, and gate curves without confusing
 their units. Check interpolation, defaults, and competing writers.
 
-**Implemented scalar profile:** Ufor now provides editable automation scores,
+**Implemented scalar profile:** uFor now provides editable automation scores,
 TOML round trips, JSON Schema, and a pure evaluator for these three quantities.
 See the [automation format](../../../ufor/doc/automation-format.md) and
 [portable cases](../../../ufor/conformance/automation.json). Direct-writer
@@ -154,7 +167,7 @@ them without confusing them with the original measurement.
 
 ### Integration notes
 
-Recs audio blocks remain efficient NumPy arrays at runtime. Add descriptors around
+recs audio blocks remain efficient NumPy arrays at runtime. Add descriptors around
 stored and routed streams, not one Python object per sample. Recsam's `Control`
 polarity/default becomes a dimensionless specialization of the common parameter
 contract. Preserve the existing distinction between linear edit gains and recsam
@@ -174,13 +187,13 @@ messages.
 
 ### Remaining scope
 
-The milestone 2 library profile is implemented in Ufor: `SequenceSelection`,
+The milestone 2 library profile is implemented in uFor: `SequenceSelection`,
 `state_at`, and `plan_playback` provide half-open selections, control snapshots,
 active-note retrigger/omit policies, loop-qualified ownership, and end cleanup.
 Raw captures remain inert. `UmpEvent` preserves exact packet words, checks packet
 length, exposes known groups, and distinguishes SysEx7 from SysEx8 packet families.
 Portable conformance examples and the host application contract are in
-[Ufor's sequence playback specification](../../../ufor/doc/sequence-playback.md).
+[uFor's sequence playback specification](../../../ufor/doc/sequence-playback.md).
 
 Host transport integration, MIDI-CI handling, SysEx reassembly/conversion, and
 request execution remain later work. The VL70m code remains a limited MIDI 1.0
@@ -321,11 +334,11 @@ execution policy allows it.
 ### Integration notes
 
 The performance types now live in `ufor.events`, using the common `tick` and
-`ordinal` envelope. Recs imports them directly and its former event module is
+`ordinal` envelope. recs imports them directly and its former event module is
 removed. Common sequences and native JSONL share these types. The [instrument
 contract](../../../ufor/doc/instrument-format.md) records their scope and
 lifecycle boundary. Preserve MIDI and OSC capture data and its original timing
-during conversion. Tuney's `CharPress` maps to key events; its private cached
+during conversion. tuney's `CharPress` maps to key events; its private cached
 character and callback handles remain runtime details. Keep recorder status events
 as run observations; they are not automatically commands to execute during
 playback.
@@ -339,7 +352,7 @@ cases before adding fields.
 **First useful result:** Combine recorded audio, a control curve, and an event
 sequence. Reuse a nested score twice with independent state and timing.
 
-**Implemented profile:** Ufor arrangements already resolve named audio parts,
+**Implemented profile:** uFor arrangements already resolve named audio parts,
 event connections, nested score instances, and selected audio clips. This
 milestone adds a reusable automation score's public `control` output and an
 arrangement `control_clips` placement. The curve's target selects a sibling
@@ -348,7 +361,7 @@ clock conversion, parameter unit/scope/range, and one writer per target. An
 audio request includes the curve from its clip start through the requested end,
 which preserves its state for cropped rendering. The worked composition test
 contains a recorded audio clip, a sequence driving an instrument, and a control
-curve targeting a light-score parameter. See [Ufor's arrangement
+curve targeting a light-score parameter. See [uFor's arrangement
 format](../../../ufor/doc/arrangement-format.md) and [automation
 format](../../../ufor/doc/automation-format.md).
 
@@ -425,7 +438,7 @@ CLI strings to discover what the work means.
 
 ### Integration notes
 
-Recs already uses Ufor arrangement scores, named parts and outputs, and separate
+recs already uses uFor arrangement scores, named parts and outputs, and separate
 render destinations. Extend that foundation rather than repeat the migration.
 Preserve existing integer-frame audio editing and rendered results.
 
@@ -443,7 +456,7 @@ binding needed for one existing driver. A general plugin host is a later project
 Check parameter conversions and report unsupported capabilities before output
 begins.
 
-**Implemented profile:** Ufor now has `BindingScore`, a portable declaration of
+**Implemented profile:** uFor now has `BindingScore`, a portable declaration of
 a referenced definition, named host adapter, implementation revision, capability
 and stream contracts, channel maps, physical-control semantics, opaque state, and
 parameter maps. It supports identity, affine, log-normalized, ratio-to-dB,
@@ -554,14 +567,14 @@ inspectable as an asset but not portable behavior.
 
 ### Integration notes
 
-Replace Lyte's score-level Python `impl` resolution with adapter lookup at
+Replace lyte's score-level Python `impl` resolution with adapter lookup at
 preparation time. Move `DmxInstrument` patch fields, Twinkly connection fields,
-and Streamo device/service selection into binding responsibilities as each
+and streamO device/service selection into binding responsibilities as each
 application adopts the format. Reuse actual drivers and service adapters; do not
 rewrite network transports to make the score model uniform.
 
-Showco continues owning operational setup and service actions. Ufor owns the
-portable score model; Recs and the other hosts execute it through their selected
+showCo continues owning operational setup and service actions. uFor owns the
+portable score model; recs and the other hosts execute it through their selected
 bindings. Plugin hosting is a new implementation task, with a single concrete host
 chosen for the first integration. The format proposal does not require adding
 every plugin SDK as a dependency.
@@ -577,7 +590,7 @@ video assets and accompaniment in subsequent increments of the same format.
 explicit images, edit their crops and timing, and replay a recorded manual
 presentation. Include accessibility in the first usable player.
 
-**Implemented profile:** Ufor now has `SlideshowScore` with sealed image/video
+**Implemented profile:** uFor now has `SlideshowScore` with sealed image/video
 assets, ordered items, normalized crop/rotation/fit, required alt text, manual or
 cue advance, transitions, accompaniment, caption tracks, and ordered observed run
 records. Its pure resolver sorts host-supplied relative paths and applies declared
@@ -760,17 +773,17 @@ live camera inputs, or new transition contracts.
 
 ## Fixture controls, DMX, and spatial light fields
 
-**Milestone 6: Bring lighting into the timeline.** Reuse Lyte drivers. Begin with
+**Milestone 6: Bring lighting into the timeline.** Reuse lyte drivers. Begin with
 one fixture profile and one pixel layout before broadening device coverage.
 
 **First useful result:** Repatch a fixture or rewire a pixel string without
 editing its cues. Preview and delivery use the same values and layout, with
 explicit stop behavior.
 
-**Implemented profile:** Ufor now has `FixtureScore` for semantic numeric and
+**Implemented profile:** uFor now has `FixtureScore` for semantic numeric and
 discrete fixture cues, channel encodings, compositor and stop rules, raw DMX
 capture, and separate `FixturePatch` records that map logical fixtures to display
-and Art-Net wire universes and DMX start slots. Existing Ufor light layouts and
+and Art-Net wire universes and DMX start slots. Existing uFor light layouts and
 wiring, including coordinate frames and separate pixel patches, provide the
 independent pixel-field representation. See [the fixture format](../../../ufor/doc/fixture-format.md).
 DMX/Art-Net transmission and preview remain host work.
@@ -807,7 +820,7 @@ playback requires a matching patch contract and bypasses semantic remapping.
 
 Art-Net is an output/capture transport for the selected representation, not a new
 semantic quantity. Specify raw wire address and human display universe separately.
-The current Lyte driver translates `universe + universe_offset` to the wire
+The current lyte driver translates `universe + universe_offset` to the wire
 address, normally using offset -1. Carry that choice into the binding explicitly;
 do not infer it from a bare universe number.
 
@@ -874,7 +887,7 @@ resolution as physical output, with delivery replaced by visualization.
 
 ### Integration notes
 
-Keep Lyte's efficient frame arrays, renderers, and drivers. Introduce named
+Keep lyte's efficient frame arrays, renderers, and drivers. Introduce named
 layouts and explicit color interpretation around them. Separate reusable fixture
 capabilities from physical patching, retaining range and overlap validation. Adapt
 existing show and installation models as each application adopts the common score;
@@ -890,7 +903,7 @@ sections and one live input; add delayed relay and rolling buffers later.
 source. Replay the captured timing and decisions without needing the original live
 input.
 
-**Implemented profile:** Ufor now has `BroadcastScore` with recorded/live/relay
+**Implemented profile:** uFor now has `BroadcastScore` with recorded/live/relay
 source declarations, fixed/after/cue starts, every planned end rule, transitions,
 unavailability and late-join policy, relay buffer requirements, capture intent,
 provisional-cue detection, and ordered as-aired delivery observations. It validates
@@ -984,18 +997,18 @@ adapter can observe them.
 
 ### Application responsibilities
 
-Recs resolves and renders content, journals decisions, and records programme
-audio. Streamo delivers a selected programme output and supplies supported live
-feed adapters. Showco presents run readiness, timing, actionable failures, and
-operator cues. Lyte can consume synchronized programme controls through another
+recs resolves and renders content, journals decisions, and records programme
+audio. streamO delivers a selected programme output and supplies supported live
+feed adapters. showCo presents run readiness, timing, actionable failures, and
+operator cues. lyte can consume synchronized programme controls through another
 output. Scheduling is owned by one broadcast transport; applications must not
 maintain competing copies of section position.
 
-Streamo should accept a programme's audio output through an explicit binding.
+streamO should accept a programme's audio output through an explicit binding.
 Service credentials and its other video features remain deployment settings. Its
 existing delivery support does not itself provide a radio rundown model.
 
-Showco's `ActionResult`, action log, and service status remain runtime views. They
+showCo's `ActionResult`, action log, and service status remain runtime views. They
 can report broadcast run observations without becoming the authoritative programme
 definition. The planned/live/as-aired distinction is new functionality.
 
@@ -1021,7 +1034,7 @@ prerequisite, and define an observable acceptance case.
 
 Build on existing named slices. Consider linked microphone takes, reusable slot
 groups, and voice retirement after their interactions are specified. A sample
-browser could create an instrument directly from selected Recs recording ranges,
+browser could create an instrument directly from selected recs recording ranges,
 retaining the original take and edit provenance.
 
 Reproducible humanization could vary timing, pitch, dynamics, and take choice from
