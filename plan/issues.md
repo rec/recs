@@ -100,6 +100,10 @@ state is unchanged when playback never starts.
 
 ### 6. P1: collision handling can loop forever for a filename with a suffix
 
+Resolved: normalize the output suffix first, then append collision counters to
+the stem. WAV regressions cover extensionless names, matching and different
+suffixes, multiple collisions, and preservation of existing audio.
+
 Evidence: [FileOpener.create and open](../recs/audio/file_opener.py) append the
 collision counter to `path.name`, then replace the suffix using `with_suffix()`.
 For an existing `take.wav`, retries `take.wav_1`, `take.wav_2`, etc. all become
