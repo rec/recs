@@ -119,6 +119,7 @@ def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) 
         ['session', 'markers'],
         ['session', 'extract'],
         ['session', 'recover'],
+        ['session', 'export'],
         ['record'],
         ['record', 'check'],
         ['edit'],
@@ -147,6 +148,7 @@ def test_help_exits_before_discovery_or_execution(
     monkeypatch.setattr('recs.recording.markers.read_markers', unexpected)
     monkeypatch.setattr('recs.edit.marker_extract.plan_extraction', unexpected)
     monkeypatch.setattr('recs.recording.session_recovery.inspect_recovery', unexpected)
+    monkeypatch.setattr('recs.recording.session_export.export', unexpected)
     monkeypatch.setattr(commands, 'resolve_command', unexpected)
     monkeypatch.setattr('recs.__main__.devices_json', unexpected)
     monkeypatch.setattr('recs.__main__.stream_devices', unexpected)
