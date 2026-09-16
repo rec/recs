@@ -5,9 +5,10 @@
 The current Ufor sample-instrument model specifies sustain loops,
 alternative selection, choke groups, layer crossfades, release and sustain
 samples, articulations, named live controls, modulation envelopes, LFOs,
-panning, stereo balance, and pitch bend. On 8 September 2026 the user reopened
-envelopes and LFOs for deeper design before any further waveform generation.
-Other existing fields remain implementation inventory, not proof of a sampler.
+panning, stereo balance, and pitch bend. The 8 September 2026 model-first pause
+is historical: an initial modulation profile, synth definition, and both
+instrument traces now exist. enge owns synth and sampler realization. Existing
+format fields are not proof that every feature has engine support.
 
 The Recsam type extraction, named slices, explicit channel maps, richer
 envelopes/LFOs, SFZ cutover, voice policy, deterministic preparation trace, and
@@ -18,16 +19,14 @@ parameter opcodes remain diagnosed as unsupported.
 Playback implementation remains separate in [Sample Playback](sample-playback.md).
 Any further sample-format addition requires explicit approval and format design.
 
-## Envelopes And LFOs Come First
+## Modulation profile and further extensions
 
-Follow the [modulation design](master/deferred-work.md#envelopes-lfos-and-modulation) before implementing a
-sampler or extending waveform generation. Replace the assumption that current
-ADSR-like fields and a frequency/phase LFO are sufficient with an explicit
-review of curves, timing, retrigger/release, scope, phase continuity, and route
-composition. Consider a compact segment/state model with common presets;
-settle it with examples instead of immediately adding more optional fields.
+The initial [modulation design](master/deferred-work.md#envelopes-lfos-and-modulation)
+is implemented. Further curves, timing, retrigger/release behavior, scope, phase
+continuity, and route composition need explicit semantics and fixtures before
+new fields or engine support are added.
 
-Extract Tuney's tuning/scale and oscillator definitions alongside this work.
+The initial tuney tuning/scale and oscillator extraction is complete.
 Keep finite tuning tables distinct from repeated ratio patterns, preserve
 fractional authoring, and separate oscillator shape from phase and gain.
 The resulting sampler specification should remain small enough for a later

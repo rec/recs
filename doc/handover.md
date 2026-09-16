@@ -1,10 +1,18 @@
 # Handover
 
-Recs is pinned to the Ufor revision that provides inline-score automation. The
-edit package has been migrated from Ufor's retired arrangement-local automation
+recs is pinned to the uFor revision that provides inline-score automation. The
+edit package has been migrated from uFor's retired arrangement-local automation
 API, and generated crossfades are persisted as inline automation scores.
 
-The main unresolved implementation boundary is Recs control-rate conversion:
-the first migration should accept only inline automation that shares the audio
-arrangement's exact rate. General rate conversion should wait for a dedicated
-renderer design and tests.
+Inline automation already requires the arrangement's exact audio rate; mismatched
+rates are rejected by `Renderer._automation`. General control-rate conversion
+remains a separate design decision, not an unfinished same-rate migration.
+
+Sources and intermediate edit outputs use temporary float32 storage, with
+bounded rendering, automation, normalization, and encoding buffers. See the
+[runtime package map](runtime-architecture.md) and [arrangement format](arrangement-format.md).
+
+uFor owns portable instrument semantics; enge owns both synth and sampler engine
+implementation. recs owns capture, editing, encoding, and future host integration.
+The [enge handover](../plan/enge.md) and [instrument playback boundary](../plan/sample-playback.md)
+supersede the earlier model-first waveform-generation pause.

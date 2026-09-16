@@ -50,7 +50,7 @@ acceptance boundary.
 | uFor | Portable definitions, validation, codecs, schema, exact mathematical/state references, preparation and lifecycle traces, and conformance cases |
 | recs | Capture, sealed local asset facts, session migration, editing, export, SFZ file acquisition, and existing audio rendering |
 | tuney | Authoring/UI policy, instrument-range mapping, broader expressions, Scala file access, MIDI delivery, and its existing waveform-host behavior |
-| enge | Engine-only realization of prepared uFor actions into bounded audio buffers |
+| enge | Shared synth and sampler engines: realize prepared uFor actions as bounded audio buffers |
 | lyte | Lighting-host state, drivers, installation-specific patching, and physical delivery |
 | streamO and showCo | Operational streaming, transport, service, and run responsibilities |
 | reccy | Shared Python application infrastructure, with no portable-format ownership |

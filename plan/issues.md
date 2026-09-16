@@ -316,6 +316,13 @@ responsibilities when changing those areas; do not split by arbitrary size.
 
 ### 18. P2: the plans disagree about what has been completed and authorized
 
+Resolved: the playback contract now states the prepared-action boundary, current
+buffer layout, implemented synth definition/lifecycle work, and enge's two
+engine goals. Obsolete model-first gates are historical, not active instructions.
+Engine status and next work point to enge's own README and execution plan;
+recs' handover records same-rate automation as implemented and general conversion
+as a separate decision. Master-plan status entries use the same ownership.
+
 Evidence: [sample-playback.md](sample-playback.md) still says waveform work is
 postponed and a synth definition must be added. The corrected
 [enge handover](enge.md) explicitly assigns synth consolidation and sampler
