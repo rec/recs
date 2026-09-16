@@ -21,6 +21,14 @@ def mark(
             timestamp=timestamp_to_json(times.timestamp()),
             type='mark',
             label=request.label,
+            positions=[
+                s.marker_position
+                for _, s in sorted(control.devices.sources.items())
+                if s.is_alive and s.writing_enabled and s.marker_position is not None
+            ]
+            or None
+            if not control.recording_paused
+            else None,
         )
     )
     return gui_protocol.Marked(type='marked', label=request.label)

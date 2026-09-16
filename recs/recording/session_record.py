@@ -23,6 +23,17 @@ class SessionHeader(BaseModel):
     metadata: dict[str, object] | None = None
 
 
+class MarkerPosition(BaseModel, frozen=True):
+    source: str
+    clock_id: Identifier
+    frame: int = Field(ge=0, strict=True)
+    sample_rate: int = Field(gt=0, strict=True)
+    observed_at: str
+    timing_source: Literal['latest_processed_boundary'] = 'latest_processed_boundary'
+
+    model_config = ConfigDict(extra='forbid')
+
+
 class EventRecord(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -61,6 +72,7 @@ class EventRecord(BaseModel):
     midi_port: str | None = None
     osc_node: str | None = None
     metadata: dict[str, object] | None = None
+    positions: list[MarkerPosition] | None = None
 
 
 class FileRecord(BaseModel, frozen=True):

@@ -270,6 +270,7 @@ class DeviceLifecycle:
 
     def receive_message(self, message: SourceUpdate | SourceFailure) -> None:
         if isinstance(message, SourceFailure):
+            self.source_processes[message.source_name].marker_position = None
             self.warning(f'Device {message.source_name} failed: {message.message}')
             self.failed_sources.add(message.source_name)
             return
@@ -287,6 +288,10 @@ class DeviceLifecycle:
         self.source_frames[update.source_name] += update.frames
         self._record_buffer_status(update)
         source = self.source_processes[update.source_name]
+        if update.write_error is not None or update.writing_enabled is False:
+            source.marker_position = None
+        elif update.marker_position is not None:
+            source.marker_position = update.marker_position
         if update.waveform_layout is not None:
             source.waveform_generation = max(
                 getattr(source, 'waveform_generation', 0),
