@@ -349,18 +349,33 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
 
 $ recs sessions --help
-usage: recs sessions [-h] [PATH] [--json | --no-json]
+usage: recs sessions [-h] [OPTIONS] [PATH]
 
-List finalized recording sessions under a directory.
+Search recording documents and journals without decoding media.
+
+Filters combine with AND. Text matching is case-insensitive substring matching. Results use path order; dates use the calendar date as recorded, not file times.
 
  positional arguments
- ----------------------------------------------------
-  [PATH]             root (default: .)
+ ------------------------------------------------------------------------------------------------------------------
+  [PATH]                root (default: .)
 
  options
- ----------------------------------------------------
-  -h, --help         show this help message and exit
-  --json, --no-json  (default: False)
+ ------------------------------------------------------------------------------------------------------------------
+  -h, --help            show this help message and exit
+  --json, --no-json     (default: False)
+  --since {None}|YYYY-MM-DD
+                        Inclusive capture date (YYYY-MM-DD); unknown dates do not match. (default: None)
+  --before {None}|YYYY-MM-DD
+                        Exclusive capture date (YYYY-MM-DD); unknown dates do not match. (default: None)
+  --source {None}|STR   Source name or identity, including event sources. (default: None)
+  --track {None}|STR    Source-qualified audio track name. (default: None)
+  --marker {None}|STR   Journal marker label or pressed key. (default: None)
+  --media {None,audio,midi,osc,key,ump,events}
+                        (default: None)
+  --incomplete, --no-incomplete
+                        Only open recordings or recordings with unresolved audio placement. (default: False)
+  --warning {None}|STR  Warning/diagnostic text; an empty string matches any warning. (default: None)
+  --limit INT           Maximum matching sessions returned; unreadable entries still report errors. (default: 100)
 
 
 $ recs test-input --help

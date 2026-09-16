@@ -1,0 +1,8 @@
+matched_filters:
+- capture date 2026-09-16 >= 2026-09-16
+- capture date 2026-09-16 < 2026-09-17
+- 'source: Mic, audio:Mic:1'
+- 'track: Mic:1'
+- 'marker: solo'
+- 'warning: quiet'
+- 'media: midi'
