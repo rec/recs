@@ -62,6 +62,7 @@ def test_help(cli_help: CliHelp) -> None:
                 'quality',
                 'markers',
                 'extract',
+                'handoff',
                 'recover',
                 'finalize',
                 'export-midi',
@@ -118,6 +119,7 @@ def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) 
         ['session', 'quality'],
         ['session', 'markers'],
         ['session', 'extract'],
+        ['session', 'handoff'],
         ['session', 'recover'],
         ['session', 'export'],
         ['record'],
@@ -147,6 +149,7 @@ def test_help_exits_before_discovery_or_execution(
     monkeypatch.setattr('recs.recording.session_quality.inspect', unexpected)
     monkeypatch.setattr('recs.recording.markers.read_markers', unexpected)
     monkeypatch.setattr('recs.edit.marker_extract.plan_extraction', unexpected)
+    monkeypatch.setattr('recs.edit.track_handoff.plan_handoff', unexpected)
     monkeypatch.setattr('recs.recording.session_recovery.inspect_recovery', unexpected)
     monkeypatch.setattr('recs.recording.session_export.export', unexpected)
     monkeypatch.setattr(commands, 'resolve_command', unexpected)

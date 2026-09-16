@@ -1,23 +1,20 @@
 """Resolve numbered marker anchors into an ordinary source-local audio edit."""
 
-import os
 from fractions import Fraction
 from pathlib import Path
 from typing import Annotated
 
 import tyro
 from pydantic import BaseModel, Field
-from ufor import arrangement, interface
-from ufor.encoding import Format, Subtype
-from ufor.recording import AudioStream, RecordingScore
-from ufor.streams import AudioType, FileDestination
-from ufor.time import Rate, Timebase
+from ufor import arrangement
+from ufor.recording import AudioStream
 
 from ..base.errors import RecsError
 from ..recording.markers import Marker, read_markers
 from ..recording.read import read_recording
 from ..recording.session_record import MarkerPosition
 from .session import execute_edit
+from .track_edit import track_arrangement
 
 
 class ExtractCli(BaseModel, frozen=True):
@@ -106,7 +103,9 @@ def plan_extraction(
         start_frame=actual_start,
         end_frame=actual_end,
     )
-    return plan, _arrangement(plan, document, streams)
+    return plan, track_arrangement(
+        path, document, streams, actual_start, actual_end, rate
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -148,72 +147,3 @@ def _position(marker: Marker, clock: str) -> MarkerPosition:
             'explicit alignment is required'
         )
     return positions[0]
-
-
-def _arrangement(
-    plan: ExtractionPlan, document: RecordingScore, streams: list[AudioStream]
-) -> arrangement.ArrangementScore:
-    tracks: list[arrangement.TrackSpec] = []
-    clips: list[arrangement.ClipSpec] = []
-    outputs: list[interface.Output] = []
-    for stream in streams:
-        ports = [
-            p
-            for p in document.outputs
-            if isinstance(p.binding, interface.StreamBinding)
-            and p.binding.stream == stream.name
-            and p.binding.channels is None
-        ]
-        if len(ports) != 1:
-            raise RecsError(
-                f'Track {stream.name} requires one full-channel recording output'
-            )
-        audio = AudioType(timebase='audio', channels=stream.stream.channels)
-        tracks.append(arrangement.TrackSpec(name=stream.name, stream=audio))
-        clips.append(
-            arrangement.ClipSpec(
-                name=stream.name,
-                track=stream.name,
-                source=interface.OutputSelection(
-                    name='recording', output=ports[0].name
-                ),
-                source_start=plan.start_frame,
-                source_end=plan.end_frame,
-                timeline_start=0,
-            )
-        )
-        outputs.append(
-            interface.Output(
-                name=stream.name,
-                stream=audio,
-                binding=interface.MixBinding(track=stream.name),
-            )
-        )
-    return arrangement.ArrangementScore(
-        name='marker-extract',
-        title='Marker extraction',
-        timebases=[Timebase(name='audio', rate=Rate(numerator=plan.sample_rate))],
-        outputs=outputs,
-        destinations=[
-            FileDestination(
-                output=o.name,
-                path=Path(f'audio/{o.name}.wav'),
-                format=Format.wav,
-                subtype=Subtype.float,
-            )
-            for o in outputs
-        ],
-        body=arrangement.Arrangement(
-            timebase='audio',
-            parts=[
-                interface.Part(
-                    name='recording',
-                    score=interface.ScoreVersion(
-                        path=os.path.relpath(plan.recording, Path.cwd())
-                    ),
-                )
-            ],
-            tracks=tracks,
-            clips=clips,
-        ),
-    )
