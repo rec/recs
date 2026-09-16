@@ -155,9 +155,14 @@ class PlaybackControl:
             if (root / 'recording.toml').is_file()
             else list(root.glob('**/recording.toml'))
         )
-        sessions = [
-            (read_recording(path).body.started_at or '', path) for path in records
-        ]
+        sessions: list[tuple[str, Path]] = []
+        for path in sorted(records):
+            try:
+                score = read_recording(path)
+            except RecsError as error:
+                self.warning(str(error))
+                continue
+            sessions.append((score.body.started_at or '', path))
         if not sessions:
             raise RecsError(f'No finalized sessions under {root}')
         return [path for _, path in sorted(sessions)]
