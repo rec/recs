@@ -1,0 +1,87 @@
+analysis: null
+findings:
+- end_frame: null
+  evidence: body.state = open
+  kind: open_recording
+  severity: warning
+  source_id: null
+  start_frame: null
+  stream: null
+  timebase: null
+- end_frame: null
+  evidence: 'body.unfinished_files[0]: unfinished.wav'
+  kind: unfinished_file
+  severity: warning
+  source_id: Mic
+  start_frame: null
+  stream: null
+  timebase: null
+- end_frame: 12000
+  evidence: body.streams[mic].gaps[0]
+  kind: silence_suppressed
+  severity: info
+  source_id: Mic
+  start_frame: 0
+  stream: mic
+  timebase: mic-clock
+- end_frame: 24000
+  evidence: body.streams[mic].gaps[1]
+  kind: input_overflow
+  severity: warning
+  source_id: Mic
+  start_frame: 12000
+  stream: mic
+  timebase: mic-clock
+- end_frame: 108000
+  evidence: body.streams[mic].gaps[2]
+  kind: disconnected
+  severity: warning
+  source_id: Mic
+  start_frame: 96000
+  stream: mic
+  timebase: mic-clock
+- end_frame: null
+  evidence: 'session-record.jsonl: events[0]: {"type":"source_offline","timestamp":"later","source":"Mic"}'
+  kind: source_offline
+  severity: warning
+  source_id: null
+  start_frame: null
+  stream: null
+  timebase: null
+- end_frame: null
+  evidence: 'session-record.jsonl: events[1]: {"type":"buffer_overflow","timestamp":"later","source":"Mic"}'
+  kind: buffer_overflow
+  severity: warning
+  source_id: null
+  start_frame: null
+  stream: null
+  timebase: null
+limitations:
+- One recording document only; continuation documents are not followed.
+- Frame ranges are half-open on the named source timebase; independent clocks are
+  not aligned.
+- Unmapped audio has asset positions only; journal intervals do not locate its samples.
+- Metadata is evidence, not verified media integrity. Use recs record check for full
+  verification.
+- Optional analysis measures a prefix of each fragment. Peak and RMS are normalized
+  linear amplitudes (1 = full scale).
+- Run ranges stop at fragment/analysis boundaries; they do not establish where unexamined
+  audio stops being near full scale.
+- Near-full-scale runs are advisories, not proof of clipping; low signal levels receive
+  no verdict.
+path: recording.toml
+tracks:
+- audio: []
+  captured_frames: 72000
+  captured_seconds: 1.5
+  gap_frames:
+    disconnected: 12000
+    input_overflow: 12000
+    silence_suppressed: 12000
+  sample_rate: 48000.0
+  source_id: Mic
+  source_name: Microphone
+  stream: mic
+  timebase: mic-clock
+  track_name: Stereo
+  unresolved_frames: 0

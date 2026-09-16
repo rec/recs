@@ -1,0 +1,26 @@
+analyzed_frames: 60000
+asset: audio
+asset_start_frame: 12000
+channels:
+- channel: left
+  near_full_scale_frames: 8
+  omitted_runs: 0
+  peak: 1.0
+  rms: 0.011547005384
+  runs:
+  - asset_end_frame: 12002
+    asset_start_frame: 12000
+    source_end_frame: 24002
+    source_start_frame: 24000
+  - asset_end_frame: 60004
+    asset_start_frame: 59998
+    source_end_frame: 72004
+    source_start_frame: 71998
+- channel: right
+  near_full_scale_frames: 0
+  omitted_runs: 0
+  peak: 9.9999997e-05
+  rms: 9.9999997e-05
+  runs: []
+source_start_frame: 24000
+unexamined_frames: 12000

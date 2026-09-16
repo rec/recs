@@ -1,16 +1,20 @@
 $ recs session --help
-usage: recs session [-h] {show,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
  options
- -----------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   -h, --help       show this help message and exit
 
  subcommands
- -----------------------------------------------------------
+ ----------------------------------------------------------------------------------------------------------------------
   (required)
     - show         Inspect one finalized recording session.
+    - quality      Report one recording document's evidence; audio decoding is opt-in.
+
+                   Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
+                   advisories are not proof of clipping. No quietness verdicts.
     - finalize
     - export-midi
     - migrate
@@ -70,6 +74,36 @@ usage: recs session migrate [-h] PATH [--paths-relative-to {None}|PATH]
   -h, --help  show this help message and exit
   --paths-relative-to {None}|PATH
               (default: None)
+
+
+$ recs session quality --help
+usage: recs session quality [-h] [OPTIONS] PATH
+
+Report one recording document's evidence; audio decoding is opt-in.
+
+Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale advisories are not proof of clipping. No quietness verdicts.
+
+ positional arguments
+ --------------------------------------------------------------------------------------------------------
+  PATH               path (required)
+
+ options
+ --------------------------------------------------------------------------------------------------------
+  -h, --help         show this help message and exit
+  --json, --no-json  (default: False)
+  --analyze-audio, --no-analyze-audio
+                     (default: False)
+
+ analysis options
+ --------------------------------------------------------------------------------------------------------
+  Limits apply independently to each fragment and its channels.
+  --------------------------------------------------------------------------------------------------------
+  --analysis.near-full-scale-dbfs FLOAT
+                     Advisory threshold for absolute sample amplitude, in dBFS. (default: -0.1)
+  --analysis.max-seconds FLOAT
+                     Analyze at most this prefix of each fragment, in seconds. (default: 60)
+  --analysis.max-runs INT
+                     Retain at most this many run ranges per channel; count omitted runs. (default: 100)
 
 
 $ recs session show --help

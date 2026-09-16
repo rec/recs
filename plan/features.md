@@ -75,6 +75,13 @@ schema was added.
 
 ## 2. Session quality report
 
+Implemented: `recs session quality PATH`, with text/JSON metadata reports and
+optional bounded audio analysis. Reports one document, not its continuation
+chain. Native frame evidence is retained without cross-device alignment or
+invented placement for unmapped audio. Read-only 48,000-frame blocks analyze up
+to 60 seconds per fragment by default; per-channel run lists default to 100
+entries, with explicit unexamined-frame and omitted-run counts.
+
 Question answered: “Which parts of this recording should I inspect?”
 
 Existing foundation: session summaries, journal explanations, media verification,
@@ -97,8 +104,10 @@ Acceptance: fixtures containing known dropouts, intentional silence, a quiet
 channel, and near-full-scale passages yield correctly located, distinct findings.
 Analysis does not alter media or invent positions for unresolved historical audio.
 
-Decision before implementation: analysis thresholds and severity categories.
-Avoid a single opaque “quality score.”
+Decided: configurable −0.1 dBFS near-full-scale advisories, measured peak/RMS
+levels without automatic quietness verdicts, and no opaque quality score.
+Intentional suppression/discard is informational; known loss and incomplete
+evidence warn. Read/analysis errors fail the command; warnings/advisories do not.
 
 ## 3. Searchable session library
 
