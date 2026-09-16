@@ -2172,6 +2172,9 @@ def test_control_request_reload_profiles(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(profiles=profiles, include=['Mic'], silent=True))
+    source = rec._devices.sources['Mic']
+    source.start()
+    profiles.write_text('{"Mic": {"noise_floor": 51}}')
     request = FakeControlRequest(gui_protocol.ReloadProfiles(type='reload_profiles'))
     rec.live = FakeControlDisplay([request])
 
@@ -2182,6 +2185,72 @@ def test_control_request_reload_profiles(
             type='profiles_reloaded', profiles_path=str(profiles)
         )
     ]
+    assert source.cfg.with_device_profile('Mic').recording.noise_floor == 51
+    assert source.cfg_revision == 1
+    assert source.start_count == 1
+    assert source.stop_count == 0
+
+
+@pytest.mark.parametrize(
+    ('replacement', 'message'),
+    [
+        ('{', 'Expecting property name'),
+        (
+            '{"Mic": {"noise_floor": 51, "formats": ["flac"]}, '
+            '"Offline": {"unknown": true}}',
+            'Unknown profile field',
+        ),
+        (
+            '{"Mic": {"noise_floor": 51, "formats": ["wav"]}}',
+            'startup-only setting changed: audio.formats',
+        ),
+        (
+            '{"Other": {"noise_floor": 51}}',
+            'startup-only setting changed: audio.formats',
+        ),
+    ],
+)
+def test_rejected_profile_reload_preserves_all_active_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+    replacement: str,
+    message: str,
+) -> None:
+    profiles = tmp_path / 'profiles.json'
+    profiles.write_text('{"Mic": {"noise_floor": 42, "formats": ["flac"]}}')
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    # A removed startup override must also be rejected, even when its old value
+    # differs from the global default rather than appearing in the new file.
+    rec = Recorder(
+        Cfg(
+            profiles=profiles,
+            formats=['wav'],
+            subtype='pcm_24',
+            include=['Mic'],
+            silent=True,
+        )
+    )
+    source = rec._devices.sources['Mic']
+    source.start()
+    previous = rec.cfg
+    source_cfg = source.cfg
+    profiles.write_text(replacement)
+    request = FakeControlRequest(gui_protocol.ReloadProfiles(type='reload_profiles'))
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert len(request.responses) == 1
+    assert isinstance(request.responses[0], gui_protocol.Error)
+    assert message in request.responses[0].message
+    assert rec.cfg is previous
+    assert source.cfg is source_cfg
+    assert source.cfg.with_device_profile('Mic').recording.noise_floor == 42
+    assert rec._control.cfg_revision == 0
+    assert source.start_count == 1
+    assert source.stop_count == 0
 
 
 def test_empty_template_output_directory_record_uses_time_template(
