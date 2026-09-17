@@ -63,8 +63,8 @@ def test_saved_settings_preserve_authored_units(
     assert attributes['recording.quiet_before_start'] == '250ms'
     assert attributes['recording.quiet_after_end'] == '1 min'
     provenance = units.collect_unit_provenance(loaded.cfg)
-    assert provenance['recording.quiet_before_start'].authored == '250ms'
-    assert provenance['recording.quiet_after_end'].authored == '1 min'
+    assert provenance['/recording/quiet_before_start'].authored == '250ms'
+    assert provenance['/recording/quiet_after_end'].authored == '1 min'
 
 
 def test_saved_settings_keep_numeric_api_updates_numeric(
@@ -112,7 +112,7 @@ def test_cli_unit_provenance_wins_over_saved_setting(
     )
 
     provenance = units.collect_unit_provenance(loaded.cfg)
-    assert provenance['recording.quiet_before_start'].authored == '250ms'
+    assert provenance['/recording/quiet_before_start'].authored == '250ms'
 
 
 def test_settings_allow_unavailable_profile_path(
