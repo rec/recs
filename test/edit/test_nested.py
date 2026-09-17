@@ -6,7 +6,7 @@ import pytest
 import soundfile
 from ufor.arrangement import ArrangementScore
 from ufor.codec import score_toml
-from ufor.interface import Output, OutputSelection, Part, ScoreVersion
+from ufor.interface import Output, OutputSelection, Part, ScoreReference
 
 from recs.edit.commands import complete_or_generate
 from recs.edit.graph import validate_graph
@@ -42,7 +42,7 @@ def test_nested_and_flat_recording_mixes_are_identical(tmp_path: Path) -> None:
         dict(
             original,
             name=n,
-            source={'name': n, 'output': child.outputs[0].name},
+            source={'part': n, 'output': child.outputs[0].name},
             source_start=48000,
             source_end=96000,
             timeline_start=0,
@@ -76,8 +76,8 @@ def test_nested_and_flat_recording_mixes_are_identical(tmp_path: Path) -> None:
         halves.append(block_output[outer.outputs[0].name].read(start, 24000))
     np.testing.assert_array_equal(np.concatenate(halves), expected)
     assert (
-        sources[OutputSelection(name='first', output=child.outputs[0].name)]
-        is not sources[OutputSelection(name='second', output=child.outputs[0].name)]
+        sources[OutputSelection(part='first', output=child.outputs[0].name)]
+        is not sources[OutputSelection(part='second', output=child.outputs[0].name)]
     )
     destination = tmp_path / 'rendered'
     execute_edit(outer, tmp_path, destination)
@@ -103,12 +103,12 @@ def test_forwarded_output_and_package_boundaries(tmp_path: Path) -> None:
             Output(
                 name='main',
                 stream=child.outputs[0].stream,
-                binding=OutputSelection(name='recording', output='audio'),
+                binding=OutputSelection(part='recording', output='audio'),
             )
         ],
         body={
             'timebase': 'audio',
-            'parts': [Part(name='recording', score=ScoreVersion(path=score.name))],
+            'parts': [Part(name='recording', score=ScoreReference(path=score.name))],
         },
     )
     sources = resolve_sources(outer, tmp_path)
@@ -126,7 +126,7 @@ def test_forwarded_output_and_package_boundaries(tmp_path: Path) -> None:
                     'parts': [
                         Part(
                             name='recording',
-                            score=ScoreVersion(path='../' + score.name),
+                            score=ScoreReference(path='../' + score.name),
                         )
                     ]
                 }
@@ -195,15 +195,15 @@ def test_instrument_realization_is_reported_as_unsupported(tmp_path: Path) -> No
                 ],
                 'connections': [
                     {
-                        'source': {'name': 'notes', 'output': 'events'},
-                        'destination': {'name': 'piano', 'input': 'performance'},
+                        'source': {'part': 'notes', 'output': 'events'},
+                        'destination': {'part': 'piano', 'input': 'performance'},
                     }
                 ],
                 'tracks': [{'name': 'mix', 'stream': audio}],
                 'clips': [
                     {
                         'name': 'piano',
-                        'source': {'name': 'piano', 'output': 'audio'},
+                        'source': {'part': 'piano', 'output': 'audio'},
                         'track': 'mix',
                         'source_start': 0,
                         'source_end': 48000,

@@ -5,7 +5,7 @@ from typing import Literal, Self
 import tomlkit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from ufor.arrangement import Arrangement, ArrangementScore
-from ufor.interface import OutputSelection, ScoreVersion
+from ufor.interface import OutputSelection, ScoreReference
 from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
@@ -436,8 +436,8 @@ def _resolve_stage_sources(
     disk_clips = []
     parts = {n.name: n for n in edit.body.parts}
     for clip in edit.body.clips:
-        node = parts[clip.source.name]
-        if not isinstance(node.score, ScoreVersion) or node.score.path is None:
+        node = parts[clip.source.part]
+        if not isinstance(node.score, ScoreReference) or node.score.path is None:
             raise RecsError(f'Clip {clip.name}: inline audio scores are unsupported')
         path = Path(node.score.path)
         if path.parts[0] != 'prepared':
@@ -456,7 +456,7 @@ def _resolve_stage_sources(
         )
     load_composition(edit, directory, supplied=supplied)
     if disk_clips:
-        used = {c.source.name for c in disk_clips}
+        used = {c.source.part for c in disk_clips}
         disk = edit.model_copy(
             update={
                 'body': edit.body.model_copy(

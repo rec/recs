@@ -9,11 +9,11 @@ from reccy.configuration import units
 from ufor.arrangement import (
     Arrangement,
     ArrangementScore,
-    BusSpec,
-    ClipSpec,
+    Bus,
+    BusRoute,
+    Clip,
     ControlClip,
-    RouteSpec,
-    TrackSpec,
+    Track,
 )
 from ufor.automation import (
     ArrangementGainTarget,
@@ -452,8 +452,8 @@ def _generate(
         Subtype.pcm_24 if output_format == Format.flac else None
     )
     parts: list[Part] = []
-    output_tracks: list[TrackSpec] = []
-    clips: list[ClipSpec] = []
+    output_tracks: list[Track] = []
+    clips: list[Clip] = []
     outputs: list[Output] = []
     identifiers: list[str] = []
     timeline_start = 0
@@ -479,7 +479,7 @@ def _generate(
         track_id = 'stitch' if operation == CommandKind.stitch else identity
         if operation != CommandKind.stitch:
             output_tracks.append(
-                TrackSpec(
+                Track(
                     name=track_id,
                     stream=AudioType(
                         timebase='audio',
@@ -489,9 +489,9 @@ def _generate(
             )
         for range_index, (source_start, source_end) in enumerate(ranges):
             clips.append(
-                ClipSpec(
+                Clip(
                     name=f'{identity}-{range_index + 1}',
-                    source=OutputSelection(name=source_id, output='audio'),
+                    source=OutputSelection(part=source_id, output='audio'),
                     track=track_id,
                     source_start=source_start,
                     source_end=source_end,
@@ -517,7 +517,7 @@ def _generate(
         if len(widths) != 1:
             raise RecsError('Stitch inputs must have matching channel widths')
         output_tracks = [
-            TrackSpec(
+            Track(
                 name='stitch',
                 stream=AudioType(
                     timebase='audio',
@@ -532,19 +532,19 @@ def _generate(
                 binding=MixBinding(track='stitch'),
             )
         ]
-    buses: list[BusSpec] = []
-    routes: list[RouteSpec] = []
+    buses: list[Bus] = []
+    routes: list[BusRoute] = []
     control_clips: list[ControlClip] = []
     if operation == CommandKind.mix:
         widths = {len(t.stream.channels) for t in output_tracks}
         if len(widths) != 1:
             raise RecsError('Mix inputs must have matching channel widths')
-        buses = [BusSpec(name='master', stream=output_tracks[0].stream)]
+        buses = [Bus(name='master', stream=output_tracks[0].stream)]
         if route_gains and len(route_gains) != len(output_tracks):
             raise RecsError('Mix requires one --route-gain for each selected channel')
         gains = route_gains or [1.0] * len(output_tracks)
         routes = [
-            RouteSpec(source=t.name, destination='master', gain=g)
+            BusRoute(source=t.name, destination='master', gain=g)
             for t, g in zip(output_tracks, gains, strict=False)
         ]
         if crossfade is not None:
@@ -577,7 +577,7 @@ def _generate(
                 control_clips.append(
                     ControlClip(
                         name=name,
-                        source=OutputSelection(name=name, output='control'),
+                        source=OutputSelection(part=name, output='control'),
                         source_start=0,
                         source_end=fade_end,
                         timeline_start=0,

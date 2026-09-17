@@ -8,7 +8,7 @@ import soundfile
 from pydantic import BaseModel, ConfigDict
 from ufor.arrangement import ArrangementScore
 from ufor.codec import score_toml
-from ufor.interface import OutputSelection, ScoreVersion
+from ufor.interface import OutputSelection, ScoreReference
 from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
@@ -181,7 +181,7 @@ def canonical_edit(
 ) -> ArrangementScore:
     replacements = []
     for node in edit.body.parts:
-        if not isinstance(node.score, ScoreVersion):
+        if not isinstance(node.score, ScoreReference):
             replacements.append(node)
             continue
         if node.score.path is None:
@@ -208,7 +208,7 @@ def _resolution_metadata(
 ) -> dict[str, object]:
     return {
         'sources': {
-            s.name if isinstance(s, ResolvedSource) else f'{a.name}/{a.output}': (
+            s.name if isinstance(s, ResolvedSource) else f'{a.part}/{a.output}': (
                 {
                     'session_id': s.session_id,
                     'files': [f.path.as_posix() for f in s.fragments],

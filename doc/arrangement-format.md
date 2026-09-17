@@ -39,7 +39,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-name = "take"
+part = "take"
 output = "audio"
 
 [[body.parts]]
@@ -75,9 +75,9 @@ The pure `convert_tick` operation converts exact positions and never resamples
 audio. Musical time and generalized DSP remain later capabilities.
 
 Each part either names a definition with `{ path, sha256? }` or contains a
-complete inline score. Each clip selects its public output with `{ part, port }`.
+complete inline score. Each clip selects its public output with `{ part, output }`.
 Definitions resolve relative to the containing score; public `inputs`, `outputs`
-bind internal tracks, buses or child ports. See the [composition
+bind internal tracks, buses or child outputs. See the [composition
 design](../../ufor/doc/composition-design.md) for connections and parameters.
 
 Recording exports use stable stream IDs and optional zero-based consecutive

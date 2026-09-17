@@ -73,7 +73,7 @@ def test_block_boundaries_preserve_overlap_automation_crop_and_normalization(
         )
     )
     edit = ArrangementScore.model_validate(raw)
-    sources = {OutputSelection(name='voice-source', output='audio'): source}
+    sources = {OutputSelection(part='voice-source', output='audio'): source}
     # Independent whole-array arithmetic supplies the old renderer's reference.
     samples[60_000:66_000] = 0
     track = samples.copy()
@@ -136,7 +136,7 @@ def test_hour_long_sparse_timeline_keeps_audio_buffers_bounded(tmp_path: Path) -
         raw['body']['control_clips'] = []
         raw['outputs'][0]['binding'].update(start=end - 48_000, end=end)
         edit = ArrangementScore.model_validate(raw)
-        sources = {OutputSelection(name='voice-source', output='audio'): source}
+        sources = {OutputSelection(part='voice-source', output='audio'): source}
         gc.collect()
         tracemalloc.start()
         try:

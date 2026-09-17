@@ -7,7 +7,7 @@ The canonical format, models, examples and schema now live in uFor:
 - [Native conversion fixture](../../ufor/conformance/instrument.json)
 - [Score schema](../../ufor/schema/scores.json)
 
-`ufor.samples.instrument.InstrumentScore` is the common root. It owns sealed
+`ufor.samples.instrument.SampleInstrumentScore` is the common root. It owns sealed
 audio assets, native timebases, output layout and a typed sample-instrument body.
 Slots reference named slices and explicit channel maps. `ufor.samples` owns the
 musical declarations; `ufor.envelope`, `ufor.lfo` and `ufor.modulation` provide
@@ -40,7 +40,7 @@ their measured native rate, frames and channels. Import does not rewrite audio.
 Export is pure text conversion in `ufor.sfz`; it reports nonrepresentable
 envelopes, routes, channel maps, controls and other features.
 
-For another application, use `ufor.sfz.parse`, `sample_paths`, and `compile`
+For another application, use `ufor.sfz.parse`, `sample_paths`, and `compile_instrument`
 with that application's asset facts and output choices. uFor does no file I/O,
 decoding, hashing, device access or waveform generation.
 

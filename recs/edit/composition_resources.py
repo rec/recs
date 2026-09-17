@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from ufor.arrangement import ArrangementScore
-from ufor.interface import ScoreVersion
+from ufor.interface import ScoreReference
 from ufor.recording import AudioStream, Gap, Recording, RecordingScore, stream_outputs
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
@@ -74,7 +74,7 @@ def plan_composition(
             else Path.cwd()
         )
         for part in edit.body.parts:
-            if not isinstance(part.score, ScoreVersion) or part.score.path is None:
+            if not isinstance(part.score, ScoreReference) or part.score.path is None:
                 continue
             reference = Path(part.score.path)
             if reference.parts[0] != 'prepared':
