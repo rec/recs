@@ -32,6 +32,7 @@ dev = [
     "impall",
     "pytest",
     "pytest-regressions>=2.11.0",
+    "pytest-xdist>=3.8.0",
     "pyupgrade>=3.21.2",
     "ruff",
     "tdir",
