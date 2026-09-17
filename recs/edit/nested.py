@@ -8,7 +8,7 @@ from ufor.codec import parse_score, score_toml
 from ufor.composition import Composition, ScoreRecord
 from ufor.interface import (
     OutputSelection,
-    ScoreVersion,
+    ScoreReference,
     StreamBinding,
 )
 from ufor.recording import AudioStream, RecordingScore
@@ -33,10 +33,10 @@ def load_composition(
     def load(path: Path) -> str:
         path = path.resolve()
         if package_root is not None and not path.is_relative_to(package_root.resolve()):
-            raise RecsError(f'ScoreVersion escapes package root: {path}')
+            raise RecsError(f'ScoreReference escapes package root: {path}')
         identity = str(path)
         if path in active:
-            raise RecsError(f'ScoreVersion cycle: {path}')
+            raise RecsError(f'ScoreReference cycle: {path}')
         if identity in records:
             return identity
         active.add(path)
@@ -49,7 +49,10 @@ def load_composition(
         links = {}
         if isinstance(score, ArrangementScore):
             for part in score.body.parts:
-                if isinstance(part.score, ScoreVersion) and part.score.path is not None:
+                if (
+                    isinstance(part.score, ScoreReference)
+                    and part.score.path is not None
+                ):
                     links[part.score.path] = load(path.parent / part.score.path)
         records[identity] = ScoreRecord(
             score=score, paths=links, sha256=sha256(data).hexdigest()
@@ -59,7 +62,7 @@ def load_composition(
 
     links = {}
     for part in edit.body.parts:
-        if isinstance(part.score, ScoreVersion) and part.score.path is not None:
+        if isinstance(part.score, ScoreReference) and part.score.path is not None:
             links[part.score.path] = load(root / part.score.path)
     records['root'] = ScoreRecord(score=edit, paths=links)
     return Composition('root', records)
@@ -83,7 +86,7 @@ def resolve_sources(
         score = composition.scores[part.score].score
         port = composition.output(path, port_name)
         if isinstance(port.binding, OutputSelection):
-            return source(part.children[port.binding.name], port.binding.output)
+            return source(part.children[port.binding.part], port.binding.output)
         if isinstance(score, RecordingScore) and isinstance(
             port.binding, StreamBinding
         ):
@@ -123,7 +126,7 @@ def resolve_sources(
                 for p in score.outputs
                 if isinstance(p.binding, OutputSelection)
             }
-            sources = {a: source(part.children[a.name], a.output) for a in addresses}
+            sources = {a: source(part.children[a.part], a.output) for a in addresses}
             graph = validate_graph(score, sources)
             realized[path] = Renderer(score, sources, graph).outputs
         return realized[path][port_name]
@@ -132,6 +135,6 @@ def resolve_sources(
         p.binding for p in edit.outputs if isinstance(p.binding, OutputSelection)
     }
     return {
-        a: source(composition.parts['root'].children[a.name], a.output)
+        a: source(composition.parts['root'].children[a.part], a.output)
         for a in addresses
     }

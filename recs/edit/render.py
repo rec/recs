@@ -200,7 +200,7 @@ class Renderer:
         parts = {p.name: p for p in self.edit.body.parts}
         result = {}
         for clip in self.edit.body.control_clips:
-            part = parts[clip.source.name]
+            part = parts[clip.source.part]
             if not isinstance(part.score, AutomationScore):
                 raise RecsError(f'Control clip {clip.name}: source is not automation')
             score = part.score

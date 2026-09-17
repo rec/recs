@@ -10,7 +10,7 @@ from .assets import read_audio_metadata
 
 def read(
     path: Path, output_rate: int = 48_000, output_channels: list[str] | None = None
-) -> sfz.SfzReadResult:
+) -> sfz.SfzCompileResult:
     """Seal local assets and import with Recs' explicit stereo/48 kHz output policy."""
     source = sfz.parse(path.read_text(encoding='utf-8-sig'))
     root = path.parent.resolve()
@@ -22,7 +22,7 @@ def read(
                 f'SFZ sample escapes the instrument directory: {reference}'
             )
         assets[reference] = read_audio_metadata(sample)
-    return sfz.compile(
+    return sfz.compile_instrument(
         source,
         name=path.stem,
         title=path.stem,

@@ -115,7 +115,7 @@ def test_nested_plan_counts_intermediates_without_rendering(
     path.write_text(score_toml(child))
     raw['body']['parts'] = [{'name': 'nested', 'score': {'path': path.name}}]
     raw['body']['clips'][0]['source'] = {
-        'name': 'nested',
+        'part': 'nested',
         'output': child.outputs[0].name,
     }
     outer = ArrangementScore.model_validate(raw)

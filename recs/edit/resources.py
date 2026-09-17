@@ -116,7 +116,7 @@ def plan_edit(
         if not isinstance(output.stream, AudioType):
             raise RecsError('Audio planning requires audio ports')
         if isinstance(output.binding, OutputSelection):
-            return port(part.children[output.binding.name], output.binding.output)
+            return port(part.children[output.binding.part], output.binding.output)
         if isinstance(score, RecordingScore) and isinstance(
             output.binding, StreamBinding
         ):
@@ -184,7 +184,7 @@ def plan_edit(
             o.binding for o in score.outputs if isinstance(o.binding, OutputSelection)
         }
         inputs = {
-            a: port(composition.parts[path].children[a.name], a.output)
+            a: port(composition.parts[path].children[a.part], a.output)
             for a in addresses
         }
         graph = validate_graph(score, inputs)
