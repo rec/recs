@@ -39,6 +39,9 @@ dev = [
     "ty>=0.0.14",
 ]
 
+[tool.pytest.ini_options]
+addopts = "-n 4 --dist=loadfile"
+
 [tool.coverage.run]
 branch = true
 source = ["recs"]

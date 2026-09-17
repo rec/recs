@@ -13,6 +13,11 @@ The recorder is designed to run unattended. It discovers selected audio and
 MIDI devices after startup, resumes when devices return, monitors free space,
 and can continue a session on another removable disk.
 
+## Tests
+
+`uv run pytest` uses four workers and keeps each test file in one worker. Run
+`uv run pytest -n 0` to reproduce a failure serially.
+
 ## Requirements And Installation
 
 recs requires Python 3.13 or newer and the system libraries required by
