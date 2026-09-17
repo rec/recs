@@ -20,8 +20,8 @@ def track_arrangement(
     end_frame: int,
     sample_rate: int,
 ) -> arrangement.ArrangementScore:
-    tracks: list[arrangement.TrackSpec] = []
-    clips: list[arrangement.ClipSpec] = []
+    tracks: list[arrangement.Track] = []
+    clips: list[arrangement.Clip] = []
     outputs: list[interface.Output] = []
     for stream in streams:
         ports = [
@@ -36,13 +36,13 @@ def track_arrangement(
                 f'Track {stream.name} requires one full-channel recording output'
             )
         audio = AudioType(timebase='audio', channels=stream.stream.channels)
-        tracks.append(arrangement.TrackSpec(name=stream.name, stream=audio))
+        tracks.append(arrangement.Track(name=stream.name, stream=audio))
         clips.append(
-            arrangement.ClipSpec(
+            arrangement.Clip(
                 name=stream.name,
                 track=stream.name,
                 source=interface.OutputSelection(
-                    name='recording', output=ports[0].name
+                    part='recording', output=ports[0].name
                 ),
                 source_start=start_frame,
                 source_end=end_frame,
@@ -75,7 +75,7 @@ def track_arrangement(
             parts=[
                 interface.Part(
                     name='recording',
-                    score=interface.ScoreVersion(
+                    score=interface.ScoreReference(
                         path=os.path.relpath(path, Path.cwd())
                     ),
                 )

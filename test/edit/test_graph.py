@@ -12,7 +12,7 @@ def test_graph_computes_routed_extent() -> None:
     edit = parse_edit(_edit())
 
     graph = validate_graph(
-        edit, {OutputSelection(name='source', output='audio'): _source()}
+        edit, {OutputSelection(part='source', output='audio'): _source()}
     )
 
     assert graph.bus_order == ['master']
@@ -42,7 +42,7 @@ destination = "master"
     with pytest.raises(ValueError, match=message):
         validate_graph(
             parse_edit(text),
-            {OutputSelection(name='source', output='audio'): _source()},
+            {OutputSelection(part='source', output='audio'): _source()},
         )
 
 
@@ -103,7 +103,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-name = "source"
+part = "source"
 output = "audio"
 
 [[body.routes]]
@@ -117,7 +117,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.control_clips.source]
-name = "fade"
+part = "fade"
 output = "control"
 
 [[body.parts]]

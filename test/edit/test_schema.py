@@ -45,7 +45,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-name = "voice-source"
+part = "voice-source"
 output = "audio"
 
 [[body.routes]]
@@ -60,7 +60,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.control_clips.source]
-name = "fade"
+part = "fade"
 output = "control"
 
 [[body.parts]]

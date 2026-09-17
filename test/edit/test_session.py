@@ -91,7 +91,7 @@ source_end = 48000
 timeline_start = 0
 
 [body.clips.source]
-name = "voice-source"
+part = "voice-source"
 output = "audio"
 
 [[body.parts]]

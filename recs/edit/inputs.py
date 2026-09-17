@@ -45,7 +45,7 @@ def export_source(
     from hashlib import sha256
 
     from ufor.codec import score_toml
-    from ufor.interface import Output, Part, ScoreVersion, StreamBinding
+    from ufor.interface import Output, Part, ScoreReference, StreamBinding
     from ufor.recording import AudioFragment, AudioStream, Recording, RecordingScore
     from ufor.streams import AudioType
     from ufor.time import Rate, Timebase
@@ -60,7 +60,7 @@ def export_source(
         indices = '-'.join(str(i) for i in source.channels)
         return Part(
             name=source.name,
-            score=ScoreVersion(path=f'prepared/{name}/channels-{indices}.toml'),
+            score=ScoreReference(path=f'prepared/{name}/channels-{indices}.toml'),
         ), channels
     if definitions is None:
         resolve_input(source, Path('.'))
@@ -142,5 +142,5 @@ def export_source(
     elif not path.exists() or path.read_text() != text:
         path.write_text(text)
     return Part(
-        name=source.name, score=ScoreVersion(path=os.path.relpath(path, Path.cwd()))
+        name=source.name, score=ScoreReference(path=os.path.relpath(path, Path.cwd()))
     ), channels

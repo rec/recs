@@ -135,7 +135,7 @@ def _automation(
     return (
         ControlClip(
             name='fade',
-            source=OutputSelection(name='fade', output='control'),
+            source=OutputSelection(part='fade', output='control'),
             source_start=start,
             source_end=end + 2,
             timeline_start=start,

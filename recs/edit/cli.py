@@ -6,7 +6,7 @@ from typing import Annotated
 import tyro
 from pydantic import BaseModel, ConfigDict, Field
 from ufor.codec import score_toml
-from ufor.interface import MixBinding, Part, ScoreVersion
+from ufor.interface import MixBinding, Part, ScoreReference
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, calibration_schema, commands, composition, session
@@ -169,7 +169,7 @@ def main(args: list[str] | None = None) -> int:
 
 
 def _part_source_name(part: Part) -> str:
-    if isinstance(part.score, ScoreVersion):
+    if isinstance(part.score, ScoreReference):
         return part.score.path or '<unresolved score>'
     return f'<inline {part.score.name}>'
 
