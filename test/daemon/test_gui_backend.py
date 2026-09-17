@@ -1,3 +1,4 @@
+import pickle
 import time
 from pathlib import Path
 
@@ -107,10 +108,10 @@ class FakePipe:
         self.sent: list[str] = []
         self.closed = False
 
-    def recv(self) -> str:
+    def recv_bytes(self, maxlength: int | None = None) -> bytes:
         if not self.received:
             raise EOFError
-        return self.received.pop(0)
+        return pickle.dumps(self.received.pop(0))
 
     def send(self, message: str) -> None:
         self.sent.append(message)

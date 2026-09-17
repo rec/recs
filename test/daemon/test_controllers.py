@@ -39,7 +39,7 @@ def test_linux_controller_installs_user_service(tmp_path: Path) -> None:
     result = controller.install(daemon_metadata)
 
     assert result.installed
-    assert result.running
+    assert result.running is None
     assert controller.paths.metadata.exists()
     assert controller.paths.service.exists()
     assert runner.commands == [
