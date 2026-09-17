@@ -355,6 +355,7 @@ def _run_source_recorder(
         transport.publish(_source_failure(e, source_name))
     finally:
         transport.finish()
+        update_connection.close()
 
 
 def _connection_ready(conn: connection.Connection) -> bool:

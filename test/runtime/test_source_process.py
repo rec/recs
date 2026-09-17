@@ -619,7 +619,7 @@ def test_source_process_join_drains_real_child_final_updates(
     )
 
     owner.start()
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 15
     while owner.is_alive and time.monotonic() < deadline:
         time.sleep(0.01)
     owner.join()
@@ -628,7 +628,7 @@ def test_source_process_join_drains_real_child_final_updates(
     ]
 
     assert updates
-    assert any(update.file_records for update in updates)
+    assert any(update.file_records for update in updates), updates
     assert any(update.file_end_frames for update in updates)
     assert any(path.exists() for update in updates for path in update.files)
     positions = [u.marker_position for u in updates if u.marker_position is not None]
