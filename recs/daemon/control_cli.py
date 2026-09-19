@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated, ClassVar
 
 import tyro
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from reccy.protocol import rpc
 
 from . import instances
@@ -118,6 +118,52 @@ class ReloadProfiles(ControlCommand):
     rpc_command = 'reload_profiles'
 
 
+class MusicianAdd(ControlCommand):
+    rpc_command = 'add_musician'
+    name: Annotated[str, tyro.conf.Positional]
+    other_names: Annotated[list[str], tyro.conf.arg(name='other-name')] = Field(
+        default_factory=list
+    )
+    public_keys: Annotated[list[str], tyro.conf.arg(name='public-key')] = Field(
+        default_factory=list
+    )
+    contacts: Annotated[list[str], tyro.conf.arg(name='contact')] = Field(
+        default_factory=list
+    )
+
+
+class MusicianEdit(ControlCommand):
+    rpc_command = 'edit_musician'
+    name: Annotated[str, tyro.conf.Positional]
+    other_names: Annotated[list[str] | None, tyro.conf.arg(name='other-name')] = None
+    public_keys: Annotated[list[str] | None, tyro.conf.arg(name='public-key')] = None
+    contacts: Annotated[list[str] | None, tyro.conf.arg(name='contact')] = None
+    clear_other_names: bool = False
+    clear_public_keys: bool = False
+    clear_contacts: bool = False
+
+
+class MusicianDelete(ControlCommand):
+    rpc_command = 'delete_musician'
+    name: Annotated[str, tyro.conf.Positional]
+
+
+class MusicianAssign(ControlCommand):
+    rpc_command = 'assign_musician'
+    name: Annotated[str, tyro.conf.Positional]
+    source: Annotated[str, tyro.conf.Positional]
+    channels: Annotated[list[int], tyro.conf.Positional]
+
+
+class MusicianRemove(ControlCommand):
+    rpc_command = 'remove_musician'
+    name: Annotated[str, tyro.conf.Positional]
+    source: str | None = None
+    channels: Annotated[list[int], tyro.conf.arg(name='channel')] = Field(
+        default_factory=list
+    )
+
+
 def main(argv: list[str]) -> int:
     try:
         selector, arguments = instances.selector_arguments(argv)
@@ -142,6 +188,15 @@ def main(argv: list[str]) -> int:
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
+    if isinstance(command, MusicianAdd):
+        params = {
+            'musician': {
+                'name': command.name,
+                'other_names': command.other_names,
+                'public_keys': command.public_keys,
+                'contacts': command.contacts,
+            }
+        }
     try:
         target = instances.resolve(selector)
         result = rpc.Client(
@@ -184,4 +239,9 @@ COMMANDS: dict[str, Callable[..., ControlCommand]] = {
     'calibrate': Calibrate,
     'card-replace': CardReplace,
     'reload-profiles': ReloadProfiles,
+    'musician-add': MusicianAdd,
+    'musician-edit': MusicianEdit,
+    'musician-delete': MusicianDelete,
+    'musician-assign': MusicianAssign,
+    'musician-remove': MusicianRemove,
 }

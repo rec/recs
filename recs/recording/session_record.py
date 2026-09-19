@@ -10,6 +10,8 @@ from ufor.base import Identifier
 from ufor.recording import AudioSpan, Gap
 from ufor.time import ClockObservation, Timebase
 
+from recs.musicians import SourceMusician
+
 
 class SessionHeader(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -21,6 +23,7 @@ class SessionHeader(BaseModel):
     continued_from: str | None = None
     application: dict[str, str] | None = None
     metadata: dict[str, object] | None = None
+    channel_musicians: dict[str, SourceMusician] | None = None
 
 
 class MarkerPosition(BaseModel, frozen=True):
@@ -156,6 +159,7 @@ class SessionRecord(BaseModel):
     continued_from: str | None = None
     application: dict[str, str] | None = None
     metadata: dict[str, object] | None = None
+    channel_musicians: dict[str, SourceMusician] | None = None
     ended_at: str | None = None
     duration_seconds: float | None = None
     events: list[EventRecord] = Field(default_factory=list)
@@ -187,6 +191,7 @@ class SessionRecordWriter:
         continued_from: str | None = None,
         application: dict[str, str] | None = None,
         metadata: dict[str, object] | None = None,
+        channel_musicians: dict[str, SourceMusician] | None = None,
         sync_interval: float = 1.0,
     ) -> None:
         self.path = _available_path(path)
@@ -202,6 +207,7 @@ class SessionRecordWriter:
                 continued_from=continued_from,
                 application=application,
                 metadata=metadata,
+                channel_musicians=channel_musicians,
             ),
             sync=True,
         )
@@ -244,6 +250,7 @@ def read(path: Path) -> SessionRecord:
         continued_from=header.continued_from if header else None,
         application=header.application if header else None,
         metadata=header.metadata if header else None,
+        channel_musicians=header.channel_musicians if header else None,
         ended_at=footer.ended_at if footer else None,
         duration_seconds=footer.duration_seconds if footer else None,
         events=[e for e in entries if isinstance(e, EventRecord)],

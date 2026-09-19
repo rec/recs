@@ -66,6 +66,8 @@ class Recorder(Runnables):
         self.saved_tracks = {
             name: list(tracks) for name, tracks in saved_settings.tracks.items()
         }
+        self.musicians = dict(saved_settings.musicians)
+        self.channel_musicians = dict(saved_settings.channel_musicians)
         all_tracks = device_lifecycle.DeviceLifecycle.initial_tracks(
             cfg, self.saved_tracks
         )
@@ -163,6 +165,8 @@ class Recorder(Runnables):
             self.cfg,
             self.saved_tracks,
             track_names,
+            self.musicians,
+            self.channel_musicians,
             self.state,
             self.session,
             self._devices,
@@ -747,6 +751,7 @@ class Recorder(Runnables):
         self.session.start(
             self.session_directory / 'session-record.jsonl',
             enabled=self.cfg.general.writes_files,
+            channel_musicians=self._control.channel_musicians,
         )
         if self.cfg.general.writes_files and self.cfg.midi.record_midi:
             self._midi.open_session(

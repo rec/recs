@@ -184,7 +184,7 @@ readiness inspects a setup without recording; preflight checks a running daemon.
 
 
 $ recs control --help
-usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles}
+usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles,musician-add,musician-edit,musician-delete,musician-assign,musician-remove}
 
 Send one command to a running recs instance.
 
@@ -215,6 +215,11 @@ Send one command to a running recs instance.
     - calibrate
     - card-replace
     - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
+    - musician-add
+    - musician-edit
+    - musician-delete
+    - musician-assign
+    - musician-remove
 
 
 $ recs daemon --help
