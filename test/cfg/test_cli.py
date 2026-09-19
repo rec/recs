@@ -97,6 +97,7 @@ def test_help(cli_help: CliHelp) -> None:
                 'card-replace',
                 'reload-profiles',
                 'musician-add',
+                'musician-list',
                 'musician-edit',
                 'musician-delete',
                 'musician-assign',
