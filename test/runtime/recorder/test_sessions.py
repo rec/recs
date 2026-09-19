@@ -110,6 +110,7 @@ def test_recorder_checks_for_unfinished_sessions_before_starting_record(
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
 
     rec._start_record()
+    rec._report_unfinished_sessions()
 
     assert roots == [tmp_path]
 
