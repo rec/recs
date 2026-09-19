@@ -198,6 +198,9 @@ class RecordingControl:
     ) -> gui_protocol.MusicianResult:
         return recording_track_config.add_musician(self, request)
 
+    def list_musicians(self) -> gui_protocol.Musicians:
+        return recording_track_config.list_musicians(self)
+
     def edit_musician(
         self, request: gui_protocol.EditMusician
     ) -> gui_protocol.MusicianResult:

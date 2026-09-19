@@ -60,6 +60,7 @@ recs control calibrate
 recs control card-replace
 recs control reload-profiles
 recs control musician-add mike --other-name Michael --contact insta:mike
+recs control musician-list
 recs control musician-assign mike Ext 1 2
 recs control musician-remove mike --source Ext --channel 1
 recs control instances
@@ -96,14 +97,16 @@ The subcommands map to the protocol as follows:
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
 | `musician-add NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...]` | `add_musician` |
+| `musician-list` | `list_musicians` |
 | `musician-edit NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...] [--clear-other-names] [--clear-public-keys] [--clear-contacts]` | `edit_musician` |
 | `musician-delete NAME` | `delete_musician` |
 | `musician-assign NAME SOURCE CHANNEL [CHANNEL ...]` | `assign_musician` |
 | `musician-remove NAME [--source SOURCE] [--channel CHANNEL ...]` | `remove_musician` |
 
-Each invocation prints exactly one JSON value followed by a newline. Commands
-without a data response print `"ok"`. Connection, timeout, daemon, and response
-validation failures are printed to standard error and return exit status `1`.
+Each invocation except `musician-list` prints exactly one JSON value followed by
+a newline. `musician-list` prints TOML. Commands without a data response print
+`"ok"`. Connection, timeout, daemon, and response validation failures are
+printed to standard error and return exit status `1`.
 
 `set` parses `VALUE` as JSON when possible. Numbers, booleans, `null`, arrays,
 and objects therefore retain their JSON types. Other values, including unit
@@ -160,7 +163,7 @@ There are two independent versions:
 - `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the recs payload version. It is
-  currently `10` and is returned by `capabilities`.
+  currently `11` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
@@ -200,6 +203,7 @@ response return the JSON string `"ok"`.
 | `jump_session` | `offset: -1 \| 1` | `playback_state` |
 | `reload_profiles` | none | `"ok"` |
 | `add_musician` | `musician: Musician` | `musician` |
+| `list_musicians` | none | `musicians` |
 | `edit_musician` | `name: str`, optional replacement lists and clear flags | `musician` |
 | `delete_musician` | `name: str` | `musician_removed` |
 | `assign_musician` | `name: str`, `source: str`, `channels: list[int]` | `musician_assignment` |
@@ -216,7 +220,7 @@ Call this first when a client needs to adapt to different recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 10
+  "version": 11
 }
 ```
 
@@ -391,6 +395,25 @@ client.call(
     },
 )
 ```
+
+`list_musicians` returns every stored record in short-name order:
+
+```json
+{
+  "type": "musicians",
+  "musicians": {
+    "mike": {
+      "name": "mike",
+      "other_names": ["Michael"],
+      "public_keys": ["ssh-ed25519 AAA..."],
+      "contacts": ["insta:mike"]
+    }
+  }
+}
+```
+
+`recs control musician-list` prints the `musicians` object as TOML, with the
+short names under its top-level `musicians` table.
 
 `edit_musician` changes only list fields supplied by the request. Supplying a
 list replaces that list. `clear_other_names`, `clear_public_keys`, and

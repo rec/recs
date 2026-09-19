@@ -25,6 +25,8 @@ class RecordingControlTarget(Protocol):
         self, request: gui_protocol.AddMusician
     ) -> gui_protocol.MusicianResult: ...
 
+    def list_musicians(self) -> gui_protocol.Musicians: ...
+
     def assign_musician(
         self, request: gui_protocol.AssignMusician
     ) -> gui_protocol.MusicianAssignment: ...
@@ -185,6 +187,8 @@ class RecordingControlProtocol:
             return gui_protocol.Devices(
                 type='devices', devices=self.control.device_status()
             )
+        if isinstance(request, gui_protocol.ListMusicians):
+            return self.control.list_musicians()
         if isinstance(request, gui_protocol.MutableAttributes):
             return gui_protocol.MutableAttributesResult(
                 type='mutable_attributes_result',

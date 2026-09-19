@@ -122,6 +122,35 @@ def test_control_commands_send_one_rpc_request(
     assert capsys.readouterr().out == '"ok"\n'
 
 
+def test_musician_list_prints_toml(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(control_cli.rpc, 'Client', FakeClient)
+    FakeClient.result = {
+        'type': 'musicians',
+        'musicians': {
+            'mike': {
+                'name': 'mike',
+                'other_names': ['Michael'],
+                'public_keys': ['ssh-ed25519 AAA'],
+                'contacts': ['insta:mike'],
+            }
+        },
+    }
+
+    assert control_cli.main(['musician-list']) == 0
+
+    assert FakeClient.clients[0].calls == [('list_musicians', {})]
+    assert capsys.readouterr().out == (
+        '[musicians.mike]\n'
+        'name = "mike"\n'
+        'other_names = ["Michael"]\n'
+        'public_keys = ["ssh-ed25519 AAA"]\n'
+        'contacts = ["insta:mike"]\n'
+    )
+
+
 @pytest.mark.parametrize(
     ('value', 'parsed'),
     [

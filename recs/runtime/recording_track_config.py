@@ -118,6 +118,12 @@ def add_musician(
     return gui_protocol.MusicianResult(type='musician', musician=musician)
 
 
+def list_musicians(control: 'RecordingControl') -> gui_protocol.Musicians:
+    return gui_protocol.Musicians(
+        type='musicians', musicians=dict(sorted(control.musicians.items()))
+    )
+
+
 def edit_musician(
     control: 'RecordingControl', request: gui_protocol.EditMusician
 ) -> gui_protocol.MusicianResult:
