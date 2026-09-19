@@ -26,8 +26,12 @@ clock mapping. The first line is a header; clean shutdown ends with a footer.
 ```
 
 Header fields are `type`, `version`, and `started_at`, with optional
-`session_id`, `continued_from`, `application`, and `metadata`. A footer has
-`type = "footer"`, `ended_at`, and observed `duration_seconds`.
+`session_id`, `continued_from`, `application`, `metadata`, and
+`channel_musicians`. `channel_musicians` maps each source to its musician short
+name and one-based channels, for example
+`{"Ext":{"musician":"mike","channels":[1,2]}}`. It snapshots the
+assignment at session start and contains no musician identity details. A footer
+has `type = "footer"`, `ended_at`, and observed `duration_seconds`.
 
 The parser retains valid lines and reports malformed ones. Finalization accepts
 one torn JSON line only at the physical end, retaining an explicitly open
@@ -153,6 +157,11 @@ pause/resume, configuration, marks, key transitions, disk events, queue pressure
 and continuation decisions. Unknown event names remain inspectable; unknown
 fields are rejected. `WarningRecord` has a message and optional repeat count
 and first timestamp. None of these operational summaries replaces payload data.
+
+Musician operations are event records: `musician_added`, `musician_edited`,
+`musician_deleted`, `musician_assigned`, and
+`musician_removed_from_channels`. The header remains the assignment snapshot;
+these events describe changes made while the session is open.
 
 Volume changes close current files and the current journal. The old journal
 names the next one; the new header uses `continued_from`. Ordinary disk
