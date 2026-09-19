@@ -72,6 +72,10 @@ def run() -> int:
                 from recs.recording.session_recovery import main
 
                 return main(sys.argv[3:])
+            if len(sys.argv) > 2 and sys.argv[2] == 'recover-scan':
+                from recs.recording.recovery_report import main_scan
+
+                return main_scan(sys.argv[3:])
             if len(sys.argv) > 2 and sys.argv[2] == 'markers':
                 from recs.recording.markers import main
 
@@ -110,6 +114,7 @@ def run() -> int:
             from recs.recording.finalize import FinalizeSession
             from recs.recording.markers import MarkersCli
             from recs.recording.migrate import MigrateSession
+            from recs.recording.recovery_report import RecoverScanCli
             from recs.recording.session_export import ExportCli
             from recs.recording.session_quality import QualityCli
             from recs.recording.session_recovery import RecoverCli
@@ -122,6 +127,7 @@ def run() -> int:
                     'extract': ExtractCli,
                     'handoff': HandoffCli,
                     'recover': RecoverCli,
+                    'recover-scan': RecoverScanCli,
                     'finalize': FinalizeSession,
                     'export-midi': ExportMidi,
                     'migrate': MigrateSession,

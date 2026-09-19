@@ -112,5 +112,5 @@ It does not modify journals, media, or sealed recording documents.
 
 Add `recs session recover-scan ROOT` as the deliberate discovery route for
 historical sessions introduced after a root's initial scan. It is needed to
-retain discoverability without restoring automatic volume-wide scans; it is a
-proposal only until this plan is approved for implementation.
+retain discoverability without restoring automatic volume-wide scans. Implemented
+with this worklist change.
