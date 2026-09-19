@@ -9,7 +9,7 @@ from recs.musicians import Musician, SourceMusician
 
 from .instances import InstanceIdentity
 
-VERSION = 9
+VERSION = 10
 
 
 class Hello(ipc.Hello):
