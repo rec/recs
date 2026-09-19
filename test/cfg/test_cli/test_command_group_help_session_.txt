@@ -1,34 +1,35 @@
 $ recs session --help
-usage: recs session [-h] {show,quality,markers,extract,handoff,recover,finalize,export-midi,migrate,export}
+usage: recs session [-h] {show,quality,markers,extract,handoff,recover,recover-scan,finalize,export-midi,migrate,export}
 
 Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
  options
  ----------------------------------------------------------------------------------------------------------------------
-  -h, --help       show this help message and exit
+  -h, --help        show this help message and exit
 
  subcommands
  ----------------------------------------------------------------------------------------------------------------------
   (required)
-    - show         Inspect one finalized recording session.
-    - quality      Report one recording document's evidence; audio decoding is opt-in.
+    - show          Inspect one finalized recording session.
+    - quality       Report one recording document's evidence; audio decoding is opt-in.
 
-                   Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
-                   advisories are not proof of clipping. No quietness verdicts.
-    - markers      List numbered markers and their available source-frame evidence.
-    - extract      Preview marker extraction; supply --destination to render a new session.
+                    Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
+                    advisories are not proof of clipping. No quietness verdicts.
+    - markers       List numbered markers and their available source-frame evidence.
+    - extract       Preview marker extraction; supply --destination to render a new session.
 
-                   Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
-                   lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
-                   rejected, never mapped from wall time.
-    - handoff      Preview aligned tracks from one sealed segment; --destination writes the bundle.
+                    Use numbers from session markers, not labels. Select one capture clock. Without --end-marker,
+                    lead/tail surround --start-marker. Durations are seconds. Historical unpositioned markers are
+                    rejected, never mapped from wall time.
+    - handoff       Preview aligned tracks from one sealed segment; --destination writes the bundle.
 
-                   Frame bounds are half-open on one capture clock. No resampling or alignment between independent
-                   clocks is inferred. Output is 32-bit float WAV plus JSON.
-    - recover      Preview recovery of a stopped version 4 capture; --destination creates a copy.
+                    Frame bounds are half-open on one capture clock. No resampling or alignment between independent
+                    clocks is inferred. Output is 32-bit float WAV plus JSON.
+    - recover       Preview recovery of a stopped version 4 capture; --destination creates a copy.
 
-                   Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
-                   not aligned tracks. No original files are changed.
+                    Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
+                    not aligned tracks. No original files are changed.
+    - recover-scan  Discover unfinished session records below ROOT once.
     - finalize
     - export-midi
     - migrate
@@ -207,6 +208,20 @@ Audio is fully decoded for verification. Unfinished readable audio is retained a
               (default: None)
   --json, --no-json
               (default: False)
+
+
+$ recs session recover-scan --help
+usage: recs session recover-scan [-h] PATH
+
+Discover unfinished session records below ROOT once.
+
+ positional arguments
+ ---------------------------------------------
+  PATH        root (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
 
 
 $ recs session show --help

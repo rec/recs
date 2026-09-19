@@ -64,6 +64,7 @@ def test_help(cli_help: CliHelp) -> None:
                 'extract',
                 'handoff',
                 'recover',
+                'recover-scan',
                 'finalize',
                 'export-midi',
                 'migrate',

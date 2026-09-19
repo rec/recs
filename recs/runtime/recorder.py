@@ -748,6 +748,10 @@ class Recorder(Runnables):
             recovery_report.report_unfinished_sessions(
                 recording_paths.recovery_root(self.cfg.directory.output_directory)
             )
+            recovery_report.register_unfinished_session(
+                recording_paths.recovery_root(self.cfg.directory.output_directory),
+                self.session_directory / 'session-record.jsonl',
+            )
         self.session.start(
             self.session_directory / 'session-record.jsonl',
             enabled=self.cfg.general.writes_files,
@@ -768,6 +772,10 @@ class Recorder(Runnables):
         self._flush_warning_summaries()
         timestamp = times.timestamp()
         self.session.finish(timestamp)
+        if self.cfg.general.writes_files:
+            recovery_report.clear_finished_session(
+                self.session_directory / 'session-record.jsonl'
+            )
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (

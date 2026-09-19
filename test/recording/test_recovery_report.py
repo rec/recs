@@ -10,6 +10,9 @@ from recs.recording.finalize import finalize_recording
 def test_writes_recovery_report_beside_unfinished_record(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr(
+        recovery_report, 'worklist_path', lambda: tmp_path / 'recovery-worklist.json'
+    )
     session = tmp_path / 'session'
     audio = session / 'audio'
     audio.mkdir(parents=True)
@@ -73,6 +76,11 @@ def test_writes_recovery_report_beside_unfinished_record(
             'missing_files': 1,
             'likely_complete': False,
         }
+    ]
+
+    assert recovery_report.report_unfinished_sessions(tmp_path) == []
+    assert messages == [
+        f'Unfinished session, 2 open files, 1 missing file: see {report_path.resolve()}'
     ]
 
 
