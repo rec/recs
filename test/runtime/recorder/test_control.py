@@ -46,7 +46,7 @@ def test_recorder_rejects_an_active_settings_writer(
         ),
         control_endpoint='/tmp/writer.sock',
         event_endpoint='/tmp/writer-events.sock',
-        protocol_version=10,
+        protocol_version=11,
         settings_path=rec.settings_path,
     )
     monkeypatch.setattr(
@@ -318,7 +318,7 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 10
+    assert response.version == 11
     assert response.instance == rec.instance
     assert 'status_snapshot' in response.commands
     assert 'subscribe_waveforms' in response.commands
@@ -326,6 +326,7 @@ def test_control_request_reports_capabilities(
     assert 'new_session' in response.commands
     assert 'shutdown' in response.commands
     assert 'add_musician' in response.commands
+    assert 'list_musicians' in response.commands
     assert 'edit_musician' in response.commands
     assert 'delete_musician' in response.commands
     assert 'assign_musician' in response.commands

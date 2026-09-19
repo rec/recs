@@ -3,6 +3,7 @@ import sys
 from collections.abc import Callable
 from typing import Annotated, ClassVar
 
+import tomlkit
 import tyro
 from pydantic import BaseModel, Field, ValidationError
 from reccy.protocol import rpc
@@ -132,6 +133,10 @@ class MusicianAdd(ControlCommand):
     )
 
 
+class MusicianList(ControlCommand):
+    rpc_command = 'list_musicians'
+
+
 class MusicianEdit(ControlCommand):
     rpc_command = 'edit_musician'
     name: Annotated[str, tyro.conf.Positional]
@@ -207,7 +212,13 @@ def main(argv: list[str]) -> int:
     except (OSError, TimeoutError, ValidationError, ValueError) as error:
         print(str(error) or type(error).__name__, file=sys.stderr)
         return 1
-    print(json.dumps(result, separators=(',', ':')))
+    if isinstance(command, MusicianList):
+        if not isinstance(result, dict):
+            print('Invalid musician-list response', file=sys.stderr)
+            return 1
+        print(tomlkit.dumps({'musicians': result['musicians']}), end='')
+    else:
+        print(json.dumps(result, separators=(',', ':')))
     return 0
 
 
@@ -240,6 +251,7 @@ COMMANDS: dict[str, Callable[..., ControlCommand]] = {
     'card-replace': CardReplace,
     'reload-profiles': ReloadProfiles,
     'musician-add': MusicianAdd,
+    'musician-list': MusicianList,
     'musician-edit': MusicianEdit,
     'musician-delete': MusicianDelete,
     'musician-assign': MusicianAssign,

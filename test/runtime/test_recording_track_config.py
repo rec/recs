@@ -109,6 +109,24 @@ def test_musician_assignment_requires_one_musician_per_source() -> None:
     ]
 
 
+def test_musician_list_returns_records_by_short_name() -> None:
+    control = FakeControl(Cfg(silent=True), source_process(['1']))
+    control.musicians = {
+        'sara': Musician(name='sara'),
+        'mike': Musician(name='mike', contacts=['insta:mike']),
+    }
+
+    response = recording_track_config.list_musicians(control)
+
+    assert response == gui_protocol.Musicians(
+        type='musicians',
+        musicians={
+            'mike': control.musicians['mike'],
+            'sara': control.musicians['sara'],
+        },
+    )
+
+
 def test_musician_edit_and_delete_update_assignments() -> None:
     source = source_process(['1'])
     control = FakeControl(Cfg(silent=True), source)

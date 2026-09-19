@@ -9,7 +9,7 @@ from recs.musicians import Musician, SourceMusician
 
 from .instances import InstanceIdentity
 
-VERSION = 10
+VERSION = 11
 
 
 class Hello(ipc.Hello):
@@ -157,6 +157,10 @@ class SetTracks(BaseModel):
 class AddMusician(BaseModel):
     type: Literal['add_musician']
     musician: Musician
+
+
+class ListMusicians(BaseModel):
+    type: Literal['list_musicians']
 
 
 class EditMusician(BaseModel):
@@ -337,6 +341,11 @@ class MusicianResult(BaseModel):
     musician: Musician
 
 
+class Musicians(BaseModel):
+    type: Literal['musicians']
+    musicians: dict[str, Musician]
+
+
 class MusicianRemoved(BaseModel):
     type: Literal['musician_removed']
     name: str
@@ -382,6 +391,7 @@ Request = (
     | GetCfg
     | GetTrackNames
     | ListDevices
+    | ListMusicians
     | Mark
     | MutableAttributes
     | NewSession
@@ -417,6 +427,7 @@ Response = (
     | MusicianAssignmentRemoved
     | MusicianRemoved
     | MusicianResult
+    | Musicians
     | MutableAttributesResult
     | NewSessionStarted
     | NoiseFloorSet
@@ -452,6 +463,7 @@ API_COMMANDS = [
     'get_cfg',
     'get_track_names',
     'list_devices',
+    'list_musicians',
     'mutable_attributes',
     'new_session',
     'mark',

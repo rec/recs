@@ -245,6 +245,7 @@ def response(
         'get_cfg',
         'get_track_names',
         'list_devices',
+        'list_musicians',
         'mutable_attributes',
         'new_session',
         'pause_recording',
