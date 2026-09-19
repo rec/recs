@@ -16,6 +16,7 @@ Proposals do not authorize implementation by themselves.
 | recs instrument hosting | [Playback boundary and acceptance](sample-playback.md) | Host integration remains separate work |
 | Further sample-format features | [Format inventory](sample-format.md) | Explicit additions require design and approval |
 | SFZ support and limits | [SFZ plan](sfz.md), [instrument format](../doc/sample-format.md) | Implemented bounded conversion profile; unsupported features are diagnosed |
+| Startup recovery reporting | [Startup recovery worklist](startup-recovery.md) | Planned suppression of repeated volume scans and duplicate reports |
 | Physical checks | [Human verification](human.md) | Not established by unit tests |
 
 ## Broader design references
