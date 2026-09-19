@@ -1,6 +1,11 @@
+import hashlib
+import os
+import sys
 from pathlib import Path
+from typing import Annotated
 
 import tomlkit
+import tyro
 from pydantic import BaseModel, Field
 from reccy.runtime import logging
 
@@ -53,27 +58,217 @@ class RecoveryReport(BaseModel, frozen=True):
     finalization_error: str | None = None
 
 
-def report_unfinished_sessions(root: Path) -> list[Path]:
+class Fingerprint(BaseModel, frozen=True):
+    exists: bool
+    device: int | None = None
+    inode: int | None = None
+    size: int | None = None
+    modified_ns: int | None = None
+
+
+class RecoveryRoot(BaseModel, frozen=True):
+    path: str
+    device: int
+    inode: int
+
+
+class RecoveryCandidate(BaseModel, frozen=True):
+    record: str
+    root: str
+    journal: Fingerprint
+    media: dict[str, Fingerprint] = Field(default_factory=dict)
+    report_digest: str | None = None
+    announced_digest: str | None = None
+
+
+class RecoveryWorklist(BaseModel, frozen=True):
+    roots: list[RecoveryRoot] = Field(default_factory=list)
+    candidates: dict[str, RecoveryCandidate] = Field(default_factory=dict)
+
+
+class RecoverScanCli(BaseModel, frozen=True):
+    """Discover unfinished session records below ROOT once."""
+
+    root: Annotated[Path, tyro.conf.Positional]
+
+
+def main_scan(argv: list[str]) -> int:
+    command = tyro.cli(RecoverScanCli, args=argv, prog='recs session recover-scan')
+    for path in report_unfinished_sessions(command.root, discover=True):
+        print(path)
+    return 0
+
+
+def report_unfinished_sessions(
+    root: Path, *, discover: bool | None = None
+) -> list[Path]:
     if not root.exists():
         return []
+    root_path = str(root.resolve())
+    identity = _fingerprint(root)
+    if identity.device is None or identity.inode is None:
+        return []
+    worklist = _load_worklist()
+    known = RecoveryRoot(path=root_path, device=identity.device, inode=identity.inode)
+    if discover is None:
+        discover = known not in worklist.roots
+    candidates = dict(worklist.candidates)
+    roots = [value for value in worklist.roots if value.path != root_path]
+    roots.append(known)
+    if discover:
+        for record_path in sorted(root.rglob('session-record.jsonl')):
+            key = str(record_path.resolve())
+            candidates.setdefault(
+                key,
+                RecoveryCandidate(
+                    record=key,
+                    root=root_path,
+                    journal=_fingerprint(record_path),
+                ),
+            )
     reports: list[Path] = []
-    for record_path in sorted(root.rglob('session-record.jsonl')):
+    for key, candidate in list(candidates.items()):
+        if candidate.root != root_path:
+            continue
+        record_path = Path(candidate.record)
+        current = _fingerprint(record_path)
+        if not current.exists:
+            candidates[key] = candidate.model_copy(update={'journal': current})
+            continue
+        report_path = record_path.parent / REPORT_FILE
+        report_changed = _digest_path(report_path) != candidate.report_digest
+        media_changed = any(
+            _fingerprint(record_path.parent / path) != fingerprint
+            for path, fingerprint in candidate.media.items()
+        )
+        if (
+            current == candidate.journal
+            and not media_changed
+            and not report_changed
+            and candidate.report_digest is not None
+        ):
+            continue
         try:
             report = recovery_report(record_path)
         except OSError as e:
             LOGGER.error('Cannot inspect record %s: %s', record_path, e)
             continue
         if report is None:
+            if _digest_path(report_path) == candidate.report_digest:
+                report_path.unlink(missing_ok=True)
+            del candidates[key]
             continue
-        report_path = record_path.parent / REPORT_FILE
+        text = _toml(report)
+        digest = _digest(text)
         try:
-            recording_paths.write_text_atomically(report_path, _toml(report))
+            if _digest_path(report_path) != digest:
+                recording_paths.write_text_atomically(report_path, text)
         except OSError as e:
             LOGGER.error('Cannot write recovery report %s: %s', report_path, e)
             continue
-        LOGGER.error('%s: see %s', _summary(report), report_path.resolve())
-        reports.append(report_path)
+        if candidate.announced_digest != digest:
+            LOGGER.error('%s: see %s', _summary(report), report_path.resolve())
+            reports.append(report_path)
+        candidates[key] = RecoveryCandidate(
+            record=key,
+            root=root_path,
+            journal=current,
+            media={
+                path: _fingerprint(record_path.parent / path)
+                for path in report.open_files
+            },
+            report_digest=digest,
+            announced_digest=digest,
+        )
+    _save_worklist(RecoveryWorklist(roots=roots, candidates=candidates))
     return reports
+
+
+def register_unfinished_session(root: Path, record: Path) -> None:
+    worklist = _load_worklist()
+    key = str(record.resolve())
+    candidates = dict(worklist.candidates)
+    candidates.setdefault(
+        key,
+        RecoveryCandidate(
+            record=key,
+            root=str(root.resolve()),
+            journal=_fingerprint(record),
+        ),
+    )
+    _save_worklist(worklist.model_copy(update={'candidates': candidates}))
+
+
+def clear_finished_session(record: Path) -> None:
+    worklist = _load_worklist()
+    key = str(record.resolve())
+    candidate = worklist.candidates.get(key)
+    if candidate is None:
+        return
+    try:
+        report = recovery_report(record)
+    except OSError:
+        return
+    if report is not None:
+        return
+    report_path = record.parent / REPORT_FILE
+    if _digest_path(report_path) == candidate.report_digest:
+        report_path.unlink(missing_ok=True)
+    candidates = dict(worklist.candidates)
+    del candidates[key]
+    _save_worklist(worklist.model_copy(update={'candidates': candidates}))
+
+
+def worklist_path() -> Path:
+    if sys.platform == 'win32':
+        appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
+        return appdata / 'recs/recovery-worklist.json'
+    return Path.home() / '.local/state/recs/recovery-worklist.json'
+
+
+def _load_worklist() -> RecoveryWorklist:
+    path = worklist_path()
+    if not path.exists():
+        return RecoveryWorklist()
+    try:
+        return RecoveryWorklist.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        LOGGER.warning('Cannot read recovery worklist %s; rediscovering sessions', path)
+        return RecoveryWorklist()
+
+
+def _save_worklist(worklist: RecoveryWorklist) -> None:
+    path = worklist_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        recording_paths.write_text_atomically(path, worklist.model_dump_json())
+    except OSError as error:
+        LOGGER.warning('Cannot save recovery worklist %s: %s', path, error)
+
+
+def _fingerprint(path: Path) -> Fingerprint:
+    try:
+        status = path.stat()
+    except OSError:
+        return Fingerprint(exists=False)
+    return Fingerprint(
+        exists=True,
+        device=status.st_dev,
+        inode=status.st_ino,
+        size=status.st_size,
+        modified_ns=status.st_mtime_ns,
+    )
+
+
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _digest_path(path: Path) -> str | None:
+    try:
+        return _digest(path.read_text())
+    except OSError:
+        return None
 
 
 def recovery_report(path: Path) -> RecoveryReport | None:
