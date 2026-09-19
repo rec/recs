@@ -352,8 +352,8 @@ Older sessions require explicit conversion with `recs session migrate` before
 editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
 for conversion, verification, and historical timing limitations.
 
-Before opening a new record, recs checks its target-local recovery worklist for
-unfinished sessions. A recording root is recursively discovered once per
+After its live status publisher starts, recs checks its target-local recovery
+worklist for unfinished sessions. A recording root is recursively discovered once per
 filesystem, and each new or changed unresolved session receives a
 `recs-recovery-report.toml` beside its session record and one logged summary.
 Unchanged historical sessions are not rewritten or reported again. Use

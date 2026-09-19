@@ -128,6 +128,7 @@ class Recorder(Runnables):
         self.session = recording_session.RecordingSession(
             session_id, self.session_start_time
         )
+        self._recovery_roots: set[Path] = set()
         self._midi = MidiRecorder(
             self.cfg,
             recording_paths.media_session_directory(self.session_directory, 'midi'),
@@ -391,8 +392,10 @@ class Recorder(Runnables):
         if self.cfg.console.gui:
             self._poll_devices()
         with self:
+            self._report_unfinished_sessions()
             try:
                 while self.running:
+                    self._report_unfinished_sessions()
                     if self._display_closed():
                         break
                     if not self._monitor_card_replacement():
@@ -745,11 +748,10 @@ class Recorder(Runnables):
 
     def _start_record(self) -> None:
         if self.cfg.general.writes_files:
-            recovery_report.report_unfinished_sessions(
-                recording_paths.recovery_root(self.cfg.directory.output_directory)
-            )
+            root = recording_paths.recovery_root(self.cfg.directory.output_directory)
+            self._recovery_roots.add(root)
             recovery_report.register_unfinished_session(
-                recording_paths.recovery_root(self.cfg.directory.output_directory),
+                root,
                 self.session_directory / 'session-record.jsonl',
             )
         self.session.start(
@@ -765,6 +767,11 @@ class Recorder(Runnables):
             self._osc.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'osc')
             )
+
+    def _report_unfinished_sessions(self) -> None:
+        roots, self._recovery_roots = self._recovery_roots, set()
+        for root in roots:
+            recovery_report.report_unfinished_sessions(root)
 
     def _finish_record(self) -> None:
         self._midi.close_session()
