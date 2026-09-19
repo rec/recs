@@ -5,6 +5,7 @@ from reccy.protocol import ipc
 
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
+from recs.musicians import Musician, SourceMusician
 
 from .instances import InstanceIdentity
 
@@ -153,6 +154,41 @@ class SetTracks(BaseModel):
     tracks: list[ChannelTrack]
 
 
+class AddMusician(BaseModel):
+    type: Literal['add_musician']
+    musician: Musician
+
+
+class EditMusician(BaseModel):
+    type: Literal['edit_musician']
+    name: str
+    other_names: list[str] | None = None
+    public_keys: list[str] | None = None
+    contacts: list[str] | None = None
+    clear_other_names: bool = False
+    clear_public_keys: bool = False
+    clear_contacts: bool = False
+
+
+class DeleteMusician(BaseModel):
+    type: Literal['delete_musician']
+    name: str
+
+
+class AssignMusician(BaseModel):
+    type: Literal['assign_musician']
+    name: str
+    source: str
+    channels: list[int]
+
+
+class RemoveMusician(BaseModel):
+    type: Literal['remove_musician']
+    name: str
+    source: str | None = None
+    channels: list[int] = Field(default_factory=list)
+
+
 class StatusSnapshotRequest(BaseModel):
     type: Literal['status_snapshot']
 
@@ -296,6 +332,28 @@ class TracksSet(BaseModel):
     tracks: list[ChannelTrack]
 
 
+class MusicianResult(BaseModel):
+    type: Literal['musician']
+    musician: Musician
+
+
+class MusicianRemoved(BaseModel):
+    type: Literal['musician_removed']
+    name: str
+
+
+class MusicianAssignment(BaseModel):
+    type: Literal['musician_assignment']
+    source: str
+    assignment: SourceMusician
+
+
+class MusicianAssignmentRemoved(BaseModel):
+    type: Literal['musician_assignment_removed']
+    source: str | None = None
+    channels: list[int] = Field(default_factory=list)
+
+
 class WaveformSubscription(BaseModel, frozen=True):
     type: Literal['waveform_subscription']
     active: bool
@@ -313,16 +371,20 @@ class Error(ipc.Error):
 
 
 Request = (
-    Calibrate
+    AddMusician
+    | AssignMusician
+    | Calibrate
     | CardReplace
     | Capabilities
+    | DeleteMusician
     | DiskStatusRequest
+    | EditMusician
     | GetCfg
     | GetTrackNames
     | ListDevices
+    | Mark
     | MutableAttributes
     | NewSession
-    | Mark
     | PauseRecording
     | PlaySession
     | StopPlayback
@@ -331,6 +393,7 @@ Request = (
     | JumpPlayback
     | JumpSession
     | ReloadProfiles
+    | RemoveMusician
     | ResumeRecording
     | SetCfg
     | SetKeyLabel
@@ -350,6 +413,10 @@ Response = (
     | Devices
     | KeyLabelSet
     | Marked
+    | MusicianAssignment
+    | MusicianAssignmentRemoved
+    | MusicianRemoved
+    | MusicianResult
     | MutableAttributesResult
     | NewSessionStarted
     | NoiseFloorSet
@@ -374,10 +441,14 @@ def parse_message(line: str) -> Message:
 
 
 API_COMMANDS = [
+    'add_musician',
+    'assign_musician',
     'calibrate',
     'card_replace',
     'capabilities',
+    'delete_musician',
     'disk_status',
+    'edit_musician',
     'get_cfg',
     'get_track_names',
     'list_devices',
@@ -392,6 +463,7 @@ API_COMMANDS = [
     'jump_playback',
     'jump_session',
     'reload_profiles',
+    'remove_musician',
     'resume_recording',
     'set_key_label',
     'set_noise_floor',

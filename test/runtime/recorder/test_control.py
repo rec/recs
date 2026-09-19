@@ -9,6 +9,7 @@ from recs.cfg import settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_protocol
+from recs.musicians import Musician, SourceMusician
 from recs.recording.session_record import MarkerPosition, read
 from recs.runtime import (
     disk_space_controller,
@@ -647,12 +648,14 @@ def test_save_settings_failure_records_warning(
     control.cfg = Cfg(save_settings=True)
     control.track_names = {}
     control.saved_tracks = {}
+    control.musicians = {}
+    control.channel_musicians = {}
     control.settings_profile = None
     control.write_entry = records.append
     monkeypatch.setattr(
         recording_track_config.settings,
         'save',
-        lambda cfg, track_names, tracks, profile: _raise_recs_error(
+        lambda cfg, track_names, tracks, profile, **kwargs: _raise_recs_error(
             'cannot save settings'
         ),
     )
@@ -682,6 +685,38 @@ def test_control_request_reports_mutable_attributes(
             mutable_attributes=sorted(rec.cfg.mutable_attributes),
         )
     ]
+
+
+def test_recorder_snapshots_and_records_musician_assignments(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    musicians = {'mike': Musician(name='mike', contacts=['insta:mike'])}
+    assignments = {'Mic': SourceMusician(musician='mike', channels=[1])}
+    rec = Recorder(
+        Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True),
+        settings.LoadedSettings(
+            cfg=Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True),
+            musicians=musicians,
+            channel_musicians=assignments,
+        ),
+    )
+    rec._start_record()
+    request = FakeControlRequest(
+        gui_protocol.RemoveMusician(type='remove_musician', name='mike')
+    )
+    rec.live = FakeControlDisplay([request])
+
+    rec._receive_control_requests()
+
+    assert read(record_path(rec)).channel_musicians == assignments
+    assert request.responses == [
+        gui_protocol.MusicianAssignmentRemoved(type='musician_assignment_removed')
+    ]
+    assert read(record_path(rec)).events[-1].type == 'musician_removed_from_channels'
 
 
 def test_control_request_rejects_immutable_cfg(

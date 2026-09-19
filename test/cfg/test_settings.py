@@ -7,6 +7,7 @@ from reccy.configuration import units
 from recs.base.errors import RecsError
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
+from recs.musicians import Musician, SourceMusician
 
 
 def test_settings_are_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -43,6 +44,31 @@ def test_saved_settings_round_trip(
     assert loaded.tracks == tracks
     assert set(json.loads(path.read_text())['attributes']) == cfg.mutable_attributes
     assert not path.with_name('.settings.json.tmp').exists()
+
+
+def test_saved_settings_preserve_musician_assignments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / 'settings.json'
+    monkeypatch.setattr(settings, 'settings_path', lambda: path)
+    musicians = {
+        'mike': Musician(
+            name='mike', contacts=['insta:mike', 'mailto:mike@example.com']
+        )
+    }
+    assignments = {'Ext': SourceMusician(musician='mike', channels=[1, 2])}
+
+    settings.save(
+        Cfg(save_settings=True),
+        {},
+        {},
+        musicians=musicians,
+        channel_musicians=assignments,
+    )
+    loaded = settings.load(Cfg(save_settings=True))
+
+    assert loaded.musicians == musicians
+    assert loaded.channel_musicians == assignments
 
 
 def test_saved_settings_preserve_authored_units(

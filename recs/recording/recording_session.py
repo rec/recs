@@ -8,6 +8,7 @@ from ufor.recording import AudioSpan
 from ufor.time import ClockObservation, Position, Rate, Timebase
 
 from recs.base.errors import RecsError
+from recs.musicians import SourceMusician
 from recs.recording import recording_paths, session_record
 from recs.recording.capture_events import SourceFile, capture_clock_id
 from recs.recording.events import EventWriter, host_clock_observation
@@ -30,7 +31,13 @@ class RecordingSession:
         self.key_writer: EventWriter | None = None
         self.key_ordinal = 0
 
-    def start(self, path: Path, *, enabled: bool) -> None:
+    def start(
+        self,
+        path: Path,
+        *,
+        enabled: bool,
+        channel_musicians: dict[str, SourceMusician] | None = None,
+    ) -> None:
         if not enabled:
             return
         self.record_writer = session_record.SessionRecordWriter(
@@ -38,6 +45,7 @@ class RecordingSession:
             started_at=session_record.timestamp_to_json(self.started_at),
             session_id=self.session_id,
             continued_from=self.continued_from,
+            channel_musicians=channel_musicians,
         )
         self.continued_from = None
         self.write(host_clock_observation())
