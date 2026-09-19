@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from recs.musicians import SourceMusician
 from recs.recording import session_record
 from recs.recording.session_record import (
     AudioFileRecord,
@@ -36,6 +37,18 @@ def test_session_record_writer_batches_fsync(
         'key_pressed',
     ]
     assert len(fsynced) == 3
+
+
+def test_session_record_preserves_channel_musician_snapshot(tmp_path: Path) -> None:
+    assignments = {'Ext': SourceMusician(musician='mike', channels=[1, 2])}
+    writer = SessionRecordWriter(
+        tmp_path / 'session-record.jsonl',
+        started_at='start',
+        channel_musicians=assignments,
+    )
+    writer.close()
+
+    assert session_record.read(writer.path).channel_musicians == assignments
 
 
 def test_session_record_writer_reports_fsync_errors(

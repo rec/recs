@@ -1,5 +1,5 @@
 $ recs control --help
-usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles}
+usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles,musician-add,musician-edit,musician-delete,musician-assign,musician-remove}
 
 Send one command to a running recs instance.
 
@@ -30,6 +30,11 @@ Send one command to a running recs instance.
     - calibrate
     - card-replace
     - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
+    - musician-add
+    - musician-edit
+    - musician-delete
+    - musician-assign
+    - musician-remove
 
 
 $ recs control calibrate --help
@@ -138,6 +143,90 @@ usage: recs control mark [-h] STR
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
+
+
+$ recs control musician-add --help
+usage: recs control musician-add [-h] [MUSICIAN-ADD OPTIONS] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --other-name [STR [STR ...]]
+              (default: )
+  --public-key [STR [STR ...]]
+              (default: )
+  --contact [STR [STR ...]]
+              (default: )
+
+
+$ recs control musician-assign --help
+usage: recs control musician-assign [-h] STR STR [[INT [INT ...]]]
+
+ positional arguments
+ ----------------------------------------------------
+  STR                name (required)
+  STR                source (required)
+  [[INT [INT ...]]]  channels (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
+
+
+$ recs control musician-delete --help
+usage: recs control musician-delete [-h] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+
+
+$ recs control musician-edit --help
+usage: recs control musician-edit [-h] [MUSICIAN-EDIT OPTIONS] STR
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --other-name {None}|{[STR [STR ...]]}
+              (default: None)
+  --public-key {None}|{[STR [STR ...]]}
+              (default: None)
+  --contact {None}|{[STR [STR ...]]}
+              (default: None)
+  --clear-other-names, --no-clear-other-names
+              (default: False)
+  --clear-public-keys, --no-clear-public-keys
+              (default: False)
+  --clear-contacts, --no-clear-contacts
+              (default: False)
+
+
+$ recs control musician-remove --help
+usage: recs control musician-remove [-h] STR [--source {None}|STR] [--channel [INT [INT ...]]]
+
+ positional arguments
+ ---------------------------------------------
+  STR         name (required)
+
+ options
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --source {None}|STR
+              (default: None)
+  --channel [INT [INT ...]]
+              (default: )
 
 
 $ recs control mutable --help

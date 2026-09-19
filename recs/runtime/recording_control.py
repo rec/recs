@@ -11,6 +11,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
 from recs.daemon.instances import InstanceIdentity
+from recs.musicians import Musician, SourceMusician
 
 from ..recording import recording_session
 from ..recording.session_record import Record
@@ -41,6 +42,8 @@ class RecordingControl:
         cfg: Cfg,
         saved_tracks: dict[str, list[settings.TrackSettings]],
         track_names: SourceTrackNames,
+        musicians: dict[str, Musician],
+        channel_musicians: dict[str, SourceMusician],
         state: FullState,
         session: recording_session.RecordingSession,
         devices: DeviceLifecycle,
@@ -62,6 +65,8 @@ class RecordingControl:
         self.cfg = cfg
         self.saved_tracks = saved_tracks
         self.track_names = track_names
+        self.musicians = musicians
+        self.channel_musicians = channel_musicians
         self.state = state
         self.session = session
         self.devices = devices
@@ -187,6 +192,31 @@ class RecordingControl:
 
     def set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
         return recording_track_config.set_tracks(self, request)
+
+    def add_musician(
+        self, request: gui_protocol.AddMusician
+    ) -> gui_protocol.MusicianResult:
+        return recording_track_config.add_musician(self, request)
+
+    def edit_musician(
+        self, request: gui_protocol.EditMusician
+    ) -> gui_protocol.MusicianResult:
+        return recording_track_config.edit_musician(self, request)
+
+    def delete_musician(
+        self, request: gui_protocol.DeleteMusician
+    ) -> gui_protocol.MusicianRemoved:
+        return recording_track_config.delete_musician(self, request)
+
+    def assign_musician(
+        self, request: gui_protocol.AssignMusician
+    ) -> gui_protocol.MusicianAssignment:
+        return recording_track_config.assign_musician(self, request)
+
+    def remove_musician(
+        self, request: gui_protocol.RemoveMusician
+    ) -> gui_protocol.MusicianAssignmentRemoved:
+        return recording_track_config.remove_musician(self, request)
 
     def get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue:
         return recording_track_config.get_cfg(self, request)

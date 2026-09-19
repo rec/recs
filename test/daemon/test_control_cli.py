@@ -66,6 +66,37 @@ def reset_fake_client() -> Iterator[None]:
         (['calibrate'], 'calibrate', {}),
         (['card-replace'], 'card_replace', {}),
         (['reload-profiles'], 'reload_profiles', {}),
+        (
+            [
+                'musician-add',
+                'mike',
+                '--other-name',
+                'Michael',
+                '--public-key',
+                'ssh-ed25519 AAA',
+                '--contact',
+                'insta:mike',
+            ],
+            'add_musician',
+            {
+                'musician': {
+                    'name': 'mike',
+                    'other_names': ['Michael'],
+                    'public_keys': ['ssh-ed25519 AAA'],
+                    'contacts': ['insta:mike'],
+                }
+            },
+        ),
+        (
+            ['musician-assign', 'mike', 'Ext', '1', '2'],
+            'assign_musician',
+            {'name': 'mike', 'source': 'Ext', 'channels': [1, 2]},
+        ),
+        (
+            ['musician-remove', 'mike', '--source', 'Ext', '--channel', '1'],
+            'remove_musician',
+            {'name': 'mike', 'source': 'Ext', 'channels': [1]},
+        ),
     ],
 )
 def test_control_commands_send_one_rpc_request(

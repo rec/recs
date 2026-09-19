@@ -234,10 +234,14 @@ def response(
     if isinstance(value, gui_protocol.Error):
         return ipc.Error(type='error', message=value.message)
     if request.command in {
+        'add_musician',
+        'assign_musician',
         'calibrate',
         'card_replace',
         'capabilities',
+        'delete_musician',
         'disk_status',
+        'edit_musician',
         'get_cfg',
         'get_track_names',
         'list_devices',
@@ -250,6 +254,7 @@ def response(
         'continue_playback',
         'jump_playback',
         'jump_session',
+        'remove_musician',
         'subscribe_waveforms',
         'status_snapshot',
         'unsubscribe_waveforms',

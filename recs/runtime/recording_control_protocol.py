@@ -21,11 +21,27 @@ class RecordingControlTarget(Protocol):
 
     def calibrate(self, request: gui_protocol.Calibrate) -> gui_protocol.Calibrated: ...
 
+    def add_musician(
+        self, request: gui_protocol.AddMusician
+    ) -> gui_protocol.MusicianResult: ...
+
+    def assign_musician(
+        self, request: gui_protocol.AssignMusician
+    ) -> gui_protocol.MusicianAssignment: ...
+
     def card_replace(self) -> gui_protocol.CardReplaceStarted: ...
 
     def device_status(self) -> list[dict[str, object]]: ...
 
+    def delete_musician(
+        self, request: gui_protocol.DeleteMusician
+    ) -> gui_protocol.MusicianRemoved: ...
+
     def disk_status(self) -> gui_protocol.DiskStatus: ...
+
+    def edit_musician(
+        self, request: gui_protocol.EditMusician
+    ) -> gui_protocol.MusicianResult: ...
 
     def get_cfg(self, request: gui_protocol.GetCfg) -> gui_protocol.CfgValue: ...
 
@@ -54,6 +70,10 @@ class RecordingControlTarget(Protocol):
     ) -> gui_protocol.PlaybackState: ...
 
     def reload_profiles(self) -> gui_protocol.ProfilesReloaded: ...
+
+    def remove_musician(
+        self, request: gui_protocol.RemoveMusician
+    ) -> gui_protocol.MusicianAssignmentRemoved: ...
 
     def resume_recording(self, reason: str) -> gui_protocol.RecordingState: ...
 
@@ -134,6 +154,10 @@ class RecordingControlProtocol:
             external.publish_rows(rows, errors)
 
     def handle(self, request: gui_protocol.Request) -> gui_protocol.Response:
+        if isinstance(request, gui_protocol.AddMusician):
+            return self.control.add_musician(request)
+        if isinstance(request, gui_protocol.AssignMusician):
+            return self.control.assign_musician(request)
         if isinstance(request, gui_protocol.Calibrate):
             return self.control.calibrate(request)
         if isinstance(request, gui_protocol.CardReplace):
@@ -145,8 +169,12 @@ class RecordingControlProtocol:
                 version=gui_protocol.VERSION,
                 instance=self.control.instance,
             )
+        if isinstance(request, gui_protocol.DeleteMusician):
+            return self.control.delete_musician(request)
         if isinstance(request, gui_protocol.DiskStatusRequest):
             return self.control.disk_status()
+        if isinstance(request, gui_protocol.EditMusician):
+            return self.control.edit_musician(request)
         if isinstance(request, gui_protocol.GetCfg):
             return self.control.get_cfg(request)
         if isinstance(request, gui_protocol.GetTrackNames):
@@ -182,6 +210,8 @@ class RecordingControlProtocol:
             return self.control.jump_session(request)
         if isinstance(request, gui_protocol.ReloadProfiles):
             return self.control.reload_profiles()
+        if isinstance(request, gui_protocol.RemoveMusician):
+            return self.control.remove_musician(request)
         if isinstance(request, gui_protocol.ResumeRecording):
             return self.control.resume_recording('resume_recording')
         if isinstance(request, gui_protocol.SetCfg):
