@@ -3,7 +3,8 @@
 recs exposes a local RPC API while a recorder is running. Clients can use it
 to inspect recording state, change mutable recording settings, configure
 tracks, add marks to the session record, play a finalized recorded-audio
-session, pause or resume recording, and shut down the daemon.
+session, manage musicians and their source-channel assignments, pause or resume
+recording, and shut down the daemon.
 
 The public API uses `reccy.protocol.rpc`. The separate daemon GUI socket remains a
 private implementation detail. Live waveforms are available through the public
@@ -58,6 +59,9 @@ recs control stop
 recs control calibrate
 recs control card-replace
 recs control reload-profiles
+recs control musician-add mike --other-name Michael --contact insta:mike
+recs control musician-assign mike Ext 1 2
+recs control musician-remove mike --source Ext --channel 1
 recs control instances
 ```
 
@@ -91,6 +95,11 @@ The subcommands map to the protocol as follows:
 | `calibrate` | `calibrate` for all selected online tracks |
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
+| `musician-add NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...]` | `add_musician` |
+| `musician-edit NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...] [--clear-other-names] [--clear-public-keys] [--clear-contacts]` | `edit_musician` |
+| `musician-delete NAME` | `delete_musician` |
+| `musician-assign NAME SOURCE CHANNEL [CHANNEL ...]` | `assign_musician` |
+| `musician-remove NAME [--source SOURCE] [--channel CHANNEL ...]` | `remove_musician` |
 
 Each invocation prints exactly one JSON value followed by a newline. Commands
 without a data response print `"ok"`. Connection, timeout, daemon, and response
@@ -151,7 +160,7 @@ There are two independent versions:
 - `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the recs payload version. It is
-  currently `9` and is returned by `capabilities`.
+  currently `10` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
@@ -190,6 +199,11 @@ response return the JSON string `"ok"`.
 | `jump_playback` | `seconds: float` | `playback_state` |
 | `jump_session` | `offset: -1 \| 1` | `playback_state` |
 | `reload_profiles` | none | `"ok"` |
+| `add_musician` | `musician: Musician` | `musician` |
+| `edit_musician` | `name: str`, optional replacement lists and clear flags | `musician` |
+| `delete_musician` | `name: str` | `musician_removed` |
+| `assign_musician` | `name: str`, `source: str`, `channels: list[int]` | `musician_assignment` |
+| `remove_musician` | `name: str`, optional `source: str`, optional `channels: list[int]` | `musician_assignment_removed` |
 | `subscribe_waveforms` | none | `waveform_subscription` |
 | `unsubscribe_waveforms` | none | `waveform_subscription` |
 | `shutdown` | none | `"ok"` |
@@ -202,7 +216,7 @@ Call this first when a client needs to adapt to different recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 9
+  "version": 10
 }
 ```
 
@@ -358,6 +372,51 @@ is the track's first channel. `get_track_names` returns this object inside a
 
 `set_noise_floor` identifies a track by any channel in that track. A numeric
 value sets its override; `null` clears the override.
+
+### Musicians
+
+`add_musician` stores a musician under its unique short `name`. A musician has
+zero or more `other_names`, `public_keys`, and `contacts` strings. Contacts
+are opaque strings, so values such as `insta:mike`, `mike@insta`,
+`mailto:mike@example.com`, and web links are all retained unchanged:
+
+```python
+client.call(
+    'add_musician',
+    musician={
+        'name': 'mike',
+        'other_names': ['Michael'],
+        'public_keys': ['ssh-ed25519 AAA...'],
+        'contacts': ['insta:mike'],
+    },
+)
+```
+
+`edit_musician` changes only list fields supplied by the request. Supplying a
+list replaces that list. `clear_other_names`, `clear_public_keys`, and
+`clear_contacts` explicitly clear their respective lists; a request cannot
+both set and clear the same field. `delete_musician` removes the musician and
+every assignment that refers to it.
+
+`assign_musician` assigns a musician to one or more one-based channels on an
+online source. recs permits only one musician per source. Repeating an
+assignment for that musician adds channels; assigning another musician to the
+same source fails until the existing assignment is removed:
+
+```python
+client.call('assign_musician', name='mike', source='Ext', channels=[1, 2])
+```
+
+`remove_musician` with `source` and no `channels` removes that musician from
+every assigned channel of that source. With neither `source` nor `channels`,
+it removes every source assignment for the musician. The musician record is
+retained in both cases.
+
+Musician records and assignments are saved with the active settings when
+`save_settings` is enabled. Assignment data belongs to settings and session
+records, never to a musician record. A session header snapshots the current
+assignment map, and later add, edit, delete, assign, and removal commands are
+written as session events.
 
 ### Calibration
 

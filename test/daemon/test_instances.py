@@ -55,7 +55,7 @@ def test_publish_and_remove_instance_descriptor(tmp_path: Path) -> None:
         ),
         control_endpoint='/tmp/recs-control.sock',
         event_endpoint='/tmp/recs-events.sock',
-        protocol_version=9,
+        protocol_version=10,
         sources=['Mic'],
     )
 
@@ -82,7 +82,7 @@ def test_discover_accepts_only_the_instance_described_by_its_endpoint(
         ),
         control_endpoint='/tmp/live.sock',
         event_endpoint='/tmp/live-events.sock',
-        protocol_version=9,
+        protocol_version=10,
     )
     stale = live.model_copy(
         update={
@@ -225,5 +225,5 @@ def _descriptor(
         ),
         control_endpoint=f'/tmp/{pid}.sock',
         event_endpoint=f'/tmp/{pid}-events.sock',
-        protocol_version=9,
+        protocol_version=10,
     )

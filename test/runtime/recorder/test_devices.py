@@ -346,7 +346,7 @@ def test_unavailable_source_names_another_recs_instance(
         ),
         control_endpoint='/tmp/other.sock',
         event_endpoint='/tmp/other-events.sock',
-        protocol_version=9,
+        protocol_version=10,
     )
     monkeypatch.setattr(
         recorder.instances,
