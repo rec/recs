@@ -258,6 +258,7 @@ def response(
         'remove_musician',
         'subscribe_waveforms',
         'status_snapshot',
+        'switch_project',
         'unsubscribe_waveforms',
     }:
         return value.model_dump()

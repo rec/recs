@@ -115,6 +115,11 @@ class ReloadProfiles(BaseModel):
     type: Literal['reload_profiles']
 
 
+class SwitchProject(BaseModel):
+    type: Literal['switch_project']
+    project_name: str | None = None
+
+
 class ResumeRecording(BaseModel):
     type: Literal['resume_recording']
 
@@ -292,6 +297,13 @@ class ProfilesReloaded(BaseModel):
     profiles_path: str
 
 
+class ProjectSwitched(BaseModel):
+    type: Literal['project_switched']
+    project_name: str | None = None
+    created: bool = False
+    settings_path: str
+
+
 class RecordingState(BaseModel):
     type: Literal['recording_state']
     paused: bool
@@ -405,6 +417,7 @@ Request = (
     | ReloadProfiles
     | RemoveMusician
     | ResumeRecording
+    | SwitchProject
     | SetCfg
     | SetKeyLabel
     | SetNoiseFloor
@@ -432,6 +445,7 @@ Response = (
     | NewSessionStarted
     | NoiseFloorSet
     | ProfilesReloaded
+    | ProjectSwitched
     | RecordingState
     | PlaybackState
     | StatusSnapshot
@@ -477,6 +491,7 @@ API_COMMANDS = [
     'reload_profiles',
     'remove_musician',
     'resume_recording',
+    'switch_project',
     'set_key_label',
     'set_noise_floor',
     'set_track_names',

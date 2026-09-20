@@ -1,18 +1,19 @@
 $ recs project --help
-usage: recs project [-h] {save,use,show,list,delete}
+usage: recs project [-h] {save,use,show,switch,list,delete}
 
 Save and use recording projects. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
- ---------------------------------------------
+ -----------------------------------------------------------------------------------
   -h, --help  show this help message and exit
 
  subcommands
- ---------------------------------------------
+ -----------------------------------------------------------------------------------
   (required)
     - save
     - use
     - show
+    - switch  Switch a running recorder to a project, or omit NAME for the default.
     - list
     - delete
 
@@ -61,6 +62,20 @@ usage: recs project show [-h] STR
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
+
+
+$ recs project switch --help
+usage: recs project switch [-h] [[STR [STR ...]]]
+
+Switch a running recorder to a project, or omit NAME for the default.
+
+ positional arguments
+ ----------------------------------------------------
+  [[STR [STR ...]]]  names (default: )
+
+ options
+ ----------------------------------------------------
+  -h, --help         show this help message and exit
 
 
 $ recs project use --help

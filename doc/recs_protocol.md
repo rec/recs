@@ -59,6 +59,8 @@ recs control stop
 recs control calibrate
 recs control card-replace
 recs control reload-profiles
+recs control project-switch x18-show
+recs control project-switch  # default workspace
 recs control musician-add mike --other-name Michael --contact insta:mike
 recs control musician-list
 recs control musician-assign mike Ext 1 2
@@ -96,6 +98,7 @@ The subcommands map to the protocol as follows:
 | `calibrate` | `calibrate` for all selected online tracks |
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
+| `project-switch [NAME]` | `switch_project` |
 | `musician-add NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...]` | `add_musician` |
 | `musician-list` | `list_musicians` |
 | `musician-edit NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...] [--clear-other-names] [--clear-public-keys] [--clear-contacts]` | `edit_musician` |
@@ -202,6 +205,7 @@ response return the JSON string `"ok"`.
 | `jump_playback` | `seconds: float` | `playback_state` |
 | `jump_session` | `offset: -1 \| 1` | `playback_state` |
 | `reload_profiles` | none | `"ok"` |
+| `switch_project` | optional `project_name: str | null` | `project_switched` |
 | `add_musician` | `musician: Musician` | `musician` |
 | `list_musicians` | none | `musicians` |
 | `edit_musician` | `name: str`, optional replacement lists and clear flags | `musician` |
@@ -226,6 +230,39 @@ Call this first when a client needs to adapt to different recs versions:
 
 The real `commands` list contains every command supported by that daemon; the
 example is abbreviated.
+
+### Project switching
+
+`switch_project` moves a running recorder to an independent mutable workspace.
+Pass a project name to use or create a named project. Pass `null`, or omit the
+parameter, to return to the default workspace:
+
+```python
+result = client.call('switch_project', project_name='x18-show')
+default_result = client.call('switch_project')
+```
+
+Before switching, recs saves the current configuration, track layout, track
+names, musicians, and musician assignments in the current workspace. An
+existing target loads its saved mutable state. A missing named project is
+created from the current workspace. Subsequent mutations are written to the
+target workspace, never to the workspace that was left.
+
+The response identifies the active workspace and its settings file:
+
+```json
+{
+  "type": "project_switched",
+  "project_name": "x18-show",
+  "created": false,
+  "settings_path": "/home/me/.config/recs/project-settings/x18-show.json"
+}
+```
+
+For the default workspace, `project_name` is `null` and `settings_path` is the
+global `settings.json`. Project switching requires saved settings to be enabled.
+The recorder also updates its instance descriptor and writes a
+`project_switched` event to the session record.
 
 ### Status
 
