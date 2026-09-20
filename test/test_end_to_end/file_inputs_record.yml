@@ -50,5 +50,6 @@ files:
   - 2
   stream_id: audio:test/testdata/file_inputs/stereo.wav:1-2
   track_name: 1-2
+project_name: -default-
 started_at: <timestamp>
 warnings: []

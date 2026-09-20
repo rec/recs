@@ -209,6 +209,16 @@ def test_interrupted_journal_preserves_closed_audio_and_reports_partial_file(
         prepare_recording(journal)
 
 
+def test_finalization_retains_session_project_name(tmp_path: Path) -> None:
+    session = RecordingSession('project', 0.0)
+    session.start(
+        tmp_path / 'session-record.jsonl', enabled=True, project_name='x18-show'
+    )
+    session.finish(1.0)
+
+    assert read_recording(tmp_path / 'recording.toml').body.project_name == 'x18-show'
+
+
 def _audio(
     session: RecordingSession,
     directory: Path,

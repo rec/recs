@@ -46,6 +46,7 @@ body:
   ended_at: '2026-09-04T12:00:03Z'
   journal: original-journal
   observed_duration_seconds: 3.0
+  project_name: null
   started_at: '2026-09-04T12:00:00Z'
   state: sealed
   streams:

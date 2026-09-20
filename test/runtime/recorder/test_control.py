@@ -319,6 +319,7 @@ def test_project_switches_keep_independent_workspaces(
     rec._start_record()
     previous_record = rec._record_path()
     assert previous_record.is_relative_to(tmp_path / 'recordings/-default-')
+    assert read(previous_record).project_name == '-default-'
 
     switched = rec._control.switch_project(
         gui_protocol.SwitchProject(type='switch_project', project_name='show')
@@ -333,6 +334,7 @@ def test_project_switches_keep_independent_workspaces(
     assert rec.instance.project_name == 'show'
     assert rec._control.cfg.recording.noise_floor == 43
     assert rec.session_directory.is_relative_to(tmp_path / 'recordings/show')
+    assert read(rec._record_path()).project_name == 'show'
     assert read(previous_record).ended_at is not None
     assert settings.load(default_cfg).cfg.recording.noise_floor == 41
     assert (
