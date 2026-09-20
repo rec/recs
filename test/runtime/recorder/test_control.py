@@ -656,12 +656,12 @@ def test_save_settings_failure_records_warning(
     control.saved_tracks = {}
     control.musicians = {}
     control.channel_musicians = {}
-    control.settings_profile = None
+    control.project_name = None
     control.write_entry = records.append
     monkeypatch.setattr(
         recording_track_config.settings,
         'save',
-        lambda cfg, track_names, tracks, profile, **kwargs: _raise_recs_error(
+        lambda cfg, track_names, tracks, project_name, **kwargs: _raise_recs_error(
             'cannot save settings'
         ),
     )

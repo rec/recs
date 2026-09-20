@@ -165,27 +165,27 @@ def test_settings_reject_immutable_attributes(
         settings.load(Cfg(save_settings=True))
 
 
-def test_profile_settings_overlay_is_separate_from_global_settings(
+def test_project_settings_overlay_is_separate_from_global_settings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(settings, 'settings_path', lambda: tmp_path / 'settings.json')
     monkeypatch.setattr(
         settings,
-        'profile_settings_path',
-        lambda profile: tmp_path / f'{profile}.json',
+        'project_settings_path',
+        lambda project_name: tmp_path / f'{project_name}.json',
     )
     settings.save(
         Cfg(save_settings=True).set_attr('recording.noise_floor', 42),
         {},
         {},
-        profile='second-interface',
+        project_name='second-interface',
     )
 
     loaded = settings.load(
         Cfg(save_settings=True),
-        profile='second-interface',
+        project_name='second-interface',
     )
 
     assert loaded.cfg.recording.noise_floor == 42
-    assert loaded.profile == 'second-interface'
+    assert loaded.project_name == 'second-interface'
     assert not (tmp_path / 'settings.json').exists()

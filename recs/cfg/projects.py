@@ -16,7 +16,7 @@ from . import cli, run_cli, settings
 from .track_names import SourceTrackNames
 
 
-class SetupProfile(BaseModel, frozen=True):
+class Project(BaseModel, frozen=True):
     cfg: Cfg
     track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[settings.TrackSettings]] = Field(default_factory=dict)
@@ -24,11 +24,11 @@ class SetupProfile(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid')
 
 
-class ProfileCommand(BaseModel, frozen=True):
+class ProjectCommand(BaseModel, frozen=True):
     pass
 
 
-class Save(ProfileCommand):
+class Save(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
     replace: bool = False
@@ -38,7 +38,7 @@ class Save(ProfileCommand):
     )
 
 
-class Use(ProfileCommand):
+class Use(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
     recs_options: Annotated[list[str], tyro.conf.Positional] = Field(
@@ -46,48 +46,48 @@ class Use(ProfileCommand):
     )
 
 
-class Show(ProfileCommand):
+class Show(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
 
-class ListProfiles(ProfileCommand):
+class ListProjects(ProjectCommand):
     pass
 
 
-class Delete(ProfileCommand):
+class Delete(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
 
-def save(name: str, profile: SetupProfile, *, replace: bool = False) -> Path:
-    path = profile_path(name)
+def save(name: str, project: Project, *, replace: bool = False) -> Path:
+    path = project_path(name)
     if path.exists() and not replace:
-        raise RecsError(f'Recording setup already exists: {name}')
+        raise RecsError(f'Recording project already exists: {name}')
     try:
-        configuration_settings.write_json_model(path, profile, indent=2)
+        configuration_settings.write_json_model(path, project, indent=2)
     except OSError as e:
-        raise RecsError(f'Could not save recording setup {name}: {e}') from None
+        raise RecsError(f'Could not save recording project {name}: {e}') from None
     return path
 
 
-def load(name: str) -> SetupProfile:
-    path = profile_path(name)
+def load(name: str) -> Project:
+    path = project_path(name)
     try:
-        return SetupProfile.model_validate_json(path.read_text())
+        return Project.model_validate_json(path.read_text())
     except FileNotFoundError:
-        raise RecsError(f'Unknown recording setup: {name}') from None
+        raise RecsError(f'Unknown recording project: {name}') from None
     except (OSError, ValidationError, json.JSONDecodeError) as e:
-        raise RecsError(f'Could not read recording setup {name}: {e}') from None
+        raise RecsError(f'Could not read recording project {name}: {e}') from None
 
 
 def configured(name: str, arguments: list[str]) -> settings.LoadedSettings:
-    profile = load(name)
-    cfg = tyro.cli(cli.CliCfg, default=profile.cfg, args=arguments, prog='recs')
+    project = load(name)
+    cfg = tyro.cli(cli.CliCfg, default=project.cfg, args=arguments, prog='recs')
     return settings.load(
         cfg,
         run_cli.cli_overrides(arguments),
-        profile=name,
-        track_names=profile.track_names,
-        tracks=profile.tracks,
+        project_name=name,
+        track_names=project.track_names,
+        tracks=project.tracks,
     )
 
 
@@ -95,9 +95,9 @@ def main(argv: list[str]) -> int:
     command = tyro.extras.subcommand_cli_from_dict(
         COMMANDS,
         args=argv,
-        prog='recs profile',
+        prog='recs project',
         description=(
-            'Save and use named recording setups. '
+            'Save and use recording projects. '
             'These differ from the per-device JSON defaults loaded by --profiles.'
         ),
     )
@@ -107,11 +107,11 @@ def main(argv: list[str]) -> int:
             cli.CliCfg,
             default=current.cfg,
             args=command.recs_options,
-            prog='recs profile save',
+            prog='recs project save',
         )
         path = save(
             command.name,
-            SetupProfile(
+            Project(
                 cfg=cfg,
                 track_names=current.track_names,
                 tracks=current.tracks,
@@ -127,34 +127,34 @@ def main(argv: list[str]) -> int:
     if isinstance(command, Show):
         print(load(command.name).model_dump_json(indent=2))
         return 0
-    if isinstance(command, ListProfiles):
-        for path in sorted(profiles_directory().glob('*.json')):
+    if isinstance(command, ListProjects):
+        for path in sorted(projects_directory().glob('*.json')):
             print(path.stem)
         return 0
     if isinstance(command, Delete):
-        path = profile_path(command.name)
+        path = project_path(command.name)
         if not path.exists():
-            raise RecsError(f'Unknown recording setup: {command.name}')
+            raise RecsError(f'Unknown recording project: {command.name}')
         path.unlink()
         return 0
-    raise RecsError(f'Unsupported profile command: {type(command).__name__}')
+    raise RecsError(f'Unsupported project command: {type(command).__name__}')
 
 
-def profile_argument(arguments: list[str]) -> tuple[str | None, list[str]]:
+def project_argument(arguments: list[str]) -> tuple[str | None, list[str]]:
     result: list[str] = []
     name: str | None = None
     i = 0
     while i < len(arguments):
         argument = arguments[i]
-        if argument == '--profile':
+        if argument == '--project-name':
             if name is not None or i + 1 == len(arguments):
-                raise RecsError('--profile requires exactly one setup name')
+                raise RecsError('--project-name requires exactly one project name')
             name = arguments[i + 1]
             i += 2
             continue
-        if argument.startswith('--profile='):
+        if argument.startswith('--project-name='):
             if name is not None:
-                raise RecsError('--profile requires exactly one setup name')
+                raise RecsError('--project-name requires exactly one project name')
             name = argument.split('=', 1)[1]
             i += 1
             continue
@@ -163,23 +163,23 @@ def profile_argument(arguments: list[str]) -> tuple[str | None, list[str]]:
     return name, result
 
 
-def profile_path(name: str) -> Path:
+def project_path(name: str) -> Path:
     if not name or name in {'.', '..'} or Path(name).name != name:
-        raise RecsError(f'Invalid recording setup name: {name!r}')
-    return profiles_directory() / f'{name}.json'
+        raise RecsError(f'Invalid recording project name: {name!r}')
+    return projects_directory() / f'{name}.json'
 
 
-def profiles_directory() -> Path:
+def projects_directory() -> Path:
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
-        return appdata / 'recs/profiles'
-    return Path.home() / '.config/recs/profiles'
+        return appdata / 'recs/projects'
+    return Path.home() / '.config/recs/projects'
 
 
-COMMANDS: dict[str, Callable[..., ProfileCommand]] = {
+COMMANDS: dict[str, Callable[..., ProjectCommand]] = {
     'save': Save,
     'use': Use,
     'show': Show,
-    'list': ListProfiles,
+    'list': ListProjects,
     'delete': Delete,
 }

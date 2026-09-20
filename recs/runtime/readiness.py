@@ -1,4 +1,4 @@
-"""Inspect a recording setup without starting capture or writing a session."""
+"""Inspect a recording project without starting capture or writing a session."""
 
 import json
 import os
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from recs.base import times
 from recs.base.errors import RecsError
-from recs.cfg import cli, run_cli, settings, setup_profiles
+from recs.cfg import cli, projects, run_cli, settings
 from recs.cfg.aliases import Aliases
 from recs.cfg.path_pattern import PathPattern
 from recs.cfg.track_names import track_name
@@ -24,13 +24,13 @@ from .device_lifecycle import DeviceLifecycle
 
 
 class ReadinessCommand(BaseModel, frozen=True):
-    """Inspect setup readiness; unlike preflight, no running daemon is required.
+    """Inspect project readiness; unlike preflight, no running daemon is required.
 
     Put recording options after --. Missing devices warn; invalid settings fail.
     This command never opens input streams or performs the test-input recording.
     """
 
-    profile: str | None = None
+    project_name: str | None = None
     json_output: bool = False
     recs_options: Annotated[list[str], tyro.conf.Positional] = Field(
         default_factory=list
@@ -50,7 +50,7 @@ class ReadySource(BaseModel, frozen=True):
 
 
 class ReadinessReport(BaseModel, frozen=True):
-    profile: str | None = None
+    project_name: str | None = None
     settings: dict[str, object]
     sources: list[ReadySource] = Field(default_factory=list)
     output_root: Path | None = None
@@ -73,7 +73,7 @@ class ReadinessReport(BaseModel, frozen=True):
     )
 
 
-def inspect_setup(loaded: settings.LoadedSettings) -> ReadinessReport:
+def inspect_configuration(loaded: settings.LoadedSettings) -> ReadinessReport:
     cfg = loaded.cfg
     warnings: list[str] = []
     failures: list[str] = []
@@ -179,7 +179,7 @@ def inspect_setup(loaded: settings.LoadedSettings) -> ReadinessReport:
             warnings.append(f'Saved layout {name}: source currently absent')
         if not sources:
             warnings.append('No audio tracks currently available for recording.')
-        # Validate the profile file even if no device is currently connected.
+        # Validate the per-device profiles even if no device is currently connected.
         for name in cfg.device_profiles:
             cfg.with_device_profile(name)
     except (RecsError, OSError, ValueError, subprocess.SubprocessError) as error:
@@ -216,7 +216,7 @@ def inspect_setup(loaded: settings.LoadedSettings) -> ReadinessReport:
         else None
     )
     return ReadinessReport(
-        profile=loaded.profile,
+        project_name=loaded.project_name,
         settings=cfg.model_dump(mode='json'),
         sources=sources,
         output_root=output_root,
@@ -231,17 +231,17 @@ def inspect_setup(loaded: settings.LoadedSettings) -> ReadinessReport:
 def main(argv: list[str]) -> int:
     command = tyro.cli(ReadinessCommand, args=argv, prog='recs readiness')
     try:
-        if command.profile is not None:
-            loaded = setup_profiles.configured(command.profile, command.recs_options)
+        if command.project_name is not None:
+            loaded = projects.configured(command.project_name, command.recs_options)
         else:
             cfg = tyro.cli(
                 cli.CliCfg, args=command.recs_options, prog='recs readiness --'
             )
             loaded = settings.load(cfg, run_cli.cli_overrides(command.recs_options))
-        report = inspect_setup(loaded)
+        report = inspect_configuration(loaded)
     except (RecsError, OSError, ValueError) as error:
         report = ReadinessReport(
-            profile=command.profile, settings={}, failures=[str(error)]
+            project_name=command.project_name, settings={}, failures=[str(error)]
         )
     if command.json_output:
         print(report.model_dump_json(indent=2))
@@ -263,6 +263,6 @@ def main(argv: list[str]) -> int:
         ]:
             for message in messages:
                 print(f'{label}: {message}')
-        print('Effective setup settings:')
+        print('Effective project settings:')
         print(json.dumps(report.settings, indent=2))
     return int(bool(report.failures))

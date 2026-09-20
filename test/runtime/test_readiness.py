@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from ufor.encoding import Format, Subtype
 
-from recs.cfg import device, settings, setup_profiles
+from recs.cfg import device, projects, settings
 from recs.cfg.cfg import Cfg
 from recs.runtime import readiness
 from recs.runtime.recorder import Recorder
@@ -30,7 +30,7 @@ def test_readiness_collects_independent_problems(tmp_path: Path) -> None:
     blocker.write_text('not a directory')
     cfg = Cfg(include=['absent', 'Mic+2'], output_directory=str(blocker / 'session'))
 
-    report = readiness.inspect_setup(settings.LoadedSettings(cfg=cfg))
+    report = readiness.inspect_configuration(settings.LoadedSettings(cfg=cfg))
 
     assert any('absent' in w for w in report.warnings)
     assert any('only 1 channel' in e for e in report.failures)
@@ -66,36 +66,34 @@ def test_missing_alias_does_not_hide_present_tracks(tmp_path: Path) -> None:
         include=['vocal', 'room'],
         output_directory=str(tmp_path),
     )
-    report = readiness.inspect_setup(settings.LoadedSettings(cfg=cfg))
+    report = readiness.inspect_configuration(settings.LoadedSettings(cfg=cfg))
     assert report.failures == []
     assert [s.name for s in report.sources] == ['Mic']
     assert any('vocal' in w for w in report.warnings)
 
 
-def test_readiness_uses_profile_overlay_and_explicit_overrides(
+def test_readiness_uses_project_overlay_and_explicit_overrides(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(
-        setup_profiles, 'profiles_directory', lambda: tmp_path / 'profiles'
-    )
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path / 'projects')
     monkeypatch.setattr(
         settings,
         'mutable_settings_path',
-        lambda profile=None: tmp_path / 'overlay.json',
+        lambda project_name=None: tmp_path / 'overlay.json',
     )
     cfg = Cfg(
         include=['Flower'], save_settings=True, output_directory=str(tmp_path / 'audio')
     )
-    setup_profiles.save('show', setup_profiles.SetupProfile(cfg=cfg))
+    projects.save('show', projects.Project(cfg=cfg))
     settings.save(
         cfg.set_attr('recording.noise_floor', 42),
         {'Flower 8': {'Room': 1}},
         {},
-        profile='show',
+        project_name='show',
     )
 
     result = readiness.main(
-        ['--profile', 'show', '--json-output', '--', '--noise-floor', '35']
+        ['--project-name', 'show', '--json-output', '--', '--noise-floor', '35']
     )
     report = json.loads(capsys.readouterr().out)
     assert result == 0
@@ -103,13 +101,13 @@ def test_readiness_uses_profile_overlay_and_explicit_overrides(
     assert report['sources'][0]['tracks'][0]['name'] == 'Room'
     assert not (tmp_path / 'audio').exists()
 
-    readiness.main(['--profile', 'show', '--json-output'])
+    readiness.main(['--project-name', 'show', '--json-output'])
     report = json.loads(capsys.readouterr().out)
     assert report['settings']['recording']['noise_floor'] == 42
 
 
 def test_effective_formats_and_storage_estimate(tmp_path: Path) -> None:
-    report = readiness.inspect_setup(
+    report = readiness.inspect_configuration(
         settings.LoadedSettings(
             cfg=Cfg(
                 include=['Mic'], output_directory=str(tmp_path), minimum_free_space=0
@@ -126,7 +124,7 @@ def test_effective_formats_and_storage_estimate(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize('channels', [[0], [2], [1, 1]])
 def test_invalid_saved_layout_fails(tmp_path: Path, channels: list[int]) -> None:
-    report = readiness.inspect_setup(
+    report = readiness.inspect_configuration(
         settings.LoadedSettings(
             cfg=Cfg(include=['Mic'], output_directory=str(tmp_path)),
             tracks={'Mic': [settings.TrackSettings(channels=channels)]},
@@ -161,17 +159,17 @@ def test_text_and_json_report_the_same_failure(
         assert f'WARN: {message}' in output
 
 
-def test_unknown_setup_has_structured_failure(
+def test_unknown_project_has_structured_failure(
     capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(setup_profiles, 'profiles_directory', lambda: tmp_path)
-    assert readiness.main(['--profile', 'absent', '--json-output']) == 1
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path)
+    assert readiness.main(['--project-name', 'absent', '--json-output']) == 1
     report = json.loads(capsys.readouterr().out)
-    assert report['failures'] == ['Unknown recording setup: absent']
+    assert report['failures'] == ['Unknown recording project: absent']
 
 
 def test_invalid_output_pattern_fails(tmp_path: Path) -> None:
-    report = readiness.inspect_setup(
+    report = readiness.inspect_configuration(
         settings.LoadedSettings(
             cfg=Cfg(include=['Mic'], output_directory=str(tmp_path / '{unknown}')),
         )
@@ -181,7 +179,7 @@ def test_invalid_output_pattern_fails(tmp_path: Path) -> None:
 
 
 def test_every_requested_encoding_is_checked(tmp_path: Path) -> None:
-    report = readiness.inspect_setup(
+    report = readiness.inspect_configuration(
         settings.LoadedSettings(
             cfg=Cfg(
                 include=['Mic'],
