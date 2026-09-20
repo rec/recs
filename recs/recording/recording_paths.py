@@ -47,11 +47,11 @@ def daemon_record_directory(cfg: Cfg) -> Path | None:
 
 
 def session_directory(output_directory: str, timestamp: float) -> Path:
+    directory = session_day_directory(timestamp) / session_directory_name(timestamp)
     if not output_directory:
-        return available_directory(Path(session_directory_name(timestamp)))
+        return available_directory(directory)
     return available_directory(
-        formatted_output_directory(output_directory, timestamp)
-        / session_directory_name(timestamp)
+        formatted_output_directory(output_directory, timestamp) / directory
     )
 
 
@@ -159,8 +159,12 @@ def available_directory(path: Path) -> Path:
 
 def session_directory_name(timestamp: float) -> str:
     return legal_filename.legal_filename(
-        datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
     )
+
+
+def session_day_directory(timestamp: float) -> Path:
+    return Path(datetime.fromtimestamp(timestamp).strftime('%Y/%m/%d'))
 
 
 def formatted_output_directory(output_directory: str, timestamp: float) -> Path:
