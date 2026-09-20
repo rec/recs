@@ -268,7 +268,7 @@ def test_control_request_saves_output_directory_root(
     loaded = settings.load(Cfg(include=['Mic'], save_settings=True, silent=True))
 
     assert rec.cfg.directory.output_directory == str(output_directory)
-    assert rec.session_directory.parent == output_directory
+    assert rec.session_directory.parents[3] == output_directory
     assert loaded.cfg.directory.output_directory == str(output_directory)
 
 
