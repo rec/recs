@@ -5,15 +5,18 @@ evidence. If file writing is disabled, no session directory is created. The
 directory is the portable unit containing the capture journal, finalized
 recording description, and recorded media.
 
-recs groups sessions by the local date on which they begin. Its default session
-path is `YYYY/MM/DD/HH-MM-SS`, for example `2026/09/07/20-15-15`. The
-`YYYY/MM/DD` directory is a day container that may have several sessions; the
-time-named leaf is the session directory. recs first expands date/time
-substitutions in the configured output directory, then adds this day/session
-path beneath that location. When the time leaf already exists, recs uses `_1`,
-`_2`, and so on rather than reusing or overwriting it. With no explicit output
-directory, a foreground run creates the session below its working directory; a
-daemon uses its configured recording location.
+recs groups sessions by the active project and the local date on which they
+begin. Its default-workspace session path is
+`-default-/YYYY/MM/DD/HH-MM-SS`, for example
+`-default-/2026/09/07/20-15-15`; a named project replaces `-default-` with its
+project name. The project and `YYYY/MM/DD` directories are containers that may
+have several sessions; the time-named leaf is the session directory. recs
+first expands date/time substitutions in the configured output directory, then
+adds this project/day/session path beneath that location. When the time leaf
+already exists, recs uses `_1`, `_2`, and so on rather than reusing or
+overwriting it. `-default-` is reserved for the default workspace. With no
+explicit output directory, a foreground run creates the session below its
+working directory; a daemon uses its configured recording location.
 
 The `new_session` control command closes and finalizes the current directory,
 then creates a newly timestamped directory with a new session ID while capture

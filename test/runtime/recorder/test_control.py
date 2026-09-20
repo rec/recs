@@ -268,7 +268,7 @@ def test_control_request_saves_output_directory_root(
     loaded = settings.load(Cfg(include=['Mic'], save_settings=True, silent=True))
 
     assert rec.cfg.directory.output_directory == str(output_directory)
-    assert rec.session_directory.parents[3] == output_directory
+    assert rec.session_directory.parents[4] == output_directory
     assert loaded.cfg.directory.output_directory == str(output_directory)
 
 
@@ -295,9 +295,12 @@ def test_project_switches_keep_independent_workspaces(
     monkeypatch.setattr(recorder.instances, 'publish', lambda descriptor: None)
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    default_cfg = Cfg(include=['Ext'], save_settings=True, silent=True).set_attr(
-        'recording.noise_floor', 41
-    )
+    default_cfg = Cfg(
+        include=['Ext'],
+        output_directory=str(tmp_path / 'recordings'),
+        save_settings=True,
+        silent=True,
+    ).set_attr('recording.noise_floor', 41)
     settings.save(default_cfg, {}, {})
     projects.save(
         'show',
@@ -313,6 +316,9 @@ def test_project_switches_keep_independent_workspaces(
         project_name='show',
     )
     rec = Recorder(default_cfg, settings.load(default_cfg))
+    rec._start_record()
+    previous_record = rec._record_path()
+    assert previous_record.is_relative_to(tmp_path / 'recordings/-default-')
 
     switched = rec._control.switch_project(
         gui_protocol.SwitchProject(type='switch_project', project_name='show')
@@ -326,6 +332,8 @@ def test_project_switches_keep_independent_workspaces(
     assert rec._control.project_name == 'show'
     assert rec.instance.project_name == 'show'
     assert rec._control.cfg.recording.noise_floor == 43
+    assert rec.session_directory.is_relative_to(tmp_path / 'recordings/show')
+    assert read(previous_record).ended_at is not None
     assert settings.load(default_cfg).cfg.recording.noise_floor == 41
     assert (
         settings.load(default_cfg, project_name='show').cfg.recording.noise_floor == 43

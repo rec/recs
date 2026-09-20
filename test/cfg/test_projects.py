@@ -41,6 +41,8 @@ def test_project_refuses_replacement_and_invalid_names(
         projects.save('show', project)
     with pytest.raises(RecsError, match='Invalid recording project name'):
         projects.project_path('../show')
+    with pytest.raises(RecsError, match='Invalid recording project name'):
+        projects.project_path('-default-')
 
 
 def test_project_argument_is_removed_before_cfg_parsing() -> None:

@@ -89,7 +89,9 @@ class Recorder(Runnables):
             cfg, self.state.start_time
         )
         self.session_directory = recording_paths.session_directory(
-            self.cfg.directory.output_directory, self.session_start_time
+            self.cfg.directory.output_directory,
+            self.session_start_time,
+            saved_settings.project_name,
         )
         self.instance = instances.new_identity(
             'daemon' if gui_ipc.daemon_mode_enabled() else 'local',
@@ -515,7 +517,9 @@ class Recorder(Runnables):
         timestamp = times.timestamp()
         previous_record_path = self.session.record_writer.path
         session_directory = recording_paths.session_directory(
-            self.cfg.directory.output_directory, timestamp
+            self.cfg.directory.output_directory,
+            timestamp,
+            self._control.project_name,
         )
         record_path = session_directory / 'session-record.jsonl'
         self._suspend_audio_writing('new session')
@@ -592,7 +596,9 @@ class Recorder(Runnables):
         self.session.reset(timestamp)
         self._set_session_directory(
             recording_paths.session_directory(
-                str(destination.output_directory), timestamp
+                str(destination.output_directory),
+                timestamp,
+                self._control.project_name,
             )
         )
         self._devices.set_runtime_output_directory(destination.output_directory)
@@ -789,7 +795,9 @@ class Recorder(Runnables):
             self._devices.set_runtime_output_directory(None)
             self._set_session_directory(
                 recording_paths.session_directory(
-                    self.cfg.directory.output_directory, self.session_start_time
+                    self.cfg.directory.output_directory,
+                    self.session_start_time,
+                    self._control.project_name,
                 )
             )
 
@@ -830,6 +838,8 @@ class Recorder(Runnables):
             control.project_name = project_name
             self.settings_path = new_path
             self._publish_instance()
+            if self.session.record_writer is not None:
+                self._new_session()
         except (OSError, RecsError, ValueError):
             instances.release_settings(new_path, new_identity)
             raise
