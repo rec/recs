@@ -244,7 +244,7 @@ actual resampling. Do not claim universal media support at this stage.
 
 Implemented. The acceptance cases below are covered by local file and fake-input
 tests. The native journal and event format are documented in
-[Capture journal format](../../doc/session-record-format.md).
+[Capture journal format](../../doc/session-directory.md).
 
 Refactor the session journal writer/readers and export path together. Retain
 file lifecycle and diagnostic truth while adding typed streams, native timing,
@@ -727,7 +727,7 @@ second export path with different containment and gap semantics.
 Current captures use typed version 4 journal records, native MIDI/OSC/key JSONL,
 measured clock observations, and explicit audio gap evidence. See the normative
 [recording score](../../doc/recording-format.md) and
-[capture journal](../../doc/session-record-format.md) profiles. Dense arrays and
+[capture journal](../../doc/session-directory.md) profiles. Dense arrays and
 general score dependency packaging above remain proposals for later stages.
 
 

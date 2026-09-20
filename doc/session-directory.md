@@ -1,9 +1,28 @@
-# Capture journal format
+# Session directory
 
-`session-record.jsonl` is the append-only evidence used to finalize
-[`recording.toml`](recording-format.md). Current captures use **version 4**.
-Historical version 3 journals are read only by the explicit migration code and
-by the browser when a recording references preserved version 3 evidence.
+A recording run creates a session directory when recs starts writing capture
+evidence. If file writing is disabled, no session directory is created. The
+directory is the portable unit containing the capture journal, finalized
+recording description, and recorded media.
+
+The directory name is the session's local start time in
+`YYYY-MM-DD HH-MM-SS` form, for example `2026-09-07 20-15-15`. recs first
+expands date/time substitutions in the configured output directory, then adds
+the session name beneath that location. When that name already exists, recs
+uses `_1`, `_2`, and so on rather than reusing or overwriting it. With no
+explicit output directory, a foreground run creates the session below its
+working directory; a daemon uses its configured recording location.
+
+The `new_session` control command closes and finalizes the current directory,
+then creates a newly timestamped directory with a new session ID while capture
+continues. Moving to a replacement recording volume also creates a new
+timestamped directory, but retains the same session ID and links the two
+segments through their records. These continuation links may therefore cross
+volume roots.
+
+## Directory contents
+
+A typical captured session looks like this:
 
 ```text
 session/
@@ -14,6 +33,26 @@ session/
   osc/desk.jsonl
   key/keyboard.jsonl
 ```
+
+`session-record.jsonl` exists while capture is in progress and is the source
+evidence for finalization. A cleanly finalized session also contains
+`recording.toml`, the content index used by browsing, checking, editing, and
+export. Media subdirectories exist only for enabled media that recs writes:
+
+- `audio/` contains WAV, FLAC, or other configured audio files.
+- `midi/`, `osc/`, and `key/` contain native event JSONL files.
+- `recs-recovery-report.toml` may appear beside an unfinished journal after
+  automatic recovery inspection.
+
+Media paths in both `session-record.jsonl` and `recording.toml` are relative to
+the session directory. The whole directory can therefore be moved as a unit.
+
+## Capture journal format
+
+`session-record.jsonl` is the append-only evidence used to finalize
+[`recording.toml`](recording-format.md). Current captures use **version 4**.
+Historical version 3 journals are read only by the explicit migration code and
+by the browser when a recording references preserved version 3 evidence.
 
 ## Encoding and lifecycle
 
