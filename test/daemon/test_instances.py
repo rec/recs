@@ -13,7 +13,7 @@ def test_local_endpoints_and_descriptor_include_process_identity(
         start_token='abc123',
         started_at=1_789_314_000_000_000_000,
         role='local',
-        profile='second-interface',
+        project_name='second-interface',
     )
 
     assert instances.local_control_endpoint(identity, tmp_path) == (
@@ -180,6 +180,20 @@ def test_source_users_excludes_the_current_instance(monkeypatch) -> None:
     monkeypatch.setattr(instances, 'discover', lambda: [current, other])
 
     assert instances.source_users('Mic', current.identity) == [other]
+
+
+def test_list_instances_reports_project_name(monkeypatch) -> None:
+    descriptor = _descriptor('local', 100, 2)
+    descriptor = descriptor.model_copy(
+        update={
+            'identity': descriptor.identity.model_copy(
+                update={'project_name': 'second-interface'}
+            )
+        }
+    )
+    monkeypatch.setattr(instances, 'discover', lambda: [descriptor])
+
+    assert instances.list_instances()[0]['project_name'] == 'second-interface'
 
 
 def test_settings_claim_excludes_another_live_instance(

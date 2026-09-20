@@ -114,7 +114,7 @@ class CardReplace(ControlCommand):
 
 
 class ReloadProfiles(ControlCommand):
-    """Reload per-device JSON defaults from --profiles, not a named saved setup."""
+    """Reload per-device JSON defaults from --profiles, not a recording project."""
 
     rpc_command = 'reload_profiles'
 

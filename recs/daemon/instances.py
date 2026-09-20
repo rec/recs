@@ -18,7 +18,7 @@ class InstanceIdentity(BaseModel):
     start_token: str = Field(min_length=1)
     started_at: int = Field(gt=0)
     role: InstanceRole
-    profile: str | None = None
+    project_name: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -56,13 +56,15 @@ class SettingsClaim(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-def new_identity(role: InstanceRole, profile: str | None = None) -> InstanceIdentity:
+def new_identity(
+    role: InstanceRole, project_name: str | None = None
+) -> InstanceIdentity:
     return InstanceIdentity(
         pid=os.getpid(),
         start_token=uuid.uuid4().hex,
         started_at=time.time_ns(),
         role=role,
-        profile=profile,
+        project_name=project_name,
     )
 
 
@@ -248,7 +250,7 @@ def list_instances() -> list[dict[str, object]]:
         {
             'pid': descriptor.identity.pid,
             'role': descriptor.identity.role,
-            'profile': descriptor.identity.profile,
+            'project_name': descriptor.identity.project_name,
             'started_at': descriptor.identity.started_at,
             'sources': descriptor.sources,
             'default': descriptor == default,

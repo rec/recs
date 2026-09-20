@@ -131,7 +131,7 @@ An ordinary foreground recorder also starts a control and event server. Its
 unique endpoints and identity are published in an atomic descriptor under
 `~/.local/state/recs/instances/`; the descriptor disappears on orderly shutdown.
 Each descriptor has a PID, opaque start token, startup time, role, optional
-setup profile, selected sources, and endpoints. Discovery checks `capabilities`
+`project_name`, selected sources, and endpoints. Discovery checks `capabilities`
 and accepts a descriptor only when the recorder reports the same PID and token.
 
 `capabilities_result` and `status_snapshot_result` both include an `instance`

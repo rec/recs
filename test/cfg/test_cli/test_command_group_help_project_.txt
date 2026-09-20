@@ -1,7 +1,7 @@
-$ recs profile --help
-usage: recs profile [-h] {save,use,show,list,delete}
+$ recs project --help
+usage: recs project [-h] {save,use,show,list,delete}
 
-Save and use named recording setups. These differ from the per-device JSON defaults loaded by --profiles.
+Save and use recording projects. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
  ---------------------------------------------
@@ -17,8 +17,8 @@ Save and use named recording setups. These differ from the per-device JSON defau
     - delete
 
 
-$ recs profile delete --help
-usage: recs profile delete [-h] STR
+$ recs project delete --help
+usage: recs project delete [-h] STR
 
  positional arguments
  ---------------------------------------------
@@ -29,16 +29,16 @@ usage: recs profile delete [-h] STR
   -h, --help  show this help message and exit
 
 
-$ recs profile list --help
-usage: recs profile list [-h]
+$ recs project list --help
+usage: recs project list [-h]
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
 
 
-$ recs profile save --help
-usage: recs profile save [-h] STR [[STR [STR ...]]] [--replace | --no-replace]
+$ recs project save --help
+usage: recs project save [-h] STR [[STR [STR ...]]] [--replace | --no-replace]
 
  positional arguments
  ----------------------------------------------------------
@@ -51,8 +51,8 @@ usage: recs profile save [-h] STR [[STR [STR ...]]] [--replace | --no-replace]
   --replace, --no-replace  (default: False)
 
 
-$ recs profile show --help
-usage: recs profile show [-h] STR
+$ recs project show --help
+usage: recs project show [-h] STR
 
  positional arguments
  ---------------------------------------------
@@ -63,8 +63,8 @@ usage: recs profile show [-h] STR
   -h, --help  show this help message and exit
 
 
-$ recs profile use --help
-usage: recs profile use [-h] STR [[STR [STR ...]]]
+$ recs project use --help
+usage: recs project use [-h] STR [[STR [STR ...]]]
 
  positional arguments
  ----------------------------------------------------

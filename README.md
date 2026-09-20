@@ -81,12 +81,13 @@ Configuration values accept explicit units, for example
 `--minimum-free-space 1GiB`. See
 [Configuration Units](doc/configuration-units.md).
 
-## Recording Setups
+## Recording Projects
 
-Inspect a setup without starting capture or requiring a daemon:
+Inspect a project or an ad hoc configuration without starting capture or
+requiring a daemon:
 
 ```console
-recs readiness --profile x18-show
+recs readiness --project-name x18-show
 recs readiness --json-output -- --include xr18 --output-directory /mnt/recordings
 ```
 
@@ -101,26 +102,28 @@ are read-only and do not prove a future write will succeed. Input streams are
 never opened; use the separate `recs test-input` only to make an actual test
 recording. `recs preflight` remains the check for an already-running daemon.
 
-A named setup stores a complete recording configuration together with track
-names and mono/stereo layouts. Options for `save` and `use` follow `--`:
+A project stores a complete recording configuration together with track names
+and mono/stereo layouts in `~/.config/recs/projects/NAME.json`. Options for
+`save` and `use` follow `--`:
 
 ```console
-recs profile save x18-show -- --include xr18 --formats flac
-recs profile use x18-show -- --output-directory /mnt/openloop/recs
-recs profile list
-recs profile show x18-show
-recs profile delete x18-show
+recs project save x18-show -- --include xr18 --formats flac
+recs project use x18-show -- --output-directory /mnt/openloop/recs
+recs project list
+recs project show x18-show
+recs project delete x18-show
 ```
 
-Start with a saved setup using `recs --profile x18-show`. Install the daemon
-with the same setup using `recs daemon install --profile x18-show`.
+Start with a saved project using `recs --project-name x18-show`. Install the
+daemon with the same project using
+`recs daemon install --project-name x18-show`.
 
-When a setup is started with saving enabled, mutable changes made through the
-protocol are stored in `~/.config/recs/profile-settings/NAME.json`. This overlay
-does not alter the setup definition or the daemon's unprofiled
+When a project is started with saving enabled, mutable changes made through the
+protocol are stored in `~/.config/recs/project-settings/NAME.json`. This overlay
+does not alter the project definition or the daemon's global
 `~/.config/recs/settings.json` file.
 
-Per-device JSON profiles are separate from named recording setups. Pass them
+Per-device JSON profiles are separate from recording projects. Pass them
 with `--profiles` to override settings such as the noise floor for a matching
 device:
 
@@ -180,7 +183,7 @@ For a running instance, `control pause` and `control resume` affect capture.
 Resuming capture stops playback first; stopping playback restores capture only
 when playback acquired the pause.
 
-`recs profile` manages named saved recording setups. The `--profiles` option
+`recs project` manages saved recording projects. The `--profiles` option
 instead reads a JSON file containing defaults for individual devices.
 
 Inspect, validate, explain, and export recordings without starting the

@@ -48,7 +48,7 @@ class LoadedSettings(BaseModel):
     tracks: dict[str, list[TrackSettings]] = Field(default_factory=dict)
     musicians: dict[str, Musician] = Field(default_factory=dict)
     channel_musicians: dict[str, SourceMusician] = Field(default_factory=dict)
-    profile: str | None = None
+    project_name: str | None = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -57,7 +57,7 @@ def load(
     cfg: Cfg,
     overrides: set[str] | None = None,
     *,
-    profile: str | None = None,
+    project_name: str | None = None,
     track_names: SourceTrackNames | None = None,
     tracks: dict[str, list[TrackSettings]] | None = None,
     musicians: dict[str, Musician] | None = None,
@@ -74,10 +74,10 @@ def load(
             tracks=tracks,
             musicians=musicians,
             channel_musicians=channel_musicians,
-            profile=profile,
+            project_name=project_name,
         )
     overrides = overrides or set()
-    path = mutable_settings_path(profile)
+    path = mutable_settings_path(project_name)
     if not path.exists():
         return LoadedSettings(
             cfg=cfg,
@@ -85,7 +85,7 @@ def load(
             tracks=tracks,
             musicians=musicians,
             channel_musicians=channel_musicians,
-            profile=profile,
+            project_name=project_name,
         )
     try:
         settings = Settings.model_validate_json(path.read_text())
@@ -105,7 +105,7 @@ def load(
         tracks=settings.tracks,
         musicians=settings.musicians,
         channel_musicians=settings.channel_musicians,
-        profile=profile,
+        project_name=project_name,
     )
 
 
@@ -114,7 +114,7 @@ def save(
     track_names: SourceTrackNames,
     tracks: dict[str, list[TrackSettings]],
     *,
-    profile: str | None = None,
+    project_name: str | None = None,
     musicians: dict[str, Musician] | None = None,
     channel_musicians: dict[str, SourceMusician] | None = None,
 ) -> None:
@@ -129,16 +129,16 @@ def save(
         musicians=musicians or {},
         channel_musicians=channel_musicians or {},
     )
-    path = mutable_settings_path(profile)
+    path = mutable_settings_path(project_name)
     try:
         settings.write_json_model(path, saved_settings, indent=2)
     except OSError as e:
         raise RecsError(f'Could not save settings to {path}: {e}') from None
 
 
-def mutable_settings_path(profile: str | None = None) -> Path:
-    if profile is not None:
-        return profile_settings_path(profile)
+def mutable_settings_path(project_name: str | None = None) -> Path:
+    if project_name is not None:
+        return project_settings_path(project_name)
     return settings_path()
 
 
@@ -149,10 +149,14 @@ def settings_path() -> Path:
     return Path.home() / '.config/recs/settings.json'
 
 
-def profile_settings_path(profile: str) -> Path:
-    if not profile or profile in {'.', '..'} or Path(profile).name != profile:
-        raise RecsError(f'Invalid recording setup name: {profile!r}')
+def project_settings_path(project_name: str) -> Path:
+    if (
+        not project_name
+        or project_name in {'.', '..'}
+        or Path(project_name).name != project_name
+    ):
+        raise RecsError(f'Invalid recording project name: {project_name!r}')
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
-        return appdata / f'recs/profile-settings/{profile}.json'
-    return Path.home() / f'.config/recs/profile-settings/{profile}.json'
+        return appdata / f'recs/project-settings/{project_name}.json'
+    return Path.home() / f'.config/recs/project-settings/{project_name}.json'

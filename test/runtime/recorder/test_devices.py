@@ -342,7 +342,7 @@ def test_unavailable_source_names_another_recs_instance(
             start_token='other',
             started_at=1,
             role='local',
-            profile='second-interface',
+            project_name='second-interface',
         ),
         control_endpoint='/tmp/other.sock',
         event_endpoint='/tmp/other-events.sock',
@@ -363,7 +363,7 @@ def test_unavailable_source_names_another_recs_instance(
     )
 
     assert rec.error_records()[1].message == (
-        'Device Mic is also selected by Recs PID 999 (local) with profile '
+        'Device Mic is also selected by Recs PID 999 (local) with project '
         "'second-interface'"
     )
 

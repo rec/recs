@@ -41,7 +41,7 @@ def test_help(cli_help: CliHelp) -> None:
             'readiness',
             'control',
             'watch',
-            'profile',
+            'project',
             'sessions',
             'session',
             'test-input',
@@ -72,7 +72,7 @@ def test_help(cli_help: CliHelp) -> None:
             ],
         ),
         ('record', ['check']),
-        ('profile', ['save', 'use', 'show', 'list', 'delete']),
+        ('project', ['save', 'use', 'show', 'list', 'delete']),
         ('daemon', ['install', 'uninstall', 'start', 'stop', 'restart', 'status']),
         (
             'control',
@@ -107,7 +107,7 @@ def test_help(cli_help: CliHelp) -> None:
         ),
         ('edit', ['compose']),
     ],
-    ids=['session', 'record', 'profile', 'daemon', 'control', 'edit'],
+    ids=['session', 'record', 'project', 'daemon', 'control', 'edit'],
 )
 def test_command_group_help(cli_help: CliHelp, group: str, commands: list[str]) -> None:
     def invoke() -> int:
