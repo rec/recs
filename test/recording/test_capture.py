@@ -28,7 +28,7 @@ from recs.osc import recorder
 from recs.osc.config import Node
 from recs.recording import session_record
 from recs.recording.capture_events import SourceFileEvents
-from recs.recording.files import verify_recording
+from recs.recording.files import asset_path, verify_recording
 from recs.recording.finalize import prepare_recording
 from recs.recording.read import read_recording, read_recording_chain
 from recs.recording.recording_session import RecordingSession
@@ -138,7 +138,9 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
             else:
                 assert isinstance(stream, EventStream)
                 for fragment in stream.fragments:
-                    with (path.parent / assets[fragment.asset].path).open() as lines:
+                    with (
+                        path.parent / asset_path(assets[fragment.asset])
+                    ).open() as lines:
                         stored[stream.event_kind].extend(
                             TypeAdapter(StoredEvent).validate_json(e) for e in lines
                         )
@@ -312,7 +314,7 @@ def test_key_capture_uses_common_events_and_preserves_observed_order(
     payload = next(a for a in document.assets if a.name == stream.fragments[0].asset)
     events = [
         TypeAdapter(StoredEvent).validate_json(e)
-        for e in (tmp_path / payload.path).read_text().splitlines()
+        for e in (tmp_path / asset_path(payload)).read_text().splitlines()
     ]
     assert [(e.kind, e.ordinal, e.action) for e in events] == [
         ('key', 0, 'press'),

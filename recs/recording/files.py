@@ -9,7 +9,7 @@ import mido
 import soundfile
 from pydantic import Field, TypeAdapter
 from reccy.protocol.jsonl import Decompress
-from ufor.assets import Asset
+from ufor.assets import Asset, ContentIdentity, RelativeFileLocation
 from ufor.base import Model
 from ufor.events import StoredEvent
 from ufor.recording import AudioFragment, AudioStream, EventStream, RecordingScore
@@ -35,11 +35,27 @@ def sealed_asset(path: Path, root: Path, identity: str, encoding: str) -> Asset:
         digest = hashlib.file_digest(source, 'sha256').hexdigest()
     return Asset(
         name=identity,
-        path=resolved.relative_to(root.resolve()).as_posix(),
+        location=RelativeFileLocation(
+            path=resolved.relative_to(root.resolve()).as_posix()
+        ),
         encoding=encoding,
-        byte_length=resolved.stat().st_size,
-        sha256=digest,
+        content=ContentIdentity(
+            byte_length=resolved.stat().st_size,
+            sha256=digest,
+        ),
     )
+
+
+def asset_path(asset: Asset) -> str:
+    if not isinstance(asset.location, RelativeFileLocation):
+        raise RecsError(f'Asset is not a relative file: {asset.name}')
+    return asset.location.path
+
+
+def asset_content(asset: Asset) -> ContentIdentity:
+    if asset.content is None:
+        raise RecsError(f'Asset has no content identity: {asset.name}')
+    return asset.content
 
 
 def verify_recording(document: RecordingScore, root: Path) -> Verification:
@@ -47,10 +63,12 @@ def verify_recording(document: RecordingScore, root: Path) -> Verification:
     assets = {a.name: a for a in document.assets}
     paths: dict[str, Path] = {}
     for asset in document.assets:
-        path = root / asset.path
+        relative_path = asset_path(asset)
+        content = asset_content(asset)
+        path = root / relative_path
         actual = sealed_asset(path, root, asset.name, asset.encoding)
-        if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
-            raise RecsError(f'Asset bytes disagree with the recording: {asset.path}')
+        if actual.content != content:
+            raise RecsError(f'Asset bytes disagree with the recording: {relative_path}')
         paths[asset.name] = path
     clocks = {t.name: t for t in document.timebases}
     audio_frames = event_count = gap_frames = 0
@@ -71,7 +89,7 @@ def verify_recording(document: RecordingScore, root: Path) -> Verification:
                         if frames != source.frames:
                             raise RecsError(
                                 'Audio payload is truncated: '
-                                f'{assets[fragment.asset].path}'
+                                f'{asset_path(assets[fragment.asset])}'
                             )
                         decoded[fragment.asset] = (
                             frames,
@@ -91,7 +109,8 @@ def verify_recording(document: RecordingScore, root: Path) -> Verification:
                 )
                 if asset_start + fragment.count > frames:
                     raise RecsError(
-                        f'Fragment exceeds decoded audio: {assets[fragment.asset].path}'
+                        'Fragment exceeds decoded audio: '
+                        f'{asset_path(assets[fragment.asset])}'
                     )
                 if not isinstance(fragment, AudioFragment) and fragment.count != frames:
                     raise RecsError(
@@ -104,7 +123,7 @@ def verify_recording(document: RecordingScore, root: Path) -> Verification:
         event_count += verify_events(stream, paths)
     return Verification(
         asset_count=len(assets),
-        byte_count=sum(a.byte_length for a in document.assets),
+        byte_count=sum(asset_content(a).byte_length for a in document.assets),
         audio_frames=audio_frames,
         event_count=event_count,
         gap_frames=gap_frames,

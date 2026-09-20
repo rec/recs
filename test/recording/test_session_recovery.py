@@ -10,7 +10,7 @@ from ufor.recording import AudioStream
 
 from recs.base.errors import RecsError
 from recs.recording import session_record, session_recovery
-from recs.recording.files import verify_recording
+from recs.recording.files import asset_path, verify_recording
 from recs.recording.read import read_recording
 
 
@@ -66,8 +66,11 @@ def test_recovery_plan_distinguishes_missing_and_unplaced_media(
     )
     for item in normalized['files']:
         if item['asset'] is not None:
-            assert item['asset']['sha256'] == sha256(before[item['path']]).hexdigest()
-            item['asset']['sha256'] = '<verified file checksum>'
+            assert (
+                item['asset']['content']['sha256']
+                == sha256(before[item['path']]).hexdigest()
+            )
+            item['asset']['content']['sha256'] = '<verified file checksum>'
     data_regression.check(normalized)
 
 
@@ -95,7 +98,7 @@ def test_recovery_seals_verified_copy_and_preserves_evidence(
     unplaced = next(
         f for f in plan.files if f.decision == session_recovery.Decision.unplaced
     )
-    assert any(a.path == unplaced.recovered_path for a in document.assets)
+    assert any(asset_path(a) == unplaced.recovered_path for a in document.assets)
     assert all(
         f.asset != unplaced.asset.name
         for s in document.body.streams

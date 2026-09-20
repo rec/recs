@@ -10,6 +10,7 @@ from ufor.recording import AudioStream, EventStream
 
 from ..base.errors import RecsError
 from . import legacy, session_record
+from .files import asset_content, asset_path
 from .read import read_recording
 
 RECORD_GLOB = 'recording.toml'
@@ -148,7 +149,7 @@ def summarize(path: Path) -> SessionSummary | None:
         journal = None
         if body.journal is not None:
             asset = assets[body.journal]
-            journal_path = (path / asset.path).resolve()
+            journal_path = (path / asset_path(asset)).resolve()
             if not journal_path.is_relative_to(path.resolve()):
                 raise RecsError('Journal escapes the session directory')
             journal = (
@@ -172,7 +173,7 @@ def summarize(path: Path) -> SessionSummary | None:
         ended_at=body.ended_at,
         duration=body.observed_duration_seconds,
         output_directories=sorted(
-            {(path / assets[a].path).parent.as_posix() for a in media}
+            {(path / asset_path(assets[a])).parent.as_posix() for a in media}
         ),
         devices=sorted({s.source_name or s.source_id for s in audio}),
         tracks=sorted(
@@ -201,7 +202,7 @@ def summarize(path: Path) -> SessionSummary | None:
             if (s.event_kind == 'midi' or s.event_schema == 'midi')
             for f in s.fragments
         ),
-        total_bytes=sum(assets[a].byte_length for a in media),
+        total_bytes=sum(asset_content(assets[a]).byte_length for a in media),
         warnings=warnings,
         state=body.state,
         unresolved_audio_files=unresolved,

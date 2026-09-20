@@ -27,7 +27,7 @@ from ufor.time import Rate, Timebase
 
 from ..base.errors import RecsError
 from . import session_record
-from .files import sealed_asset, verify_events
+from .files import asset_content, asset_path, sealed_asset, verify_events
 
 
 class FinalizeSession(BaseModel, frozen=True):
@@ -158,6 +158,7 @@ def prepare_recording(
                 'asset-' + hashlib.sha256(finished.path.encode()).hexdigest()[:16]
             )
             asset = sealed_asset(path, root, asset_id, finished.format)
+            relative_path = asset_path(asset)
             assets.append(asset)
             if finished.quantity_count is None:
                 raise RecsError(f'Finished file has no quantity count: {finished.path}')
@@ -202,12 +203,12 @@ def prepare_recording(
                     for span in finished.audio_spans:
                         if span.asset_start != offset:
                             raise RecsError(
-                                f'Audio spans do not cover the payload: {asset.path}'
+                                f'Audio spans do not cover the payload: {relative_path}'
                             )
                         offset += span.count
                     if offset != info.frames or offset != finished.quantity_count:
                         raise RecsError(
-                            f'Audio span count disagrees with payload: {asset.path}'
+                            f'Audio span count disagrees with payload: {relative_path}'
                         )
                     audio.extend(
                         AudioFragment(asset=asset.name, **s.model_dump())
@@ -223,7 +224,7 @@ def prepare_recording(
                     )
                 else:
                     raise RecsError(
-                        f'Audio payload count disagrees with capture: {asset.path}'
+                        f'Audio payload count disagrees with capture: {relative_path}'
                     )
             else:
                 assert isinstance(finished, session_record.EventFileRecord)
@@ -356,7 +357,7 @@ def prepare_recording(
             raise RecsError(f'Conflicting clock score: {clock.name}')
         unique_clocks[clock.name] = clock
     document = RecordingScore(
-        name=header.session_id or original.sha256,
+        name=header.session_id or asset_content(original).sha256,
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),
@@ -387,7 +388,7 @@ def prepare_recording(
             ],
         ),
     )
-    paths = {a.name: root / a.path for a in assets}
+    paths = {a.name: root / asset_path(a) for a in assets}
     for stream in streams:
         if isinstance(stream, EventStream):
             verify_events(stream, paths)

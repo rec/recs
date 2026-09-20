@@ -8,7 +8,7 @@ the generated media and operational journal.
 
 ```toml
 format = "recs"
-version = 3
+version = 4
 kind = "arrangement"
 name = "speech-edit"
 title = "Speech edit"
