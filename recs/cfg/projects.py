@@ -178,7 +178,7 @@ def project_argument(arguments: list[str]) -> tuple[str | None, list[str]]:
 
 
 def project_path(name: str) -> Path:
-    if not name or name in {'.', '..'} or Path(name).name != name:
+    if not name or name in {'.', '..', '-default-'} or Path(name).name != name:
         raise RecsError(f'Invalid recording project name: {name!r}')
     return projects_directory() / f'{name}.json'
 
