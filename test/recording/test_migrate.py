@@ -14,7 +14,7 @@ from ufor.recording import AudioStream, RecordingScore
 
 from recs.base.errors import RecsError
 from recs.recording import legacy
-from recs.recording.files import sealed_asset, verify_recording
+from recs.recording.files import asset_path, sealed_asset, verify_recording
 from recs.recording.legacy_finalize import prepare_legacy_recording
 from recs.recording.migrate import migrate_session
 
@@ -169,7 +169,7 @@ def test_explicit_path_base_handles_historical_session_prefix(session: Path) -> 
     assert isinstance(audio, AudioStream)
     assert audio.fragments[0].start == 48000
     assert verify_recording(document, session).audio_frames == 48000
-    assert all(not a.path.startswith('session/') for a in document.assets)
+    assert all(not asset_path(a).startswith('session/') for a in document.assets)
 
 
 def test_unfinished_files_and_torn_tail_remain_visibly_open(session: Path) -> None:

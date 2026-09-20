@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pytest_regressions.file_regression import FileRegressionFixture
 from ufor import modulation, sfz
-from ufor.assets import AudioDescription
+from ufor.assets import AudioDescription, ContentIdentity, RelativeFileLocation
 from ufor.control import Scope
 from ufor.interface import AudioBinding, EventType, Input, Output, PerformanceBinding
 from ufor.samples import (
@@ -57,7 +57,9 @@ def test_read_sfz_inheritance_and_common_opcodes(tmp_path: Path) -> None:
     assert len(instrument.body.slots) == 2
     soft, loud = instrument.body.slots
     assert soft.name == 'region-1'
-    assert instrument.assets[0].path == 'Samples/Soft glass.wav'
+    assert instrument.assets[0].location == RelativeFileLocation(
+        path='Samples/Soft glass.wav'
+    )
     assert soft.title == 'Soft'
     assert soft.mapping.lowest_key == 60
     assert soft.mapping.highest_key == 63
@@ -184,7 +186,9 @@ def test_empty_default_path_and_release_no_loop(tmp_path: Path) -> None:
     assert sfz.write(result.instrument).complete
     slot = result.instrument.body.slots[0]
 
-    assert result.instrument.assets[0].path == 'release.wav'
+    assert result.instrument.assets[0].location == RelativeFileLocation(
+        path='release.wav'
+    )
     assert slot.trigger == enums.TriggerKind.logical_release
     assert slot.playback.mode == enums.PlaybackMode.one_shot
     assert slot.envelope.release[0].duration == Fraction(1, 5)
@@ -252,8 +256,9 @@ def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     result = read(path, output_rate=96_000, output_channels=['mono'])
     assert result.instrument is not None
     asset = result.instrument.assets[0]
-    assert asset.byte_length == len(before)
-    assert asset.sha256 == sha256(before).hexdigest()
+    assert asset.content == ContentIdentity(
+        byte_length=len(before), sha256=sha256(before).hexdigest()
+    )
     assert asset.audio.frames == 48_000
     assert asset.audio.channels == ['mono']
     assert asset.encoding == 'WAV/PCM_16'
@@ -701,10 +706,11 @@ def _instrument(
         assets=[
             instrument.AudioAsset(
                 name=s.slice,
-                path='bad=sample.wav' if s.slice == 'bad' else f'{s.slice}.wav',
+                location=RelativeFileLocation(
+                    path='bad=sample.wav' if s.slice == 'bad' else f'{s.slice}.wav'
+                ),
                 encoding='WAV/PCM_16',
-                byte_length=0,
-                sha256='0' * 64,
+                content=ContentIdentity(byte_length=0, sha256='0' * 64),
                 audio=AudioDescription(
                     timebase='audio', channels=['mono'], frames=48000
                 ),

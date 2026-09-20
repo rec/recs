@@ -10,6 +10,7 @@ import soundfile
 from ufor.recording import AudioFragment, AudioStream, RecordingScore
 
 from recs.base.errors import RecsError
+from recs.recording.files import asset_path
 
 
 class PlaybackTimeline:
@@ -46,7 +47,7 @@ class PlaybackTimeline:
                 continue
             if (asset := self._assets.get(fragment.asset)) is None:
                 raise RecsError(f'Audio fragment has no asset: {fragment.asset}')
-            path = self.root / asset.path
+            path = self.root / asset_path(asset)
             if self._asset != fragment.asset:
                 self.close()
                 self._source = soundfile.SoundFile(path)

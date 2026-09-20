@@ -65,7 +65,7 @@ def _source() -> ResolvedSource:
 def _edit() -> str:
     return """
 format = "recs"
-version = 3
+version = 4
 kind = "arrangement"
 name = "edit"
 title = "Audio edit"
@@ -131,7 +131,7 @@ name = "fade"
 
 [body.parts.score]
 format = "recs"
-version = 3
+version = 4
 kind = "automation"
 name = "fade"
 title = "Fade"

@@ -11,7 +11,7 @@ from ufor.codec import score_toml
 
 from ..base.errors import RecsError
 from ..misc.legal_filename import legal_filename
-from .files import sealed_asset
+from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording_chain
 from .recording_paths import write_text_atomically
 
@@ -40,7 +40,8 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
     destination = destination.resolve()
     records = read_recording_chain(record)
     fingerprints = {
-        str(p): sealed_asset(p, p.parent, 'document', 'toml').sha256 for p, _ in records
+        str(p): asset_content(sealed_asset(p, p.parent, 'document', 'toml')).sha256
+        for p, _ in records
     }
     targets = {
         p: Path(
@@ -51,7 +52,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
         for i, (p, _) in enumerate(records)
     }
     assets = {
-        (targets[p].parent / a.path).as_posix(): (p.parent, a)
+        (targets[p].parent / asset_path(a)).as_posix(): (p.parent, a)
         for p, d in records
         for a in d.assets
     }
@@ -71,11 +72,12 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
         if document.body.state != 'sealed':
             raise RecsError(f'Cannot export an unfinished recording: {path}')
         for asset in document.assets:
+            relative_path = asset_path(asset)
             actual = sealed_asset(
-                path.parent / asset.path, path.parent, asset.name, asset.encoding
+                path.parent / relative_path, path.parent, asset.name, asset.encoding
             )
-            if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
-                raise RecsError(f'Asset bytes disagree with recording: {asset.path}')
+            if actual.content != asset_content(asset):
+                raise RecsError(f'Asset bytes disagree with recording: {relative_path}')
     if resume is not None:
         temporary = resume.resolve()
         try:
@@ -122,7 +124,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             _, asset = assets[relative]
             target = temporary / relative
             actual = sealed_asset(target, temporary, asset.name, asset.encoding)
-            if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
+            if actual.content != asset_content(asset):
                 raise RecsError(f'Completed staged asset differs: {relative}')
             progress.verified.append(relative)
             progress.remaining.remove(relative)
@@ -133,18 +135,16 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             output = temporary / targets[path]
             output.parent.mkdir(parents=True, exist_ok=True)
             for asset in document.assets:
-                current = (targets[path].parent / asset.path).as_posix()
-                source = path.parent / asset.path
-                target = output.parent / asset.path
+                relative_path = asset_path(asset)
+                current = (targets[path].parent / relative_path).as_posix()
+                source = path.parent / relative_path
+                target = output.parent / relative_path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if current not in completed:
                     shutil.copy2(source, target)
                 actual = sealed_asset(target, output.parent, asset.name, asset.encoding)
-                if (
-                    actual.sha256 != asset.sha256
-                    or actual.byte_length != asset.byte_length
-                ):
-                    raise RecsError(f'Exported asset differs: {asset.path}')
+                if actual.content != asset_content(asset):
+                    raise RecsError(f'Exported asset differs: {relative_path}')
                 if current not in completed:
                     progress.copied.append(current)
                     progress.remaining.remove(current)
@@ -153,7 +153,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
                         progress.model_dump_json(indent=2),
                     )
                 file_count += 1
-                total_bytes += asset.byte_length
+                total_bytes += asset_content(asset).byte_length
             body = document.body
             links = body.continued_at + (
                 [body.continued_from] if body.continued_from else []
@@ -184,14 +184,12 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             actual = sealed_asset(
                 temporary / relative, temporary, asset.name, asset.encoding
             )
-            if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
+            if actual.content != asset_content(asset):
                 raise RecsError(f'Exported asset differs: {relative}')
         current = ''
         for path, _ in records:
-            if (
-                sealed_asset(path, path.parent, 'document', 'toml').sha256
-                != fingerprints[str(path)]
-            ):
+            document_asset = sealed_asset(path, path.parent, 'document', 'toml')
+            if asset_content(document_asset).sha256 != fingerprints[str(path)]:
                 raise RecsError(f'Source document changed during export: {path}')
         (temporary / 'export-summary.toml').write_text(
             tomlkit.dumps(

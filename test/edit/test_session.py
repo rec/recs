@@ -60,7 +60,7 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     edit = parse_edit(
         """
 format = "recs"
-version = 3
+version = 4
 kind = "arrangement"
 name = "edit"
 title = "Audio edit"

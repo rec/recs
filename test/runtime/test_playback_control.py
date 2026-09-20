@@ -2,7 +2,7 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
-from ufor.assets import Asset
+from ufor.assets import Asset, ContentIdentity, RelativeFileLocation
 from ufor.codec import score_toml
 from ufor.recording import AudioFragment, AudioStream, Recording, RecordingScore
 from ufor.streams import AudioType
@@ -230,10 +230,9 @@ def _score(started_at: str) -> RecordingScore:
         assets=[
             Asset(
                 name='audio',
-                path='audio.wav',
+                location=RelativeFileLocation(path='audio.wav'),
                 encoding='wav',
-                byte_length=0,
-                sha256='0' * 64,
+                content=ContentIdentity(byte_length=0, sha256='0' * 64),
             )
         ],
         timebases=[Timebase(name='audio', rate=Rate(numerator=48_000))],

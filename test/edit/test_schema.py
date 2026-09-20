@@ -7,7 +7,7 @@ from recs.edit.schema import parse_edit, parse_partial_edit
 
 COMPLETE_EDIT = """
 format = "recs"
-version = 3
+version = 4
 kind = "arrangement"
 name = "edit"
 title = "Audio edit"
@@ -74,7 +74,7 @@ name = "fade"
 
 [body.parts.score]
 format = "recs"
-version = 3
+version = 4
 kind = "automation"
 name = "fade"
 title = "Fade"
@@ -159,7 +159,7 @@ def test_definition_reference_requires_a_portable_path(
 
 def test_complete_edit_rejects_unknown_versions_and_fields() -> None:
     with pytest.raises(ValidationError):
-        parse_edit(COMPLETE_EDIT.replace('version = 3', 'version = 2'))
+        parse_edit(COMPLETE_EDIT.replace('version = 4', 'version = 2'))
     with pytest.raises(ValidationError):
         parse_edit(COMPLETE_EDIT + '\nplugin = "danger.py"\n')
 
