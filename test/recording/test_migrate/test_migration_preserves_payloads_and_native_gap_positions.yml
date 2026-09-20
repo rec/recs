@@ -1,29 +1,44 @@
 assets:
-- byte_length: 1467
+- content:
+    byte_length: 1467
+    sha256: 551f11d52393c809c90adbc2ed84ea433ae37651bc29f51d4c08bcef853b06e9
   encoding: recs-session-v3
+  location:
+    kind: relative_file
+    path: migration/session-record-v3.jsonl
   name: original-journal
-  path: migration/session-record-v3.jsonl
-  sha256: 551f11d52393c809c90adbc2ed84ea433ae37651bc29f51d4c08bcef853b06e9
-- byte_length: 96044
+- content:
+    byte_length: 96044
+    sha256: de1a21e8218c213a0ac3a1dd1562389578815375698f50f6785bb8339b4e3436
   encoding: wav
+  location:
+    kind: relative_file
+    path: audio.wav
   name: asset-2f97f5e90dbceaad
-  path: audio.wav
-  sha256: de1a21e8218c213a0ac3a1dd1562389578815375698f50f6785bb8339b4e3436
-- byte_length: 42
+- content:
+    byte_length: 42
+    sha256: 06a06cc9fd2da3955003d1b6f803445b6acac454c23c28afdfca70957d97e43a
   encoding: smf
+  location:
+    kind: relative_file
+    path: notes.mid
   name: asset-6928c7a28fdd6b91
-  path: notes.mid
-  sha256: 06a06cc9fd2da3955003d1b6f803445b6acac454c23c28afdfca70957d97e43a
-- byte_length: 77
+- content:
+    byte_length: 77
+    sha256: ec1a547a2708e11e3a6efc45e571177c574f0a8e11bdec958876bf4ded3b7a18
   encoding: jsonl
+  location:
+    kind: relative_file
+    path: osc-0.jsonl
   name: asset-f8206985070a549c
-  path: osc-0.jsonl
-  sha256: ec1a547a2708e11e3a6efc45e571177c574f0a8e11bdec958876bf4ded3b7a18
-- byte_length: 34
+- content:
+    byte_length: 34
+    sha256: d001b881e8d4292404c4532e527a9b38b93d901051274494e570b0f60c849153
   encoding: jsonl
+  location:
+    kind: relative_file
+    path: osc-1.jsonl
   name: asset-f3e5412ee2822d5e
-  path: osc-1.jsonl
-  sha256: d001b881e8d4292404c4532e527a9b38b93d901051274494e570b0f60c849153
 body:
   clock_observations: []
   continued_at: []
@@ -119,4 +134,4 @@ timebases:
     denominator: 1
     numerator: 48000
 title: session
-version: 3
+version: 4

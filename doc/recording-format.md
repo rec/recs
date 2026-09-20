@@ -2,7 +2,7 @@
 
 The initial common format supports arrangements, recording descriptions, and
 ordered event sequences. TOML is the score syntax; `format = "recs"`,
-`version = 3`, `kind`, `id`, and `name` form its common envelope. The model's
+`version = 4`, `kind`, `id`, and `name` form its common envelope. The model's
 `document_schema()` function generates JSON Schema for all three kinds.
 The [arrangement format](arrangement-format.md) describes audio editing.
 
@@ -23,7 +23,7 @@ recovery scan reports the missing score even if the journal has a footer.
 
 | Field | Meaning |
 | --- | --- |
-| `assets` | Sealed payloads: local ID, path relative to the score directory, encoding, byte length, SHA-256 |
+| `assets` | Sealed payloads: local ID, structured relative-file location, encoding, and content identity containing byte length and SHA-256 |
 | `timebases` | Named physical clocks with exact positive rational ticks per second |
 | `body.state` | `sealed` requires an end timestamp and no unfinished files; otherwise `open` |
 | `body.started_at`, `ended_at` | Observed session wall-clock timestamps; not sample alignment |
@@ -89,7 +89,7 @@ outputs instead contain the actual version 3 journal snapshot and its hash.
 
 ```toml
 format = "recs"
-version = 3
+version = 4
 kind = "recording"
 name = "example-session"
 title = "Empty capture"
@@ -97,8 +97,13 @@ timebases = []
 
 [[assets]]
 name = "journal"
-path = "journal.jsonl"
 encoding = "recs-session-v3"
+
+[assets.location]
+kind = "relative_file"
+path = "journal.jsonl"
+
+[assets.content]
 byte_length = 0
 sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
@@ -134,7 +139,7 @@ preroll controls and overlapping triggers with distinct identities.
 
 ```toml
 format = "recs"
-version = 3
+version = 4
 kind = "sequence"
 name = "key-example"
 title = "One key gesture"

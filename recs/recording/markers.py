@@ -9,7 +9,7 @@ from ufor.recording import RecordingScore
 
 from ..base.errors import RecsError
 from . import legacy, session_record
-from .files import sealed_asset
+from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording
 
 
@@ -31,9 +31,9 @@ def read_markers(path: Path, document: RecordingScore) -> list[Marker]:
     if document.body.journal is None:
         return []
     asset = next(a for a in document.assets if a.name == document.body.journal)
-    journal_path = path.parent / asset.path
+    journal_path = path.parent / asset_path(asset)
     actual = sealed_asset(journal_path, path.parent, asset.name, asset.encoding)
-    if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
+    if actual.content != asset_content(asset):
         raise RecsError('Marker journal bytes disagree with the recording document')
     historical = asset.encoding == 'recs-session-v3'
     journal = (

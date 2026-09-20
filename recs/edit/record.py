@@ -9,7 +9,7 @@ from ufor.recording import AudioStream
 
 from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec
-from recs.recording.files import sealed_asset
+from recs.recording.files import asset_content, asset_path, sealed_asset
 from recs.recording.read import read_recording_chain
 
 
@@ -136,13 +136,14 @@ def resolve_input(
                 f'Source {source.name}: ambiguous variants for frames {start}:{end}'
             )
         directory, asset, span = choices[0]
-        path = directory / asset.path
+        relative_path = asset_path(asset)
+        path = directory / relative_path
         if path not in verified:
             actual = sealed_asset(path, directory, asset.name, asset.encoding)
-            if actual.sha256 != asset.sha256 or actual.byte_length != asset.byte_length:
+            if actual.content != asset_content(asset):
                 raise RecsError(
                     f'Source {source.name}: asset bytes disagree with recording: '
-                    f'{asset.path}'
+                    f'{relative_path}'
                 )
             verified.add(path)
         info = soundfile.info(path)
@@ -153,7 +154,7 @@ def resolve_input(
         ):
             raise RecsError(
                 f'Source {source.name}: file metadata disagrees with recording: '
-                f'{asset.path}'
+                f'{relative_path}'
             )
         fragments.append(
             AudioFragment(

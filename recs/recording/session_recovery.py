@@ -15,7 +15,7 @@ from ufor.codec import score_toml
 
 from ..base.errors import RecsError
 from . import session_record
-from .files import sealed_asset, verify_recording
+from .files import asset_content, sealed_asset, verify_recording
 from .finalize import prepare_recording, read_capture_entries
 
 
@@ -222,7 +222,7 @@ def recover(plan: RecoveryPlan, destination: Path) -> Path:
         copied = sealed_asset(
             original, staging, plan.evidence.name, plan.evidence.encoding
         )
-        if copied.sha256 != plan.evidence.sha256:
+        if asset_content(copied).sha256 != asset_content(plan.evidence).sha256:
             raise RecsError('Capture journal changed while copying')
         paths: dict[str, str] = {}
         unplaced: list[Asset] = []
@@ -238,10 +238,7 @@ def recover(plan: RecoveryPlan, destination: Path) -> Path:
                 raise RecsError(f'Media escapes the original session: {item.path}')
             shutil.copy2(source, target)
             asset = sealed_asset(target, staging, item.asset.name, item.asset.encoding)
-            if (
-                asset.sha256 != item.asset.sha256
-                or asset.byte_length != item.asset.byte_length
-            ):
+            if asset.content != asset_content(item.asset):
                 raise RecsError(f'Media changed since inspection: {item.path}')
             paths[item.path] = relative
             if item.decision == Decision.unplaced:

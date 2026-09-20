@@ -13,6 +13,7 @@ from recs.base.errors import RecsError
 from recs.edit.commands import complete_or_generate, discover_commands, resolve_command
 from recs.edit.options import EditOptions
 from recs.recording import session_record
+from recs.recording.files import asset_path
 from recs.recording.finalize import finalize_recording
 
 
@@ -146,7 +147,9 @@ def test_stitch_accepts_ordered_audio_files(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [second, first], EditOptions())
 
     assert [
-        (Path(n.score.path).parent / input_definition(n).assets[0].path).resolve()
+        (
+            Path(n.score.path).parent / asset_path(input_definition(n).assets[0])
+        ).resolve()
         for n in edit.body.parts
     ] == [second.resolve(), first.resolve()]
     assert [c.timeline_start for c in edit.body.clips] == [0, 48_000]
@@ -188,7 +191,9 @@ def test_media_directory_uses_lexical_order(tmp_path: Path) -> None:
     edit = complete_or_generate(recipe, [directory], EditOptions())
 
     assert [
-        (Path(n.score.path).parent / input_definition(n).assets[0].path).resolve()
+        (
+            Path(n.score.path).parent / asset_path(input_definition(n).assets[0])
+        ).resolve()
         for n in edit.body.parts
     ] == [first.resolve(), second.resolve()]
 

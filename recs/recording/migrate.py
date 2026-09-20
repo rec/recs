@@ -6,10 +6,11 @@ from typing import Annotated
 
 import tyro
 from pydantic import BaseModel
+from ufor.assets import RelativeFileLocation
 from ufor.codec import parse_score, score_toml
 
 from ..base.errors import RecsError
-from .files import Verification, verify_recording
+from .files import Verification, asset_content, verify_recording
 from .legacy_finalize import prepare_legacy_recording
 
 
@@ -49,7 +50,7 @@ def migrate_session(
     verification = verify_recording(document, root)
     original = journal.read_bytes()
     journal_asset = next(a for a in document.assets if a.name == document.body.journal)
-    if hashlib.sha256(original).hexdigest() != journal_asset.sha256:
+    if hashlib.sha256(original).hexdigest() != asset_content(journal_asset).sha256:
         raise RecsError(
             'Session record changed during migration; retry after capture stops'
         )
@@ -59,7 +60,13 @@ def migrate_session(
     document = document.model_copy(
         update={
             'assets': [
-                a.model_copy(update={'path': snapshot.relative_to(root).as_posix()})
+                a.model_copy(
+                    update={
+                        'location': RelativeFileLocation(
+                            path=snapshot.relative_to(root).as_posix()
+                        )
+                    }
+                )
                 if a.name == document.body.journal
                 else a
                 for a in document.assets

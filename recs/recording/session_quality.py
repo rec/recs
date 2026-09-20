@@ -11,6 +11,7 @@ from ufor.recording import AudioFragment, AudioStream, GapReason
 
 from ..base.errors import RecsError
 from . import audio_quality, legacy, session_record
+from .files import asset_path
 from .read import read_recording
 
 
@@ -171,8 +172,9 @@ def inspect(
         if analysis is not None:
             for fragment in [*stream.fragments, *stream.unmapped_fragments]:
                 asset = assets[fragment.asset]
+                relative_path = asset_path(asset)
                 try:
-                    media = (record_path.parent / asset.path).resolve()
+                    media = (record_path.parent / relative_path).resolve()
                     if not media.is_relative_to(record_path.parent.resolve()):
                         raise RecsError('Asset escapes the session directory')
                     measurement = audio_quality.measure(
@@ -193,7 +195,7 @@ def inspect(
                             Finding(
                                 severity=Severity.advisory,
                                 kind='near_full_scale',
-                                evidence=f'{asset.path}: see channel measurements '
+                                evidence=f'{relative_path}: see channel measurements '
                                 'and exact run ranges',
                                 **context,
                             )
@@ -208,7 +210,7 @@ def inspect(
                         Finding(
                             severity=Severity.error,
                             kind='audio_analysis_failed',
-                            evidence=f'{asset.path}: {error}',
+                            evidence=f'{relative_path}: {error}',
                             **context,
                         )
                     )
@@ -227,8 +229,9 @@ def inspect(
         )
     if body.journal is not None:
         asset = assets[body.journal]
+        relative_path = asset_path(asset)
         try:
-            journal_path = (record_path.parent / asset.path).resolve()
+            journal_path = (record_path.parent / relative_path).resolve()
             if not journal_path.is_relative_to(record_path.parent.resolve()):
                 raise RecsError('Journal escapes the session directory')
             journal = (
@@ -241,7 +244,7 @@ def inspect(
                     Finding(
                         severity=Severity.warning,
                         kind='journal_diagnostic',
-                        evidence=f'{asset.path}: {message}',
+                        evidence=f'{relative_path}: {message}',
                     )
                 )
             for index, event in enumerate(journal.events):
@@ -257,7 +260,7 @@ def inspect(
                         Finding(
                             severity=Severity.warning,
                             kind=event.type,
-                            evidence=f'{asset.path}: events[{index}]: '
+                            evidence=f'{relative_path}: events[{index}]: '
                             f'{event.model_dump_json(exclude_none=True)}',
                         )
                     )
@@ -266,7 +269,7 @@ def inspect(
                 Finding(
                     severity=Severity.error,
                     kind='unreadable_journal',
-                    evidence=f'{asset.path}: {error}',
+                    evidence=f'{relative_path}: {error}',
                 )
             )
     return QualityReport(

@@ -24,7 +24,7 @@ from ufor.time import Rate, TickRange, Timebase
 
 from ..base.errors import RecsError
 from . import legacy
-from .files import sealed_asset
+from .files import asset_content, asset_path, sealed_asset
 
 
 def prepare_legacy_recording(
@@ -109,6 +109,7 @@ def prepare_legacy_recording(
                 'asset-' + hashlib.sha256(finished.path.encode()).hexdigest()[:16]
             )
             asset = sealed_asset(path, root, asset_id, finished.format)
+            relative_path = asset_path(asset)
             assets.append(asset)
             if finished.quantity_count is None:
                 raise RecsError(f'Finished file has no quantity count: {finished.path}')
@@ -150,12 +151,12 @@ def prepare_legacy_recording(
                     for span in finished.audio_spans:
                         if span.asset_start != offset:
                             raise RecsError(
-                                f'Audio spans do not cover the payload: {asset.path}'
+                                f'Audio spans do not cover the payload: {relative_path}'
                             )
                         offset += span.count
                     if offset != info.frames or offset != finished.quantity_count:
                         raise RecsError(
-                            f'Audio span count disagrees with payload: {asset.path}'
+                            f'Audio span count disagrees with payload: {relative_path}'
                         )
                     audio.extend(
                         AudioFragment(asset=asset.name, **s.model_dump())
@@ -180,7 +181,8 @@ def prepare_legacy_recording(
                         )
                     )
                     notes.append(
-                        f'{asset.path}: journal span {finished.quantity_count} frames, '
+                        f'{relative_path}: journal span '
+                        f'{finished.quantity_count} frames, '
                         f'payload {info.frames} frames; '
                         'timeline placement is unresolved.'
                     )
@@ -265,7 +267,7 @@ def prepare_legacy_recording(
             'candidate asset paths are relative to the session.'
         )
     return RecordingScore(
-        name=header.session_id or original.sha256,
+        name=header.session_id or asset_content(original).sha256,
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),

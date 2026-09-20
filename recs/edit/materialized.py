@@ -5,6 +5,7 @@ from tempfile import TemporaryFile, gettempdir
 import numpy as np
 import soundfile
 from pydantic import BaseModel, ConfigDict
+from ufor.assets import Asset, ContentIdentity, RelativeFileLocation
 from ufor.recording import RecordingScore
 
 from recs.base.errors import RecsError
@@ -251,7 +252,6 @@ def recording_definition(
     """Describe a prepared audio value for the host's score/asset provider."""
     from hashlib import sha256
 
-    from ufor.assets import Asset
     from ufor.interface import Output, StreamBinding
     from ufor.recording import (
         AudioFragment,
@@ -287,10 +287,12 @@ def recording_definition(
         digest.update(block.astype('<f4', copy=False).tobytes())
     asset = Asset(
         name='samples',
-        path='samples.f32',
+        location=RelativeFileLocation(path='samples.f32'),
         encoding='float32le',
-        byte_length=value.nbytes,
-        sha256=digest.hexdigest(),
+        content=ContentIdentity(
+            byte_length=value.nbytes,
+            sha256=digest.hexdigest(),
+        ),
     )
     return RecordingScore(
         name=name,
