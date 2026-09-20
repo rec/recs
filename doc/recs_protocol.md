@@ -247,6 +247,8 @@ names, musicians, and musician assignments in the current workspace. An
 existing target loads its saved mutable state. A missing named project is
 created from the current workspace. Subsequent mutations are written to the
 target workspace, never to the workspace that was left.
+When capture is active, switching closes the current session and starts a new
+session under the target project's directory.
 
 The response identifies the active workspace and its settings file:
 
@@ -275,7 +277,7 @@ client:
   "devices": [],
   "disk": {
     "free_bytes": 700000000000,
-    "path": "/mnt/openloop/recs/2026/08/28/12-00-00/session-record.jsonl",
+  "path": "/mnt/openloop/recs/-default-/2026/08/28/12-00-00/session-record.jsonl",
     "total_bytes": 1000000000000,
     "used_bytes": 300000000000,
     "estimated_seconds_remaining": 86400.0,
@@ -286,13 +288,13 @@ client:
     "resume_disk": null
   },
   "errors": [],
-  "record_path": "/mnt/openloop/recs/2026/08/28/12-00-00/session-record.jsonl",
+  "record_path": "/mnt/openloop/recs/-default-/2026/08/28/12-00-00/session-record.jsonl",
   "midi": [],
   "osc": [],
   "playback": {"state": "waiting"},
   "recording": {"paused": false},
   "rows": [],
-  "session_directory": "/mnt/openloop/recs/2026/08/28/12-00-00"
+  "session_directory": "/mnt/openloop/recs/-default-/2026/08/28/12-00-00"
 }
 ```
 
@@ -318,7 +320,7 @@ nearest existing ancestor when the record does not exist yet:
 {
   "type": "disk_status_result",
   "free_bytes": 700000000000,
-  "path": "/mnt/openloop/recs/2026/08/28/12-00-00/session-record.jsonl",
+    "path": "/mnt/openloop/recs/-default-/2026/08/28/12-00-00/session-record.jsonl",
   "total_bytes": 1000000000000,
   "used_bytes": 300000000000,
   "estimated_seconds_remaining": 86400.0,
@@ -524,9 +526,9 @@ session record with a new session ID. The response identifies both records:
 {
   "type": "new_session_started",
   "session_id": "8e9161e7-2890-46af-b45f-9d7186374462",
-  "session_directory": "/mnt/openloop/recs/2026/09/07/18-30-00",
-  "previous_record_path": "/mnt/openloop/recs/2026/09/07/17-00-00/session-record.jsonl",
-  "record_path": "/mnt/openloop/recs/2026/09/07/18-30-00/session-record.jsonl"
+  "session_directory": "/mnt/openloop/recs/-default-/2026/09/07/18-30-00",
+  "previous_record_path": "/mnt/openloop/recs/-default-/2026/09/07/17-00-00/session-record.jsonl",
+  "record_path": "/mnt/openloop/recs/-default-/2026/09/07/18-30-00/session-record.jsonl"
 }
 ```
 
@@ -636,7 +638,7 @@ Every transport command returns this state shape:
   "type": "playback_state",
   "state": "playing",
   "session": -1,
-  "path": "/recordings/2026/09/04/15-01-57/recording.toml",
+  "path": "/recordings/-default-/2026/09/04/15-01-57/recording.toml",
   "source": "Mixer",
   "channel": "9-10",
   "output_channel": "3-4",

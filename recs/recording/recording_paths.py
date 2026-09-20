@@ -13,6 +13,8 @@ from recs.cfg.cfg import Cfg
 from recs.daemon import gui_ipc
 from recs.misc import legal_filename
 
+DEFAULT_PROJECT_DIRECTORY = '-default-'
+
 
 @dataclass(frozen=True)
 class MountedDisk:
@@ -46,8 +48,14 @@ def daemon_record_directory(cfg: Cfg) -> Path | None:
     return record_disk() / path
 
 
-def session_directory(output_directory: str, timestamp: float) -> Path:
-    directory = session_day_directory(timestamp) / session_directory_name(timestamp)
+def session_directory(
+    output_directory: str, timestamp: float, project_name: str | None = None
+) -> Path:
+    directory = (
+        Path(project_name or DEFAULT_PROJECT_DIRECTORY)
+        / session_day_directory(timestamp)
+        / session_directory_name(timestamp)
+    )
     if not output_directory:
         return available_directory(directory)
     return available_directory(

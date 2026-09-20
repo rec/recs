@@ -152,7 +152,7 @@ def settings_path() -> Path:
 def project_settings_path(project_name: str) -> Path:
     if (
         not project_name
-        or project_name in {'.', '..'}
+        or project_name in {'.', '..', '-default-'}
         or Path(project_name).name != project_name
     ):
         raise RecsError(f'Invalid recording project name: {project_name!r}')

@@ -392,7 +392,7 @@ def _without_session_directory(path: Path) -> Path:
     parts = path.parts
     for index in range(len(parts)):
         if _is_session_part(parts, index):
-            return Path(*parts[: index - 3], *parts[index + 1 :])
+            return Path(*parts[: index - 4], *parts[index + 1 :])
     return path
 
 
