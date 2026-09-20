@@ -80,7 +80,7 @@ MIDI defaults to host monotonic callback timestamps; the optional Mido-delta
 mode requires meaningful deltas from the source. OSC retains raw packets,
 decoded values or errors, direction, endpoint, and stable ordinals. Every JSONL
 line is complete, independent of prior file compression state. See the
-[capture journal format](../../recs/doc/session-record-format.md) for precise clock semantics,
+[capture journal format](session-directory.md) for precise clock semantics,
 recovery, and explicit MIDI-file export.
 
 A complete valid empty recording score follows. The example's journal is

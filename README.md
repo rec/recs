@@ -368,7 +368,7 @@ of Recsam instruments is not implemented yet.
 
 - [Glossary](doc/glossary.md)
 - [Runtime Architecture](doc/runtime-architecture.md)
-- [Session Record Format](doc/session-record-format.md)
+- [Session Directory](doc/session-directory.md)
 - [Recording and Sequence Scores](doc/recording-format.md)
 - [Audio Arrangement Scores](doc/arrangement-format.md)
 - [recs Protocol](doc/recs_protocol.md)
