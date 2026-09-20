@@ -364,6 +364,7 @@ def prepare_recording(
         timebases=list(unique_clocks.values()),
         body=Recording(
             state='sealed' if footer else 'open',
+            project_name=header.project_name,
             started_at=header.started_at,
             ended_at=footer.ended_at if footer else None,
             observed_duration_seconds=footer.duration_seconds if footer else None,

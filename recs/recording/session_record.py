@@ -20,6 +20,7 @@ class SessionHeader(BaseModel):
     version: Literal[4] = 4
     started_at: str
     session_id: str | None = None
+    project_name: str | None = None
     continued_from: str | None = None
     application: dict[str, str] | None = None
     metadata: dict[str, object] | None = None
@@ -156,6 +157,7 @@ class SessionRecord(BaseModel):
 
     started_at: str
     session_id: str | None = None
+    project_name: str | None = None
     continued_from: str | None = None
     application: dict[str, str] | None = None
     metadata: dict[str, object] | None = None
@@ -188,6 +190,7 @@ class SessionRecordWriter:
         path: Path,
         started_at: str,
         session_id: str | None = None,
+        project_name: str | None = None,
         continued_from: str | None = None,
         application: dict[str, str] | None = None,
         metadata: dict[str, object] | None = None,
@@ -204,6 +207,7 @@ class SessionRecordWriter:
             SessionHeader(
                 started_at=started_at,
                 session_id=session_id,
+                project_name=project_name,
                 continued_from=continued_from,
                 application=application,
                 metadata=metadata,
@@ -247,6 +251,7 @@ def read(path: Path) -> SessionRecord:
     return SessionRecord(
         started_at=header.started_at if header else '',
         session_id=header.session_id if header else None,
+        project_name=header.project_name if header else None,
         continued_from=header.continued_from if header else None,
         application=header.application if header else None,
         metadata=header.metadata if header else None,
