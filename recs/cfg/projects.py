@@ -50,6 +50,12 @@ class Show(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
 
+class Switch(ProjectCommand):
+    """Switch a running recorder to a project, or omit NAME for the default."""
+
+    names: Annotated[list[str], tyro.conf.Positional] = Field(default_factory=list)
+
+
 class ListProjects(ProjectCommand):
     pass
 
@@ -127,6 +133,14 @@ def main(argv: list[str]) -> int:
     if isinstance(command, Show):
         print(load(command.name).model_dump_json(indent=2))
         return 0
+    if isinstance(command, Switch):
+        from recs.daemon import control_cli
+
+        if len(command.names) > 1:
+            raise RecsError('project switch accepts at most one project name')
+        arguments = ['project-switch']
+        arguments.extend(command.names)
+        return control_cli.main(arguments)
     if isinstance(command, ListProjects):
         for path in sorted(projects_directory().glob('*.json')):
             print(path.stem)
@@ -180,6 +194,7 @@ COMMANDS: dict[str, Callable[..., ProjectCommand]] = {
     'save': Save,
     'use': Use,
     'show': Show,
+    'switch': Switch,
     'list': ListProjects,
     'delete': Delete,
 }

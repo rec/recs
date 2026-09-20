@@ -183,6 +183,7 @@ class Recorder(Runnables):
             self._finish_record,
             self._card_replace,
             self._new_session,
+            self._switch_project,
             self.instance,
             saved_settings.project_name,
         )
@@ -295,16 +296,7 @@ class Recorder(Runnables):
                 raise RecsError(str(error)) from None
         try:
             self.external.start()
-            instances.publish(
-                instances.InstanceDescriptor(
-                    identity=self.instance,
-                    control_endpoint=str(self.external.control_endpoint),
-                    event_endpoint=str(self.external.event_endpoint),
-                    protocol_version=gui_protocol.VERSION,
-                    sources=self._instance_sources,
-                    settings_path=self.settings_path,
-                )
-            )
+            self._publish_instance()
         except OSError as e:
             self.external.close()
             if self.settings_path is not None:
@@ -800,6 +792,158 @@ class Recorder(Runnables):
                     self.cfg.directory.output_directory, self.session_start_time
                 )
             )
+
+    def _switch_project(self, project_name: str | None) -> gui_protocol.ProjectSwitched:
+        control = self._control
+        if not control.cfg.save_settings:
+            raise RecsError('Project switching requires saved settings')
+        if project_name == control.project_name:
+            assert self.settings_path is not None
+            return gui_protocol.ProjectSwitched(
+                type='project_switched',
+                project_name=project_name,
+                settings_path=self.settings_path,
+            )
+
+        settings.save(
+            control.cfg,
+            control.track_names,
+            control.saved_tracks,
+            project_name=control.project_name,
+            musicians=control.musicians,
+            channel_musicians=control.channel_musicians,
+        )
+        loaded, created = self._load_project_workspace(project_name)
+        new_path = str(settings.mutable_settings_path(project_name))
+        new_identity = self.instance.model_copy(update={'project_name': project_name})
+        try:
+            instances.claim_settings(new_path, new_identity)
+        except ValueError as error:
+            raise RecsError(str(error)) from None
+
+        old_identity = self.instance
+        old_path = self.settings_path
+        try:
+            self._apply_project_workspace(loaded)
+            self.instance = new_identity
+            control.instance = new_identity
+            control.project_name = project_name
+            self.settings_path = new_path
+            self._publish_instance()
+        except (OSError, RecsError, ValueError):
+            instances.release_settings(new_path, new_identity)
+            raise
+        if old_path is not None:
+            instances.release_settings(old_path, old_identity)
+        control.write_entry(
+            session_record.EventRecord(
+                type='project_switched',
+                timestamp=session_record.timestamp_to_json(times.timestamp()),
+                value={'project_name': project_name, 'created': created},
+            )
+        )
+        return gui_protocol.ProjectSwitched(
+            type='project_switched',
+            project_name=project_name,
+            created=created,
+            settings_path=new_path,
+        )
+
+    def _load_project_workspace(
+        self, project_name: str | None
+    ) -> tuple[settings.LoadedSettings, bool]:
+        from recs.cfg import projects
+
+        control = self._control
+        if project_name is None:
+            path = settings.settings_path()
+            if not path.exists():
+                settings.save(
+                    control.cfg,
+                    control.track_names,
+                    control.saved_tracks,
+                    musicians=control.musicians,
+                    channel_musicians=control.channel_musicians,
+                )
+            return settings.load(control.cfg), False
+
+        path = projects.project_path(project_name)
+        if not path.exists():
+            projects.save(
+                project_name,
+                projects.Project(
+                    cfg=control.cfg,
+                    track_names=control.track_names,
+                    tracks=control.saved_tracks,
+                ),
+            )
+            settings.save(
+                control.cfg,
+                control.track_names,
+                control.saved_tracks,
+                project_name=project_name,
+                musicians=control.musicians,
+                channel_musicians=control.channel_musicians,
+            )
+            return settings.load(
+                control.cfg,
+                project_name=project_name,
+                track_names=control.track_names,
+                tracks=control.saved_tracks,
+                musicians=control.musicians,
+                channel_musicians=control.channel_musicians,
+            ), True
+
+        project = projects.load(project_name)
+        cfg = control.cfg
+        for address in cfg.mutable_attributes:
+            cfg = cfg.set_attr(address, project.cfg.get_attr(address, authored=True))
+        return settings.load(
+            cfg,
+            project_name=project_name,
+            track_names=project.track_names,
+            tracks=project.tracks,
+        ), False
+
+    def _apply_project_workspace(self, loaded: settings.LoadedSettings) -> None:
+        control = self._control
+        control.cfg = loaded.cfg
+        control.cfg_revision += 1
+        control.devices.set_cfg(loaded.cfg, revision=control.cfg_revision)
+        control.cfg_changed(loaded.cfg)
+        control.track_names = {
+            source: dict(names) for source, names in loaded.track_names.items()
+        }
+        control.devices.set_track_names(control.track_names)
+        control.state.set_track_names(control.track_names)
+        control.saved_tracks.clear()
+        control.saved_tracks.update(
+            {name: list(tracks) for name, tracks in loaded.tracks.items()}
+        )
+        restored = dict(
+            device_lifecycle.DeviceLifecycle.initial_tracks(
+                loaded.cfg, control.saved_tracks
+            )
+        )
+        for source in control.devices.sources.values():
+            if tracks := restored.get(source.source):
+                source.set_tracks(list(tracks), control.track_names)
+        control.musicians.clear()
+        control.musicians.update(loaded.musicians)
+        control.channel_musicians.clear()
+        control.channel_musicians.update(loaded.channel_musicians)
+
+    def _publish_instance(self) -> None:
+        instances.publish(
+            instances.InstanceDescriptor(
+                identity=self.instance,
+                control_endpoint=str(self.external.control_endpoint),
+                event_endpoint=str(self.external.event_endpoint),
+                protocol_version=gui_protocol.VERSION,
+                sources=self._instance_sources,
+                settings_path=self.settings_path,
+            )
+        )
 
     def _set_session_directory(self, session_directory: Path) -> None:
         self.session_directory = session_directory

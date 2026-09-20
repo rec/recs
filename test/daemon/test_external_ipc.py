@@ -91,6 +91,16 @@ def test_external_request_uses_new_session_command() -> None:
     assert message == gui_protocol.NewSession(type='new_session')
 
 
+def test_external_request_uses_switch_project_command() -> None:
+    message = external_ipc.recs_request(
+        rpc.Request(command='switch_project', params={'project_name': 'x18-show'})
+    )
+
+    assert message == gui_protocol.SwitchProject(
+        type='switch_project', project_name='x18-show'
+    )
+
+
 def test_external_request_uses_play_session_command() -> None:
     message = external_ipc.recs_request(
         rpc.Request(command='play_session', params={'session': -2, 'channel': '9-10'})
@@ -183,6 +193,24 @@ def test_external_response_preserves_new_session_started() -> None:
         'session_directory': '/recordings/new',
         'previous_record_path': '/recordings/old/session-record.jsonl',
         'record_path': '/recordings/new/session-record.jsonl',
+    }
+
+
+def test_external_response_preserves_project_switched() -> None:
+    result = external_ipc.response(
+        rpc.Request(command='switch_project'),
+        gui_protocol.ProjectSwitched(
+            type='project_switched',
+            project_name='x18-show',
+            settings_path='/tmp/x18-show.json',
+        ),
+    )
+
+    assert result == {
+        'type': 'project_switched',
+        'project_name': 'x18-show',
+        'created': False,
+        'settings_path': '/tmp/x18-show.json',
     }
 
 

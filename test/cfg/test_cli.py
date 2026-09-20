@@ -72,7 +72,7 @@ def test_help(cli_help: CliHelp) -> None:
             ],
         ),
         ('record', ['check']),
-        ('project', ['save', 'use', 'show', 'list', 'delete']),
+        ('project', ['save', 'use', 'show', 'switch', 'list', 'delete']),
         ('daemon', ['install', 'uninstall', 'start', 'stop', 'restart', 'status']),
         (
             'control',
@@ -97,6 +97,7 @@ def test_help(cli_help: CliHelp) -> None:
                 'calibrate',
                 'card-replace',
                 'reload-profiles',
+                'project-switch',
                 'musician-add',
                 'musician-list',
                 'musician-edit',

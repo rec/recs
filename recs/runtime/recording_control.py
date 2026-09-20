@@ -59,6 +59,7 @@ class RecordingControl:
         finish_record: Callable[[], None],
         card_replace: Callable[[], gui_protocol.CardReplaceStarted],
         new_session: Callable[[], gui_protocol.NewSessionStarted],
+        switch_project: Callable[[str | None], gui_protocol.ProjectSwitched],
         instance: InstanceIdentity,
         project_name: str | None,
     ) -> None:
@@ -82,6 +83,7 @@ class RecordingControl:
         self.finish_record = finish_record
         self.card_replace_callback = card_replace
         self.new_session_callback = new_session
+        self.switch_project_callback = switch_project
         self.instance = instance
         self.project_name = project_name
         self.calibrate: Callable[[gui_protocol.Calibrate], gui_protocol.Calibrated]
@@ -162,6 +164,11 @@ class RecordingControl:
 
     def status_snapshot(self) -> gui_protocol.StatusSnapshot:
         return recording_commands.status_snapshot(self)
+
+    def switch_project(
+        self, request: gui_protocol.SwitchProject
+    ) -> gui_protocol.ProjectSwitched:
+        return self.switch_project_callback(request.project_name)
 
     def disk_status(self) -> gui_protocol.DiskStatus:
         return recording_commands.disk_status(self)

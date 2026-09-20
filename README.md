@@ -112,6 +112,8 @@ recs project use x18-show -- --output-directory /mnt/openloop/recs
 recs project list
 recs project show x18-show
 recs project delete x18-show
+recs project switch x18-show
+recs project switch  # switch the running recorder to the default workspace
 ```
 
 Start with a saved project using `recs --project-name x18-show`. Install the
@@ -122,6 +124,12 @@ When a project is started with saving enabled, mutable changes made through the
 protocol are stored in `~/.config/recs/project-settings/NAME.json`. This overlay
 does not alter the project definition or the daemon's global
 `~/.config/recs/settings.json` file.
+
+`recs project switch NAME` changes the running recorder to that project's
+workspace, creating it from the current workspace when necessary. Omitting
+`NAME` switches back to the independent default workspace. The same operation
+is available as `switch_project` in the protocol and as
+`recs control project-switch [NAME]`.
 
 Per-device JSON profiles are separate from recording projects. Pass them
 with `--profiles` to override settings such as the noise floor for a matching
