@@ -755,6 +755,9 @@ class Recorder(Runnables):
         self.session.start(
             self.session_directory / 'session-record.jsonl',
             enabled=self.cfg.general.writes_files,
+            project_name=(
+                self._control.project_name or recording_paths.DEFAULT_PROJECT_DIRECTORY
+            ),
             channel_musicians=self._control.channel_musicians,
         )
         if self.cfg.general.writes_files and self.cfg.midi.record_midi:

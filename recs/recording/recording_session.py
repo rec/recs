@@ -36,6 +36,7 @@ class RecordingSession:
         path: Path,
         *,
         enabled: bool,
+        project_name: str | None = None,
         channel_musicians: dict[str, SourceMusician] | None = None,
     ) -> None:
         if not enabled:
@@ -44,6 +45,7 @@ class RecordingSession:
             path,
             started_at=session_record.timestamp_to_json(self.started_at),
             session_id=self.session_id,
+            project_name=project_name,
             continued_from=self.continued_from,
             channel_musicians=channel_musicians,
         )

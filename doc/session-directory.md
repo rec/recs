@@ -42,7 +42,9 @@ session/
 `session-record.jsonl` exists while capture is in progress and is the source
 evidence for finalization. A cleanly finalized session also contains
 `recording.toml`, the content index used by browsing, checking, editing, and
-export. Media subdirectories exist only for enabled media that recs writes:
+export. Its `body.project_name` records the active project independently of the
+directory path. The default workspace is recorded as `-default-`. Media
+subdirectories exist only for enabled media that recs writes:
 
 - `audio/` contains WAV, FLAC, or other configured audio files.
 - `midi/`, `osc/`, and `key/` contain native event JSONL files.
@@ -66,11 +68,11 @@ and periodically fsync. Line order is observation order, not a cross-device
 clock mapping. The first line is a header; clean shutdown ends with a footer.
 
 ```json
-{"type":"header","version":4,"session_id":"take-1","started_at":"2026-09-07T12:00:00.000Z"}
+{"type":"header","version":4,"session_id":"take-1","project_name":"x18-show","started_at":"2026-09-07T12:00:00.000Z"}
 ```
 
-Header fields are `type`, `version`, and `started_at`, with optional
-`session_id`, `continued_from`, `application`, `metadata`, and
+Current capture headers include `type`, `version`, `started_at`, and `project_name`,
+with optional `session_id`, `continued_from`, `application`, `metadata`, and
 `channel_musicians`. `channel_musicians` maps each source to its musician short
 name and one-based channels, for example
 `{"Ext":{"musician":"mike","channels":[1,2]}}`. It snapshots the
