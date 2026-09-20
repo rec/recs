@@ -5,6 +5,7 @@ import pytest
 from recs.base.errors import RecsError
 from recs.cfg import projects, settings
 from recs.cfg.cfg import Cfg
+from recs.daemon import control_cli
 
 
 def test_project_round_trip_and_cli_overrides(
@@ -73,3 +74,20 @@ def test_project_commands_save_list_show_and_use(
     assert '\nshow\n' in output
     assert '"include": [' in output
     assert used[0].cfg.selection.include == ['Mic']
+
+
+def test_project_switch_uses_the_running_recorder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        control_cli, 'main', lambda arguments: calls.append(arguments) or 0
+    )
+
+    assert projects.main(['switch', 'show']) == 0
+    assert projects.main(['switch']) == 0
+
+    with pytest.raises(RecsError, match='at most one'):
+        projects.main(['switch', 'one', 'two'])
+
+    assert calls == [['project-switch', 'show'], ['project-switch']]

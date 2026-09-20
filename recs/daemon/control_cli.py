@@ -119,6 +119,13 @@ class ReloadProfiles(ControlCommand):
     rpc_command = 'reload_profiles'
 
 
+class ProjectSwitch(ControlCommand):
+    """Switch mutable configuration to a named project or the default workspace."""
+
+    rpc_command = 'switch_project'
+    names: Annotated[list[str], tyro.conf.Positional] = Field(default_factory=list)
+
+
 class MusicianAdd(ControlCommand):
     rpc_command = 'add_musician'
     name: Annotated[str, tyro.conf.Positional]
@@ -193,6 +200,11 @@ def main(argv: list[str]) -> int:
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
+    if isinstance(command, ProjectSwitch):
+        if len(command.names) > 1:
+            print('project-switch accepts at most one project name', file=sys.stderr)
+            return 1
+        params = {'project_name': command.names[0] if command.names else None}
     if isinstance(command, MusicianAdd):
         params = {
             'musician': {
@@ -250,6 +262,7 @@ COMMANDS: dict[str, Callable[..., ControlCommand]] = {
     'calibrate': Calibrate,
     'card-replace': CardReplace,
     'reload-profiles': ReloadProfiles,
+    'project-switch': ProjectSwitch,
     'musician-add': MusicianAdd,
     'musician-list': MusicianList,
     'musician-edit': MusicianEdit,

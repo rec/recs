@@ -184,7 +184,7 @@ readiness inspects a project or configuration without recording; preflight check
 
 
 $ recs control --help
-usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles,musician-add,musician-list,musician-edit,musician-delete,musician-assign,musician-remove}
+usage: recs control [-h] {instances,status,disk,devices,capabilities,mutable,get,set,mark,pause,play,stop,pause-playback,continue,jump,jump-session,resume,calibrate,card-replace,reload-profiles,project-switch,musician-add,musician-list,musician-edit,musician-delete,musician-assign,musician-remove}
 
 Send one command to a running recs instance.
 
@@ -215,6 +215,7 @@ Send one command to a running recs instance.
     - calibrate
     - card-replace
     - reload-profiles  Reload per-device JSON defaults from --profiles, not a recording project.
+    - project-switch   Switch mutable configuration to a named project or the default workspace.
     - musician-add
     - musician-list
     - musician-edit
@@ -278,20 +279,21 @@ usage: recs preflight [-h]
 
 
 $ recs project --help
-usage: recs project [-h] {save,use,show,list,delete}
+usage: recs project [-h] {save,use,show,switch,list,delete}
 
 Save and use recording projects. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
- ---------------------------------------------
+ -----------------------------------------------------------------------------------
   -h, --help  show this help message and exit
 
  subcommands
- ---------------------------------------------
+ -----------------------------------------------------------------------------------
   (required)
     - save
     - use
     - show
+    - switch  Switch a running recorder to a project, or omit NAME for the default.
     - list
     - delete
 

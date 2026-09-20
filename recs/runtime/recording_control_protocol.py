@@ -97,6 +97,10 @@ class RecordingControlTarget(Protocol):
 
     def status_snapshot(self) -> gui_protocol.StatusSnapshot: ...
 
+    def switch_project(
+        self, request: gui_protocol.SwitchProject
+    ) -> gui_protocol.ProjectSwitched: ...
+
     def set_waveforms_enabled(self, enabled: bool) -> None: ...
 
 
@@ -230,4 +234,6 @@ class RecordingControlProtocol:
             return self.control.set_tracks(request)
         if isinstance(request, gui_protocol.StatusSnapshotRequest):
             return self.control.status_snapshot()
+        if isinstance(request, gui_protocol.SwitchProject):
+            return self.control.switch_project(request)
         raise RecsError(f'Unsupported request: {request.type}')

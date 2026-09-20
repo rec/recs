@@ -67,6 +67,12 @@ def reset_fake_client() -> Iterator[None]:
         (['card-replace'], 'card_replace', {}),
         (['reload-profiles'], 'reload_profiles', {}),
         (
+            ['project-switch', 'x18-show'],
+            'switch_project',
+            {'project_name': 'x18-show'},
+        ),
+        (['project-switch'], 'switch_project', {'project_name': None}),
+        (
             [
                 'musician-add',
                 'mike',

@@ -5,7 +5,7 @@ from reccy.protocol import rpc
 
 from recs.base.errors import RecsError
 from recs.base.state import ChannelState
-from recs.cfg import settings
+from recs.cfg import projects, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_protocol
@@ -272,6 +272,78 @@ def test_control_request_saves_output_directory_root(
     assert loaded.cfg.directory.output_directory == str(output_directory)
 
 
+def test_project_switches_keep_independent_workspaces(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    default_path = tmp_path / 'settings.json'
+    project_settings = tmp_path / 'project-settings'
+    monkeypatch.setattr(settings, 'settings_path', lambda: default_path)
+    monkeypatch.setattr(
+        settings,
+        'project_settings_path',
+        lambda name: project_settings / f'{name}.json',
+    )
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path / 'projects')
+    monkeypatch.setattr(
+        recorder.instances, 'claim_settings', lambda path, identity: None
+    )
+    monkeypatch.setattr(
+        recorder.instances, 'release_settings', lambda path, identity: None
+    )
+    monkeypatch.setattr(recorder.instances, 'publish', lambda descriptor: None)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    default_cfg = Cfg(include=['Ext'], save_settings=True, silent=True).set_attr(
+        'recording.noise_floor', 41
+    )
+    settings.save(default_cfg, {}, {})
+    projects.save(
+        'show',
+        projects.Project(
+            cfg=default_cfg.set_attr('recording.noise_floor', 70),
+            track_names={'Ext': {'Keys': 1}},
+        ),
+    )
+    settings.save(
+        default_cfg.set_attr('recording.noise_floor', 42),
+        {'Ext': {'Keys': 1}},
+        {},
+        project_name='show',
+    )
+    rec = Recorder(default_cfg, settings.load(default_cfg))
+
+    switched = rec._control.switch_project(
+        gui_protocol.SwitchProject(type='switch_project', project_name='show')
+    )
+    rec._control.set_cfg(
+        gui_protocol.SetCfg(type='set_cfg', address='recording.noise_floor', value=43)
+    )
+
+    assert switched.project_name == 'show'
+    assert not switched.created
+    assert rec._control.project_name == 'show'
+    assert rec.instance.project_name == 'show'
+    assert rec._control.cfg.recording.noise_floor == 43
+    assert settings.load(default_cfg).cfg.recording.noise_floor == 41
+    assert (
+        settings.load(default_cfg, project_name='show').cfg.recording.noise_floor == 43
+    )
+
+    created = rec._control.switch_project(
+        gui_protocol.SwitchProject(type='switch_project', project_name='new-show')
+    )
+    restored = rec._control.switch_project(
+        gui_protocol.SwitchProject(type='switch_project')
+    )
+
+    assert created.created
+    assert projects.project_path('new-show').exists()
+    assert restored.project_name is None
+    assert rec._control.cfg.recording.noise_floor == 41
+
+
 def test_track_layout_updates_state_on_next_source_update(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
@@ -331,6 +403,7 @@ def test_control_request_reports_capabilities(
     assert 'delete_musician' in response.commands
     assert 'assign_musician' in response.commands
     assert 'remove_musician' in response.commands
+    assert 'switch_project' in response.commands
 
 
 def test_control_request_marks_record(
