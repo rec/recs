@@ -40,10 +40,10 @@ def run() -> int:
             from recs.daemon.watch import main
 
             return main(sys.argv[2:])
-        if len(sys.argv) > 1 and sys.argv[1] == 'profile':
-            from recs.cfg import setup_profiles
+        if len(sys.argv) > 1 and sys.argv[1] == 'project':
+            from recs.cfg import projects
 
-            return setup_profiles.main(sys.argv[2:])
+            return projects.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
             from recs.ui.gui_child import main
 
@@ -157,16 +157,16 @@ def run() -> int:
             from recs.edit.cli import main
 
             return main(sys.argv[2:])
-        from recs.cfg import setup_profiles
+        from recs.cfg import projects
 
-        profile, arguments = setup_profiles.profile_argument(sys.argv[1:])
-        if profile is None:
+        project_name, arguments = projects.project_argument(sys.argv[1:])
+        if project_name is None:
             cfg = tyro.cli(
                 cli.CliCfg, args=arguments, prog='recs', description=cli.HELP
             )
             run_cli.run_cli(cfg)
         else:
-            loaded = setup_profiles.configured(profile, arguments)
+            loaded = projects.configured(project_name, arguments)
             run_cli.run_cli(loaded.cfg, loaded)
         return 0
 

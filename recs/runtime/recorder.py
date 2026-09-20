@@ -93,10 +93,10 @@ class Recorder(Runnables):
         )
         self.instance = instances.new_identity(
             'daemon' if gui_ipc.daemon_mode_enabled() else 'local',
-            saved_settings.profile,
+            saved_settings.project_name,
         )
         self.settings_path = (
-            str(settings.mutable_settings_path(saved_settings.profile))
+            str(settings.mutable_settings_path(saved_settings.project_name))
             if self.cfg.save_settings
             else None
         )
@@ -184,7 +184,7 @@ class Recorder(Runnables):
             self._card_replace,
             self._new_session,
             self.instance,
-            saved_settings.profile,
+            saved_settings.project_name,
         )
         self._playback = playback_control.PlaybackControl(
             lambda: Path(self.cfg.directory.output_directory),
@@ -697,15 +697,15 @@ class Recorder(Runnables):
             for descriptor in instances.source_users(
                 message.source_name, self.instance
             ):
-                profile = (
-                    f' with profile {descriptor.identity.profile!r}'
-                    if descriptor.identity.profile is not None
+                project = (
+                    f' with project {descriptor.identity.project_name!r}'
+                    if descriptor.identity.project_name is not None
                     else ''
                 )
                 self._record_warning(
                     f'Device {message.source_name} is also selected by Recs '
                     f'PID {descriptor.identity.pid} ({descriptor.identity.role})'
-                    f'{profile}'
+                    f'{project}'
                 )
 
     def _receive_update(self, update: SourceUpdate) -> None:

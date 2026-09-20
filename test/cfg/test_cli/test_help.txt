@@ -14,9 +14,9 @@ Full documentation here: https://github.com/rec/recs
 
 With no subcommand, recs starts recording. sessions ROOT lists recordings; session COMMAND manages one recording; record check PATH validates a recording document and its media.
 
-control pause/resume affect capture; control stop/continue affect playback. profile manages named saved setups; --profiles loads per-device JSON defaults.
+control pause/resume affect capture; control stop/continue affect playback. project manages saved recording projects; --profiles loads per-device JSON defaults.
 
-readiness inspects a setup without recording; preflight checks a running daemon.
+readiness inspects a project or configuration without recording; preflight checks a running daemon.
 
  positional arguments
  -------------------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ readiness inspects a setup without recording; preflight checks a running daemon.
   --devices PATH
         A path to a JSON file with device definitions (default: .)
   --profiles PATH
-        Per-device JSON defaults, not a named saved setup (default: .)
+        Per-device JSON defaults, not a recording project (default: .)
 
  selection options
  -------------------------------------------------------------------------------------------
@@ -214,7 +214,7 @@ Send one command to a running recs instance.
     - resume           Resume capture, first stopping any active playback.
     - calibrate
     - card-replace
-    - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
+    - reload-profiles  Reload per-device JSON defaults from --profiles, not a recording project.
     - musician-add
     - musician-list
     - musician-edit
@@ -277,10 +277,10 @@ usage: recs preflight [-h]
   -h, --help  show this help message and exit
 
 
-$ recs profile --help
-usage: recs profile [-h] {save,use,show,list,delete}
+$ recs project --help
+usage: recs project [-h] {save,use,show,list,delete}
 
-Save and use named recording setups. These differ from the per-device JSON defaults loaded by --profiles.
+Save and use recording projects. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
  ---------------------------------------------
@@ -297,9 +297,9 @@ Save and use named recording setups. These differ from the per-device JSON defau
 
 
 $ recs readiness --help
-usage: recs readiness [-h] [[STR [STR ...]]] [--profile {None}|STR] [--json-output | --no-json-output]
+usage: recs readiness [-h] [OPTIONS] [[STR [STR ...]]]
 
-Inspect setup readiness; unlike preflight, no running daemon is required.
+Inspect project readiness; unlike preflight, no running daemon is required.
 
 Put recording options after --. Missing devices warn; invalid settings fail. This command never opens input streams or performs the test-input recording.
 
@@ -310,7 +310,7 @@ Put recording options after --. Missing devices warn; invalid settings fail. Thi
  options
  ----------------------------------------------------
   -h, --help         show this help message and exit
-  --profile {None}|STR
+  --project-name {None}|STR
                      (default: None)
   --json-output, --no-json-output
                      (default: False)

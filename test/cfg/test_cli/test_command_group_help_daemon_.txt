@@ -58,7 +58,7 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
   --devices PATH
         A path to a JSON file with device definitions (default: .)
   --profiles PATH
-        Per-device JSON defaults, not a named saved setup (default: .)
+        Per-device JSON defaults, not a recording project (default: .)
 
  selection options
  -------------------------------------------------------------------------------------------

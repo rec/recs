@@ -413,7 +413,7 @@ def save_settings(control: 'RecordingControl') -> None:
                 control.cfg,
                 control.track_names,
                 control.saved_tracks,
-                profile=control.settings_profile,
+                project_name=control.project_name,
                 musicians=control.musicians,
                 channel_musicians=control.channel_musicians,
             )

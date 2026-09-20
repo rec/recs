@@ -29,7 +29,7 @@ Send one command to a running recs instance.
     - resume           Resume capture, first stopping any active playback.
     - calibrate
     - card-replace
-    - reload-profiles  Reload per-device JSON defaults from --profiles, not a named saved setup.
+    - reload-profiles  Reload per-device JSON defaults from --profiles, not a recording project.
     - musician-add
     - musician-list
     - musician-edit
@@ -286,7 +286,7 @@ Play a recorded session, temporarily pausing capture if it is active.
 $ recs control reload-profiles --help
 usage: recs control reload-profiles [-h]
 
-Reload per-device JSON defaults from --profiles, not a named saved setup.
+Reload per-device JSON defaults from --profiles, not a recording project.
 
  options
  ---------------------------------------------
