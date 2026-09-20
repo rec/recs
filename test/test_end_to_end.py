@@ -88,7 +88,7 @@ def test_file_inputs(
         )
     )
 
-    outputs = sorted(Path('files').glob(f'*/audio/*.{Format.wav}'))
+    outputs = sorted(Path('files').glob(f'**/audio/*.{Format.wav}'))
     assert [path.name for path in outputs] == ['mono-1.wav', 'stereo-1.wav']
 
     session_directory = outputs[0].parent.parent
@@ -247,8 +247,8 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
         file.pop('type')
         path = Path(str(file['path'])).as_posix()
         parts = Path(path).parts
-        if len(parts) >= 3 and parts[0] == 'files' and _is_session_part(parts[1]):
-            path = Path('files', '<session>', *parts[2:]).as_posix()
+        if len(parts) >= 6 and parts[0] == 'files' and _is_session_part(parts, 4):
+            path = Path('files', '<session>', *parts[5:]).as_posix()
         file['path'] = path
         file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
         file['clock_id'] = f'clock:{file["source"]}'
@@ -390,11 +390,22 @@ def _path_names(root: Path) -> list[str]:
 
 def _without_session_directory(path: Path) -> Path:
     parts = path.parts
-    for index, part in enumerate(parts):
-        if _is_session_part(part):
-            return Path(*parts[:index], *parts[index + 1 :])
+    for index in range(len(parts)):
+        if _is_session_part(parts, index):
+            return Path(*parts[: index - 3], *parts[index + 1 :])
     return path
 
 
-def _is_session_part(part: str) -> bool:
-    return len(part) == len('2026-06-23 20-34-10') and part[4] == '-'
+def _is_session_part(parts: tuple[str, ...], index: int) -> bool:
+    if index < 3:
+        return False
+    year, month, day, time = parts[index - 3 : index + 1]
+    return (
+        len(year) == 4
+        and year.isdigit()
+        and len(month) == len(day) == 2
+        and month.isdigit()
+        and day.isdigit()
+        and len(time) == len('20-34-10')
+        and time[2] == time[5] == '-'
+    )

@@ -463,7 +463,7 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
 
     assert not rec._monitor_card_replacement()
     assert rec.cfg.directory.output_directory == str(output)
-    assert rec.session_directory.parent == new / 'recs'
+    assert rec.session_directory.parents[3] == new / 'recs'
     assert rec._devices.writing_enabled
     assert rec.awaiting_card is not None
     assert not rec.awaiting_card.value
@@ -536,7 +536,7 @@ def test_card_replacement_uses_mounted_disk_with_emergency_reserve(
 
     rec._card_replace()
 
-    assert rec.session_directory.parent == new / 'recs'
+    assert rec.session_directory.parents[3] == new / 'recs'
     assert rec.awaiting_card is not None
     assert not rec.awaiting_card.value
 
@@ -727,7 +727,7 @@ def test_empty_template_output_directory_record_uses_time_template(
     rec = Recorder(Cfg(include=['Mic'], output_directory='sessions/{sdate}'))
     rec._start_record()
 
-    assert Path('sessions/2026/06/23/2026-06-23 20-34-10/session-record.jsonl').exists()
+    assert Path('sessions/2026/06/23/2026/06/23/20-34-10/session-record.jsonl').exists()
 
 
 def test_default_output_directory_uses_session_timestamp(
@@ -742,7 +742,7 @@ def test_default_output_directory_uses_session_timestamp(
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
     rec._start_record()
-    expected = recording_paths.session_directory_name(timestamp)
+    expected = Path('2026/06/23/20-34-10')
     path = rec.session_directory / 'audio/mic.wav'
     path.parent.mkdir(exist_ok=True, parents=True)
     path.touch()
@@ -769,7 +769,7 @@ def test_default_output_directory_uses_session_timestamp(
     rec._finish_record()
 
     assert rec.cfg.directory.output_directory == ''
-    assert rec.session_directory == Path(expected)
+    assert rec.session_directory == expected
     assert (rec.session_directory / 'session-record.jsonl').exists()
 
 
@@ -782,8 +782,8 @@ def test_default_output_directory_uses_collision_suffix(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: timestamp)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    expected = recording_paths.session_directory_name(timestamp)
-    Path(expected).mkdir()
+    expected = Path('2026/06/23/20-34-10')
+    expected.mkdir(parents=True)
 
     rec = Recorder(Cfg(include=['Mic'], silent=True))
 
@@ -812,11 +812,11 @@ def test_daemon_default_output_directory_uses_largest_external_disk(
 
     assert cfg.directory.output_directory == str(large / 'takes')
     assert recording_paths.session_directory(str(large / 'takes'), timestamp) == (
-        large / 'takes' / '2026-06-23 20-34-10'
+        large / 'takes' / '2026/06/23/20-34-10'
     )
     assert recording_paths.media_session_directory(
-        large / 'takes' / '2026-06-23 20-34-10', 'midi'
-    ) == (large / 'takes' / '2026-06-23 20-34-10' / 'midi')
+        large / 'takes' / '2026/06/23/20-34-10', 'midi'
+    ) == (large / 'takes' / '2026/06/23/20-34-10' / 'midi')
 
 
 def test_daemon_default_output_directory_falls_back_to_system_disk(
@@ -845,10 +845,25 @@ def test_daemon_default_output_directory_keeps_explicit_directory(
     assert cfg.directory.output_directory == 'manual'
 
 
-def test_default_output_directory_replaces_problematic_characters() -> None:
+def test_session_directory_uses_day_parent_and_time_leaf() -> None:
     timestamp = datetime(2026, 6, 23, 20, 34, 10).timestamp()
 
-    assert recording_paths.session_directory_name(timestamp) == '2026-06-23 20-34-10'
+    assert recording_paths.session_day_directory(timestamp) == Path('2026/06/23')
+    assert recording_paths.session_directory_name(timestamp) == '20-34-10'
+
+
+def test_sessions_on_one_day_share_a_day_directory(tmp_path: Path) -> None:
+    first = datetime(2026, 6, 23, 20, 34, 10).timestamp()
+    second = datetime(2026, 6, 23, 21, 34, 10).timestamp()
+    next_day = datetime(2026, 6, 24, 0, 0, 0).timestamp()
+
+    first_path = recording_paths.session_directory(str(tmp_path), first)
+    second_path = recording_paths.session_directory(str(tmp_path), second)
+
+    assert first_path.parent == second_path.parent == tmp_path / '2026/06/23'
+    assert recording_paths.session_directory(str(tmp_path), next_day).parent == (
+        tmp_path / '2026/06/24'
+    )
 
 
 def test_record_records_source_and_track_lifecycle_events(

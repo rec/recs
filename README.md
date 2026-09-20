@@ -3,8 +3,9 @@
 See [plans and ownership](plan/README.md) for implemented contracts, remaining
 proposals, and the boundaries between recs, uFor, and enge.
 
-recs continuously records audio, MIDI, OSC, and key events into timestamped
-sessions. Audio can be recorded continuously or split around quiet passages.
+recs continuously records audio, MIDI, OSC, and key events into sessions
+grouped by local calendar day. Audio can be recorded continuously or split
+around quiet passages.
 Each completed session has a `recording.toml` indexing its media and native
 timelines. Its `session-record.jsonl` preserves capture lifecycle, source,
 configuration, disk, and control events.
@@ -45,18 +46,20 @@ recs
 ```
 
 By default, recs records audio as FLAC, records MIDI inputs, and omits quiet
-audio between files. A run creates a timestamped session directory:
+audio between files. A day directory contains one or more time-named session
+directories:
 
 ```text
-2026-09-07 20-15-15/
-  recording.toml
-  session-record.jsonl
-  audio/
-    1-2 + 20260907-201515.flac
-  midi/
-    Launchkey-20260907-201515.jsonl
-  osc/
-    X18.jsonl
+2026/09/07/
+  20-15-15/
+    recording.toml
+    session-record.jsonl
+    audio/
+      1-2 + 20260907-201515.flac
+    midi/
+      Launchkey-20260907-201515.jsonl
+    osc/
+      X18.jsonl
 ```
 
 Select inputs and an output root with ordinary recording options:

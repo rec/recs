@@ -383,7 +383,7 @@ def _output_path_pattern(
 ) -> path_pattern.PathPattern:
     if session_directory is None:
         return cfg.output_path_pattern
-    media_directory = Path(session_directory.name)
+    media_directory = Path(*session_directory.parts[-4:])
     if session_directory.parent.name != 'audio':
         media_directory /= 'audio'
     return cfg.path_pattern(

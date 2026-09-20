@@ -174,8 +174,9 @@ For a stopped session whose journal paths are relative to its own directory:
 recs session migrate /path/to/session
 ```
 
-For older journals that include a session-directory prefix relative to the
-original recording parent, supply that parent explicitly:
+For historical flat session directories whose journals include a
+session-directory prefix relative to the original recording parent, supply that
+parent explicitly:
 
 ```sh
 recs session migrate '/recordings/2026-09-04 15-01-57' --paths-relative-to /recordings
