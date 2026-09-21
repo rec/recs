@@ -124,10 +124,10 @@ the identified LiveTrak `PRJDATA.ZDT` evidence.
 3. Atomically publish the metadata-only session directory. Never reuse an
    existing destination.
 4. Print shell-quoted `mv -n SOURCE DESTINATION` statements for every planned
-   audio, MIDI, journal-evidence, and `PRJDATA.ZDT` relocation. Print the
-   corresponding `shasum -a 256` and `recs session check` commands after each
-   group's moves. The script does not invoke a shell or execute any printed
-   statement.
+   audio, MIDI, journal-evidence, and `PRJDATA.ZDT` relocation. The importer
+   calculates source hashes once while creating the sealed recording
+   description; it does not print destination-side verification commands. The
+   script does not invoke a shell or execute any printed statement.
 5. Print a final summary of created sessions, duplicate/skipped groups, and
    rejected inputs. The output is the relocation plan, not capture evidence.
 
