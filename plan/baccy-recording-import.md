@@ -29,7 +29,7 @@ uses recs' session-record and finalization code directly, rather than creating
 a duplicate writer in baccy.
 
 ```text
-scripts/import_baccy_recordings.py SOURCE_ROOT DESTINATION_ROOT
+uv run python scripts/import_baccy_recordings.py SOURCE_ROOT DESTINATION_ROOT
 ```
 
 The caller passes the `import into baccy` directory as `SOURCE_ROOT` and an
