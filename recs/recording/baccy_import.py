@@ -176,7 +176,7 @@ def _write_legacy_session(
         project_name=document.body.project_name or '',
         source_paths=sorted(set(paths)),
         session_directory=destination,
-        commands=_commands(destination, moves, document),
+        commands=_commands(destination, moves),
     )
 
 
@@ -329,7 +329,7 @@ def _write_reconstructed_session(
         project_name=project_name,
         source_paths=[item.path for item in audio] + evidence,
         session_directory=destination,
-        commands=_commands(destination, moves, document),
+        commands=_commands(destination, moves),
     )
 
 
@@ -513,19 +513,11 @@ def _staging_directory(destination: Path) -> Path:
 def _commands(
     destination: Path,
     moves: Iterable[tuple[Path, Path]],
-    document: RecordingScore,
 ) -> list[str]:
     commands: list[str] = []
     for source, relative in moves:
         target = destination / relative
         commands.append(shlex.join(['mv', '-n', str(source), str(target)]))
-    for asset in document.assets:
-        commands.append(
-            shlex.join(['shasum', '-a', '256', str(destination / asset_path(asset))])
-        )
-    commands.append(
-        shlex.join(['recs', 'record', 'check', str(destination / 'recording.toml')])
-    )
     return commands
 
 

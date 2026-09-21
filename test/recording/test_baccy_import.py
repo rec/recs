@@ -27,6 +27,7 @@ def test_flow_import_creates_metadata_and_prints_media_moves(tmp_path: Path) -> 
     assert audio.exists()
     assert not list((session / 'audio').iterdir())
     assert f"mv -n '{audio}'" in result[0].commands[0]
+    assert all(command.startswith('mv -n ') for command in result[0].commands)
 
     audio.rename(session / 'audio/01-FLOW 8 (Recording).wav')
 
