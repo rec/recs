@@ -96,7 +96,7 @@ def _legacy_sessions(project: Path, destination_root: Path) -> list[ImportedSess
         destination = recording_paths.session_directory(
             str(destination_root), timestamp, project.name
         )
-        document, _ = prepare_legacy_recording(journal)
+        document, _ = prepare_legacy_recording(journal, source.parent)
         original_journal = document.body.journal
         if original_journal is None:
             raise RecsError(f'Legacy session has no journal asset: {source}')
