@@ -104,7 +104,7 @@ def test_legacy_recs_session_is_migrated_with_its_project(tmp_path: Path) -> Non
                 timestamp='2026-09-04T13:01:57Z',
                 stream_id='audio:old:1',
                 format='wav',
-                path='audio.wav',
+                path=f'{session.name}/audio.wav',
                 frame_count=480 if type == 'file_finished' else 0,
                 quantity_count=480 if type == 'file_finished' else None,
                 sample_rate=48_000,
