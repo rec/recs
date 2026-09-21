@@ -29,8 +29,7 @@ uses recs' session-record and finalization code directly, rather than creating
 a duplicate writer in baccy.
 
 ```text
-scripts/import_baccy_recordings.py SOURCE_ROOT DESTINATION_ROOT --dry-run
-scripts/import_baccy_recordings.py SOURCE_ROOT DESTINATION_ROOT --write
+scripts/import_baccy_recordings.py SOURCE_ROOT DESTINATION_ROOT
 ```
 
 The caller passes the `import into baccy` directory as `SOURCE_ROOT` and an
@@ -38,11 +37,14 @@ explicit, initially empty session root as `DESTINATION_ROOT`. The script maps
 the top-level `totm` and `oderg in duo` directories to those exact recs project
 names. It rejects an unknown top-level project instead of guessing.
 
-`--dry-run` is mandatory before `--write`. It prints the proposed source groups,
-destination paths, timestamp source, duplicate findings, and exclusions.
-`--write` creates only new directories. A same-second collision uses the normal
-`_1`, `_2`, and later suffixes. There is no move, rename, deletion, or write
-below `SOURCE_ROOT`.
+The command creates and validates sessions directly. As it does so, it prints
+Bash-equivalent `mkdir`, `cp`, hash-check, and publish commands for every
+proposed filesystem operation, including source groups, destination paths,
+timestamp sources, duplicate findings, and exclusions. Those lines are an audit
+log only: the script never invokes a shell or executes its printed commands.
+It creates only new directories. A same-second collision uses the normal `_1`,
+`_2`, and later suffixes. There is no move, rename, deletion, or write below
+`SOURCE_ROOT`.
 
 ## Session reconstruction rules
 
@@ -117,9 +119,9 @@ the identified LiveTrak `PRJDATA.ZDT` evidence.
    command's report.
 4. Atomically rename the completed staging directory to its final session path.
    Never reuse an existing destination.
-5. Emit a TOML or JSON report outside the session directories, listing each
-   imported group, source hashes, target, inferred values, duplicates, skipped
-   files, and failures. This report is operational output, not capture evidence.
+5. Print a Bash-equivalent audit line before each source copy, staging-directory
+   creation, hash check, and publication, and a final summary of imported,
+   duplicate, skipped, and failed groups. The audit lines are never executed.
 
 ## Tests and acceptance
 
@@ -128,7 +130,8 @@ LiveTrak project with mono/pair/master tracks and `PRJDATA.ZDT`, matching and
 non-matching copy trees, a v3 recs session, MP3 and macOS/editor exclusions,
 and a corrupt WAV.
 
-- Dry run writes nothing and reports all proposed sessions.
+- One invocation creates only validated sessions and prints the complete,
+  non-executed Bash-equivalent audit trail.
 - Each source family produces the specified grouping and exact project name in
   both journal and `recording.toml`.
 - Audio copies hash-identically, retain their actual metadata and frame count,
@@ -142,7 +145,6 @@ and a corrupt WAV.
 - Existing targets, copy failures, malformed timestamps, and corrupt audio
   leave all source and previously published output unchanged.
 
-Run dry-run over the real folder, review its report, then run `--write` once.
 Keep `import into baccy` until baccy has separately backed up and verified the
 new sessions.
 
