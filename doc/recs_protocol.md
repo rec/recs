@@ -61,7 +61,7 @@ recs control card-replace
 recs control reload-profiles
 recs control project-switch x18-show
 recs control project-switch  # default workspace
-recs control musician-add mike --other-name Michael --contact insta:mike
+recs control musician-add mike --name Michael --link insta:mike
 recs control musician-list
 recs control musician-assign mike Ext 1 2
 recs control musician-remove mike --source Ext --channel 1
@@ -99,12 +99,12 @@ The subcommands map to the protocol as follows:
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
 | `project-switch [NAME]` | `switch_project` |
-| `musician-add NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...]` | `add_musician` |
+| `musician-add NICKNAME [--name NAME ...] [--public-key KEY ...] [--link VALUE ...]` | `add_musician` |
 | `musician-list` | `list_musicians` |
-| `musician-edit NAME [--other-name NAME ...] [--public-key KEY ...] [--contact VALUE ...] [--clear-other-names] [--clear-public-keys] [--clear-contacts]` | `edit_musician` |
-| `musician-delete NAME` | `delete_musician` |
-| `musician-assign NAME SOURCE CHANNEL [CHANNEL ...]` | `assign_musician` |
-| `musician-remove NAME [--source SOURCE] [--channel CHANNEL ...]` | `remove_musician` |
+| `musician-edit NICKNAME [--name NAME ...] [--public-key KEY ...] [--link VALUE ...] [--clear-names] [--clear-public-keys] [--clear-links]` | `edit_musician` |
+| `musician-delete NICKNAME` | `delete_musician` |
+| `musician-assign NICKNAME SOURCE CHANNEL [CHANNEL ...] [--track-name VALUE]` | `assign_musician` |
+| `musician-remove NICKNAME [--source SOURCE] [--channel CHANNEL ...]` | `remove_musician` |
 
 Each invocation except `musician-list` prints exactly one JSON value followed by
 a newline. `musician-list` prints TOML. Commands without a data response print
@@ -208,10 +208,10 @@ response return the JSON string `"ok"`.
 | `switch_project` | optional `project_name: str | null` | `project_switched` |
 | `add_musician` | `musician: Musician` | `musician` |
 | `list_musicians` | none | `musicians` |
-| `edit_musician` | `name: str`, optional replacement lists and clear flags | `musician` |
-| `delete_musician` | `name: str` | `musician_removed` |
-| `assign_musician` | `name: str`, `source: str`, `channels: list[int]` | `musician_assignment` |
-| `remove_musician` | `name: str`, optional `source: str`, optional `channels: list[int]` | `musician_assignment_removed` |
+| `edit_musician` | `nickname: str`, optional replacement lists and clear flags | `musician` |
+| `delete_musician` | `nickname: str` | `musician_removed` |
+| `assign_musician` | `nickname: str`, `source: str`, `channels: list[int]`, optional `track_name: str | bool` | `musician_assignment` |
+| `remove_musician` | `nickname: str`, optional `source: str`, optional `channels: list[int]` | `musician_assignment_removed` |
 | `subscribe_waveforms` | none | `waveform_subscription` |
 | `unsubscribe_waveforms` | none | `waveform_subscription` |
 | `shutdown` | none | `"ok"` |
@@ -418,45 +418,46 @@ value sets its override; `null` clears the override.
 
 ### Musicians
 
-`add_musician` stores a musician under its unique short `name`. A musician has
-zero or more `other_names`, `public_keys`, and `contacts` strings. Contacts
-are opaque strings, so values such as `insta:mike`, `mike@insta`,
-`mailto:mike@example.com`, and web links are all retained unchanged:
+`add_musician` stores a musician under its unique `nickname`. A musician has
+zero or more `names`, `public_keys`, and `links`, plus an optional
+`copyright_name`. Links are opaque strings, so values such as `insta:mike`,
+`mike@insta`, `mailto:mike@example.com`, telephone numbers, and web links are
+all retained unchanged:
 
 ```python
 client.call(
     'add_musician',
     musician={
-        'name': 'mike',
-        'other_names': ['Michael'],
+        'nickname': 'mike',
+        'names': ['Michael'],
         'public_keys': ['ssh-ed25519 AAA...'],
-        'contacts': ['insta:mike'],
+        'links': ['insta:mike'],
     },
 )
 ```
 
-`list_musicians` returns every stored record in short-name order:
+`list_musicians` returns every stored record in nickname order:
 
 ```json
 {
   "type": "musicians",
   "musicians": {
     "mike": {
-      "name": "mike",
-      "other_names": ["Michael"],
+      "nickname": "mike",
+      "names": ["Michael"],
       "public_keys": ["ssh-ed25519 AAA..."],
-      "contacts": ["insta:mike"]
+      "links": ["insta:mike"]
     }
   }
 }
 ```
 
 `recs control musician-list` prints the `musicians` object as TOML, with the
-short names under its top-level `musicians` table.
+nicknames under its top-level `musicians` table.
 
 `edit_musician` changes only list fields supplied by the request. Supplying a
-list replaces that list. `clear_other_names`, `clear_public_keys`, and
-`clear_contacts` explicitly clear their respective lists; a request cannot
+list replaces that list. `clear_names`, `clear_public_keys`, and `clear_links`
+explicitly clear their respective lists; a request cannot
 both set and clear the same field. `delete_musician` removes the musician and
 every assignment that refers to it.
 
@@ -466,8 +467,19 @@ assignment for that musician adds channels; assigning another musician to the
 same source fails until the existing assignment is removed:
 
 ```python
-client.call('assign_musician', name='mike', source='Ext', channels=[1, 2])
+client.call(
+    'assign_musician',
+    nickname='mike',
+    source='Ext',
+    channels=[1, 2],
+    track_name=True,
+)
 ```
+
+`track_name` controls labels for complete configured tracks included in the
+assignment. `false` leaves labels unchanged. `true` uses the track channels
+and nickname, so channels 1-2 for `tom` become `1-2 + tom`; a string replaces
+the nickname in that form.
 
 `remove_musician` with `source` and no `channels` removes that musician from
 every assigned channel of that source. With neither `source` nor `channels`,

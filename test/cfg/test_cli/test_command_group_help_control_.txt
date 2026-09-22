@@ -152,31 +152,34 @@ usage: recs control musician-add [-h] [MUSICIAN-ADD OPTIONS] STR
 
  positional arguments
  ---------------------------------------------
-  STR         name (required)
+  STR         nickname (required)
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
-  --other-name [STR [STR ...]]
+  --name [STR [STR ...]]
               (default: )
   --public-key [STR [STR ...]]
               (default: )
-  --contact [STR [STR ...]]
+  --link [STR [STR ...]]
               (default: )
 
 
 $ recs control musician-assign --help
-usage: recs control musician-assign [-h] STR STR [[INT [INT ...]]]
+usage: recs control musician-assign [-h] STR STR [[INT [INT ...]]] [--track-name STR|{True,False}]
 
  positional arguments
- ----------------------------------------------------
-  STR                name (required)
-  STR                source (required)
-  [[INT [INT ...]]]  channels (default: )
+ ---------------------------------------------
+  STR         nickname (required)
+  STR         source (required)
+  [[INT [INT ...]]]
+              channels (default: )
 
  options
- ----------------------------------------------------
-  -h, --help         show this help message and exit
+ ---------------------------------------------
+  -h, --help  show this help message and exit
+  --track-name STR|{True,False}
+              (default: True)
 
 
 $ recs control musician-delete --help
@@ -184,7 +187,7 @@ usage: recs control musician-delete [-h] STR
 
  positional arguments
  ---------------------------------------------
-  STR         name (required)
+  STR         nickname (required)
 
  options
  ---------------------------------------------
@@ -196,22 +199,22 @@ usage: recs control musician-edit [-h] [MUSICIAN-EDIT OPTIONS] STR
 
  positional arguments
  ---------------------------------------------
-  STR         name (required)
+  STR         nickname (required)
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
-  --other-name {None}|{[STR [STR ...]]}
+  --name {None}|{[STR [STR ...]]}
               (default: None)
   --public-key {None}|{[STR [STR ...]]}
               (default: None)
-  --contact {None}|{[STR [STR ...]]}
+  --link {None}|{[STR [STR ...]]}
               (default: None)
-  --clear-other-names, --no-clear-other-names
+  --clear-names, --no-clear-names
               (default: False)
   --clear-public-keys, --no-clear-public-keys
               (default: False)
-  --clear-contacts, --no-clear-contacts
+  --clear-links, --no-clear-links
               (default: False)
 
 
@@ -228,7 +231,7 @@ usage: recs control musician-remove [-h] STR [--source {None}|STR] [--channel [I
 
  positional arguments
  ---------------------------------------------
-  STR         name (required)
+  STR         nickname (required)
 
  options
  ---------------------------------------------
