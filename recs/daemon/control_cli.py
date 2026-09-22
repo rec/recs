@@ -128,14 +128,14 @@ class ProjectSwitch(ControlCommand):
 
 class MusicianAdd(ControlCommand):
     rpc_command = 'add_musician'
-    name: Annotated[str, tyro.conf.Positional]
-    other_names: Annotated[list[str], tyro.conf.arg(name='other-name')] = Field(
+    nickname: Annotated[str, tyro.conf.Positional]
+    names: Annotated[list[str], tyro.conf.arg(name='name')] = Field(
         default_factory=list
     )
     public_keys: Annotated[list[str], tyro.conf.arg(name='public-key')] = Field(
         default_factory=list
     )
-    contacts: Annotated[list[str], tyro.conf.arg(name='contact')] = Field(
+    links: Annotated[list[str], tyro.conf.arg(name='link')] = Field(
         default_factory=list
     )
 
@@ -146,30 +146,31 @@ class MusicianList(ControlCommand):
 
 class MusicianEdit(ControlCommand):
     rpc_command = 'edit_musician'
-    name: Annotated[str, tyro.conf.Positional]
-    other_names: Annotated[list[str] | None, tyro.conf.arg(name='other-name')] = None
+    nickname: Annotated[str, tyro.conf.Positional]
+    names: Annotated[list[str] | None, tyro.conf.arg(name='name')] = None
     public_keys: Annotated[list[str] | None, tyro.conf.arg(name='public-key')] = None
-    contacts: Annotated[list[str] | None, tyro.conf.arg(name='contact')] = None
-    clear_other_names: bool = False
+    links: Annotated[list[str] | None, tyro.conf.arg(name='link')] = None
+    clear_names: bool = False
     clear_public_keys: bool = False
-    clear_contacts: bool = False
+    clear_links: bool = False
 
 
 class MusicianDelete(ControlCommand):
     rpc_command = 'delete_musician'
-    name: Annotated[str, tyro.conf.Positional]
+    nickname: Annotated[str, tyro.conf.Positional]
 
 
 class MusicianAssign(ControlCommand):
     rpc_command = 'assign_musician'
-    name: Annotated[str, tyro.conf.Positional]
+    nickname: Annotated[str, tyro.conf.Positional]
     source: Annotated[str, tyro.conf.Positional]
     channels: Annotated[list[int], tyro.conf.Positional]
+    track_name: str | bool = True
 
 
 class MusicianRemove(ControlCommand):
     rpc_command = 'remove_musician'
-    name: Annotated[str, tyro.conf.Positional]
+    nickname: Annotated[str, tyro.conf.Positional]
     source: str | None = None
     channels: Annotated[list[int], tyro.conf.arg(name='channel')] = Field(
         default_factory=list
@@ -208,10 +209,10 @@ def main(argv: list[str]) -> int:
     if isinstance(command, MusicianAdd):
         params = {
             'musician': {
-                'name': command.name,
-                'other_names': command.other_names,
+                'nickname': command.nickname,
+                'names': command.names,
                 'public_keys': command.public_keys,
-                'contacts': command.contacts,
+                'links': command.links,
             }
         }
     try:
