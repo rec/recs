@@ -5,10 +5,11 @@ from ufor.base import Identifier
 
 
 class Musician(BaseModel):
-    name: Identifier
-    other_names: list[str] = Field(default_factory=list)
+    nickname: Identifier
+    names: list[str] = Field(default_factory=list)
+    copyright_name: str | None = None
     public_keys: list[str] = Field(default_factory=list)
-    contacts: list[str] = Field(default_factory=list)
+    links: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(frozen=True)
 
@@ -16,6 +17,7 @@ class Musician(BaseModel):
 class SourceMusician(BaseModel):
     musician: Identifier
     channels: list[int] = Field(min_length=1)
+    track_name: str | bool = True
 
     @field_validator('channels')
     @classmethod
