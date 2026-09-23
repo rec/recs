@@ -93,9 +93,7 @@ def _legacy_sessions(project: Path, destination_root: Path) -> list[ImportedSess
         if not (source / 'recording.toml').is_file():
             raise RecsError(f'Legacy session has no recording.toml: {source}')
         timestamp = _timestamp_from_name(source.name)
-        destination = recording_paths.session_directory(
-            str(destination_root), timestamp, project.name
-        )
+        destination = _import_destination(destination_root, timestamp, project.name)
         document, _ = prepare_legacy_recording(journal, source.parent)
         original_journal = document.body.journal
         if original_journal is None:
@@ -270,9 +268,7 @@ def _write_reconstructed_session(
 ) -> ImportedSession:
     if not audio:
         raise RecsError('Cannot create a session without audio')
-    destination = recording_paths.session_directory(
-        str(destination_root), timestamp, project_name
-    )
+    destination = _import_destination(destination_root, timestamp, project_name)
     staging = _staging_directory(destination)
     media = [_media_fact(item) for item in audio]
     metadata: dict[str, object] = {
@@ -320,10 +316,7 @@ def _write_reconstructed_session(
     )
     _write_score(staging, document)
     staging.rename(destination)
-    moves = [
-        (item.path, Path('audio') / _media_name(item.path, index))
-        for index, item in enumerate(audio)
-    ]
+    moves = [(item.path, Path('audio') / _media_name(item)) for item in audio]
     moves.extend((path, Path('evidence') / path.name) for path in evidence)
     return ImportedSession(
         project_name=project_name,
@@ -373,14 +366,14 @@ def _recording_score(
     assets = [journal_asset]
     streams: list[AudioStream] = []
     clocks: list[Timebase] = []
-    for index, (item, fact) in enumerate(zip(audio, media, strict=True)):
+    for item, fact in zip(audio, media, strict=True):
         identity = hashlib.sha256(f'{item.path}:{fact.sha256}'.encode()).hexdigest()[
             :16
         ]
         asset = Asset(
             name=f'asset-{identity}',
             location=RelativeFileLocation(
-                path=(Path('audio') / _media_name(item.path, index)).as_posix()
+                path=(Path('audio') / _media_name(item)).as_posix()
             ),
             encoding=fact.format,
             content=ContentIdentity(byte_length=fact.byte_length, sha256=fact.sha256),
@@ -441,11 +434,11 @@ def _write_session_record(
         project_name=project_name,
         metadata=dict(metadata),
     )
-    for index, (item, fact) in enumerate(audio or []):
+    for item, fact in audio or []:
         identity = hashlib.sha256(f'{item.path}:{fact.sha256}'.encode()).hexdigest()[
             :16
         ]
-        path = (Path('audio') / _media_name(item.path, index)).as_posix()
+        path = (Path('audio') / _media_name(item)).as_posix()
         clock_id = f'clock-{identity}'
         stream_id = f'audio:{item.source_name}:{item.track_name}'
         writer.write(
@@ -510,6 +503,20 @@ def _staging_directory(destination: Path) -> Path:
     return staging
 
 
+def _import_destination(
+    destination_root: Path, timestamp: float, project_name: str
+) -> Path:
+    destination = (
+        destination_root
+        / project_name
+        / recording_paths.session_day_directory(timestamp)
+        / recording_paths.session_directory_name(timestamp)
+    )
+    if destination.exists():
+        raise RecsError(f'Import destination already exists: {destination}')
+    return destination
+
+
 def _commands(
     destination: Path,
     moves: Iterable[tuple[Path, Path]],
@@ -570,6 +577,8 @@ def _pair_from_path(path: Path) -> tuple[str, list[int], str] | None:
 
 
 def _flow_source_name(path: Path) -> str:
+    if path.stem in {'FLOW 8 (Recording)', 'MacBook Pro Microphone'}:
+        return path.stem
     for parent in path.parents:
         if parent.name in {'FLOW 8 (Recording)', 'MacBook Pro Microphone'}:
             return parent.name
@@ -609,8 +618,9 @@ def _audio_input(
     )
 
 
-def _media_name(path: Path, index: int) -> str:
-    return f'{index + 1:02d}-{path.name}'
+def _media_name(item: AudioInput) -> str:
+    timestamp = datetime.fromtimestamp(item.timestamp).strftime('%Y%m%d-%H%M%S')
+    return f'{item.source_name} + {item.track_name} + {timestamp}{item.path.suffix}'
 
 
 def _timestamp(date: str, time: str) -> float:
