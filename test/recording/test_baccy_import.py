@@ -26,12 +26,31 @@ def test_flow_import_creates_metadata_and_prints_media_moves(tmp_path: Path) -> 
     assert document.body.project_name == 'oderg in duo'
     assert audio.exists()
     assert not list((session / 'audio').iterdir())
-    assert f"mv -n '{audio}'" in result[0].commands[0]
+    media_name = 'FLOW 8 (Recording) + 1-2 + 20260410-142131.wav'
+    assert (
+        f"mv -n '{audio}' '{session / 'audio' / media_name}'" == result[0].commands[0]
+    )
     assert all(command.startswith('mv -n ') for command in result[0].commands)
 
-    audio.rename(session / 'audio/01-FLOW 8 (Recording).wav')
+    audio.rename(session / 'audio' / media_name)
 
     assert check(session / 'recording.toml') == []
+
+
+def test_second_import_does_not_create_a_suffixed_session(tmp_path: Path) -> None:
+    source = tmp_path / 'source'
+    audio = (
+        source / 'oderg in duo/2026-04-10/14-21-31/1-2 + 142131/FLOW 8 (Recording).wav'
+    )
+    _write_wav(audio, channels=2)
+    destination = tmp_path / 'sessions'
+
+    import_recordings(source, destination)
+
+    with pytest.raises(RecsError, match='Import destination already exists'):
+        import_recordings(source, destination)
+
+    assert not list(destination.rglob('*_1'))
 
 
 def test_identical_flow_copy_is_planned_once(tmp_path: Path) -> None:
@@ -85,6 +104,9 @@ def test_livetrak_import_plans_device_evidence_move(tmp_path: Path) -> None:
     session = result[0].session_directory
     assert session.is_relative_to(tmp_path / 'sessions/totm/2025/12/31')
     assert read_recording(session / 'recording.toml').body.project_name == 'totm'
+    assert (
+        session / 'audio/LiveTrak L-12 + TRACK01 + 20251231-120000.WAV'
+    ).as_posix() in result[0].commands[0]
     assert any(str(evidence) in command for command in result[0].commands)
     assert evidence.exists()
 
