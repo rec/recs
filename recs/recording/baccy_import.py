@@ -3,6 +3,7 @@
 import hashlib
 import re
 import shlex
+import struct
 import uuid
 from collections.abc import Iterable, Mapping
 from datetime import datetime
@@ -234,19 +235,20 @@ def _flow_sessions(
         if pair is None:
             continue
         source_name = _flow_source_name(path)
-        timestamp = _timestamp(date, time)
+        timestamp = _wav_icrd_timestamp(path) or _timestamp(date, time)
         entry = _audio_input(
             path, project.name, timestamp, source_name, pair[0], pair[1]
         )
         groups.setdefault((date, time), []).append(entry)
     result: list[ImportedSession] = []
-    for (date, time), entries in sorted(groups.items()):
+    for _, entries in sorted(groups.items()):
         selected = _deduplicate_flow_entries(entries)
+        timestamp = min(entry.timestamp for entry in selected)
         result.append(
             _write_reconstructed_session(
                 source_root=project.parent,
                 project_name=project.name,
-                timestamp=_timestamp(date, time),
+                timestamp=timestamp,
                 audio=selected,
                 evidence=[],
                 destination_root=destination_root,
@@ -621,6 +623,45 @@ def _audio_input(
 def _media_name(item: AudioInput) -> str:
     timestamp = datetime.fromtimestamp(item.timestamp).strftime('%Y%m%d-%H%M%S')
     return f'{item.source_name} + {item.track_name} + {timestamp}{item.path.suffix}'
+
+
+def _wav_icrd_timestamp(path: Path) -> float | None:
+    if path.suffix.lower() != '.wav':
+        return None
+    with path.open('rb') as source:
+        header = source.read(12)
+        if len(header) != 12 or header[:4] != b'RIFF' or header[8:] != b'WAVE':
+            return None
+        while header := source.read(8):
+            if len(header) != 8:
+                return None
+            chunk_id, size = struct.unpack('<4sI', header)
+            if chunk_id != b'LIST':
+                source.seek(size + size % 2, 1)
+                continue
+            content = source.read(size)
+            source.seek(size % 2, 1)
+            if content[:4] != b'INFO':
+                continue
+            offset = 4
+            while offset + 8 <= len(content):
+                tag, value_size = struct.unpack('<4sI', content[offset : offset + 8])
+                offset += 8
+                if offset + value_size > len(content):
+                    return None
+                value = content[offset : offset + value_size]
+                offset += value_size + value_size % 2
+                if tag != b'ICRD':
+                    continue
+                try:
+                    text = value.rstrip(b'\0').decode('utf-8')
+                    value = datetime.fromisoformat(text)
+                except (UnicodeDecodeError, ValueError):
+                    return None
+                if 'T' not in text:
+                    return None
+                return value.timestamp()
+    return None
 
 
 def _timestamp(date: str, time: str) -> float:

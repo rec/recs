@@ -1,4 +1,5 @@
 from pathlib import Path
+from struct import pack, unpack
 
 import numpy as np
 import pytest
@@ -51,6 +52,23 @@ def test_second_import_does_not_create_a_suffixed_session(tmp_path: Path) -> Non
         import_recordings(source, destination)
 
     assert not list(destination.rglob('*_1'))
+
+
+def test_flow_import_prefers_wav_creation_time(tmp_path: Path) -> None:
+    source = tmp_path / 'source'
+    audio = (
+        source / 'oderg in duo/2026-04-10/14-21-31/1-2 + 142131/FLOW 8 (Recording).wav'
+    )
+    _write_wav(audio, channels=2)
+    _write_icrd(audio, '2026-04-11T02:03:04.005006')
+
+    result = import_recordings(source, tmp_path / 'sessions')
+
+    session = result[0].session_directory
+    assert session.is_relative_to(
+        tmp_path / 'sessions/oderg in duo/2026/04/11/02-03-04'
+    )
+    assert 'FLOW 8 (Recording) + 1-2 + 20260411-020304.wav' in result[0].commands[0]
 
 
 def test_identical_flow_copy_is_planned_once(tmp_path: Path) -> None:
@@ -157,3 +175,18 @@ def test_legacy_recs_session_is_migrated_with_its_project(tmp_path: Path) -> Non
 def _write_wav(path: Path, *, channels: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     soundfile.write(path, np.zeros((480, channels)), 48_000)
+
+
+def _write_icrd(path: Path, value: str) -> None:
+    encoded = value.encode() + b'\0'
+    tag = b'ICRD' + pack('<I', len(encoded)) + encoded
+    tag += b'\0' * (len(encoded) % 2)
+    chunk = b'LIST' + pack('<I', 4 + len(tag)) + b'INFO' + tag
+    chunk += b'\0' * (len(tag) % 2)
+    with path.open('r+b') as target:
+        target.seek(4)
+        size = unpack('<I', target.read(4))[0]
+        target.seek(0, 2)
+        target.write(chunk)
+        target.seek(4)
+        target.write(pack('<I', size + len(chunk)))
