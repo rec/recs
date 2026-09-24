@@ -106,7 +106,13 @@ class Resume(ControlCommand):
 
 
 class Calibrate(ControlCommand):
+    """Calibrate selected source channels, such as x18:1-2,5,6."""
+
     rpc_command = 'calibrate'
+    selection: Annotated[str, tyro.conf.Positional]
+    more_selections: Annotated[list[str], tyro.conf.Positional] = Field(
+        default_factory=list
+    )
 
 
 class CardReplace(ControlCommand):
@@ -201,6 +207,12 @@ def main(argv: list[str]) -> int:
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
+    if isinstance(command, Calibrate):
+        params = {
+            'channels': calibration_channels(
+                [command.selection, *command.more_selections]
+            )
+        }
     if isinstance(command, ProjectSwitch):
         if len(command.names) > 1:
             print('project-switch accepts at most one project name', file=sys.stderr)
@@ -240,6 +252,30 @@ def _json_or_string(value: str) -> object:
         return json.loads(value)
     except json.JSONDecodeError:
         return value
+
+
+def calibration_channels(selections: list[str]) -> dict[str, list[int]]:
+    channels: dict[str, list[int]] = {}
+    for selection in selections:
+        source, separator, values = selection.partition(':')
+        if not separator:
+            source, values = '', selection
+        if not values:
+            raise ValueError(f'Invalid calibration selector: {selection}')
+        selected = channels.setdefault(source, [])
+        for value in values.split(','):
+            start, separator, end = value.partition('-')
+            if not start or (separator and not end):
+                raise ValueError(f'Invalid calibration channel: {value}')
+            try:
+                first = int(start)
+                last = int(end) if separator else first
+            except ValueError:
+                raise ValueError(f'Invalid calibration channel: {value}') from None
+            if first < 1 or last < first:
+                raise ValueError(f'Invalid calibration channel: {value}')
+            selected.extend(range(first, last + 1))
+    return {source: list(dict.fromkeys(values)) for source, values in channels.items()}
 
 
 COMMANDS: dict[str, Callable[..., ControlCommand]] = {
