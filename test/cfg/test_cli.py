@@ -249,7 +249,7 @@ def test_option_parsing() -> None:
     assert parsed.console.waveform_batch_milliseconds == 40
 
 
-@pytest.mark.parametrize('option', ['-f', '--formats'])
+@pytest.mark.parametrize('option', ['-f', '--format'])
 def test_audio_options_ignore_case_and_surrounding_dots(
     option: str,
 ) -> None:
