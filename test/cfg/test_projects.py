@@ -52,6 +52,20 @@ def test_project_argument_is_removed_before_cfg_parsing() -> None:
     assert projects.project_argument(['--project-name=show']) == ('show', [])
 
 
+def test_daemon_projects_are_separate_from_user_projects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('HOME', str(tmp_path))
+    monkeypatch.delenv('RECS_DAEMON', raising=False)
+
+    user_directory = projects.projects_directory()
+
+    monkeypatch.setenv('RECS_DAEMON', '1')
+
+    assert user_directory == tmp_path / '.config/recs/projects'
+    assert projects.projects_directory() == tmp_path / '.config/recs/daemon-projects'
+
+
 def test_project_commands_save_list_show_and_use(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

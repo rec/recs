@@ -109,7 +109,7 @@ def _settings_check(arguments: list[str] | None) -> PreflightCheck:
             cfg = tyro.cli(cli.CliCfg, args=arguments, prog='recs')
         general = cfg.general.model_copy(update={'save_settings': True})
         cfg = cfg.model_copy(update={'general': general})
-        settings.load(cfg, run_cli.cli_overrides(arguments))
+        settings.load(cfg, run_cli.cli_overrides(arguments), daemon=True)
     except (RecsError, SystemExit) as error:
         detail = errors.getvalue().strip() or str(error) or 'invalid daemon arguments'
         return PreflightCheck(name='settings', passed=False, detail=detail)

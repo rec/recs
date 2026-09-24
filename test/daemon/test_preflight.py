@@ -49,7 +49,9 @@ def test_preflight_passes_for_ready_daemon(
     monkeypatch.setattr(preflight, 'ServiceController', FakeController)
     monkeypatch.setattr(preflight.gui_ipc, 'load_metadata', lambda: metadata)
     monkeypatch.setattr(preflight.rpc, 'Client', ReadyRpcClient)
-    monkeypatch.setattr(settings, 'settings_path', lambda: tmp_path / 'settings.json')
+    monkeypatch.setattr(
+        settings, 'settings_path', lambda **_: tmp_path / 'settings.json'
+    )
 
     assert preflight.main([]) == 0
 
@@ -86,7 +88,9 @@ def test_preflight_reports_offline_device(
     monkeypatch.setattr(preflight, 'ServiceController', FakeController)
     monkeypatch.setattr(preflight.gui_ipc, 'load_metadata', lambda: metadata)
     monkeypatch.setattr(preflight.rpc, 'Client', OfflineRpcClient)
-    monkeypatch.setattr(settings, 'settings_path', lambda: tmp_path / 'settings.json')
+    monkeypatch.setattr(
+        settings, 'settings_path', lambda **_: tmp_path / 'settings.json'
+    )
 
     checks = preflight.preflight()
 
