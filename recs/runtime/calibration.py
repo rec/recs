@@ -94,14 +94,15 @@ class Calibration:
         )
 
     def _tracks(self, channels: dict[str, list[int]]) -> dict[str, list[str]]:
+        selected_channels = self._selected_channels(channels)
         result: dict[str, list[str]] = {}
         for source_name, source in self.hardware.items():
             if not source.running:
                 continue
-            if not channels:
+            if not selected_channels:
                 result[source_name] = [track.name for track in source.tracks]
                 continue
-            if requested := channels.get(source_name):
+            if requested := selected_channels.get(source_name):
                 tracks = [
                     self.track_for_channel(source_name, channel)
                     for channel in requested
@@ -110,10 +111,28 @@ class Calibration:
                     dict.fromkeys(track.name for track in tracks)
                 )
 
-        unknown = channels.keys() - self.hardware.keys()
-        if unknown:
-            names = ', '.join(sorted(unknown))
-            raise RecsError(f'Unknown input device: {names}')
         if not result:
             raise RecsError('No online audio channels to calibrate')
         return result
+
+    def _selected_channels(
+        self, channels: dict[str, list[int]]
+    ) -> dict[str, list[int]]:
+        selected: dict[str, list[int]] = {}
+        for selector, values in channels.items():
+            matches = [
+                name
+                for name in self.hardware
+                if name.casefold().startswith(selector.casefold())
+            ]
+            if not matches:
+                raise RecsError(f'Unknown input device: {selector}')
+            if len(matches) > 1:
+                names = ', '.join(sorted(matches))
+                raise RecsError(
+                    f'Input device selector {selector} matches multiple devices: '
+                    f'{names}'
+                )
+            name = matches[0]
+            selected.setdefault(name, []).extend(values)
+        return selected

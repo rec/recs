@@ -63,11 +63,10 @@ def reset_fake_client() -> Iterator[None]:
         (['jump', '-10.5'], 'jump_playback', {'seconds': -10.5}),
         (['jump-session', '1'], 'jump_session', {'offset': 1}),
         (['resume'], 'resume_recording', {}),
-        (['calibrate'], 'calibrate', {}),
         (
-            ['calibrate', '--source', 'X18', '--channel', '1', '--channel', '2'],
+            ['calibrate', 'x18:1-2,5,6', 'mic:3-4'],
             'calibrate',
-            {'channels': {'X18': [1, 2]}},
+            {'channels': {'x18': [1, 2, 5, 6], 'mic': [3, 4]}},
         ),
         (['card-replace'], 'card_replace', {}),
         (['reload-profiles'], 'reload_profiles', {}),

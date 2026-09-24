@@ -176,7 +176,7 @@ def test_calibrate_control_request_sets_channel_noise_floor(
     )
     rec._devices.hardware['Mic'].start()
     request = FakeControlRequest(
-        gui_protocol.Calibrate(type='calibrate', channels={'Mic': [1]})
+        gui_protocol.Calibrate(type='calibrate', channels={'mic': [1]})
     )
     rec.live = FakeControlDisplay([request])
 
@@ -221,7 +221,20 @@ def test_calibration_selects_both_stereo_channels(
     rec = Recorder(Cfg(include=['Ext'], silent=True))
     rec._devices.hardware['Ext'].start()
 
-    assert rec._calibration._tracks({'Ext': [1]}) == {'Ext': ['1-2']}
+    assert rec._calibration._tracks({'ext': [1]}) == {'Ext': ['1-2']}
+
+
+def test_calibration_rejects_an_ambiguous_source_selector(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Ext'], silent=True))
+    rec._calibration.hardware['Extra'] = rec._calibration.hardware['Ext']
+
+    with pytest.raises(RecsError, match='matches multiple devices'):
+        rec._calibration._tracks({'e': [1]})
 
 
 def test_recorder_saves_and_restores_track_settings(

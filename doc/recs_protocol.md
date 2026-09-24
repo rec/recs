@@ -56,8 +56,7 @@ recs control pause-playback
 recs control jump -10
 recs control continue
 recs control stop
-recs control calibrate
-recs control calibrate --source "X18: USB Audio" --channel 1 --channel 2
+recs control calibrate x18:1-2,5,6
 recs control card-replace
 recs control reload-profiles
 recs control project-switch x18-show
@@ -96,7 +95,7 @@ The subcommands map to the protocol as follows:
 | `continue` | `continue_playback` |
 | `jump SECONDS` | `jump_playback` |
 | `jump-session -1\|1` | `jump_session` |
-| `calibrate [--source NAME --channel N ...]` | `calibrate` for all online tracks, or the selected channels of one source |
+| `calibrate SOURCE:CHANNEL[,CHANNEL-RANGE ...] ...` | `calibrate` for selected channels of one or more sources |
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
 | `project-switch [NAME]` | `switch_project` |
@@ -510,6 +509,12 @@ result = client.call(
     channels={'X18: USB Audio (hw:0,0)': [1, 2]},
 )
 ```
+
+`recs control calibrate` accepts one or more positional selectors in the form
+`SOURCE:CHANNEL[,CHANNEL-RANGE ...]`. A source selector matches the beginning
+of a live source name without regard to case. It must match exactly one source:
+`recs control calibrate x18:1-2,5,6` calibrates channels 1, 2, 5, and 6 on the
+X18, while `recs control calibrate x18:1 mic:3-4` selects two sources.
 
 For a stereo track, either channel selects the whole track. Repeated channels
 from the same track are deduplicated. The response contains flattened measured
