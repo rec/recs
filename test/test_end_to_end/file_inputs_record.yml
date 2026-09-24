@@ -13,43 +13,23 @@ events:
   track: 1-2
   type: track_started
 files:
-- audio_spans:
-  - asset_start: 0
-    count: 48000
-    start: 0
-  bit_depth: 32
-  channels: 1
+- bit_depth: 32
   clock_id: clock:test/testdata/file_inputs/mono.wav
-  format: wav
   frame_count: 48000
-  media_type: audio
   path: audio/mono-1.wav
   quantity_count: 48000
-  sample_rate: 48000
-  source: test/testdata/file_inputs/mono.wav
   source_channels:
   - 1
-  stream_id: audio:test/testdata/file_inputs/mono.wav:1
-  track_name: '1'
-- audio_spans:
-  - asset_start: 0
-    count: 48000
-    start: 0
-  bit_depth: 32
-  channels: 2
+  stream_id: audio:test%2Ftestdata%2Ffile_inputs%2Fmono.wav:1
+- bit_depth: 32
   clock_id: clock:test/testdata/file_inputs/stereo.wav
-  format: wav
   frame_count: 48000
-  media_type: audio
   path: audio/stereo-1.wav
   quantity_count: 48000
-  sample_rate: 48000
-  source: test/testdata/file_inputs/stereo.wav
   source_channels:
   - 1
   - 2
-  stream_id: audio:test/testdata/file_inputs/stereo.wav:1-2
-  track_name: 1-2
+  stream_id: audio:test%2Ftestdata%2Ffile_inputs%2Fstereo.wav:1-2
 project_name: -default-
 started_at: <timestamp>
 warnings: []

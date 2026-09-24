@@ -16,6 +16,7 @@ from recs.cfg.file_source import FileSource
 from recs.cfg.source import Source
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
+from recs.recording.capture_events import capture_clock_id
 from recs.runtime.source_messages import BufferStats, SourceFailure, SourceUpdate
 
 from .device_poller import DevicePoller
@@ -384,10 +385,14 @@ class DeviceLifecycle:
 
     def _record_presence(self, compatible: set[str]) -> None:
         for name in sorted(compatible - self.present_hardware):
+            device = self.hardware_sources[name].source
             self.event(
                 'source_online',
                 source=name,
                 start_frame=self.source_frames_at_start[name],
+                channel_count=device.channels,
+                sample_rate=device.samplerate,
+                clock_id=capture_clock_id(name),
             )
         for name in sorted(self.present_hardware - compatible):
             for track_name, channel_state in self.state.state[name].items():

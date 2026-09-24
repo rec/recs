@@ -16,7 +16,8 @@ from recs.cfg.track import Track
 from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_input
-from recs.recording.capture_events import SourceFileEvents
+from recs.recording import session_record
+from recs.recording.capture_events import SourceFileEvents, capture_clock_id
 from recs.recording.finalize import prepare_recording
 from recs.recording.recording_session import RecordingSession
 
@@ -58,6 +59,16 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     session = RecordingSession('test', 1700000000.0)
     journal = tmp_path / 'session-record.jsonl'
     session.start(journal, enabled=True)
+    session.write(
+        session_record.EventRecord(
+            type='source_online',
+            timestamp='observed',
+            source=source.name,
+            clock_id=capture_clock_id(source.name),
+            channel_count=source.channels,
+            sample_rate=source.samplerate,
+        )
+    )
     events = SourceFileEvents([writer])
     paths, records = events.new_files([writer], 32)
     for record in records:

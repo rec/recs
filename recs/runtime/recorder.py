@@ -719,6 +719,9 @@ class Recorder(Runnables):
         start_frame: int | None = None,
         timestamp: float | None = None,
         value: object | None = None,
+        channel_count: int | None = None,
+        sample_rate: int | None = None,
+        clock_id: str | None = None,
     ) -> None:
         self._write_record_entry(
             session_record.EventRecord(
@@ -731,6 +734,9 @@ class Recorder(Runnables):
                 frame_count=frame_count,
                 start_frame=start_frame,
                 value=value,
+                channel_count=channel_count,
+                sample_rate=sample_rate,
+                clock_id=clock_id,
             )
         )
 

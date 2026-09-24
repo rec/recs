@@ -27,7 +27,7 @@ from recs.midi.recorder import MidiPacket, MidiRecorder
 from recs.osc import recorder
 from recs.osc.config import Node
 from recs.recording import session_record
-from recs.recording.capture_events import SourceFileEvents
+from recs.recording.capture_events import SourceFileEvents, capture_clock_id
 from recs.recording.files import asset_path, verify_recording
 from recs.recording.finalize import prepare_recording
 from recs.recording.read import read_recording, read_recording_chain
@@ -228,6 +228,16 @@ def _audio(
 ) -> None:
     source = InputDevice(
         {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 2}
+    )
+    session.write(
+        session_record.EventRecord(
+            type='source_online',
+            timestamp='observed',
+            source=source.name,
+            clock_id=capture_clock_id(capture_id or source.name),
+            channel_count=source.channels,
+            sample_rate=source.samplerate,
+        )
     )
     writer = ChannelWriter(
         Cfg(formats=[Format.wav], output_directory=str(directory)),

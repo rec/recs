@@ -39,6 +39,31 @@ def test_session_record_writer_batches_fsync(
     assert len(fsynced) == 3
 
 
+def test_session_record_writes_device_parameters(tmp_path: Path) -> None:
+    writer = SessionRecordWriter(tmp_path / 'session-record.jsonl', started_at='start')
+
+    writer.write(
+        EventRecord(
+            type='source_online',
+            timestamp='online',
+            source='Mic',
+            clock_id='mic-clock',
+            channel_count=2,
+            sample_rate=48_000,
+        )
+    )
+    writer.close()
+
+    assert json.loads(writer.path.read_text().splitlines()[1]) == {
+        'type': 'source_online',
+        'timestamp': 'online',
+        'source': 'Mic',
+        'clock_id': 'mic-clock',
+        'channel_count': 2,
+        'sample_rate': 48_000,
+    }
+
+
 def test_session_record_preserves_channel_musician_snapshot(tmp_path: Path) -> None:
     assignments = {'Ext': SourceMusician(musician='mike', channels=[1, 2])}
     writer = SessionRecordWriter(

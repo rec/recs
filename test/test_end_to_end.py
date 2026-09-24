@@ -250,10 +250,10 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
         if len(parts) >= 6 and parts[0] == 'files' and _is_session_part(parts, 4):
             path = Path('files', '<session>', *parts[5:]).as_posix()
         file['path'] = path
-        file['source'] = Path(str(file['source'])).relative_to(REPO_ROOT).as_posix()
-        file['clock_id'] = f'clock:{file["source"]}'
-        source_channels = '-'.join(str(c) for c in file['source_channels'])
-        file['stream_id'] = f'audio:{file["source"]}:{source_channels}'
+        source, track_name = session_record.audio_stream_parts(str(file['stream_id']))
+        source = Path(source).relative_to(REPO_ROOT).as_posix()
+        file['clock_id'] = f'clock:{source}'
+        file['stream_id'] = session_record.audio_stream_id(source, track_name)
     for event in result.get('events', []):
         assert isinstance(event, dict)
         event.pop('dropped_blocks', None)

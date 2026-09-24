@@ -46,7 +46,7 @@ class RecoveryPlan(BaseModel, frozen=True):
 
 
 class RecoverCli(BaseModel, frozen=True):
-    """Preview recovery of a stopped version 4 capture; --destination creates a copy.
+    """Preview recovery of a stopped version 5 capture; --destination creates a copy.
 
     Audio is fully decoded for verification. Unfinished readable audio is retained
     as unplaced assets, not aligned tracks. No original files are changed.
@@ -62,12 +62,20 @@ def inspect_recovery(location: Path) -> RecoveryPlan:
         location / 'session-record.jsonl' if location.is_dir() else location
     ).resolve()
     evidence = sealed_asset(
-        journal, journal.parent, 'capture-evidence', 'recs-session-v4'
+        journal, journal.parent, 'capture-evidence', 'recs-session-v5'
     )
     try:
         entries, notes = read_capture_entries(journal)
     except (RecsError, ValueError) as error:
         return RecoveryPlan(journal=journal, evidence=evidence, failures=[str(error)])
+    header = entries[0]
+    assert isinstance(header, session_record.SessionHeader)
+    evidence = sealed_asset(
+        journal,
+        journal.parent,
+        'capture-evidence',
+        f'recs-session-v{header.version}',
+    )
     files: list[RecoveryFile] = []
     records = [
         e
@@ -116,7 +124,7 @@ def inspect_recovery(location: Path) -> RecoveryPlan:
                     journal.parent / path,
                     journal.parent,
                     f'unplaced-{index}',
-                    started[0].format,
+                    Path(path).suffix.removeprefix('.').lower(),
                 )
                 with soundfile.SoundFile(journal.parent / path) as audio:
                     if (

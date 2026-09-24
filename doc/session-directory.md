@@ -57,7 +57,7 @@ the session directory. The whole directory can therefore be moved as a unit.
 ## Capture journal format
 
 `session-record.jsonl` is the append-only evidence used to finalize
-[`recording.toml`](recording-format.md). Current captures use **version 4**.
+[`recording.toml`](recording-format.md). Current captures use **version 5**.
 Historical version 3 journals are read only by the explicit migration code and
 by the browser when a recording references preserved version 3 evidence.
 
@@ -68,7 +68,7 @@ and periodically fsync. Line order is observation order, not a cross-device
 clock mapping. The first line is a header; clean shutdown ends with a footer.
 
 ```json
-{"type":"header","version":4,"session_id":"take-1","project_name":"x18-show","started_at":"2026-09-07T12:00:00.000Z"}
+{"type":"header","version":5,"session_id":"take-1","project_name":"x18-show","started_at":"2026-09-07T12:00:00.000Z"}
 ```
 
 Current capture headers include `type`, `version`, `started_at`, and `project_name`,
@@ -89,9 +89,10 @@ asset. No missing samples or packets are synthesized during recovery.
 ## Typed file records
 
 `AudioFileRecord` and `EventFileRecord` replace the old optional mixture of
-audio, MIDI, and OSC metadata. Both carry `type`, `timestamp`, `stream_id`,
-`path`, and `format`, with optional human-readable `source`. Paths are relative
-to the journal directory and must remain inside it after symlink resolution.
+audio, MIDI, and OSC metadata. Both carry `type`, `timestamp`, `stream_id`, and
+`path`. Event records also carry `format`, with optional human-readable `source`.
+Paths are relative to the journal directory and must remain inside it after
+symlink resolution.
 
 A file has one `file_started` record and one terminal record:
 
@@ -99,14 +100,21 @@ A file has one `file_started` record and one terminal record:
 - `file_discarded` records an audio file intentionally removed by the minimum
   capture-length policy. It does not claim an asset or an interrupted file.
 
-Audio records use `media_type = "audio"` and require a `clock_id` shared by
-tracks from the same device capture. A reconnect starts a distinct clock.
-Their other fields are `frame_count`,
-`track_name`, ordered `source_channels`, `channels`, `sample_rate`, `bit_depth`,
-and finished `audio_spans`. Each span has payload `asset_start`, native `start`,
-and stored frame `count`. Payload offsets consecutively cover the file, while
-native positions can have gaps. `quantity_count` is the sum of stored frames.
-Finalization requires native boundaries and checks them against the payload.
+Audio records are identified by a canonical `audio:<source>:<track>[:<capture>]`
+stream ID, with each component percent-escaped. They require a `clock_id` shared
+by tracks from the same device capture. A reconnect starts a distinct clock. The
+file extension supplies the audio encoding. Audio records carry `frame_count`,
+ordered `source_channels`, optional `bit_depth`, and finished `audio_spans`.
+Each span has payload `asset_start`, native `start`, and stored frame `count`.
+Payload offsets consecutively cover the file, while native positions can have
+gaps. `quantity_count` is the sum of stored frames. Finalization requires native
+boundaries and checks them against the payload.
+
+A `source_online` event precedes any audio record for its device and records
+the source name, `clock_id`, channel count, and sample rate. The device sample
+rate is authoritative for that clock and must match decoded audio payloads.
+`source_offline` records only the source name; warnings retain any offline error
+details.
 
 Event records use `media_type = "midi"`, `"osc"`, or `"key"`, and
 `format = "recs_events"`. They require a physical `timebase`, `start_tick`,
@@ -153,8 +161,8 @@ SMF export reports those unsupported messages before creating a destination.
 
 ## Audio timelines and clocks
 
-`audio_timeline` records identify a capture stream, `clock_id`, source, track, sample rate,
-source channels, native `start`/`end`, and explicit gaps. They are written when
+`audio_timeline` records identify a capture stream, `clock_id`, source channels,
+native `start`/`end`, and explicit gaps. They are written when
 a writer closes or is reconfigured. Known gap reasons distinguish
 `silence_suppressed`, `input_overflow` for missing known native ranges, and
 `short_capture` for deliberately discarded audio. Unobserved boundaries remain

@@ -8,7 +8,7 @@ The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
 export, and the editor's session resolver. Recording shutdown and successful
-audio edits finalize this score beside their version 4 capture journal.
+audio edits finalize this score beside their version 5 capture journal.
 The journal remains append-only operational evidence for diagnostics and
 recovery. Content readers require the common score; they do not fall back
 to historical journals. Convert old sessions explicitly before opening them.
@@ -242,7 +242,7 @@ Moving the exported directory preserves media references and native frame gaps.
 Export can preserve unresolved historical recordings, but it does not resolve
 their timing. The editor requires sealed, fully mapped selected audio streams.
 
-For a stopped version 4 capture that did not finalize, run
+For a stopped version 5 capture that did not finalize, run
 `recs session finalize /path/to/session`. Complete finished fragments are
 verified; torn final lines and unfinished files remain explicitly open. Existing
 outputs are never replaced. A new capture process has a new audio clock identity;

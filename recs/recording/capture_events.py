@@ -8,6 +8,7 @@ from ufor.recording import AudioSpan, Gap, GapReason
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.cfg.track_names import track_name
+from recs.recording import session_record
 from recs.recording.session_record import AudioTimelineRecord
 
 
@@ -161,13 +162,11 @@ def audio_timeline(
         else:
             gaps.append(Gap(start=start, end=end, reason=reason))
     name = track_name(writer.track_names, writer.track) or writer.track.name
-    channels = '-'.join(str(c) for c in writer.track.channels)
     return AudioTimelineRecord(
         clock_id=capture_clock_id(capture_id or writer.track.source.name),
-        stream_id=f'audio:{writer.track.source.name}:{channels}'
-        + (f':{capture_id}' if capture_id else ''),
-        source=writer.track.source.name,
-        track_name=name,
+        stream_id=session_record.audio_stream_id(
+            writer.track.source.name, name, capture_id
+        ),
         sample_rate=writer.track.source.samplerate,
         source_channels=list(writer.track.channels),
         start=observed[0].start,

@@ -68,6 +68,7 @@ def test_writes_recovery_report_beside_unfinished_record(
     assert report['tracks'] == [
         {
             'media_type': 'audio',
+            'source': 'test',
             'track_name': '1',
             'source_channels': [1],
             'started_files': 2,
