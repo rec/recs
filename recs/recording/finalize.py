@@ -61,7 +61,7 @@ def read_capture_entries(
             'original capture is incomplete.'
         )
     if not entries or not isinstance(entries[0], session_record.SessionHeader):
-        raise RecsError('Recording finalization requires a version 4 session header')
+        raise RecsError('Recording finalization requires a session header')
     return entries, notes
 
 
@@ -74,7 +74,7 @@ def prepare_recording(
     else:
         notes = []
     if not entries or not isinstance(entries[0], session_record.SessionHeader):
-        raise RecsError('Recording finalization requires a version 4 session header')
+        raise RecsError('Recording finalization requires a session header')
     header = entries[0]
     footer = (
         entries[-1]
@@ -116,7 +116,9 @@ def prepare_recording(
             'no payload is claimed for them and the candidate remains open.'
         )
         footer = None
-    original = sealed_asset(journal, root, 'original-journal', 'recs-session-v4')
+    original = sealed_asset(
+        journal, root, 'original-journal', f'recs-session-v{entries[0].version}'
+    )
     assets: list[Asset] = [original]
     streams: list[AudioStream | EventStream] = []
     clocks: list[Timebase] = []
@@ -127,15 +129,25 @@ def prepare_recording(
         if isinstance(entry, session_record.ClockRecord):
             clocks.extend(entry.timebases)
     timelines: dict[str, list[session_record.AudioTimelineRecord]] = {}
+    device_rates: dict[str, int] = {}
     for entry in entries:
         if isinstance(entry, session_record.AudioTimelineRecord):
             timelines.setdefault(entry.stream_id, []).append(entry)
+        if (
+            isinstance(entry, session_record.EventRecord)
+            and entry.type == 'source_online'
+            and entry.clock_id is not None
+            and entry.sample_rate is not None
+        ):
+            if (
+                entry.clock_id in device_rates
+                and device_rates[entry.clock_id] != entry.sample_rate
+            ):
+                raise RecsError(f'Device clock changes sample rate: {entry.clock_id}')
+            device_rates[entry.clock_id] = entry.sample_rate
     for source_id in dict.fromkeys(f.stream_id for f in finishes):
         identity = 'stream-' + hashlib.sha256(source_id.encode()).hexdigest()[:16]
         files = [f for f in finishes if f.stream_id == source_id]
-        kinds = {f.media_type for f in files}
-        if len(kinds) != 1 or not kinds <= {'audio', 'midi', 'osc', 'key'}:
-            raise RecsError(f'Unsupported or inconsistent media type for {source_id}')
         audio: list[AudioFragment] = []
         events: list[EventFragment] = []
         descriptions: list[tuple[int, int, list[int] | None]] = []
@@ -148,16 +160,18 @@ def prepare_recording(
             if len(matches) != 1:
                 raise RecsError(f'Expected exactly one file start for {finished.path}')
             started = matches[0]
-            if (
-                started.media_type != finished.media_type
-                or started.format != finished.format
-            ):
+            if type(started) is not type(finished):
                 raise RecsError(f'File lifecycle metadata disagrees: {finished.path}')
             path = (root / finished.path).resolve()
             asset_id = (
                 'asset-' + hashlib.sha256(finished.path.encode()).hexdigest()[:16]
             )
-            asset = sealed_asset(path, root, asset_id, finished.format)
+            format = (
+                path.suffix.removeprefix('.').lower()
+                if isinstance(finished, session_record.AudioFileRecord)
+                else finished.format
+            )
+            asset = sealed_asset(path, root, asset_id, format)
             relative_path = asset_path(asset)
             assets.append(asset)
             if finished.quantity_count is None:
@@ -178,19 +192,6 @@ def prepare_recording(
                         f'Audio frame interval disagrees with count: {finished.path}'
                     )
                 info = soundfile.info(path)
-                for entry in (started, finished):
-                    if entry.channels is not None and entry.channels != info.channels:
-                        raise RecsError(
-                            'Audio channel count disagrees with journal: '
-                            f'{finished.path}'
-                        )
-                    if (
-                        entry.sample_rate is not None
-                        and entry.sample_rate != info.samplerate
-                    ):
-                        raise RecsError(
-                            f'Audio sample rate disagrees with journal: {finished.path}'
-                        )
                 descriptions.append(
                     (
                         info.samplerate,
@@ -276,6 +277,17 @@ def prepare_recording(
         if any(d != descriptions[0] for d in descriptions):
             raise RecsError(f'Audio layout or sample rate changes within {source_id}')
         rate, channels, source_channels = descriptions[0]
+        if header.version == 5:
+            device_rate = device_rates.get(files[0].clock_id)
+            if device_rate is None:
+                if files[0].sample_rate is None:
+                    raise RecsError(f'Audio stream has no device rate: {source_id}')
+            elif device_rate != rate:
+                raise RecsError(
+                    f'Audio payload rate disagrees with device: {source_id}'
+                )
+            else:
+                rate = device_rate
         clock = Timebase(name=files[0].clock_id, rate=Rate(numerator=rate))
         clocks.append(clock)
         audio.sort(key=lambda f: (f.start, f.count))
@@ -294,7 +306,7 @@ def prepare_recording(
                 gaps.append(Gap(start=end, end=start, reason=GapReason.unknown))
             end = max(end, finish)
         if captures := timelines.get(source_id):
-            if any(t.clock_id != clock.name or t.sample_rate != rate for t in captures):
+            if any(t.clock_id != clock.name for t in captures):
                 raise RecsError(f'Audio timeline clock disagrees: {source_id}')
             end = max(end, *(t.end for t in captures))
             gaps = recorded_gaps(end, audio, captures)
@@ -307,12 +319,15 @@ def prepare_recording(
             raise RecsError(
                 f'Source channel labels disagree with audio width: {source_id}'
             )
+        source_name, track_name = session_record.audio_stream_parts(source_id)
+        source_name = files[0].source or source_name
+        track_name = files[0].track_name or track_name
         streams.append(
             AudioStream(
                 name=identity,
                 source_id=source_id,
-                source_name=files[0].source,
-                track_name=files[0].track_name,
+                source_name=source_name,
+                track_name=track_name,
                 stream=AudioType(timebase=clock.name, channels=labels),
                 end=end,
                 fragments=audio,
@@ -332,17 +347,18 @@ def prepare_recording(
         if any(s.source_id == source_id for s in streams):
             continue
         identity = 'stream-' + hashlib.sha256(source_id.encode()).hexdigest()[:16]
-        clock = Timebase(
-            name=timeline.clock_id,
-            rate=Rate(numerator=timeline.sample_rate),
-        )
+        rate = device_rates.get(timeline.clock_id, timeline.sample_rate)
+        if rate is None:
+            raise RecsError(f'Audio timeline has no device rate: {source_id}')
+        clock = Timebase(name=timeline.clock_id, rate=Rate(numerator=rate))
+        source_name, track_name = session_record.audio_stream_parts(source_id)
         clocks.append(clock)
         streams.append(
             AudioStream(
                 name=identity,
                 source_id=source_id,
-                source_name=timeline.source,
-                track_name=timeline.track_name,
+                source_name=source_name,
+                track_name=track_name,
                 stream=AudioType(
                     timebase=clock.name,
                     channels=[f'input-{i}' for i in timeline.source_channels],

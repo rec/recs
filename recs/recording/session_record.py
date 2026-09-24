@@ -3,9 +3,10 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
+from urllib.parse import quote, unquote
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from ufor.base import Identifier
 from ufor.recording import AudioSpan, Gap
 from ufor.time import ClockObservation, Timebase
@@ -17,7 +18,7 @@ class SessionHeader(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: str = 'header'
-    version: Literal[4] = 4
+    version: Literal[4, 5] = 5
     started_at: str
     session_id: str | None = None
     project_name: str | None = None
@@ -48,6 +49,9 @@ class EventRecord(BaseModel):
     dropped_blocks: int | None = None
     dropped_frames: int | None = None
     source: str | None = None
+    clock_id: Identifier | None = None
+    channel_count: int | None = Field(default=None, gt=0)
+    sample_rate: int | None = Field(default=None, gt=0)
     track: str | None = None
     key: str | None = None
     label: str | None = None
@@ -83,16 +87,16 @@ class FileRecord(BaseModel, frozen=True):
     type: Literal['file_started', 'file_finished', 'file_discarded']
     timestamp: str
     stream_id: str
-    format: str
     path: str
-    source: str | None = None
     quantity_count: int | None = Field(default=None, ge=0, strict=True)
 
     model_config = ConfigDict(extra='forbid')
 
 
 class AudioFileRecord(FileRecord, frozen=True):
-    media_type: Literal['audio'] = 'audio'
+    media_type: Literal['audio'] | None = None
+    format: str | None = None
+    source: str | None = None
     clock_id: Identifier
     frame_count: int | None = Field(default=None, ge=0, strict=True)
     track_name: str | None = None
@@ -105,6 +109,8 @@ class AudioFileRecord(FileRecord, frozen=True):
 
 class EventFileRecord(FileRecord, frozen=True):
     media_type: Literal['midi', 'osc', 'key']
+    format: str
+    source: str | None = None
     timebase: Timebase
     start_tick: int = Field(strict=True)
     end_tick: int | None = Field(default=None, strict=True)
@@ -123,9 +129,9 @@ class AudioTimelineRecord(BaseModel, frozen=True):
     type: Literal['audio_timeline'] = 'audio_timeline'
     stream_id: str
     clock_id: Identifier
-    source: str
-    track_name: str
-    sample_rate: int = Field(gt=0)
+    source: str | None = None
+    track_name: str | None = None
+    sample_rate: int | None = Field(default=None, gt=0)
     source_channels: list[int]
     start: int = Field(ge=0, strict=True)
     end: int = Field(ge=0, strict=True)
@@ -165,9 +171,7 @@ class SessionRecord(BaseModel):
     ended_at: str | None = None
     duration_seconds: float | None = None
     events: list[EventRecord] = Field(default_factory=list)
-    files: list[
-        Annotated[AudioFileRecord | EventFileRecord, Field(discriminator='media_type')]
-    ] = Field(default_factory=list)
+    files: list[AudioFileRecord | EventFileRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
@@ -182,6 +186,35 @@ Record = (
     | SessionHeader
     | WarningRecord
 )
+
+
+def audio_stream_id(source: str, track_name: str, capture_id: str | None = None) -> str:
+    result = f'audio:{quote(source, safe="-_.~")}:{quote(track_name, safe="-_.~")}'
+    return (
+        result if capture_id is None else f'{result}:{quote(capture_id, safe="-_.~")}'
+    )
+
+
+def audio_stream_parts(stream_id: str) -> tuple[str, str]:
+    prefix, separator, encoded = stream_id.partition(':')
+    source, separator2, track_and_capture = encoded.partition(':')
+    if prefix != 'audio' or not separator:
+        raise ValueError(f'Invalid audio stream ID: {stream_id!r}')
+    if not separator2:
+        return 'legacy', unquote(encoded)
+    track_name, separator3, capture_id = track_and_capture.partition(':')
+    if not source or not track_name:
+        raise ValueError(f'Invalid audio stream ID: {stream_id!r}')
+    if (
+        audio_stream_id(
+            unquote(source),
+            unquote(track_name),
+            unquote(capture_id) if separator3 else None,
+        )
+        != stream_id
+    ):
+        raise ValueError(f'Non-canonical audio stream ID: {stream_id!r}')
+    return unquote(source), unquote(track_name)
 
 
 class SessionRecordWriter:
@@ -312,11 +345,11 @@ def _parse_entry(
     if record_type == 'header':
         return SessionHeader.model_validate(data)
     if record_type in {'file_finished', 'file_started', 'file_discarded'}:
-        return TypeAdapter(
-            Annotated[
-                AudioFileRecord | EventFileRecord, Field(discriminator='media_type')
-            ]
-        ).validate_python(data)
+        if isinstance(data.get('stream_id'), str) and data['stream_id'].startswith(
+            'audio:'
+        ):
+            return AudioFileRecord.model_validate(data)
+        return EventFileRecord.model_validate(data)
     if record_type == 'clock_observation':
         return ClockRecord.model_validate(data)
     if record_type == 'audio_timeline':

@@ -363,7 +363,7 @@ def _recording_score(
 ) -> RecordingScore:
     journal = destination / 'session-record.jsonl'
     journal_asset = _asset(
-        'original-journal', Path('session-record.jsonl'), 'recs-session-v4', journal
+        'original-journal', Path('session-record.jsonl'), 'recs-session-v5', journal
     )
     assets = [journal_asset]
     streams: list[AudioStream] = []
@@ -442,20 +442,25 @@ def _write_session_record(
         ]
         path = (Path('audio') / _media_name(item)).as_posix()
         clock_id = f'clock-{identity}'
-        stream_id = f'audio:{item.source_name}:{item.track_name}'
+        stream_id = session_record.audio_stream_id(item.source_name, item.track_name)
+        writer.write(
+            session_record.EventRecord(
+                type='source_online',
+                timestamp=started_at,
+                source=item.source_name,
+                clock_id=clock_id,
+                channel_count=fact.channels,
+                sample_rate=fact.sample_rate,
+            )
+        )
         writer.write(
             session_record.AudioFileRecord(
                 type='file_started',
                 clock_id=clock_id,
                 timestamp=started_at,
                 stream_id=stream_id,
-                format=fact.format,
                 path=path,
-                source=item.source_name,
-                track_name=item.track_name,
                 source_channels=item.source_channels,
-                channels=fact.channels,
-                sample_rate=fact.sample_rate,
                 frame_count=0,
             )
         )
@@ -465,13 +470,8 @@ def _write_session_record(
                 clock_id=clock_id,
                 timestamp=started_at,
                 stream_id=stream_id,
-                format=fact.format,
                 path=path,
-                source=item.source_name,
-                track_name=item.track_name,
                 source_channels=item.source_channels,
-                channels=fact.channels,
-                sample_rate=fact.sample_rate,
                 frame_count=fact.frames,
                 quantity_count=fact.frames,
                 audio_spans=[

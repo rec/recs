@@ -1,8 +1,8 @@
 evidence:
   content:
-    byte_length: 1237
-    sha256: 0012742d2fcb079d8159b8f9a31de774709c5f1bbe93abe3f3af14e75c36e286
-  encoding: recs-session-v4
+    byte_length: 1132
+    sha256: 8972b8f90444ec167274ccda6f7b2bfcbd26bdc20b10434ede9cb61af54e7959
+  encoding: recs-session-v5
   location:
     kind: relative_file
     path: session-record.jsonl
