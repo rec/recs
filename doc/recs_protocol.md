@@ -57,6 +57,7 @@ recs control jump -10
 recs control continue
 recs control stop
 recs control calibrate
+recs control calibrate --source "X18: USB Audio" --channel 1 --channel 2
 recs control card-replace
 recs control reload-profiles
 recs control project-switch x18-show
@@ -95,7 +96,7 @@ The subcommands map to the protocol as follows:
 | `continue` | `continue_playback` |
 | `jump SECONDS` | `jump_playback` |
 | `jump-session -1\|1` | `jump_session` |
-| `calibrate` | `calibrate` for all selected online tracks |
+| `calibrate [--source NAME --channel N ...]` | `calibrate` for all online tracks, or the selected channels of one source |
 | `card-replace` | `card_replace` |
 | `reload-profiles` | `reload_profiles` |
 | `project-switch [NAME]` | `switch_project` |

@@ -212,7 +212,7 @@ Send one command to a running recs instance.
     - jump
     - jump-session
     - resume           Resume capture, first stopping any active playback.
-    - calibrate
+    - calibrate        Calibrate all tracks, or selected channels from one source.
     - card-replace
     - reload-profiles  Reload per-device JSON defaults from --profiles, not a recording project.
     - project-switch   Switch mutable configuration to a named project or the default workspace.

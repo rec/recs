@@ -1,11 +1,11 @@
 import json
 import sys
 from collections.abc import Callable
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Self
 
 import tomlkit
 import tyro
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from reccy.protocol import rpc
 
 from . import instances
@@ -106,7 +106,23 @@ class Resume(ControlCommand):
 
 
 class Calibrate(ControlCommand):
+    """Calibrate all tracks, or selected channels from one source."""
+
     rpc_command = 'calibrate'
+    source: str | None = None
+    channels: Annotated[
+        tyro.conf.UseAppendAction[list[int]], tyro.conf.arg(name='channel')
+    ] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_selection(self) -> Self:
+        if self.source is None and not self.channels:
+            return self
+        if self.source is None:
+            raise ValueError('calibrate --channel requires --source')
+        if not self.channels:
+            raise ValueError('calibrate --source requires at least one --channel')
+        return self
 
 
 class CardReplace(ControlCommand):
@@ -201,6 +217,12 @@ def main(argv: list[str]) -> int:
     params = command.model_dump()
     if isinstance(command, Set):
         params['value'] = _json_or_string(command.value)
+    if isinstance(command, Calibrate):
+        params = (
+            {'channels': {command.source: command.channels}}
+            if command.source is not None
+            else {}
+        )
     if isinstance(command, ProjectSwitch):
         if len(command.names) > 1:
             print('project-switch accepts at most one project name', file=sys.stderr)

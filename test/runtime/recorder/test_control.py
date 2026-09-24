@@ -166,15 +166,24 @@ def test_calibrate_control_request_sets_channel_noise_floor(
         'wait',
         lambda c, timeout: [i for i in c if i.poll()],
     )
-    rec = Recorder(Cfg(include=['Mic'], preview_headroom=9, silent=True))
+    rec = Recorder(
+        Cfg(
+            include=['Mic'],
+            channel_noise_floors={'Mic': {'2': 37}},
+            preview_headroom=9,
+            silent=True,
+        )
+    )
     rec._devices.hardware['Mic'].start()
-    request = FakeControlRequest()
+    request = FakeControlRequest(
+        gui_protocol.Calibrate(type='calibrate', channels={'Mic': [1]})
+    )
     rec.live = FakeControlDisplay([request])
 
     rec._receive_control_requests()
 
     assert all(source.cfg is rec.cfg for source in rec._devices.sources.values())
-    assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 15.0}}
+    assert rec.cfg.recording.channel_noise_floors == {'Mic': {'1': 15.0, '2': 37}}
     assert request.responses == [
         gui_protocol.Calibrated(
             type='calibrated',
