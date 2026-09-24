@@ -258,7 +258,9 @@ def calibration_channels(selections: list[str]) -> dict[str, list[int]]:
     channels: dict[str, list[int]] = {}
     for selection in selections:
         source, separator, values = selection.partition(':')
-        if not source or not separator or not values:
+        if not separator:
+            source, values = '', selection
+        if not values:
             raise ValueError(f'Invalid calibration selector: {selection}')
         selected = channels.setdefault(source, [])
         for value in values.split(','):

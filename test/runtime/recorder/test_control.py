@@ -221,7 +221,7 @@ def test_calibration_selects_both_stereo_channels(
     rec = Recorder(Cfg(include=['Ext'], silent=True))
     rec._devices.hardware['Ext'].start()
 
-    assert rec._calibration._tracks({'ext': [1]}) == {'Ext': ['1-2']}
+    assert rec._calibration._tracks({'': [1]}) == {'Ext': ['1-2']}
 
 
 def test_calibration_rejects_an_ambiguous_source_selector(
@@ -235,6 +235,9 @@ def test_calibration_rejects_an_ambiguous_source_selector(
 
     with pytest.raises(RecsError, match='matches multiple devices'):
         rec._calibration._tracks({'e': [1]})
+
+    with pytest.raises(RecsError, match='matches multiple devices'):
+        rec._calibration._tracks({'': [1]})
 
 
 def test_recorder_saves_and_restores_track_settings(

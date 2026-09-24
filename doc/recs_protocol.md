@@ -514,7 +514,9 @@ result = client.call(
 `SOURCE:CHANNEL[,CHANNEL-RANGE ...]`. A source selector matches the beginning
 of a live source name without regard to case. It must match exactly one source:
 `recs control calibrate x18:1-2,5,6` calibrates channels 1, 2, 5, and 6 on the
-X18, while `recs control calibrate x18:1 mic:3-4` selects two sources.
+X18, while `recs control calibrate x18:1 mic:3-4` selects two sources. Without
+the colon, a selector is channels only, such as `recs control calibrate 1-2,5,6`.
+That form requires exactly one configured input device.
 
 For a stereo track, either channel selects the whole track. Repeated channels
 from the same track are deduplicated. The response contains flattened measured

@@ -120,18 +120,22 @@ class Calibration:
     ) -> dict[str, list[int]]:
         selected: dict[str, list[int]] = {}
         for selector, values in channels.items():
-            matches = [
-                name
-                for name in self.hardware
-                if name.casefold().startswith(selector.casefold())
-            ]
+            matches = (
+                list(self.hardware)
+                if not selector
+                else [
+                    name
+                    for name in self.hardware
+                    if name.casefold().startswith(selector.casefold())
+                ]
+            )
             if not matches:
                 raise RecsError(f'Unknown input device: {selector}')
             if len(matches) > 1:
                 names = ', '.join(sorted(matches))
                 raise RecsError(
-                    f'Input device selector {selector} matches multiple devices: '
-                    f'{names}'
+                    f'Input device selector {selector or "(none)"} matches '
+                    f'multiple devices: {names}'
                 )
             name = matches[0]
             selected.setdefault(name, []).extend(values)
