@@ -156,7 +156,7 @@ class Audio(BaseModel):
     #
     formats: Annotated[
         tyro.conf.UseAppendAction[list[Annotated[Format, cli_metadata.FORMAT_SPEC]]],
-        tyro.conf.arg(aliases=('-f',), help='Audio file formats'),
+        tyro.conf.arg(name='format', aliases=('-f',), help='Audio file formats'),
     ] = Field(default_factory=list)
 
     metadata: Annotated[

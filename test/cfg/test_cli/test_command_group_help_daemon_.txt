@@ -69,7 +69,7 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
 
  audio options
  -------------------------------------------------------------------------------------------
-  -f AUDIO FORMAT, --formats AUDIO FORMAT
+  -f AUDIO FORMAT, --format AUDIO FORMAT
         Audio file formats (repeatable, appends to: flac)
   -m STR, --metadata STR
         Metadata fields to add to output files (repeatable)
