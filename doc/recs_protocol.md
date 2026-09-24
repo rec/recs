@@ -369,7 +369,8 @@ client.call(
 `get_cfg` can read any valid configuration address. `set_cfg` can change only
 addresses returned by `mutable_attributes`. recs validates and coerces the new
 value, applies it to active source processes, records the change in the
-record, and saves it when `save_settings` is enabled.
+record, and saves it for future runs by default. Pass `--save-settings False`
+when starting recs to make changes transient.
 
 Physical configuration fields also accept unit strings. For example,
 `set_cfg(address="recording.longest_file_time", value="1h")` stores and returns
@@ -498,8 +499,9 @@ written as session events.
 ### Calibration
 
 With no `channels` parameter, `calibrate` measures every track on every online
-audio source. To select tracks, map source names to one or more channel
-numbers:
+audio source. `recs calibrate` runs that calibration locally and saves its
+noise floors for later `recs` runs. To select tracks, map source names to one
+or more channel numbers:
 
 ```python
 result = client.call(

@@ -159,7 +159,10 @@ def run() -> int:
             return main(sys.argv[2:])
         from recs.cfg import projects
 
-        project_name, arguments = projects.project_argument(sys.argv[1:])
+        arguments = sys.argv[1:]
+        if arguments[:1] == ['calibrate']:
+            arguments = ['--calibrate', *arguments[1:]]
+        project_name, arguments = projects.project_argument(arguments)
         if project_name is None:
             cfg = tyro.cli(
                 cli.CliCfg, args=arguments, prog='recs', description=cli.HELP

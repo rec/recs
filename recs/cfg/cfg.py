@@ -1,5 +1,4 @@
 import json
-import os
 from functools import cached_property
 from importlib.util import find_spec
 from typing import Self, cast
@@ -120,7 +119,7 @@ class Cfg(BaseModel):
     def save_settings(self) -> bool:
         if self.general.save_settings is not None:
             return self.general.save_settings
-        return os.environ.get('RECS_DAEMON') == '1'
+        return True
 
     @cached_property
     def mutable_attributes(self) -> frozenset[str]:

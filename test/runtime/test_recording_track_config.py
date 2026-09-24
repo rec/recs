@@ -48,7 +48,7 @@ class FakeState:
 
 class FakeControl:
     def __init__(self, cfg: Cfg, source: FakeSourceProcess) -> None:
-        self.cfg = cfg
+        self.cfg = Cfg(save_settings=False, **cfg.model_dump())
         self.devices = FakeDevices(source)
         self.state = FakeState()
         self.track_names: SourceTrackNames = {}
@@ -58,6 +58,7 @@ class FakeControl:
         self.records: list[Record] = []
         self.cfg_revision = 0
         self.cfgs: list[Cfg] = []
+        self.project_name: str | None = None
 
     def write_entry(self, record: Record) -> None:
         self.records.append(record)

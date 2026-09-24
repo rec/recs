@@ -63,7 +63,7 @@ def test_default_mode_does_not_check_for_daemon(
     calls: list[str] = []
 
     class FakeRecorder:
-        def __init__(self, cfg: Cfg) -> None:
+        def __init__(self, cfg: Cfg, loaded: object | None = None) -> None:
             pass
 
         def run(self) -> None:

@@ -11,7 +11,7 @@ from ufor.encoding import Format, Subtype
 
 from recs.__main__ import run
 from recs.base.types import MidiTiming, SdType
-from recs.cfg import cli
+from recs.cfg import cli, run_cli
 from recs.edit import commands
 from recs.recording import session_browser
 
@@ -23,6 +23,19 @@ def test_console_script_entry_point() -> None:
     module = importlib.import_module(module_name)
 
     assert callable(getattr(module, function_name))
+
+
+def test_calibrate_command_starts_a_persistent_calibration_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = []
+    monkeypatch.setattr(sys, 'argv', ['recs', 'calibrate'])
+    monkeypatch.setattr(run_cli, 'run_cli', captured.append)
+
+    assert run() == 0
+    assert len(captured) == 1
+    assert captured[0].general.calibrate
+    assert captured[0].save_settings
 
 
 def test_info():
