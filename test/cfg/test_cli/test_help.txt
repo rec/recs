@@ -72,7 +72,7 @@ readiness inspects a project or configuration without recording; preflight check
 
  audio options
  -------------------------------------------------------------------------------------------
-  -f AUDIO FORMAT, --formats AUDIO FORMAT
+  -f AUDIO FORMAT, --format AUDIO FORMAT
         Audio file formats (repeatable, appends to: flac)
   -m STR, --metadata STR
         Metadata fields to add to output files (repeatable)
