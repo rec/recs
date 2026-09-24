@@ -257,13 +257,16 @@ The response identifies the active workspace and its settings file:
   "type": "project_switched",
   "project_name": "x18-show",
   "created": false,
-  "settings_path": "/home/me/.config/recs/project-settings/x18-show.json"
+  "settings_path": "/home/me/.config/recs/daemon-project-settings/x18-show.json"
 }
 ```
 
 For the default workspace, `project_name` is `null` and `settings_path` is the
-global `settings.json`. Project switching requires saved settings to be enabled.
-The recorder also updates its instance descriptor and writes a
+daemon's global `daemon-settings.json`. Foreground user settings remain in
+`settings.json`, and user project settings remain in `project-settings/`; the
+daemon has independent `daemon-project-settings/` and `daemon-projects/`
+workspaces. Project switching requires saved settings to be enabled. The
+recorder also updates its instance descriptor and writes a
 `project_switched` event to the session record.
 
 ### Status

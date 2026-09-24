@@ -22,6 +22,34 @@ def test_settings_are_enabled_for_daemon(monkeypatch: pytest.MonkeyPatch) -> Non
     assert Cfg().save_settings
 
 
+def test_user_and_daemon_settings_are_separate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('HOME', str(tmp_path))
+    user_cfg = Cfg(save_settings=True).set_attr('recording.noise_floor', 42)
+    daemon_cfg = Cfg(save_settings=True).set_attr('recording.noise_floor', 43)
+
+    settings.save(user_cfg, {}, {}, daemon=False)
+    settings.save(daemon_cfg, {}, {}, daemon=True)
+
+    assert settings.settings_path(daemon=False) == (
+        tmp_path / '.config/recs/settings.json'
+    )
+    assert settings.settings_path(daemon=True) == (
+        tmp_path / '.config/recs/daemon-settings.json'
+    )
+    user_loaded = settings.load(Cfg(save_settings=True), daemon=False)
+    daemon_loaded = settings.load(Cfg(save_settings=True), daemon=True)
+    assert user_loaded.cfg.recording.noise_floor == 42
+    assert daemon_loaded.cfg.recording.noise_floor == 43
+    assert settings.project_settings_path('show', daemon=False) == (
+        tmp_path / '.config/recs/project-settings/show.json'
+    )
+    assert settings.project_settings_path('show', daemon=True) == (
+        tmp_path / '.config/recs/daemon-project-settings/show.json'
+    )
+
+
 def test_saved_settings_round_trip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

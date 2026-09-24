@@ -186,8 +186,12 @@ def project_path(name: str) -> Path:
 def projects_directory() -> Path:
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
-        return appdata / 'recs/projects'
-    return Path.home() / '.config/recs/projects'
+        return appdata / 'recs' / _projects_directory_name()
+    return Path.home() / '.config/recs' / _projects_directory_name()
+
+
+def _projects_directory_name() -> str:
+    return 'daemon-projects' if os.environ.get('RECS_DAEMON') == '1' else 'projects'
 
 
 COMMANDS: dict[str, Callable[..., ProjectCommand]] = {
