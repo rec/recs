@@ -353,19 +353,32 @@ def _track_reports(
     reports: dict[tuple[str, str | None, tuple[int, ...], str | None], TrackReport] = {}
     for file in files:
         audio = file if isinstance(file, session_record.AudioFileRecord) else None
-        midi_port = file.source if file.media_type == 'midi' else None
+        if audio is not None:
+            try:
+                source, track_name = session_record.audio_stream_parts(audio.stream_id)
+            except ValueError:
+                source, track_name = audio.source, audio.track_name
+            source = audio.source or source
+            track_name = audio.track_name or track_name
+            media_type = 'audio'
+            midi_port = None
+        else:
+            source = file.source
+            track_name = None
+            media_type = file.media_type
+            midi_port = file.source if file.media_type == 'midi' else None
         key = (
-            file.media_type,
-            file.source,
+            media_type,
+            source,
             tuple(audio.source_channels or []) if audio else (),
             midi_port,
         )
         current = reports.get(
             key,
             TrackReport(
-                media_type=file.media_type,
-                source=file.source,
-                track_name=audio.track_name if audio else None,
+                media_type=media_type,
+                source=source,
+                track_name=track_name,
                 source_channels=audio.source_channels if audio else None,
                 midi_port=midi_port,
             ),

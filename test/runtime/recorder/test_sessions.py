@@ -205,30 +205,18 @@ def test_live_input_record_names_source(
     assert records[1:3] == [
         {
             'type': 'file_started',
-            'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
             'clock_id': 'clock-1f0ebc6982b6c2d2',
-            'source': 'Mic',
-            'format': 'wav',
             'path': 'audio/mic.wav',
-            'track_name': '1',
             'source_channels': [1],
-            'channels': 1,
-            'sample_rate': 48_000,
             'bit_depth': 64,
         },
         {
             'type': 'file_finished',
-            'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
             'clock_id': 'clock-1f0ebc6982b6c2d2',
-            'source': 'Mic',
-            'format': 'wav',
             'path': 'audio/mic.wav',
-            'track_name': '1',
             'source_channels': [1],
-            'channels': 1,
-            'sample_rate': 48_000,
             'bit_depth': 64,
         },
     ]
@@ -337,17 +325,11 @@ def test_record_records_source_frame_counts(
     assert records[1:4] == [
         {
             'type': 'file_started',
-            'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
             'clock_id': 'clock-1f0ebc6982b6c2d2',
-            'source': 'Mic',
-            'format': 'wav',
             'frame_count': 256,
             'path': 'audio/mic.wav',
-            'track_name': '1',
             'source_channels': [1],
-            'channels': 1,
-            'sample_rate': 48_000,
             'bit_depth': 64,
         },
         {
@@ -358,20 +340,13 @@ def test_record_records_source_frame_counts(
         },
         {
             'type': 'file_finished',
-            'media_type': 'audio',
             'stream_id': 'audio:Mic:1',
             'clock_id': 'clock-1f0ebc6982b6c2d2',
-            'source': 'Mic',
-            'format': 'wav',
             'frame_count': 768,
             'path': 'audio/mic.wav',
-            'track_name': '1',
             'source_channels': [1],
-            'channels': 1,
-            'sample_rate': 48_000,
             'bit_depth': 64,
             'quantity_count': 512,
-            'audio_spans': [{'asset_start': 0, 'start': 256, 'count': 512}],
         },
     ]
 
@@ -930,6 +905,9 @@ def test_record_records_source_and_track_lifecycle_events(
             'type': 'source_online',
             'source': 'Mic',
             'start_frame': 0,
+            'channel_count': 1,
+            'sample_rate': 48000,
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
         },
         {
             'timestamp': '1970-01-01T00:01:44.000Z',
@@ -958,6 +936,9 @@ def test_record_records_source_and_track_lifecycle_events(
             'type': 'source_online',
             'source': 'Mic',
             'start_frame': 288000,
+            'channel_count': 1,
+            'sample_rate': 48000,
+            'clock_id': 'clock-1f0ebc6982b6c2d2',
         },
     ]
 

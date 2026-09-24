@@ -94,7 +94,7 @@ class RecordingSession:
                     'quantity_count': sum(s.count for s in spans)
                     if spans is not None
                     else None,
-                    'audio_spans': spans,
+                    'audio_spans': _non_contiguous_spans(file, spans),
                 }
             )
         )
@@ -136,24 +136,18 @@ class RecordingSession:
         self.file_spans.update(spans)
 
     def record_file_started(self, file: SourceFile, source: str | None) -> None:
-        stream_channels = '-'.join(str(c) for c in file.source_channels)
         entry = session_record.AudioFileRecord(
             type='file_started',
-            media_type='audio',
             clock_id=capture_clock_id(file.capture_id or file.source_name),
             timestamp=session_record.timestamp_to_json(
                 recording_paths.timestamp_or_now(file.start_timestamp)
             ),
-            stream_id=f'audio:{file.source_name}:{stream_channels}'
-            + (f':{file.capture_id}' if file.capture_id else ''),
-            format=file.path.suffix.removeprefix('.').lower(),
+            stream_id=session_record.audio_stream_id(
+                file.source_name, file.track_name, file.capture_id
+            ),
             frame_count=file.start_frame,
             path=file.path.as_posix(),
-            source=source or file.source_name,
-            track_name=file.track_name,
             source_channels=file.source_channels,
-            channels=file.channels,
-            sample_rate=file.sample_rate,
             bit_depth=file.bit_depth,
         )
         self.files[file.path] = entry
@@ -222,4 +216,16 @@ class RecordingSession:
                     }
                 )
             self.record_writer.write(entry)
-            self.record_errors.extend(self.record_writer.take_errors())
+
+
+def _non_contiguous_spans(
+    file: session_record.AudioFileRecord, spans: list[AudioSpan] | None
+) -> list[AudioSpan] | None:
+    spans = [span for span in spans or [] if span.count]
+    if (
+        len(spans) == 1
+        and spans[0].asset_start == 0
+        and spans[0].start == file.frame_count
+    ):
+        return None
+    return spans or None

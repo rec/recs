@@ -25,7 +25,7 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
 
                     Frame bounds are half-open on one capture clock. No resampling or alignment between independent
                     clocks is inferred. Output is 32-bit float WAV plus JSON.
-    - recover       Preview recovery of a stopped version 4 capture; --destination creates a copy.
+    - recover       Preview recovery of a stopped version 5 capture; --destination creates a copy.
 
                     Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
                     not aligned tracks. No original files are changed.
@@ -193,7 +193,7 @@ Frame positions are source-local, half-open ranges, not cross-device alignment. 
 $ recs session recover --help
 usage: recs session recover [-h] PATH [--destination {None}|PATH] [--json | --no-json]
 
-Preview recovery of a stopped version 4 capture; --destination creates a copy.
+Preview recovery of a stopped version 5 capture; --destination creates a copy.
 
 Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets, not aligned tracks. No original files are changed.
 
