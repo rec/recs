@@ -64,6 +64,7 @@ def load(
     tracks: dict[str, list[TrackSettings]] | None = None,
     musicians: dict[str, Musician] | None = None,
     channel_musicians: dict[str, SourceMusician] | None = None,
+    daemon: bool | None = None,
 ) -> LoadedSettings:
     track_names = track_names or {}
     tracks = tracks or {}
@@ -79,7 +80,7 @@ def load(
             project_name=project_name,
         )
     overrides = overrides or set()
-    path = mutable_settings_path(project_name)
+    path = _mutable_settings_path(project_name, daemon)
     if not path.exists():
         return LoadedSettings(
             cfg=cfg,
@@ -119,6 +120,7 @@ def save(
     project_name: str | None = None,
     musicians: dict[str, Musician] | None = None,
     channel_musicians: dict[str, SourceMusician] | None = None,
+    daemon: bool | None = None,
 ) -> None:
     attributes = {
         address: cfg.get_attr(address, authored=True)
@@ -131,27 +133,39 @@ def save(
         musicians=musicians or {},
         channel_musicians=channel_musicians or {},
     )
-    path = mutable_settings_path(project_name)
+    path = _mutable_settings_path(project_name, daemon)
     try:
         settings.write_json_model(path, saved_settings, indent=2)
     except OSError as e:
         raise RecsError(f'Could not save settings to {path}: {e}') from None
 
 
-def mutable_settings_path(project_name: str | None = None) -> Path:
+def mutable_settings_path(
+    project_name: str | None = None, *, daemon: bool | None = None
+) -> Path:
     if project_name is not None:
-        return project_settings_path(project_name)
-    return settings_path()
+        if daemon is None:
+            return project_settings_path(project_name)
+        return project_settings_path(project_name, daemon=daemon)
+    if daemon is None:
+        return settings_path()
+    return settings_path(daemon=daemon)
 
 
-def settings_path() -> Path:
+def _mutable_settings_path(project_name: str | None, daemon: bool | None) -> Path:
+    if daemon is None:
+        return mutable_settings_path(project_name)
+    return mutable_settings_path(project_name, daemon=daemon)
+
+
+def settings_path(*, daemon: bool | None = None) -> Path:
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
-        return appdata / 'recs/settings.json'
-    return Path.home() / '.config/recs/settings.json'
+        return appdata / 'recs' / _settings_filename(daemon)
+    return Path.home() / '.config/recs' / _settings_filename(daemon)
 
 
-def project_settings_path(project_name: str) -> Path:
+def project_settings_path(project_name: str, *, daemon: bool | None = None) -> Path:
     if (
         not project_name
         or project_name in {'.', '..', '-default-'}
@@ -160,5 +174,33 @@ def project_settings_path(project_name: str) -> Path:
         raise RecsError(f'Invalid recording project name: {project_name!r}')
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))
-        return appdata / f'recs/project-settings/{project_name}.json'
-    return Path.home() / f'.config/recs/project-settings/{project_name}.json'
+        return (
+            appdata
+            / 'recs'
+            / _project_settings_directory(daemon)
+            / f'{project_name}.json'
+        )
+    return (
+        Path.home()
+        / '.config/recs'
+        / _project_settings_directory(daemon)
+        / f'{project_name}.json'
+    )
+
+
+def _settings_filename(daemon: bool | None) -> str:
+    if _daemon_settings_enabled(daemon):
+        return 'daemon-settings.json'
+    return 'settings.json'
+
+
+def _project_settings_directory(daemon: bool | None) -> str:
+    return (
+        'daemon-project-settings'
+        if _daemon_settings_enabled(daemon)
+        else 'project-settings'
+    )
+
+
+def _daemon_settings_enabled(daemon: bool | None) -> bool:
+    return os.environ.get('RECS_DAEMON') == '1' if daemon is None else daemon
