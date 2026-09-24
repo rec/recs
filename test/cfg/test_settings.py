@@ -10,10 +10,10 @@ from recs.cfg.cfg import Cfg
 from recs.musicians import Musician, SourceMusician
 
 
-def test_settings_are_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_settings_are_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv('RECS_DAEMON', raising=False)
 
-    assert not Cfg().save_settings
+    assert Cfg().save_settings
 
 
 def test_settings_are_enabled_for_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
