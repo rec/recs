@@ -1,4 +1,5 @@
 import pytest
+from reccy.entities import Musician
 
 from recs.base.errors import RecsError
 from recs.cfg import settings
@@ -7,7 +8,7 @@ from recs.cfg.device import InputDevice
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 from recs.recording.session_record import Record
 from recs.runtime import recording_track_config
 from test.conftest import DEVICES

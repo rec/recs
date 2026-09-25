@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from reccy.entities import Musician
 from reccy.protocol import rpc
 
 from recs.base.errors import RecsError
@@ -9,7 +10,7 @@ from recs.cfg import projects, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.daemon import external_ipc, gui_protocol
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 from recs.recording.session_record import MarkerPosition, read
 from recs.runtime import (
     disk_space_controller,
@@ -328,7 +329,7 @@ def test_project_switches_keep_independent_workspaces(
     ).set_attr('recording.noise_floor', 41)
     settings.save(default_cfg, {}, {})
     projects.save(
-        projects.Project(
+        projects.RecordingProject(
             name='show',
             cfg=default_cfg.set_attr('recording.noise_floor', 70),
             track_names={'Ext': {'Keys': 1}},

@@ -12,7 +12,7 @@ def test_project_round_trip_and_cli_overrides(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path)
-    project = projects.Project(
+    project = projects.RecordingProject(
         name='show',
         cfg=Cfg(include=['Mic'], formats=['flac'], output_directory='recordings'),
         track_names={'Mic': {'Voice': 1}},
@@ -38,7 +38,7 @@ def test_project_refuses_replacement_and_invalid_names(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path)
-    project = projects.Project(name='show', cfg=Cfg())
+    project = projects.RecordingProject(name='show', cfg=Cfg())
     projects.save(project)
 
     with pytest.raises(RecsError, match='already exists'):
