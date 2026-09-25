@@ -102,8 +102,8 @@ are read-only and do not prove a future write will succeed. Input streams are
 never opened; use the separate `recs test-input` only to make an actual test
 recording. `recs preflight` remains the check for an already-running daemon.
 
-A project stores a complete recording configuration together with track names
-and mono/stereo layouts in `~/.config/recs/projects/NAME.json`. Options for
+A project stores its name, recording configuration, track names, mono/stereo
+layouts, links, and HTML templates in `~/.config/recs/projects/NAME.json`. Options for
 `save` and `use` follow `--`:
 
 ```console
