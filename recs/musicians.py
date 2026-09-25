@@ -3,15 +3,11 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ufor.base import Identifier
 
+from recs.entities import Entity
 
-class Musician(BaseModel):
-    nickname: Identifier
-    names: list[str] = Field(default_factory=list)
-    copyright_name: str | None = None
-    public_keys: list[str] = Field(default_factory=list)
-    links: list[str] = Field(default_factory=list)
 
-    model_config = ConfigDict(frozen=True)
+class Musician(Entity):
+    pass
 
 
 class SourceMusician(BaseModel):

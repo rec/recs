@@ -134,8 +134,8 @@ class ProjectSwitch(ControlCommand):
 
 class MusicianAdd(ControlCommand):
     rpc_command = 'add_musician'
-    nickname: Annotated[str, tyro.conf.Positional]
-    names: Annotated[list[str], tyro.conf.arg(name='name')] = Field(
+    name: Annotated[str, tyro.conf.Positional]
+    other_names: Annotated[list[str], tyro.conf.arg(name='other-name')] = Field(
         default_factory=list
     )
     public_keys: Annotated[list[str], tyro.conf.arg(name='public-key')] = Field(
@@ -152,23 +152,23 @@ class MusicianList(ControlCommand):
 
 class MusicianEdit(ControlCommand):
     rpc_command = 'edit_musician'
-    nickname: Annotated[str, tyro.conf.Positional]
-    names: Annotated[list[str] | None, tyro.conf.arg(name='name')] = None
+    name: Annotated[str, tyro.conf.Positional]
+    other_names: Annotated[list[str] | None, tyro.conf.arg(name='other-name')] = None
     public_keys: Annotated[list[str] | None, tyro.conf.arg(name='public-key')] = None
     links: Annotated[list[str] | None, tyro.conf.arg(name='link')] = None
-    clear_names: bool = False
+    clear_other_names: bool = False
     clear_public_keys: bool = False
     clear_links: bool = False
 
 
 class MusicianDelete(ControlCommand):
     rpc_command = 'delete_musician'
-    nickname: Annotated[str, tyro.conf.Positional]
+    name: Annotated[str, tyro.conf.Positional]
 
 
 class MusicianAssign(ControlCommand):
     rpc_command = 'assign_musician'
-    nickname: Annotated[str, tyro.conf.Positional]
+    name: Annotated[str, tyro.conf.Positional]
     source: Annotated[str, tyro.conf.Positional]
     channels: Annotated[list[int], tyro.conf.Positional]
     track_name: str | bool = True
@@ -176,7 +176,7 @@ class MusicianAssign(ControlCommand):
 
 class MusicianRemove(ControlCommand):
     rpc_command = 'remove_musician'
-    nickname: Annotated[str, tyro.conf.Positional]
+    name: Annotated[str, tyro.conf.Positional]
     source: str | None = None
     channels: Annotated[list[int], tyro.conf.arg(name='channel')] = Field(
         default_factory=list
@@ -221,8 +221,8 @@ def main(argv: list[str]) -> int:
     if isinstance(command, MusicianAdd):
         params = {
             'musician': {
-                'nickname': command.nickname,
-                'names': command.names,
+                'name': command.name,
+                'other_names': command.other_names,
                 'public_keys': command.public_keys,
                 'links': command.links,
             }
