@@ -3,11 +3,12 @@ from pathlib import Path
 
 import pytest
 from reccy.configuration import units
+from reccy.entities import Musician
 
 from recs.base.errors import RecsError
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 
 
 def test_settings_are_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:

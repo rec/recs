@@ -1,12 +1,14 @@
 from typing import TYPE_CHECKING
 
+from reccy.entities import Musician
+
 from recs.base import times
 from recs.base.errors import RecsError
 from recs.cfg import settings
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, validate_track_names
 from recs.daemon import gui_protocol
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 
 from ..recording.session_record import EventRecord, WarningRecord, timestamp_to_json
 from .source_process import SourceProcess

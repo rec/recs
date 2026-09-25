@@ -84,7 +84,7 @@ def test_readiness_uses_project_overlay_and_explicit_overrides(
     cfg = Cfg(
         include=['Flower'], save_settings=True, output_directory=str(tmp_path / 'audio')
     )
-    projects.save(projects.Project(name='show', cfg=cfg))
+    projects.save(projects.RecordingProject(name='show', cfg=cfg))
     settings.save(
         cfg.set_attr('recording.noise_floor', 42),
         {'Flower 8': {'Room': 1}},

@@ -1,11 +1,12 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
+from reccy.entities import Musician
 from reccy.protocol import ipc
 
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 
 from .instances import InstanceIdentity
 

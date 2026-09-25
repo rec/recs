@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import cast
 
 from pydantic import BaseModel
+from reccy.entities import Musician
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg import settings
@@ -11,7 +12,7 @@ from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.daemon import gui_protocol
 from recs.daemon.instances import InstanceIdentity
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 
 from ..recording import recording_session
 from ..recording.session_record import Record

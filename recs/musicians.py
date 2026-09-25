@@ -3,12 +3,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ufor.base import Identifier
 
-from recs.entities import Entity
-
-
-class Musician(Entity):
-    pass
-
 
 class SourceMusician(BaseModel):
     musician: Identifier
