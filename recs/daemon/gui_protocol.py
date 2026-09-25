@@ -170,23 +170,23 @@ class ListMusicians(BaseModel):
 
 class EditMusician(BaseModel):
     type: Literal['edit_musician']
-    nickname: str
-    names: list[str] | None = None
+    name: str
+    other_names: list[str] | None = None
     public_keys: list[str] | None = None
     links: list[str] | None = None
-    clear_names: bool = False
+    clear_other_names: bool = False
     clear_public_keys: bool = False
     clear_links: bool = False
 
 
 class DeleteMusician(BaseModel):
     type: Literal['delete_musician']
-    nickname: str
+    name: str
 
 
 class AssignMusician(BaseModel):
     type: Literal['assign_musician']
-    nickname: str
+    name: str
     source: str
     channels: list[int]
     track_name: str | bool = True
@@ -194,7 +194,7 @@ class AssignMusician(BaseModel):
 
 class RemoveMusician(BaseModel):
     type: Literal['remove_musician']
-    nickname: str
+    name: str
     source: str | None = None
     channels: list[int] = Field(default_factory=list)
 
@@ -361,7 +361,7 @@ class Musicians(BaseModel):
 
 class MusicianRemoved(BaseModel):
     type: Literal['musician_removed']
-    nickname: str
+    name: str
 
 
 class MusicianAssignment(BaseModel):
