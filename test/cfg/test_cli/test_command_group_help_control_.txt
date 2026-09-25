@@ -159,12 +159,12 @@ usage: recs control musician-add [-h] [MUSICIAN-ADD OPTIONS] STR
 
  positional arguments
  ---------------------------------------------
-  STR         nickname (required)
+  STR         name (required)
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
-  --name [STR [STR ...]]
+  --other-name [STR [STR ...]]
               (default: )
   --public-key [STR [STR ...]]
               (default: )
@@ -177,7 +177,7 @@ usage: recs control musician-assign [-h] STR STR [[INT [INT ...]]] [--track-name
 
  positional arguments
  ---------------------------------------------
-  STR         nickname (required)
+  STR         name (required)
   STR         source (required)
   [[INT [INT ...]]]
               channels (default: )
@@ -194,7 +194,7 @@ usage: recs control musician-delete [-h] STR
 
  positional arguments
  ---------------------------------------------
-  STR         nickname (required)
+  STR         name (required)
 
  options
  ---------------------------------------------
@@ -206,18 +206,18 @@ usage: recs control musician-edit [-h] [MUSICIAN-EDIT OPTIONS] STR
 
  positional arguments
  ---------------------------------------------
-  STR         nickname (required)
+  STR         name (required)
 
  options
  ---------------------------------------------
   -h, --help  show this help message and exit
-  --name {None}|{[STR [STR ...]]}
+  --other-name {None}|{[STR [STR ...]]}
               (default: None)
   --public-key {None}|{[STR [STR ...]]}
               (default: None)
   --link {None}|{[STR [STR ...]]}
               (default: None)
-  --clear-names, --no-clear-names
+  --clear-other-names, --no-clear-other-names
               (default: False)
   --clear-public-keys, --no-clear-public-keys
               (default: False)
@@ -238,7 +238,7 @@ usage: recs control musician-remove [-h] STR [--source {None}|STR] [--channel [I
 
  positional arguments
  ---------------------------------------------
-  STR         nickname (required)
+  STR         name (required)
 
  options
  ---------------------------------------------

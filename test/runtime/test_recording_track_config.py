@@ -71,18 +71,18 @@ def test_musician_assignment_requires_one_musician_per_source() -> None:
     source = source_process(['1', '2'])
     control = FakeControl(Cfg(silent=True), source)
     mike = Musician(
-        nickname='mike',
-        names=['Michael'],
+        name='mike',
+        other_names=['Michael'],
         public_keys=['ssh-ed25519 AAA'],
         links=['insta:mike', 'mailto:mike@example.com'],
     )
-    control.musicians[mike.nickname] = mike
-    control.musicians['sara'] = Musician(nickname='sara')
+    control.musicians[mike.name] = mike
+    control.musicians['sara'] = Musician(name='sara')
 
     assigned = recording_track_config.assign_musician(
         control,
         gui_protocol.AssignMusician(
-            type='assign_musician', nickname='mike', source='Ext', channels=[1]
+            type='assign_musician', name='mike', source='Ext', channels=[1]
         ),
     )
 
@@ -92,14 +92,14 @@ def test_musician_assignment_requires_one_musician_per_source() -> None:
         recording_track_config.assign_musician(
             control,
             gui_protocol.AssignMusician(
-                type='assign_musician', nickname='sara', source='Ext', channels=[2]
+                type='assign_musician', name='sara', source='Ext', channels=[2]
             ),
         )
 
     removed = recording_track_config.remove_musician(
         control,
         gui_protocol.RemoveMusician(
-            type='remove_musician', nickname='mike', source='Ext', channels=[1]
+            type='remove_musician', name='mike', source='Ext', channels=[1]
         ),
     )
 
@@ -114,8 +114,8 @@ def test_musician_assignment_requires_one_musician_per_source() -> None:
 def test_musician_list_returns_records_by_short_name() -> None:
     control = FakeControl(Cfg(silent=True), source_process(['1']))
     control.musicians = {
-        'sara': Musician(nickname='sara'),
-        'mike': Musician(nickname='mike', links=['insta:mike']),
+        'sara': Musician(name='sara'),
+        'mike': Musician(name='mike', links=['insta:mike']),
     }
 
     response = recording_track_config.list_musicians(control)
@@ -133,24 +133,24 @@ def test_musician_edit_and_delete_update_assignments() -> None:
     source = source_process(['1'])
     control = FakeControl(Cfg(silent=True), source)
     control.musicians['mike'] = Musician(
-        nickname='mike', names=['Michael'], links=['insta:mike']
+        name='mike', other_names=['Michael'], links=['insta:mike']
     )
     control.channel_musicians['Ext'] = SourceMusician(musician='mike', channels=[1])
 
     updated = recording_track_config.edit_musician(
         control,
         gui_protocol.EditMusician(
-            type='edit_musician', nickname='mike', public_keys=['ssh-ed25519 AAA']
+            type='edit_musician', name='mike', public_keys=['ssh-ed25519 AAA']
         ),
     )
     deleted = recording_track_config.delete_musician(
         control,
-        gui_protocol.DeleteMusician(type='delete_musician', nickname='mike'),
+        gui_protocol.DeleteMusician(type='delete_musician', name='mike'),
     )
 
-    assert updated.musician.names == ['Michael']
+    assert updated.musician.other_names == ['Michael']
     assert updated.musician.public_keys == ['ssh-ed25519 AAA']
-    assert deleted.nickname == 'mike'
+    assert deleted.name == 'mike'
     assert control.musicians == {}
     assert control.channel_musicians == {}
 
@@ -158,13 +158,13 @@ def test_musician_edit_and_delete_update_assignments() -> None:
 def test_musician_assignment_names_a_complete_stereo_track() -> None:
     source = source_process(['1-2'])
     control = FakeControl(Cfg(silent=True), source)
-    control.musicians['tom'] = Musician(nickname='tom')
+    control.musicians['tom'] = Musician(name='tom')
 
     recording_track_config.assign_musician(
         control,
         gui_protocol.AssignMusician(
             type='assign_musician',
-            nickname='tom',
+            name='tom',
             source='Ext',
             channels=[1, 2],
         ),
@@ -176,14 +176,14 @@ def test_musician_assignment_names_a_complete_stereo_track() -> None:
 def test_musician_assignment_can_leave_or_replace_a_track_label() -> None:
     source = source_process(['1'])
     control = FakeControl(Cfg(silent=True), source)
-    control.musicians['tom'] = Musician(nickname='tom')
+    control.musicians['tom'] = Musician(name='tom')
     control.track_names = {'Ext': {'Existing': 1}}
 
     recording_track_config.assign_musician(
         control,
         gui_protocol.AssignMusician(
             type='assign_musician',
-            nickname='tom',
+            name='tom',
             source='Ext',
             channels=[1],
             track_name=False,
@@ -196,7 +196,7 @@ def test_musician_assignment_can_leave_or_replace_a_track_label() -> None:
         control,
         gui_protocol.AssignMusician(
             type='assign_musician',
-            nickname='tom',
+            name='tom',
             source='Ext',
             channels=[1],
             track_name='guitar',

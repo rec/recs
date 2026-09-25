@@ -80,9 +80,7 @@ def test_saved_settings_preserve_musician_assignments(
     path = tmp_path / 'settings.json'
     monkeypatch.setattr(settings, 'settings_path', lambda: path)
     musicians = {
-        'mike': Musician(
-            nickname='mike', links=['insta:mike', 'mailto:mike@example.com']
-        )
+        'mike': Musician(name='mike', links=['insta:mike', 'mailto:mike@example.com'])
     }
     assignments = {'Ext': SourceMusician(musician='mike', channels=[1, 2])}
 
