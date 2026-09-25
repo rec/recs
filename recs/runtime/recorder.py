@@ -889,8 +889,8 @@ class Recorder(Runnables):
         path = projects.project_path(project_name)
         if not path.exists():
             projects.save(
-                project_name,
                 projects.Project(
+                    name=project_name,
                     cfg=control.cfg,
                     track_names=control.track_names,
                     tracks=control.saved_tracks,

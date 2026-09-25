@@ -328,8 +328,8 @@ def test_project_switches_keep_independent_workspaces(
     ).set_attr('recording.noise_floor', 41)
     settings.save(default_cfg, {}, {})
     projects.save(
-        'show',
         projects.Project(
+            name='show',
             cfg=default_cfg.set_attr('recording.noise_floor', 70),
             track_names={'Ext': {'Keys': 1}},
         ),
@@ -808,7 +808,7 @@ def test_recorder_snapshots_and_records_musician_assignments(
 ) -> None:
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    musicians = {'mike': Musician(nickname='mike', links=['insta:mike'])}
+    musicians = {'mike': Musician(name='mike', links=['insta:mike'])}
     assignments = {'Mic': SourceMusician(musician='mike', channels=[1])}
     rec = Recorder(
         Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True),
@@ -820,7 +820,7 @@ def test_recorder_snapshots_and_records_musician_assignments(
     )
     rec._start_record()
     request = FakeControlRequest(
-        gui_protocol.RemoveMusician(type='remove_musician', nickname='mike')
+        gui_protocol.RemoveMusician(type='remove_musician', name='mike')
     )
     rec.live = FakeControlDisplay([request])
 
