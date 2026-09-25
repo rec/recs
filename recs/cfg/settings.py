@@ -5,10 +5,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from reccy.configuration import settings
+from reccy.entities import Musician
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
-from recs.musicians import Musician, SourceMusician
+from recs.musicians import SourceMusician
 
 from .track_names import SourceTrackNames, validate_track_names
 

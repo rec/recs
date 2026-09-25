@@ -8,16 +8,16 @@ from typing import Annotated
 import tyro
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from reccy.configuration import settings as configuration_settings
+from reccy.entities import Project
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
-from recs.entities import Entity
 
 from . import cli, run_cli, settings
 from .track_names import SourceTrackNames
 
 
-class Project(Entity):
+class RecordingProject(Project):
     cfg: Cfg
     track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[settings.TrackSettings]] = Field(default_factory=dict)
@@ -65,7 +65,7 @@ class Delete(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
 
-def save(project: Project, *, replace: bool = False) -> Path:
+def save(project: RecordingProject, *, replace: bool = False) -> Path:
     path = project_path(project.name)
     if path.exists() and not replace:
         raise RecsError(f'Recording project already exists: {project.name}')
@@ -78,10 +78,10 @@ def save(project: Project, *, replace: bool = False) -> Path:
     return path
 
 
-def load(name: str) -> Project:
+def load(name: str) -> RecordingProject:
     path = project_path(name)
     try:
-        return Project.model_validate_json(path.read_text())
+        return RecordingProject.model_validate_json(path.read_text())
     except FileNotFoundError:
         raise RecsError(f'Unknown recording project: {name}') from None
     except (OSError, ValidationError, json.JSONDecodeError) as e:
@@ -119,7 +119,7 @@ def main(argv: list[str]) -> int:
             prog='recs project save',
         )
         path = save(
-            Project(
+            RecordingProject(
                 name=command.name,
                 cfg=cfg,
                 track_names=current.track_names,
