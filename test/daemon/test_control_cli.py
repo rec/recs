@@ -80,7 +80,7 @@ def reset_fake_client() -> Iterator[None]:
             [
                 'musician-add',
                 'mike',
-                '--other-name',
+                '--name',
                 'Michael',
                 '--public-key',
                 'ssh-ed25519 AAA',
@@ -90,8 +90,8 @@ def reset_fake_client() -> Iterator[None]:
             'add_musician',
             {
                 'musician': {
-                    'name': 'mike',
-                    'other_names': ['Michael'],
+                    'nickname': 'mike',
+                    'names': ['Michael'],
                     'public_keys': ['ssh-ed25519 AAA'],
                     'links': ['insta:mike'],
                 }
@@ -101,7 +101,7 @@ def reset_fake_client() -> Iterator[None]:
             ['musician-assign', 'mike', 'Ext', '1', '2'],
             'assign_musician',
             {
-                'name': 'mike',
+                'nickname': 'mike',
                 'source': 'Ext',
                 'channels': [1, 2],
                 'track_name': True,
@@ -110,7 +110,7 @@ def reset_fake_client() -> Iterator[None]:
         (
             ['musician-remove', 'mike', '--source', 'Ext', '--channel', '1'],
             'remove_musician',
-            {'name': 'mike', 'source': 'Ext', 'channels': [1]},
+            {'nickname': 'mike', 'source': 'Ext', 'channels': [1]},
         ),
     ],
 )
@@ -146,8 +146,8 @@ def test_musician_list_prints_toml(
         'type': 'musicians',
         'musicians': {
             'mike': {
-                'name': 'mike',
-                'other_names': ['Michael'],
+                'nickname': 'mike',
+                'names': ['Michael'],
                 'public_keys': ['ssh-ed25519 AAA'],
                 'links': ['insta:mike'],
             }
@@ -159,8 +159,8 @@ def test_musician_list_prints_toml(
     assert FakeClient.clients[0].calls == [('list_musicians', {})]
     assert capsys.readouterr().out == (
         '[musicians.mike]\n'
-        'name = "mike"\n'
-        'other_names = ["Michael"]\n'
+        'nickname = "mike"\n'
+        'names = ["Michael"]\n'
         'public_keys = ["ssh-ed25519 AAA"]\n'
         'links = ["insta:mike"]\n'
     )
