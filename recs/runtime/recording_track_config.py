@@ -104,9 +104,9 @@ def add_musician(
     control: 'RecordingControl', request: gui_protocol.AddMusician
 ) -> gui_protocol.MusicianResult:
     musician = request.musician
-    if musician.name in control.musicians:
-        raise RecsError(f'Musician already exists: {musician.name}')
-    control.musicians[musician.name] = musician
+    if musician.nickname in control.musicians:
+        raise RecsError(f'Musician already exists: {musician.nickname}')
+    control.musicians[musician.nickname] = musician
     control.write_entry(
         EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
@@ -127,13 +127,13 @@ def list_musicians(control: 'RecordingControl') -> gui_protocol.Musicians:
 def edit_musician(
     control: 'RecordingControl', request: gui_protocol.EditMusician
 ) -> gui_protocol.MusicianResult:
-    musician = control.musicians.get(request.name)
+    musician = control.musicians.get(request.nickname)
     if musician is None:
-        raise RecsError(f'Unknown musician: {request.name}')
+        raise RecsError(f'Unknown musician: {request.nickname}')
     _validate_musician_edit(request)
     values = musician.model_dump()
     for field, clear in (
-        ('other_names', request.clear_other_names),
+        ('names', request.clear_names),
         ('public_keys', request.clear_public_keys),
         ('links', request.clear_links),
     ):
@@ -143,7 +143,7 @@ def edit_musician(
         elif value is not None:
             values[field] = value
     updated = Musician.model_validate(values)
-    control.musicians[updated.name] = updated
+    control.musicians[updated.nickname] = updated
     control.write_entry(
         EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
@@ -158,13 +158,13 @@ def edit_musician(
 def delete_musician(
     control: 'RecordingControl', request: gui_protocol.DeleteMusician
 ) -> gui_protocol.MusicianRemoved:
-    if request.name not in control.musicians:
-        raise RecsError(f'Unknown musician: {request.name}')
-    del control.musicians[request.name]
+    if request.nickname not in control.musicians:
+        raise RecsError(f'Unknown musician: {request.nickname}')
+    del control.musicians[request.nickname]
     removed = [
         source
         for source, assignment in control.channel_musicians.items()
-        if assignment.musician == request.name
+        if assignment.musician == request.nickname
     ]
     for source in removed:
         del control.channel_musicians[source]
@@ -172,18 +172,20 @@ def delete_musician(
         EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
             type='musician_deleted',
-            value={'name': request.name, 'sources': removed},
+            value={'nickname': request.nickname, 'sources': removed},
         )
     )
     save_settings(control)
-    return gui_protocol.MusicianRemoved(type='musician_removed', name=request.name)
+    return gui_protocol.MusicianRemoved(
+        type='musician_removed', nickname=request.nickname
+    )
 
 
 def assign_musician(
     control: 'RecordingControl', request: gui_protocol.AssignMusician
 ) -> gui_protocol.MusicianAssignment:
-    if request.name not in control.musicians:
-        raise RecsError(f'Unknown musician: {request.name}')
+    if request.nickname not in control.musicians:
+        raise RecsError(f'Unknown musician: {request.nickname}')
     source = control.devices.hardware.get(request.source)
     if source is None:
         raise RecsError(f'Unknown input device: {request.source}')
@@ -192,12 +194,12 @@ def assign_musician(
     if request.channels[0] <= 0 or request.channels[-1] > source.source.channels:
         raise RecsError(f'Invalid channel for device {request.source}')
     previous = control.channel_musicians.get(request.source)
-    if previous is not None and previous.musician != request.name:
+    if previous is not None and previous.musician != request.nickname:
         raise RecsError(
             f'Source {request.source} is already assigned to {previous.musician}'
         )
     assignment = SourceMusician(
-        musician=request.name,
+        musician=request.nickname,
         channels=sorted(
             set(request.channels) | set(previous.channels if previous else [])
         ),
@@ -228,35 +230,37 @@ def remove_musician(
         sources = [
             source
             for source, assignment in control.channel_musicians.items()
-            if assignment.musician == request.name
+            if assignment.musician == request.nickname
         ]
         if not sources:
-            raise RecsError(f'Musician {request.name} has no channel assignments')
+            raise RecsError(f'Musician {request.nickname} has no channel assignments')
         for source in sources:
             del control.channel_musicians[source]
-            _record_musician_removal(control, request.name, source, [])
+            _record_musician_removal(control, request.nickname, source, [])
         save_settings(control)
         return gui_protocol.MusicianAssignmentRemoved(
             type='musician_assignment_removed'
         )
     assignment = control.channel_musicians.get(request.source)
-    if assignment is None or assignment.musician != request.name:
-        raise RecsError(f'Musician {request.name} is not assigned to {request.source}')
+    if assignment is None or assignment.musician != request.nickname:
+        raise RecsError(
+            f'Musician {request.nickname} is not assigned to {request.source}'
+        )
     channels = request.channels or assignment.channels
     if not set(channels) <= set(assignment.channels):
         raise RecsError(
-            f'Musician {request.name} is not assigned to all requested channels'
+            f'Musician {request.nickname} is not assigned to all requested channels'
         )
     remaining = [channel for channel in assignment.channels if channel not in channels]
     if remaining:
         control.channel_musicians[request.source] = SourceMusician(
-            musician=request.name,
+            musician=request.nickname,
             channels=remaining,
             track_name=assignment.track_name,
         )
     else:
         del control.channel_musicians[request.source]
-    _record_musician_removal(control, request.name, request.source, channels)
+    _record_musician_removal(control, request.nickname, request.source, channels)
     save_settings(control)
     return gui_protocol.MusicianAssignmentRemoved(
         type='musician_assignment_removed', source=request.source, channels=channels
@@ -454,7 +458,7 @@ def save_settings(control: 'RecordingControl') -> None:
 
 def _validate_musician_edit(request: gui_protocol.EditMusician) -> None:
     for field, clear in (
-        ('other_names', request.clear_other_names),
+        ('names', request.clear_names),
         ('public_keys', request.clear_public_keys),
         ('links', request.clear_links),
     ):
@@ -463,14 +467,14 @@ def _validate_musician_edit(request: gui_protocol.EditMusician) -> None:
 
 
 def _record_musician_removal(
-    control: 'RecordingControl', name: str, source: str, channels: list[int]
+    control: 'RecordingControl', nickname: str, source: str, channels: list[int]
 ) -> None:
     control.write_entry(
         EventRecord(
             timestamp=timestamp_to_json(times.timestamp()),
             type='musician_removed_from_channels',
             source=source,
-            value={'name': name, 'channels': channels},
+            value={'nickname': nickname, 'channels': channels},
         )
     )
 
