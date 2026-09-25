@@ -28,11 +28,9 @@ class Settings(BaseModel):
 
     @model_validator(mode='after')
     def musician_references(self) -> 'Settings':
-        for nickname, musician in self.musicians.items():
-            if nickname != musician.nickname:
-                raise ValueError(
-                    f'Musician key does not match record nickname: {nickname}'
-                )
+        for name, musician in self.musicians.items():
+            if name != musician.name:
+                raise ValueError(f'Musician key does not match record name: {name}')
         for source, assignment in self.channel_musicians.items():
             if assignment.musician not in self.musicians:
                 raise ValueError(

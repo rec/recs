@@ -11,17 +11,18 @@ from reccy.configuration import settings as configuration_settings
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
+from recs.entities import Entity
 
 from . import cli, run_cli, settings
 from .track_names import SourceTrackNames
 
 
-class Project(BaseModel, frozen=True):
+class Project(Entity):
     cfg: Cfg
     track_names: SourceTrackNames = Field(default_factory=dict)
     tracks: dict[str, list[settings.TrackSettings]] = Field(default_factory=dict)
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', frozen=True)
 
 
 class ProjectCommand(BaseModel, frozen=True):
@@ -64,14 +65,16 @@ class Delete(ProjectCommand):
     name: Annotated[str, tyro.conf.Positional]
 
 
-def save(name: str, project: Project, *, replace: bool = False) -> Path:
-    path = project_path(name)
+def save(project: Project, *, replace: bool = False) -> Path:
+    path = project_path(project.name)
     if path.exists() and not replace:
-        raise RecsError(f'Recording project already exists: {name}')
+        raise RecsError(f'Recording project already exists: {project.name}')
     try:
         configuration_settings.write_json_model(path, project, indent=2)
     except OSError as e:
-        raise RecsError(f'Could not save recording project {name}: {e}') from None
+        raise RecsError(
+            f'Could not save recording project {project.name}: {e}'
+        ) from None
     return path
 
 
@@ -116,8 +119,8 @@ def main(argv: list[str]) -> int:
             prog='recs project save',
         )
         path = save(
-            command.name,
             Project(
+                name=command.name,
                 cfg=cfg,
                 track_names=current.track_names,
                 tracks=current.tracks,
