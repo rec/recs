@@ -5,11 +5,11 @@ from pathlib import Path
 from time import monotonic_ns
 from typing import Protocol
 
+from reccy.paths import legal_filename
 from ufor.events import MidiEvent
 from ufor.time import ClockObservation, Position, Rate, Timebase
 
 from recs.base.types import MidiTiming
-from recs.misc import legal_filename
 from recs.recording.events import EventWriter
 from recs.recording.session_record import ClockRecord
 
@@ -99,7 +99,7 @@ class MidiWriter(EventWriter):
 
 
 def _next_path(session_directory: Path, port_name: str, started_at: float) -> Path:
-    stem = legal_filename.legal_filename(port_name)
+    stem = legal_filename(port_name)
     stamp = datetime.fromtimestamp(started_at).strftime('%Y%m%d-%H%M%S')
     path = session_directory / f'{stem}-{stamp}.jsonl'
     index = 2

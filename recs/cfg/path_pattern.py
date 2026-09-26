@@ -4,9 +4,10 @@ from datetime import datetime
 from enum import IntEnum, auto
 from pathlib import Path
 
+from reccy.paths import legal_path
+
 from recs.base.errors import RecsError
 from recs.cfg import aliases, track
-from recs.misc import legal_filename
 
 STRFTIME_FIELDS = re.compile('%.')
 
@@ -87,7 +88,7 @@ class PathPattern:
         if path := getattr(track.source, 'path', None):
             # It's a file!
             return self._with_media_directory(
-                legal_filename.legal_path(Path(self.raw_path) / f'{path.stem}-{index}'),
+                legal_path(Path(self.raw_path) / f'{path.stem}-{index}'),
                 timestamp,
             )
 
@@ -100,7 +101,7 @@ class PathPattern:
             track=aliases.display_name(track, short=False),
             **self.times(ts),
         )
-        return self._with_media_directory(legal_filename.legal_path(Path(p)), timestamp)
+        return self._with_media_directory(legal_path(Path(p)), timestamp)
 
     def make_track_name_path(
         self,
@@ -120,9 +121,9 @@ class PathPattern:
         )
         name = f'{track_name} + {ts.strftime("%Y%m%d-%H%M%S")}'
         if directory:
-            path = legal_filename.legal_path(Path(directory) / name)
+            path = legal_path(Path(directory) / name)
         else:
-            path = legal_filename.legal_path(Path(name))
+            path = legal_path(Path(name))
         return self._with_media_directory(path, timestamp)
 
     def _with_media_directory(self, path: Path, timestamp: float) -> Path:
@@ -138,12 +139,10 @@ class PathPattern:
     def _media_root(self, timestamp: float) -> Path:
         ts = datetime.fromtimestamp(timestamp)
         try:
-            return legal_filename.legal_path(
-                Path(ts.strftime(self.raw_path).format(**path_times(ts)))
-            )
+            return legal_path(Path(ts.strftime(self.raw_path).format(**path_times(ts))))
         except KeyError:
             prefix = self.raw_path.split('{', 1)[0].rstrip('/\\')
-            return legal_filename.legal_path(Path(prefix or '.'))
+            return legal_path(Path(prefix or '.'))
 
 
 DATE = {Req.year, Req.month, Req.day}
