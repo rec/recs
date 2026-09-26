@@ -7,11 +7,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from reccy.paths import legal_filename, legal_path
+
 from recs.base import times
 from recs.cfg import path_pattern
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_ipc
-from recs.misc import legal_filename
 
 DEFAULT_PROJECT_DIRECTORY = '-default-'
 
@@ -42,7 +43,7 @@ def with_default_output_directory(cfg: Cfg, timestamp: float) -> Cfg:
 def daemon_record_directory(cfg: Cfg) -> Path | None:
     if not gui_ipc.daemon_mode_enabled():
         return None
-    path = legal_filename.legal_path(Path(cfg.general.default_record_directory))
+    path = legal_path(Path(cfg.general.default_record_directory))
     if path.is_absolute():
         return path
     return record_disk() / path
@@ -166,9 +167,7 @@ def available_directory(path: Path) -> Path:
 
 
 def session_directory_name(timestamp: float) -> str:
-    return legal_filename.legal_filename(
-        datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
-    )
+    return legal_filename(datetime.fromtimestamp(timestamp).strftime('%H:%M:%S'))
 
 
 def session_day_directory(timestamp: float) -> Path:
@@ -178,12 +177,12 @@ def session_day_directory(timestamp: float) -> Path:
 def formatted_output_directory(output_directory: str, timestamp: float) -> Path:
     ts = datetime.fromtimestamp(timestamp)
     try:
-        return legal_filename.legal_path(
+        return legal_path(
             Path(ts.strftime(output_directory).format(**path_pattern.path_times(ts)))
         )
     except KeyError:
         prefix = output_directory.split('{', 1)[0].rstrip('/\\')
-        return legal_filename.legal_path(Path(prefix or '.'))
+        return legal_path(Path(prefix or '.'))
 
 
 def recovery_root(output_directory: str) -> Path:
@@ -194,7 +193,7 @@ def recovery_root(output_directory: str) -> Path:
     ]
     end = min(positions, default=len(output_directory))
     root = output_directory[:end].rstrip('/\\')
-    return legal_filename.legal_path(Path(root or '.'))
+    return legal_path(Path(root or '.'))
 
 
 def existing_parent(path: Path) -> Path:
