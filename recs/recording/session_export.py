@@ -7,10 +7,10 @@ from typing import Annotated
 import tomlkit
 import tyro
 from pydantic import BaseModel, Field
+from reccy.paths import legal_filename
 from ufor.codec import score_toml
 
 from ..base.errors import RecsError
-from ..misc.legal_filename import legal_filename
 from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording_chain
 from .recording_paths import write_text_atomically
