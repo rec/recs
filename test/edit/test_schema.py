@@ -112,7 +112,9 @@ destination = "master"
 name = "gain"
 unit = "ratio"
 interpolation = "linear"
-knots = [{ tick = 0, value = 0.0 }, { tick = 48000, value = 0.5 }]
+at = 0
+initial = 0.0
+segments = [{ duration = 48000, to = 0.5 }]
 
 [[destinations]]
 output = "mix"
@@ -186,11 +188,9 @@ help = "Create a 24-bit extract"
     assert recipe.command.help == 'Create a 24-bit extract'
 
 
-def test_intervals_and_automation_points_are_ordered() -> None:
+def test_intervals_are_ordered() -> None:
     with pytest.raises(ValidationError, match='source_end'):
         parse_edit(COMPLETE_EDIT.replace('source_end = 48000', 'source_end = 0'))
-    with pytest.raises(ValidationError, match='strictly increasing'):
-        parse_edit(COMPLETE_EDIT.replace('tick = 48000', 'tick = 0'))
 
 
 def test_edit_models_are_frozen() -> None:
