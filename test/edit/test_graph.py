@@ -167,7 +167,8 @@ name = "clip"
 [[body.parts.score.body.curves]]
 name = "gain"
 unit = "ratio"
-knots = [{ tick = 0, value = 1.0 }]
+at = 0
+initial = 1.0
 
 [[destinations]]
 output = "output"

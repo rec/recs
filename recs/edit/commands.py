@@ -20,7 +20,6 @@ from ufor.automation import (
     Automation,
     AutomationScore,
     Interpolation,
-    Knot,
     Quantity,
     TimelineCurve,
 )
@@ -37,6 +36,7 @@ from ufor.interface import (
 from ufor.modulation import Unit
 from ufor.recording import AudioStream, RecordingScore
 from ufor.references import RecordSelector
+from ufor.segments import Segment
 from ufor.streams import AudioType, FileDestination
 from ufor.time import Rate, Timebase
 
@@ -651,7 +651,9 @@ def _crossfade_automation(
                     name='gain',
                     unit=Unit.ratio,
                     interpolation=Interpolation.equal_power,
-                    knots=[Knot(tick=0, value=start), Knot(tick=duration, value=end)],
+                    at=0,
+                    initial=start,
+                    segments=[Segment(duration=duration, to=end)],
                 )
             ],
         ),

@@ -135,7 +135,7 @@ def test_mix_generates_route_gains_and_crossfade(tmp_path: Path) -> None:
         p.score for p in edit.body.parts if isinstance(p.score, AutomationScore)
     ]
     assert len(automation) == 2
-    assert automation[0].body.curves[0].knots[-1].tick == 12_000
+    assert automation[0].body.curves[0].segments[0].duration == 12_000
     assert parse_score(score_toml(edit)) == edit
 
 

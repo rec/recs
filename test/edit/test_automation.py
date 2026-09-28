@@ -10,7 +10,6 @@ from ufor.automation import (
     Automation,
     AutomationScore,
     Interpolation,
-    Knot,
     Quantity,
     TimelineCurve,
     evaluate,
@@ -18,6 +17,7 @@ from ufor.automation import (
 from ufor.control import Scope
 from ufor.interface import ControlBinding, ControlType, Output, OutputSelection
 from ufor.modulation import Operation, Unit
+from ufor.segments import Segment
 from ufor.time import Rate, Timebase
 
 from recs.edit.automation import gain_values
@@ -56,7 +56,8 @@ def test_gain_blocks_match_scalar_reference(
                 unit=Unit.ratio,
                 operation=operation,
                 interpolation=Interpolation.hold,
-                knots=[Knot(tick=tick, value=value)],
+                at=tick,
+                initial=value,
             )
             for name, operation, tick, value in [
                 ('a', Operation.add, 8_000, 1e16),
@@ -97,7 +98,8 @@ def test_combined_gain_rejects_negative_result() -> None:
         name='offset',
         unit=Unit.ratio,
         operation=Operation.add,
-        knots=[Knot(tick=0, value=-1.0)],
+        at=0,
+        initial=-1.0,
     )
     score = score.model_copy(
         update={'body': score.body.model_copy(update={'curves': [curve]})}
@@ -167,7 +169,9 @@ def _automation(
                         name='gain',
                         unit=Unit.ratio,
                         interpolation=interpolation,
-                        knots=[Knot(tick=start, value=0.0), Knot(tick=end, value=1.0)],
+                        at=start,
+                        initial=0.0,
+                        segments=[Segment(duration=end - start, to=1.0)],
                     )
                 ],
             ),
