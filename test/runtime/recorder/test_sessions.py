@@ -811,6 +811,40 @@ def test_session_directory_is_claimed_if_created_after_recorder_initialization(
     assert (rec.session_directory / 'session-record.jsonl').exists()
 
 
+def test_recovery_tracks_the_journal_path_that_was_opened(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(
+        session_record,
+        '_available_path',
+        lambda path: path.with_stem('session-record-1'),
+    )
+    registered: list[Path] = []
+    cleared: list[Path] = []
+    monkeypatch.setattr(
+        recorder.recovery_report,
+        'register_unfinished_session',
+        lambda root, path: registered.append(path),
+    )
+    monkeypatch.setattr(
+        recorder.recovery_report,
+        'clear_finished_session',
+        cleared.append,
+    )
+    rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
+
+    rec._start_record()
+    assert rec.session.record_writer is not None
+    path = rec.session.record_writer.path
+    rec._finish_record()
+
+    assert path.name == 'session-record-1.jsonl'
+    assert registered == [path]
+    assert cleared == [path]
+
+
 def test_daemon_default_output_directory_uses_largest_external_disk(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
