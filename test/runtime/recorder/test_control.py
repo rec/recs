@@ -315,9 +315,7 @@ def test_project_switches_keep_independent_workspaces(
     monkeypatch.setattr(
         recorder.instances, 'claim_settings', lambda path, identity: None
     )
-    monkeypatch.setattr(
-        recorder.instances, 'release_settings', lambda path, identity: None
-    )
+    monkeypatch.setattr(recorder.instances, 'release_settings', lambda claim: None)
     monkeypatch.setattr(recorder.instances, 'publish', lambda descriptor: None)
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
@@ -510,9 +508,7 @@ def _switchable_recorder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Rec
     monkeypatch.setattr(
         recorder.instances, 'claim_settings', lambda path, identity: None
     )
-    monkeypatch.setattr(
-        recorder.instances, 'release_settings', lambda path, identity: None
-    )
+    monkeypatch.setattr(recorder.instances, 'release_settings', lambda claim: None)
     monkeypatch.setattr(recorder.instances, 'publish', lambda descriptor: None)
     cfg = Cfg(
         include=['Mic'],

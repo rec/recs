@@ -1,6 +1,7 @@
 import copy
 import json
 from datetime import datetime, timedelta
+from hashlib import sha256
 from multiprocessing import connection, dummy
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def mock_midi_devices(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    home = Path('/tmp') / f'recs-{tmp_path.name[-8:]}'
+    home = Path('/tmp') / f'recs-{sha256(str(tmp_path).encode()).hexdigest()[:12]}'
     home.mkdir(exist_ok=True)
     monkeypatch.setenv('HOME', str(home))
 

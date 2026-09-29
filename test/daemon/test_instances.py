@@ -1,5 +1,9 @@
+import multiprocessing
+import os
+from multiprocessing.connection import Connection
 from pathlib import Path
 
+import pytest
 from reccy.services import models
 
 from recs.daemon import instances
@@ -198,7 +202,6 @@ def test_list_instances_reports_project_name(monkeypatch) -> None:
 
 def test_settings_claim_excludes_another_live_instance(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
     first = instances.InstanceIdentity(
         pid=100,
@@ -207,22 +210,75 @@ def test_settings_claim_excludes_another_live_instance(
         role='local',
     )
     second = first.model_copy(update={'pid': 200, 'start_token': 'second'})
-    monkeypatch.setattr(instances, '_process_exists', lambda pid: True)
+    first_claim = instances.claim_settings(
+        '/tmp/second-interface.json', first, tmp_path
+    )
 
-    instances.claim_settings('/tmp/second-interface.json', first, tmp_path)
-
-    try:
+    with pytest.raises(ValueError, match='Recs PID 100 is already saving'):
         instances.claim_settings('/tmp/second-interface.json', second, tmp_path)
-    except ValueError as error:
-        assert str(error) == 'Recs PID 100 is already saving /tmp/second-interface.json'
-    else:
-        raise AssertionError('settings claim was accepted')
 
-    instances.release_settings('/tmp/second-interface.json', first, tmp_path)
-
-    assert instances.claim_settings(
+    instances.release_settings(first_claim)
+    assert first_claim.path.read_text() == instances.SETTINGS_CLAIM_MARKER
+    second_claim = instances.claim_settings(
         '/tmp/second-interface.json', second, tmp_path
-    ).exists()
+    )
+    assert second_claim.path == first_claim.path
+    instances.release_settings(second_claim)
+
+
+def test_settings_claim_blocks_legacy_claims_until_coordinated_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = instances.InstanceIdentity(
+        pid=100, start_token='old', started_at=1, role='local'
+    )
+    settings_path = '/tmp/second-interface.json'
+    claim = instances.claim_settings(settings_path, identity, tmp_path)
+    instances.release_settings(claim)
+    claim.path.write_text(
+        instances.SettingsClaim(
+            identity=identity, settings_path=settings_path
+        ).model_dump_json()
+    )
+
+    monkeypatch.setattr(instances, '_process_exists', lambda pid: True)
+    with pytest.raises(ValueError, match='Recs PID 100 is already saving'):
+        instances.claim_settings(settings_path, identity, tmp_path)
+
+    monkeypatch.setattr(instances, '_process_exists', lambda pid: False)
+    with pytest.raises(ValueError, match='Legacy settings claim must be cleared'):
+        instances.claim_settings(settings_path, identity, tmp_path)
+
+
+def test_settings_claim_recovers_after_another_process_exits(tmp_path: Path) -> None:
+    context = multiprocessing.get_context('spawn')
+    parent, child = context.Pipe()
+    process = context.Process(target=_hold_settings_claim, args=(tmp_path, child))
+    process.start()
+    assert parent.poll(5)
+    pid = parent.recv()
+    identity = instances.InstanceIdentity(
+        pid=os.getpid(), start_token='parent', started_at=1, role='local'
+    )
+
+    with pytest.raises(ValueError, match=f'Recs PID {pid} is already saving'):
+        instances.claim_settings('/tmp/second-interface.json', identity, tmp_path)
+
+    parent.send('exit')
+    process.join(5)
+    assert process.exitcode == 0
+    claim = instances.claim_settings('/tmp/second-interface.json', identity, tmp_path)
+    instances.release_settings(claim)
+
+
+def _hold_settings_claim(home: Path, connection: Connection) -> None:
+    identity = instances.InstanceIdentity(
+        pid=os.getpid(), start_token='child', started_at=1, role='local'
+    )
+    claim = instances.claim_settings('/tmp/second-interface.json', identity, home)
+    connection.send(identity.pid)
+    connection.recv()
+    assert claim.path.exists()
 
 
 def _descriptor(
