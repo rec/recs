@@ -151,6 +151,21 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     assert mapping.pitch_tracking
 
 
+def test_read_sfz_preserves_phase_inversion_with_pan(tmp_path: Path) -> None:
+    path = tmp_path / 'phase.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text('<region> sample=sample.wav phase=invert pan=25')
+
+    result = read(path)
+
+    assert result.complete
+    assert result.instrument is not None
+    assert sfz.write(result.instrument).complete
+    slot = result.instrument.body.slots[0]
+    assert slot.processing.invert_polarity
+    assert slot.processing.pan == 0.25
+
+
 def test_read_sfz_returns_requested_midi_binding(tmp_path: Path) -> None:
     path = tmp_path / 'channels.sfz'
     _write_wav(tmp_path / 'sample.wav')
