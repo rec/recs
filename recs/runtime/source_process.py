@@ -244,17 +244,23 @@ class SourceProcess(Runnable):
             return
         finished = threading.Event()
         reader = threading.Thread(
-            target=self._drain_updates, args=(finished,), name='SourceFinalUpdates'
+            target=self._drain_updates,
+            args=(finished,),
+            daemon=True,
+            name='SourceFinalUpdates',
         )
         reader.start()
         self.process.join(STOP_TIMEOUT if timeout is None else timeout)
         forced = False
         if self.process.is_alive():
             self.process.terminate()
-            self.process.join()
+            self.process.join(STOP_TIMEOUT)
             forced = True
+        if self.process.is_alive():
+            self.process.kill()
+            self.process.join(STOP_TIMEOUT)
         finished.set()
-        reader.join()
+        reader.join(STOP_TIMEOUT)
         self._record_exit_failure(forced)
         self.control_transport.stop()
         self.control_connection.close()
@@ -354,8 +360,10 @@ def _run_source_recorder(
         source_name = tracks[0].source.key
         transport.publish(_source_failure(e, source_name))
     finally:
-        transport.finish()
+        delivered = transport.finish()
         update_connection.close()
+        if not delivered:
+            raise RuntimeError('Source updates could not be delivered before shutdown')
 
 
 def _connection_ready(conn: connection.Connection) -> bool:

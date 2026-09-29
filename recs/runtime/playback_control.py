@@ -81,7 +81,8 @@ class PlaybackControl:
 
     def stop(self) -> gui_protocol.PlaybackState:
         if self.runner is not None:
-            self.runner.stop()
+            if self.runner.stop() is False:
+                self.warning('Playback output did not stop before shutdown deadline')
             self.poll()
             self.runner = None
             if self.resume_after_playback:

@@ -178,6 +178,21 @@ class FakeProcess:
         self.exitcode = -15
 
 
+class StubbornProcess(FakeProcess):
+    killed = False
+
+    def join(self, timeout: float | None = None) -> None:
+        pass
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def kill(self) -> None:
+        self.killed = True
+        self.alive = False
+        self.exitcode = -9
+
+
 def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
     connections: list[FakeConnection] = []
 
@@ -209,6 +224,30 @@ def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None
     assert first.kwargs['stop_event'].is_set()
     assert connections[0].closed
     assert owner.is_alive
+
+
+def test_join_kills_source_that_ignores_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(
+        source_process.mp,
+        'Pipe',
+        lambda duplex=False: (FakeConnection(), FakeConnection()),
+    )
+    monkeypatch.setattr(source_process.mp, 'Process', StubbornProcess)
+    source = InputDevice(
+        {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
+    )
+    owner = SourceProcess(Cfg(), [Track(source, '1')], Path('session'))
+    owner.start()
+
+    owner.join(timeout=0.01)
+
+    assert owner.process.terminated
+    assert owner.process.killed
+    assert owner.stopped
+    assert any(isinstance(u, SourceFailure) for u in owner.take_updates())
 
 
 def test_source_process_starts_recorder_with_gui_disabled(

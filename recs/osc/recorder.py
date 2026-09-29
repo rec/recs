@@ -4,6 +4,7 @@ import queue
 import socket
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -23,6 +24,7 @@ from . import codec, config
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_PACKETS_PER_POLL = 256
 MAX_RESOLVE_BACKOFF_SECONDS = 30.0
+MAX_CARD_REPLACE_EVENTS = 4096
 
 
 class OscRecorder(Runnable):
@@ -124,7 +126,10 @@ class OscNodeRecorder:
         self.last_error: str | None = None
         self.next_polls: list[float] = []
         self.next_subscriptions: list[float] = []
-        self.card_replace_backlog: list[OscEvent] = []
+        self.card_replace_backlog: deque[OscEvent] = deque(
+            maxlen=MAX_CARD_REPLACE_EVENTS
+        )
+        self.card_replace_dropped = 0
         self.card_replace_paused = False
         self.resolving = False
         self.next_resolve = 0.0
@@ -163,6 +168,7 @@ class OscNodeRecorder:
             self.socket.close()
             self.socket = None
         self.close_output()
+        self._report_card_replace_drops()
 
     def poll(self) -> None:
         if self.socket is None:
@@ -249,7 +255,16 @@ class OscNodeRecorder:
         self.open_output(session_directory)
         for record in self.card_replace_backlog:
             self._write_event(record)
-        self.card_replace_backlog = []
+        self.card_replace_backlog.clear()
+        self._report_card_replace_drops()
+
+    def _report_card_replace_drops(self) -> None:
+        if self.card_replace_dropped:
+            self.warning(
+                f'OSC node {self.node.name}: dropped {self.card_replace_dropped} '
+                'events during card replacement'
+            )
+            self.card_replace_dropped = 0
 
     def _send(self, message: config.Command, reason: str) -> None:
         assert self.socket is not None
@@ -341,6 +356,13 @@ class OscNodeRecorder:
 
     def _write_event(self, event: OscEvent) -> None:
         if self.card_replace_paused:
+            if len(self.card_replace_backlog) == MAX_CARD_REPLACE_EVENTS:
+                self.card_replace_dropped += 1
+                if self.card_replace_dropped == 1:
+                    self.warning(
+                        f'OSC node {self.node.name}: card-replacement buffer full; '
+                        'dropping oldest events'
+                    )
             self.card_replace_backlog.append(event)
             return
         if self.writer is None:

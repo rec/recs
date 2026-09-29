@@ -1,7 +1,9 @@
+from collections import deque
 from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
-from queue import Empty, SimpleQueue
+from queue import Empty, Full, Queue
+from threading import Lock
 from time import monotonic, monotonic_ns
 from typing import NamedTuple, Protocol, cast
 
@@ -16,6 +18,8 @@ from . import device
 from .writer import MidiClock, MidiMessage, MidiWriter
 
 MIDI_DISCOVERY_INTERVAL_SECONDS = 10.0
+MAX_PENDING_MIDI_PACKETS = 4096
+MAX_CARD_REPLACE_EVENTS = 4096
 
 
 class MidiPacket(NamedTuple):
@@ -28,6 +32,9 @@ class MidiPort(Protocol):
         pass
 
     def close(self) -> None:
+        pass
+
+    def take_dropped(self) -> int:
         pass
 
 
@@ -62,7 +69,10 @@ class MidiRecorder(Runnable):
         self.port_selectors: dict[str, str] = {}
         self.last_message_timestamp: dict[str, float] = {}
         self.failures: dict[str, tuple[str, float]] = {}
-        self.card_replace_backlog: list[tuple[str, MidiEvent]] = []
+        self.card_replace_backlog: deque[tuple[str, MidiEvent]] = deque(
+            maxlen=MAX_CARD_REPLACE_EVENTS
+        )
+        self.card_replace_dropped = 0
         self.card_replace_paused = False
         self.next_discovery = float('-inf')
         super().__init__()
@@ -77,6 +87,7 @@ class MidiRecorder(Runnable):
     def stop(self) -> None:
         for name in list(self.ports):
             self._remove(name)
+        self._report_card_replace_drops()
         super().stop()
 
     def close_session(self) -> None:
@@ -112,7 +123,16 @@ class MidiRecorder(Runnable):
             if name not in self.writers:
                 self._new_writer(name, self.timestamp())
             self.writers[name].write(event)
-        self.card_replace_backlog = []
+        self.card_replace_backlog.clear()
+        self._report_card_replace_drops()
+
+    def _report_card_replace_drops(self) -> None:
+        if self.card_replace_dropped:
+            self.warning(
+                f'Dropped {self.card_replace_dropped} MIDI events '
+                'during card replacement'
+            )
+            self.card_replace_dropped = 0
 
     def poll(self) -> None:
         if not self.cfg.general.writes_files or not self.cfg.midi.record_midi:
@@ -184,9 +204,17 @@ class MidiRecorder(Runnable):
         return states
 
     def _drain(self, name: str, port: MidiPort) -> None:
+        if dropped := port.take_dropped():
+            self.warning(f'MIDI input {name}: dropped {dropped} queued packets')
         for packet in port.iter_pending():
             event = self.clocks[name].capture(packet.message, packet.received_tick)
             if self.card_replace_paused:
+                if len(self.card_replace_backlog) == MAX_CARD_REPLACE_EVENTS:
+                    self.card_replace_dropped += 1
+                    if self.card_replace_dropped == 1:
+                        self.warning(
+                            'MIDI card-replacement buffer full; dropping oldest events'
+                        )
                 self.card_replace_backlog.append((name, event))
             else:
                 self.writers[name].write(event)
@@ -342,13 +370,24 @@ class MidiRecorder(Runnable):
 
 class CallbackPort:
     def __init__(self, name: str) -> None:
-        self.packets: SimpleQueue[MidiPacket] = SimpleQueue()
+        self.packets: Queue[MidiPacket] = Queue(maxsize=MAX_PENDING_MIDI_PACKETS)
+        self.dropped = 0
+        self.drop_lock = Lock()
         mido = import_module('mido')
         open_input = cast(Callable[..., MidiPort], vars(mido)['open_input'])
         self.port = open_input(name, callback=self.capture)
 
     def capture(self, message: MidiMessage) -> None:
-        self.packets.put(MidiPacket(message, monotonic_ns()))
+        try:
+            self.packets.put_nowait(MidiPacket(message, monotonic_ns()))
+        except Full:
+            with self.drop_lock:
+                self.dropped += 1
+
+    def take_dropped(self) -> int:
+        with self.drop_lock:
+            dropped, self.dropped = self.dropped, 0
+        return dropped
 
     def iter_pending(self) -> list[MidiPacket]:
         packets: list[MidiPacket] = []

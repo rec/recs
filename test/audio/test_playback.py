@@ -357,6 +357,27 @@ def test_runner_releases_resources_on_completion_stop_and_failure(
     assert opened[0].closed
 
 
+def test_runner_stop_has_a_deadline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    score, stream, _ = _score(tmp_path)
+    runner = playback.PlaybackRunner(
+        playback.PlaybackTimeline(tmp_path, score, stream),
+        (1, 2),
+        lambda: None,
+        lambda message: None,
+    )
+    waits: list[float] = []
+    monkeypatch.setattr(playback, 'PLAYBACK_STOP_TIMEOUT', 0.01)
+    runner._thread = SimpleNamespace(
+        join=waits.append,
+        is_alive=lambda: True,
+    )
+
+    assert runner.stop() is False
+    assert waits == [0.01]
+
+
 def _score(
     root: Path,
     *,

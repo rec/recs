@@ -27,6 +27,9 @@ class FakePort:
     def close(self) -> None:
         self.closed = True
 
+    def take_dropped(self) -> int:
+        return 0
+
 
 def test_midi_recorder_records_pending_messages(tmp_path: Path) -> None:
     records: list[Record] = []
@@ -354,6 +357,50 @@ def test_callback_timestamps_survive_queue_delay(
     assert [p.message.bytes() for p in packets] == [[144, 60, 64], [128, 60, 64]]
     assert port.iter_pending() == []
     port.close()
+
+
+def test_callback_queue_counts_dropped_packets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(recorder, 'MAX_PENDING_MIDI_PACKETS', 2)
+    monkeypatch.setattr(mido, 'open_input', lambda name, callback: FakePort())
+    port = recorder.CallbackPort('keys')
+    message = mido.Message('note_on', note=60)
+
+    for _ in range(3):
+        port.capture(message)
+
+    assert len(port.iter_pending()) == 2
+    assert port.take_dropped() == 1
+    assert port.take_dropped() == 0
+    port.close()
+
+
+def test_card_replacement_reports_dropped_midi_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(recorder, 'MAX_CARD_REPLACE_EVENTS', 2)
+    warnings: list[str] = []
+    port = FakePort()
+    capture = MidiRecorder(
+        Cfg(output_directory=str(tmp_path)),
+        tmp_path / 'old',
+        warnings.append,
+        lambda record: None,
+        input_names=lambda: ['keys'],
+        open_input=lambda name: port,
+    )
+    capture.start()
+    capture.suspend_for_card_replace()
+    port.messages.extend(mido.Message('note_on', note=60) for _ in range(3))
+    capture.poll()
+    capture.open_session(tmp_path / 'new')
+    capture.stop()
+
+    assert warnings == [
+        'MIDI card-replacement buffer full; dropping oldest events',
+        'Dropped 1 MIDI events during card replacement',
+    ]
 
 
 @pytest.mark.parametrize('stop', [False, True])
