@@ -293,6 +293,72 @@ def test_set_track_names_updates_devices_state_and_record() -> None:
     assert [record.type for record in control.records] == ['track_names_set']
 
 
+def test_set_track_names_rejects_stale_client_without_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control = FakeControl(Cfg(silent=True), source_process(['1']))
+    saved: list[SourceTrackNames] = []
+    monkeypatch.setattr(
+        recording_track_config,
+        'save_settings',
+        lambda control: saved.append(control.track_names.copy()),
+    )
+    first_read = control.track_names.copy()
+    second_read = control.track_names.copy()
+
+    first = recording_track_config.set_track_names(
+        control,
+        gui_protocol.SetTrackNames(
+            type='set_track_names',
+            expected_track_names=first_read,
+            track_names={'Ext': {'Vocal': 1}},
+        ),
+    )
+    second = recording_track_config.set_track_names(
+        control,
+        gui_protocol.SetTrackNames(
+            type='set_track_names',
+            expected_track_names=second_read,
+            track_names={'Ext': {'Guitar': 1}},
+        ),
+    )
+
+    assert first == gui_protocol.TrackNames(
+        type='track_names', track_names={'Ext': {'Vocal': 1}}
+    )
+    assert second == gui_protocol.TrackNamesConflict(
+        type='track_names_conflict',
+        message='Track names changed since they were read',
+    )
+    assert control.track_names == {'Ext': {'Vocal': 1}}
+    assert control.devices.track_names == control.track_names
+    assert control.state.track_names == control.track_names
+    assert [record.type for record in control.records] == ['track_names_set']
+    assert saved == [{'Ext': {'Vocal': 1}}]
+
+
+def test_set_track_names_conflicts_when_another_source_changed() -> None:
+    control = FakeControl(Cfg(silent=True), source_process(['1']))
+    control.track_names = {'Ext': {'Vocal': 1}, 'Other': {'Piano': 1}}
+    control.devices.track_names = control.track_names
+    control.state.track_names = control.track_names
+
+    response = recording_track_config.set_track_names(
+        control,
+        gui_protocol.SetTrackNames(
+            type='set_track_names',
+            expected_track_names={'Ext': {'Vocal': 1}, 'Other': {'Old': 1}},
+            track_names={'Ext': {'Guitar': 1}, 'Other': {'Old': 1}},
+        ),
+    )
+
+    assert isinstance(response, gui_protocol.TrackNamesConflict)
+    assert control.track_names == {'Ext': {'Vocal': 1}, 'Other': {'Piano': 1}}
+    assert control.devices.track_names == control.track_names
+    assert control.state.track_names == control.track_names
+    assert control.records == []
+
+
 def test_set_track_names_rejects_invalid_track_names() -> None:
     source = source_process(['1'])
     control = FakeControl(Cfg(silent=True), source)

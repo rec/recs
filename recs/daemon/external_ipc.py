@@ -256,6 +256,8 @@ def response(
 ) -> rpc.Result:
     if isinstance(value, gui_protocol.Error):
         return ipc.Error(type='error', message=value.message)
+    if isinstance(value, gui_protocol.TrackNamesConflict):
+        return value.model_dump()
     if request.command in {
         'add_musician',
         'assign_musician',

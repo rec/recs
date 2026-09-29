@@ -836,6 +836,52 @@ def test_control_request_sets_and_gets_track_names(
     assert rec._devices.sources['Mic'].track_names == {'Mic': {'Lead Vocal': 1}}
 
 
+def test_serialized_track_name_requests_reject_stale_second_client(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    first_read = FakeControlRequest(gui_protocol.GetTrackNames(type='get_track_names'))
+    second_read = FakeControlRequest(gui_protocol.GetTrackNames(type='get_track_names'))
+    rec.live = FakeControlDisplay([first_read, second_read])
+    rec._receive_control_requests()
+
+    first_snapshot = first_read.responses[0]
+    assert isinstance(first_snapshot, gui_protocol.TrackNames)
+    expected = first_snapshot.track_names.copy()
+    assert second_read.responses == [first_snapshot]
+    first_write = FakeControlRequest(
+        gui_protocol.SetTrackNames(
+            type='set_track_names',
+            expected_track_names=expected,
+            track_names={'Mic': {'Vocal': 1}},
+        )
+    )
+    second_write = FakeControlRequest(
+        gui_protocol.SetTrackNames(
+            type='set_track_names',
+            expected_track_names=expected,
+            track_names={'Mic': {'Guitar': 1}},
+        )
+    )
+    rec.live = FakeControlDisplay([first_write, second_write])
+    rec._receive_control_requests()
+
+    assert first_write.responses == [
+        gui_protocol.TrackNames(type='track_names', track_names={'Mic': {'Vocal': 1}})
+    ]
+    assert second_write.responses == [
+        gui_protocol.TrackNamesConflict(
+            type='track_names_conflict',
+            message='Track names changed since they were read',
+        )
+    ]
+    assert rec._control.track_names == {'Mic': {'Vocal': 1}}
+    assert rec._devices.sources['Mic'].track_names == rec._control.track_names
+
+
 def test_control_request_sets_and_gets_cfg(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

@@ -86,11 +86,13 @@ def test_protocol_parses_set_noise_floor_request() -> None:
 
 def test_protocol_parses_set_track_names_request() -> None:
     message = gui_protocol.parse_message(
-        '{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}}}'
+        '{"type":"set_track_names","track_names":{"Mic":{"Lead Vocal":1}},'
+        '"expected_track_names":{"Mic":{"Vocal":1}}}'
     )
 
     assert isinstance(message, gui_protocol.SetTrackNames)
     assert message.track_names == {'Mic': {'Lead Vocal': 1}}
+    assert message.expected_track_names == {'Mic': {'Vocal': 1}}
 
 
 def test_protocol_parses_set_tracks_request() -> None:

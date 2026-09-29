@@ -157,6 +157,7 @@ class ChannelTrack(BaseModel):
 class SetTrackNames(BaseModel):
     type: Literal['set_track_names']
     track_names: SourceTrackNames
+    expected_track_names: SourceTrackNames | None = None
 
 
 class SetTracks(BaseModel):
@@ -349,6 +350,11 @@ class TrackNames(BaseModel):
     track_names: SourceTrackNames
 
 
+class TrackNamesConflict(BaseModel):
+    type: Literal['track_names_conflict']
+    message: str
+
+
 class TracksSet(BaseModel):
     type: Literal['tracks_set']
     source: str
@@ -457,6 +463,7 @@ Response = (
     | PlaybackState
     | StatusSnapshot
     | TrackNames
+    | TrackNamesConflict
     | TracksSet
     | Error
 )
