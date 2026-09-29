@@ -281,17 +281,17 @@ usage: recs preflight [-h]
 $ recs project --help
 usage: recs project [-h] {save,use,show,switch,list,delete}
 
-Save and use recording projects. These differ from the per-device JSON defaults loaded by --profiles.
+Project files contain reusable configuration and track layouts. Musicians and assignments remain in mutable settings. These differ from the per-device JSON defaults loaded by --profiles.
 
  options
- -----------------------------------------------------------------------------------
+ -----------------------------------------------------------------------------------------
   -h, --help  show this help message and exit
 
  subcommands
- -----------------------------------------------------------------------------------
+ -----------------------------------------------------------------------------------------
   (required)
-    - save
-    - use
+    - save    Save reusable configuration and tracks; musicians stay in mutable settings.
+    - use     Start a recorder with a project's configuration and tracks.
     - show
     - switch  Switch a running recorder to a project, or omit NAME for the default.
     - list
