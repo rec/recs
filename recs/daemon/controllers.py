@@ -32,19 +32,24 @@ class ServiceController:
         )
 
     def install(self, metadata: models.DaemonMetadata) -> StatusResult:
-        return _status_result(self._controller.install(metadata))
+        self._controller.install(metadata)
+        return StatusResult(installed=True)
 
     def uninstall(self) -> StatusResult:
-        return _status_result(self._controller.uninstall())
+        self._controller.uninstall()
+        return StatusResult(installed=False)
 
     def start(self) -> StatusResult:
-        return _status_result(self._controller.start())
+        self._controller.start()
+        return StatusResult(installed=True)
 
     def stop(self) -> StatusResult:
-        return _status_result(self._controller.stop())
+        self._controller.stop()
+        return StatusResult(installed=True)
 
     def restart(self) -> StatusResult:
-        return _status_result(self._controller.restart())
+        self._controller.restart()
+        return StatusResult(installed=True)
 
     def status(self) -> StatusResult:
         return _status_result(self._controller.status())

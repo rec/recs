@@ -353,8 +353,8 @@ def _track_reports(
 ) -> list[TrackReport]:
     reports: dict[tuple[str, str | None, tuple[int, ...], str | None], TrackReport] = {}
     for file in files:
-        audio = file if isinstance(file, session_record.AudioFileRecord) else None
-        if audio is not None:
+        if isinstance(file, session_record.AudioFileRecord):
+            audio = file
             try:
                 source, track_name = session_record.audio_stream_parts(audio.stream_id)
             except ValueError:
@@ -364,6 +364,7 @@ def _track_reports(
             media_type = 'audio'
             midi_port = None
         else:
+            audio = None
             source = file.source
             track_name = None
             media_type = file.media_type

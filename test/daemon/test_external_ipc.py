@@ -25,11 +25,13 @@ class FakeRpcServer:
         handle: object,
         *,
         role: str,
+        request_timeout: float,
     ) -> None:
         self.control_endpoint = control_endpoint
         self.event_endpoint = event_endpoint
         self.handle = handle
         self.role = role
+        self.request_timeout = request_timeout
         self.closed = False
         self.started = False
         self.published: list[tuple[str, dict[str, object]]] = []
@@ -54,8 +56,15 @@ class BlockingWaveformRpcServer(FakeRpcServer):
         handle: object,
         *,
         role: str,
+        request_timeout: float,
     ) -> None:
-        super().__init__(control_endpoint, event_endpoint, handle, role=role)
+        super().__init__(
+            control_endpoint,
+            event_endpoint,
+            handle,
+            role=role,
+            request_timeout=request_timeout,
+        )
         self.waveform_started = threading.Event()
         self.waveform_release = threading.Event()
 
@@ -268,8 +277,15 @@ def test_external_server_publishes_subscribed_waveforms(
         handle: object,
         *,
         role: str,
+        request_timeout: float,
     ) -> FakeRpcServer:
-        server = FakeRpcServer(control_endpoint, event_endpoint, handle, role=role)
+        server = FakeRpcServer(
+            control_endpoint,
+            event_endpoint,
+            handle,
+            role=role,
+            request_timeout=request_timeout,
+        )
         created.append(server)
         return server
 
@@ -315,9 +331,14 @@ def test_external_server_bounds_waveforms_while_event_connection_blocks(
         handle: object,
         *,
         role: str,
+        request_timeout: float,
     ) -> BlockingWaveformRpcServer:
         server = BlockingWaveformRpcServer(
-            control_endpoint, event_endpoint, handle, role=role
+            control_endpoint,
+            event_endpoint,
+            handle,
+            role=role,
+            request_timeout=request_timeout,
         )
         created.append(server)
         return server
@@ -354,8 +375,15 @@ def test_external_server_publishes_rows_and_shutdown_once(
         handle: object,
         *,
         role: str,
+        request_timeout: float,
     ) -> FakeRpcServer:
-        server = FakeRpcServer(control_endpoint, event_endpoint, handle, role=role)
+        server = FakeRpcServer(
+            control_endpoint,
+            event_endpoint,
+            handle,
+            role=role,
+            request_timeout=request_timeout,
+        )
         created.append(server)
         return server
 
@@ -400,7 +428,7 @@ def test_external_server_rejects_request_after_closing(
     server.start()
     server.close()
 
-    response = server.rpc_response(rpc.Request(command='get_cfg'))
+    response = server.rpc_response(rpc.Request(command='get_cfg'), threading.Event())
 
     assert response.message == 'recs is shutting down'
 
@@ -413,7 +441,9 @@ def test_external_server_rejects_second_control_client(
     server.start()
     server._pending.append(external_ipc.ControlRequest(rpc.Request(command='get_cfg')))
 
-    response = server.rpc_response(rpc.Request(command='status_snapshot'))
+    response = server.rpc_response(
+        rpc.Request(command='status_snapshot'), threading.Event()
+    )
 
     assert response.message == 'recs already has an active control client'
 
@@ -426,7 +456,9 @@ def test_external_server_times_out_pending_control_request(
     server.start()
     monkeypatch.setattr(external_ipc, 'EXTERNAL_RESPONSE_TIMEOUT', 0)
 
-    response = server.rpc_response(rpc.Request(command='status_snapshot'))
+    response = server.rpc_response(
+        rpc.Request(command='status_snapshot'), threading.Event()
+    )
 
     assert response.message == 'recs control timed out before execution'
     assert server._pending == []

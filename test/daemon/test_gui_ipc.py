@@ -646,7 +646,7 @@ class FakeConnection:
         self.received = received or []
         self.sent: list[str] = []
 
-    def read_lines(self) -> Iterator[str]:
+    def read_lines(self, *, max_bytes: int | None = None) -> Iterator[str]:
         return iter(self.received)
 
     def write(self, message: str) -> bool:

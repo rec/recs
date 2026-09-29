@@ -21,6 +21,7 @@ class FakeRunner:
         check: bool,
         text: bool,
         capture_output: bool,
+        timeout: int,
     ) -> subprocess.CompletedProcess[str]:
         self.commands.append(command)
         return subprocess.CompletedProcess(
@@ -34,7 +35,7 @@ class FakeRunner:
 def test_linux_controller_installs_user_service(tmp_path: Path) -> None:
     runner = FakeRunner()
     controller = ServiceController(Platform.linux, tmp_path, runner)
-    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'])
+    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'], controller.paths)
 
     result = controller.install(daemon_metadata)
 
@@ -84,7 +85,9 @@ def test_macos_controller_installs_launch_agent(
     runner = FakeRunner()
     monkeypatch.setattr(controller, '_uid', lambda: 501)
     service_controller = ServiceController(Platform.macos, tmp_path, runner)
-    daemon_metadata = metadata(Platform.macos, ['--include', 'Mic'])
+    daemon_metadata = metadata(
+        Platform.macos, ['--include', 'Mic'], service_controller.paths
+    )
 
     service_controller.install(daemon_metadata)
 
@@ -102,7 +105,7 @@ def test_macos_controller_installs_launch_agent(
 
 def test_controller_writes_metadata_atomically(tmp_path: Path) -> None:
     controller = ServiceController(Platform.linux, tmp_path, FakeRunner())
-    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'])
+    daemon_metadata = metadata(Platform.linux, ['--include', 'Mic'], controller.paths)
 
     controller.install(daemon_metadata)
 

@@ -77,4 +77,5 @@ def _reccy_paths(value: ServicePaths) -> models.ServicePaths:
         status=value.status,
         log=value.log,
         control_endpoint=value.gui_endpoint,
+        event_endpoint=value.event_endpoint,
     )
