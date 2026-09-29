@@ -130,6 +130,44 @@ def test_project_commands_save_list_show_and_use(
     assert used[0].cfg.selection.include == ['Mic']
 
 
+def test_project_list_distinguishes_missing_directory_from_io_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path / 'missing')
+    assert projects.main(['list']) == 0
+    assert capsys.readouterr().out == ''
+
+    def deny_scan(path: Path) -> object:
+        raise PermissionError('access denied')
+
+    monkeypatch.setattr(projects.os, 'scandir', deny_scan)
+    with pytest.raises(RecsError, match='Could not list recording projects'):
+        projects.main(['list'])
+
+
+def test_project_delete_reports_file_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path)
+    with pytest.raises(RecsError, match='Unknown recording project: missing'):
+        projects.main(['delete', 'missing'])
+
+    project = projects.RecordingProject(name='show', cfg=Cfg())
+    path = projects.save(project)
+    unlink = Path.unlink
+
+    def deny_unlink(self: Path, *, missing_ok: bool = False) -> None:
+        if self == path:
+            raise PermissionError('access denied')
+        unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, 'unlink', deny_unlink)
+    with pytest.raises(RecsError, match='Could not delete recording project show'):
+        projects.main(['delete', 'show'])
+
+
 def test_project_switch_uses_the_running_recorder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
