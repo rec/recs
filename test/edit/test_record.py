@@ -1,8 +1,12 @@
+from contextlib import ExitStack
 from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile
+from reccy.runtime.assets import AssetStore
+from reccy.runtime.file_assets import VolumeMount
+from ufor.assets import VolumeFileLocation
 from ufor.references import RecordSelector
 
 from recs.base.errors import RecsError
@@ -13,7 +17,9 @@ from recs.edit.materialized import (
     materialize_source,
 )
 from recs.edit.record import resolve_input
+from recs.recording.asset_resolver import FiniteAssetResolver
 from recs.recording.finalize import finalize_recording
+from recs.recording.read import read_recording
 from recs.recording.session_record import (
     AudioFileRecord,
     SessionFooter,
@@ -81,6 +87,67 @@ def test_direct_file_source_resolves_selected_channels(tmp_path: Path) -> None:
     assert source.channels == 2
     assert source.fragments[0].channel_offset == 1
     assert source.timeline_end == 48_000
+
+
+def test_offline_source_prepares_volume_asset_under_cache_lease(tmp_path: Path) -> None:
+    record_path = tmp_path / 'recording.toml'
+    writer = SessionRecordWriter(
+        record_path.with_name('session-record.jsonl'),
+        started_at='start',
+        session_id='session',
+    )
+    _write_audio_fragment(writer, tmp_path, 'take.wav', 0, 48_000)
+    writer.write(SessionFooter(ended_at='end', duration_seconds=1))
+    writer.close()
+    finalize_recording(writer.path)
+    volume = tmp_path / 'volume'
+    volume.mkdir()
+    (tmp_path / 'take.wav').replace(volume / 'take.wav')
+    document = read_recording(record_path)
+    document = document.model_copy(
+        update={
+            'assets': [
+                a.model_copy(
+                    update={
+                        'location': VolumeFileLocation(
+                            volume_id='audio-volume', path='take.wav'
+                        )
+                    }
+                )
+                for a in document.assets
+            ]
+        }
+    )
+    store = AssetStore(tmp_path / 'cache', credential_scope='offline-edit')
+    resolver = FiniteAssetResolver(
+        store,
+        mounts=[VolumeMount(volume_id='audio-volume', root=volume)],
+        approved_https_urls=[],
+        https_headers=None,
+        approved_git_urls=[],
+        git_transport_repository=None,
+        fingerprint_key=b'x' * 32,
+        maximum_bytes=1_000_000,
+        timeout=1,
+    )
+
+    with ExitStack() as resources:
+        source = resolve_input(
+            SourceSpec(
+                name='pair',
+                record=record_path,
+                selector=RecordSelector(source='device', track='pair'),
+            ),
+            tmp_path,
+            document=document,
+            resolver=resolver,
+            resources=resources,
+        )
+        assert store.collect([], pressure=True) == []
+        np.testing.assert_array_equal(materialize_source(source).read(0, 48_000), 0)
+        assert source.fragments[0].source_path == (
+            f'{record_path}:{document.body.streams[0].fragments[0].asset}'
+        )
 
 
 def test_materialized_allocation_reports_size(

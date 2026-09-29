@@ -1,5 +1,6 @@
 """Host loading and realization of portable recording and arrangement graphs."""
 
+from contextlib import ExitStack
 from hashlib import sha256
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import MaterializedAudio
 from recs.edit.record import ResolvedSource, resolve_input
+from recs.recording.asset_resolver import FiniteAssetResolver
 
 
 def load_composition(
@@ -72,6 +74,9 @@ def resolve_sources(
     edit: ArrangementScore,
     edit_directory: Path,
     supplied: dict[Path, RecordingScore] | None = None,
+    *,
+    resolver: FiniteAssetResolver | None = None,
+    resources: ExitStack | None = None,
 ) -> dict[OutputSelection, ResolvedSource | MaterializedAudio]:
     from recs.edit.graph import validate_graph
     from recs.edit.render import Renderer
@@ -112,6 +117,8 @@ def resolve_sources(
                 score
                 if not score.body.continued_at and not score.body.continued_from
                 else None,
+                resolver=resolver,
+                resources=resources,
             )
             return resolved.model_copy(update={'name': f'{path}/{port_name}'})
         if not isinstance(score, ArrangementScore):

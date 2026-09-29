@@ -1,4 +1,7 @@
+import shutil
+from contextlib import ExitStack
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import soundfile
 from pydantic import BaseModel, ConfigDict
@@ -9,12 +12,16 @@ from ufor.recording import AudioStream
 
 from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec
+from recs.recording.asset_resolver import FiniteAssetResolver
 from recs.recording.files import asset_content, asset_path, sealed_asset
 from recs.recording.read import read_recording_chain
+
+from .workspace import SCRATCH_DIRECTORY
 
 
 class AudioFragment(BaseModel, frozen=True):
     path: Path
+    source_path: str | None = None
     start: int
     end: int
     channels: int
@@ -44,7 +51,12 @@ def resolve_input(
     stream_id: str | None = None,
     selected_channels: list[int] | None = None,
     document: recording.RecordingScore | None = None,
+    *,
+    resolver: FiniteAssetResolver | None = None,
+    resources: ExitStack | None = None,
 ) -> ResolvedSource:
+    if (resolver is None) != (resources is None):
+        raise ValueError('asset resolver and resources must be supplied together')
     if source.file is not None:
         return _resolve_file_source(source, edit_directory)
     if source.memory is not None:
@@ -120,9 +132,10 @@ def resolve_input(
         for fragment in stream.fragments:
             variants.setdefault(
                 (fragment.start, fragment.start + fragment.count), []
-            ).append((path.parent, assets[fragment.asset], fragment))
+            ).append((path, assets[fragment.asset], fragment))
     fragments: list[AudioFragment] = []
     verified: set[Path] = set()
+    prepared: dict[tuple[Path, str], Path] = {}
     for (start, end), choices in sorted(variants.items()):
         if source.input_format is not None:
             choices = [c for c in choices if c[1].encoding == source.input_format]
@@ -135,17 +148,31 @@ def resolve_input(
             raise RecsError(
                 f'Source {source.name}: ambiguous variants for frames {start}:{end}'
             )
-        directory, asset, span = choices[0]
-        relative_path = asset_path(asset)
-        path = directory / relative_path
-        if path not in verified:
-            actual = sealed_asset(path, directory, asset.name, asset.encoding)
-            if actual.content != asset_content(asset):
-                raise RecsError(
-                    f'Source {source.name}: asset bytes disagree with recording: '
-                    f'{relative_path}'
+        record_file, asset, span = choices[0]
+        directory = record_file.parent
+        if resolver is None:
+            relative_path = asset_path(asset)
+            path = directory / relative_path
+            if path not in verified:
+                actual = sealed_asset(path, directory, asset.name, asset.encoding)
+                if actual.content != asset_content(asset):
+                    raise RecsError(
+                        f'Source {source.name}: asset bytes disagree with recording: '
+                        f'{relative_path}'
+                    )
+                verified.add(path)
+            source_path = None
+            display_path = relative_path
+        else:
+            assert resources is not None
+            key = record_file, asset.name
+            if key not in prepared:
+                prepared[key] = _prepare_asset_path(
+                    asset, directory, resolver, resources
                 )
-            verified.add(path)
+            path = prepared[key]
+            source_path = f'{record_file}:{asset.name}'
+            display_path = asset.name
         info = soundfile.info(path)
         if (
             info.channels != file_width
@@ -154,11 +181,12 @@ def resolve_input(
         ):
             raise RecsError(
                 f'Source {source.name}: file metadata disagrees with recording: '
-                f'{relative_path}'
+                f'{display_path}'
             )
         fragments.append(
             AudioFragment(
                 path=path,
+                source_path=source_path,
                 start=start,
                 end=end,
                 channels=width,
@@ -181,6 +209,28 @@ def resolve_input(
         timeline_end=max(s.end for _, _, s in selected),
         fragments=fragments,
     )
+
+
+def _prepare_asset_path(
+    asset: Asset,
+    directory: Path,
+    resolver: FiniteAssetResolver,
+    resources: ExitStack,
+) -> Path:
+    file = resources.enter_context(resolver.open(asset, directory))
+    name = getattr(file, 'name', None)
+    if isinstance(name, str | Path):
+        return Path(name)
+    temporary = NamedTemporaryFile(
+        mode='w+b',
+        dir=SCRATCH_DIRECTORY.get(),
+        prefix='recs-asset-',
+        delete=False,
+    )
+    resources.callback(Path(temporary.name).unlink, missing_ok=True)
+    with temporary:
+        shutil.copyfileobj(file, temporary, length=65536)
+    return Path(temporary.name)
 
 
 def _resolve_file_source(source: SourceSpec, edit_directory: Path) -> ResolvedSource:
