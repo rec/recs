@@ -11,6 +11,9 @@ basic inheritance. Pure parsing, compilation and export now live in
 `ufor.sfz`; recs only resolves paths and supplies measured asset metadata.
 Key-dependent amplitude, partial pitch-key tracking, pitch-by-velocity, and
 velocity-dependent amplifier envelope durations are also imported.
+Key and velocity crossfades preserve the separate mapping eligibility ranges;
+deterministic SFZ random ranges have their own selection condition. Finite
+`loop_count` values now map to native loop `repeat_count` and round-trip.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
 counter rule; the default reports them as unsupported because SFZ players
 disagree on counter behavior.
@@ -31,10 +34,6 @@ concept should be added only when it is useful independently of SFZ.
 
 Implement exact mappings that fit the existing uFor model:
 
-- key and velocity layer crossfades, including only curve shapes with an exact
-  counterpart;
-- random alternatives using the deterministic selection contract in
-  [uFor's sample performance format](../../ufor/doc/sample-performance.md#alternate-sample-selection);
 - remaining transport-independent aliases and documented SFZ defaults for
   start, end, loops, gain, tuning, transposition, direction, triggers, and
   exclusive groups.
@@ -47,7 +46,7 @@ coherently.
 
 Design these independently before adding importer mappings:
 
-- loop direction and finite loop counts;
+- loop direction;
 - voice limits, voice stealing, repeated-trigger masking, and release-tail
   termination;
 - delayed start, repeat count, end fade, stereo width, channel position,
