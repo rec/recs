@@ -2,7 +2,14 @@ from pathlib import Path
 
 import numpy as np
 import soundfile
-from reccy.runtime.assets import AssetStore
+from reccy.runtime.assets import (
+    AssetCategory,
+    AssetStore,
+    SourceKind,
+    source_fingerprint,
+)
+from ufor.assets import DownloadLocation
+from ufor.codec import score_toml
 from ufor.interface import NormalizeMode
 
 from recs.edit.schema import parse_edit
@@ -120,6 +127,19 @@ track = "voice"
 """
     )
     source_document = read_recording(record_path)
+    audio_asset_name = source_document.body.streams[0].fragments[0].asset
+    remote_url = 'https://example.test/audio/take.wav'
+    source_document = source_document.model_copy(
+        update={
+            'assets': [
+                a.model_copy(update={'location': DownloadLocation(url=remote_url)})
+                if a.name == audio_asset_name
+                else a
+                for a in source_document.assets
+            ]
+        }
+    )
+    record_path.write_text(score_toml(source_document))
     raw = edit.model_dump()
     raw['body']['clips'][0]['source']['output'] = source_document.outputs[0].name
     raw['body']['tracks'][0]['stream'] = source_document.outputs[0].stream.model_dump()
@@ -127,10 +147,17 @@ track = "voice"
     edit = type(edit).model_validate(raw)
     destination = tmp_path / 'edited'
     store = AssetStore(tmp_path / 'cache', credential_scope='local-edit')
+    store.import_bytes(
+        source_path.read_bytes(),
+        source_key=source_fingerprint({'kind': 'test'}, {}, None, {}),
+        category=AssetCategory.acquired,
+        source_kind=SourceKind.download,
+    )
+    source_path.write_bytes(b'local copy is unavailable')
     resolver = FiniteAssetResolver(
         store,
         mounts=[],
-        approved_https_urls=[],
+        approved_https_urls=[remote_url],
         https_headers=None,
         approved_git_urls=[],
         git_transport_repository=None,
@@ -166,10 +193,7 @@ track = "voice"
         'sources': {
             f'root/voice-source/{source_document.outputs[0].name}': {
                 'session_id': 'input-session',
-                'files': [
-                    f'{record_path}:'
-                    f'{source_document.body.streams[0].fragments[0].asset}'
-                ],
+                'files': [f'{record_path}:{audio_asset_name}'],
             }
         },
         'output_ranges': {'voice': {'start': 0, 'end': 48_000}},
@@ -197,7 +221,9 @@ track = "voice"
     raw['outputs'][0]['binding']['normalize'] = NormalizeMode.normalize
     normalized = type(edit).model_validate(raw)
 
-    execute_edit(normalized, source_directory, normalized_destination)
+    execute_edit(
+        normalized, source_directory, normalized_destination, resolver=resolver
+    )
 
     normalized_audio, normalized_rate = soundfile.read(
         normalized_destination / 'audio/voice.wav',
