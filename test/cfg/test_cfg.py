@@ -90,6 +90,21 @@ def test_cfg_rejects_immutable_attribute_changes(mock_devices: None) -> None:
         Cfg().set_attr('recording.memory_reserve_megabytes', 4)
 
 
+def test_cfg_mutable_edit_revalidates_without_changing_original(
+    mock_devices: None,
+) -> None:
+    original = Cfg(noise_floor=70, quiet_before_start='250ms')
+
+    changed = original.set_attr('recording.noise_floor', 42)
+
+    assert changed.recording.noise_floor == 42
+    assert changed.recording.quiet_before_start == 0.25
+    assert original.recording.noise_floor == 70
+    with pytest.raises(ValidationError):
+        original.set_attr('recording.disk_alert_thresholds', [])
+    assert original.recording.disk_alert_thresholds == ['1800s', '600s', '120s']
+
+
 def test_missing_files(mock_devices: None) -> None:
     with pytest.raises(ValidationError, match='Non-existent file: unknown.wav'):
         Cfg(files=['unknown.wav'])
