@@ -30,6 +30,8 @@ class ProjectCommand(BaseModel, frozen=True):
 
 
 class Save(ProjectCommand):
+    """Save reusable configuration and tracks; musicians stay in mutable settings."""
+
     name: Annotated[str, tyro.conf.Positional]
 
     replace: bool = False
@@ -40,6 +42,8 @@ class Save(ProjectCommand):
 
 
 class Use(ProjectCommand):
+    """Start a recorder with a project's configuration and tracks."""
+
     name: Annotated[str, tyro.conf.Positional]
 
     recs_options: Annotated[list[str], tyro.conf.Positional] = Field(
@@ -81,11 +85,16 @@ def save(project: RecordingProject, *, replace: bool = False) -> Path:
 def load(name: str) -> RecordingProject:
     path = project_path(name)
     try:
-        return RecordingProject.model_validate_json(path.read_text())
+        project = RecordingProject.model_validate_json(path.read_text())
     except FileNotFoundError:
         raise RecsError(f'Unknown recording project: {name}') from None
     except (OSError, ValidationError, json.JSONDecodeError) as e:
         raise RecsError(f'Could not read recording project {name}: {e}') from None
+    if project.name != name:
+        raise RecsError(
+            f'Recording project {name} contains a different name: {project.name}'
+        )
+    return project
 
 
 def configured(name: str, arguments: list[str]) -> settings.LoadedSettings:
@@ -106,7 +115,8 @@ def main(argv: list[str]) -> int:
         args=argv,
         prog='recs project',
         description=(
-            'Save and use recording projects. '
+            'Project files contain reusable configuration and track layouts. '
+            'Musicians and assignments remain in mutable settings. '
             'These differ from the per-device JSON defaults loaded by --profiles.'
         ),
     )

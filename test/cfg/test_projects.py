@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from reccy.entities import Musician
 
 from recs.base.errors import RecsError
 from recs.cfg import projects, settings
@@ -47,6 +48,39 @@ def test_project_refuses_replacement_and_invalid_names(
         projects.project_path('../show')
     with pytest.raises(RecsError, match='Invalid recording project name'):
         projects.project_path('-default-')
+
+
+def test_project_rejects_internal_name_that_differs_from_filename(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path)
+    (tmp_path / 'show.json').write_text(
+        projects.RecordingProject(name='other', cfg=Cfg()).model_dump_json()
+    )
+
+    with pytest.raises(RecsError, match='contains a different name: other'):
+        projects.load('show')
+
+
+def test_project_template_keeps_musicians_in_mutable_settings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(projects, 'projects_directory', lambda: tmp_path / 'projects')
+    monkeypatch.setattr(
+        settings,
+        'project_settings_path',
+        lambda name: tmp_path / 'settings' / f'{name}.json',
+    )
+    cfg = Cfg(save_settings=True)
+    projects.save(projects.RecordingProject(name='show', cfg=cfg))
+    settings.save(
+        cfg, {}, {}, project_name='show', musicians={'lee': Musician(name='lee')}
+    )
+
+    loaded = projects.configured('show', [])
+
+    assert loaded.musicians == {'lee': Musician(name='lee')}
+    assert 'musicians' not in projects.project_path('show').read_text()
 
 
 def test_project_argument_is_removed_before_cfg_parsing() -> None:
