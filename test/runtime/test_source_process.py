@@ -11,6 +11,7 @@ import pytest
 import sounddevice
 import soundfile
 
+from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.file_source import FileSource
@@ -564,6 +565,52 @@ def test_source_controls_do_not_block_recorder_loop(
     parent.release.set()
     owner.stop()
     owner.join()
+
+
+def test_source_control_commands_preserve_order_while_send_blocks() -> None:
+    connection = BlockingSendConnection()
+    transport = source_process.SourceControlTransport(connection)
+    transport.start()
+    transport.publish(SourceControl(waveforms_enabled=True))
+    assert connection.started.wait(0.1)
+    transport.publish(SourceControl(calibration_tracks=['1']))
+    transport.publish(SourceControl(calibration_tracks=['2']))
+    transport.publish(SourceControl(cfg=Cfg(), cfg_revision=1))
+    transport.publish(SourceControl(cfg=Cfg(record_everything=True), cfg_revision=2))
+    connection.release.set()
+
+    deadline = time.monotonic() + 1
+    while len(connection.sent) < 5 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    transport.stop()
+    transport.thread.join(1)
+
+    assert connection.sent == [
+        SourceControl(waveforms_enabled=True),
+        SourceControl(calibration_tracks=['1']),
+        SourceControl(calibration_tracks=['2']),
+        SourceControl(cfg=Cfg(), cfg_revision=1),
+        SourceControl(cfg=Cfg(record_everything=True), cfg_revision=2),
+    ]
+
+
+def test_source_control_commands_fail_explicitly_when_backlogged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_process, 'MAX_PENDING_CONTROLS', 2)
+    connection = BlockingSendConnection()
+    transport = source_process.SourceControlTransport(connection)
+    transport.start()
+    transport.publish(SourceControl(waveforms_enabled=True))
+    assert connection.started.wait(0.1)
+    transport.publish(SourceControl(calibration_tracks=['1']))
+    transport.publish(SourceControl(calibration_tracks=['2']))
+
+    with pytest.raises(RecsError, match='Source control transport is full'):
+        transport.publish(SourceControl(calibration_tracks=['3']))
+    connection.release.set()
+    transport.stop()
+    transport.thread.join(1)
 
 
 def test_source_process_uses_per_device_noise_floor(

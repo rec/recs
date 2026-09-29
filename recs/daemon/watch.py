@@ -19,6 +19,8 @@ from recs.ui import presentation
 
 from . import instances, paths
 
+MAX_PENDING_EVENTS = 1024
+
 
 class Watch(BaseModel, frozen=True):
     json_output: Annotated[bool, tyro.conf.arg(name='--json')] = False
@@ -44,9 +46,12 @@ class StatusWatcher:
         self.lock = threading.Lock()
         self.live: Live | None = None
         self.pending: list[rpc.Event] | None = []
+        self.pending_overflow = False
 
     def set_snapshot(self, status: dict[str, object]) -> None:
         with self.lock:
+            if self.pending_overflow:
+                raise ConnectionError('Too many events before status snapshot')
             self.status = status
             self.snapshot_time = time.monotonic()
             pending, self.pending = self.pending or [], None
@@ -63,7 +68,10 @@ class StatusWatcher:
     def receive(self, event: rpc.Event) -> None:
         with self.lock:
             if self.pending is not None:
-                self.pending.append(event)
+                if len(self.pending) < MAX_PENDING_EVENTS:
+                    self.pending.append(event)
+                else:
+                    self.pending_overflow = True
                 return
         if self.json_output:
             print(event.model_dump_json(), flush=True)

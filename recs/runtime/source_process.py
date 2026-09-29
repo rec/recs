@@ -2,6 +2,7 @@ import ctypes
 import multiprocessing as mp
 import sys
 import threading
+from collections import deque
 from collections.abc import Sequence
 from multiprocessing import connection
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Any, cast
 
 from threa import Runnable
 
+from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
@@ -20,6 +22,7 @@ from . import source_recorder
 STOP_TIMEOUT = 2.0
 LINUX_PROCESS_NAME_LIMIT = 15
 PR_SET_NAME = 15
+MAX_PENDING_CONTROLS = 128
 
 
 class SourceControlTransport:
@@ -27,6 +30,7 @@ class SourceControlTransport:
         self.connection = connection
         self.lock = threading.Lock()
         self.control = source_messages.SourceControl()
+        self.commands: deque[source_messages.SourceControl] = deque()
         self.available = threading.Event()
         self.stopped = threading.Event()
         self.thread = threading.Thread(
@@ -40,6 +44,23 @@ class SourceControlTransport:
 
     def publish(self, control: source_messages.SourceControl) -> None:
         with self.lock:
+            if (
+                control.calibration_tracks is not None
+                or control.cfg_revision is not None
+            ):
+                if (
+                    len(self.commands)
+                    + 1
+                    + int(self.control != source_messages.SourceControl())
+                    > MAX_PENDING_CONTROLS
+                ):
+                    raise RecsError('Source control transport is full')
+                if self.control != source_messages.SourceControl():
+                    self.commands.append(self.control)
+                    self.control = source_messages.SourceControl()
+                self.commands.append(control)
+                self.available.set()
+                return
             self.control = source_messages.SourceControl(
                 cfg=control.cfg if control.cfg is not None else self.control.cfg,
                 cfg_revision=(
@@ -57,11 +78,7 @@ class SourceControlTransport:
                     if control.track_names is not None
                     else self.control.track_names
                 ),
-                calibration_tracks=(
-                    control.calibration_tracks
-                    if control.calibration_tracks is not None
-                    else self.control.calibration_tracks
-                ),
+                calibration_tracks=None,
                 tracks=control.tracks
                 if control.tracks is not None
                 else self.control.tracks,
@@ -87,13 +104,22 @@ class SourceControlTransport:
             self.available.wait()
             self.available.clear()
             with self.lock:
-                control, self.control = self.control, source_messages.SourceControl()
+                if self.commands:
+                    control = self.commands.popleft()
+                else:
+                    control, self.control = (
+                        self.control,
+                        source_messages.SourceControl(),
+                    )
             if control == source_messages.SourceControl():
                 continue
             try:
                 self.connection.send(control)
             except (BrokenPipeError, EOFError, OSError):
                 return
+            with self.lock:
+                if self.commands or self.control != source_messages.SourceControl():
+                    self.available.set()
 
 
 class SourceProcess(Runnable):
@@ -204,13 +230,18 @@ class SourceProcess(Runnable):
             )
 
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
+        previous = self.cfg
         self.cfg = cfg
         if self.started:
-            self.control_transport.publish(
-                source_messages.SourceControl(
-                    cfg=self.recorder_cfg, cfg_revision=revision
+            try:
+                self.control_transport.publish(
+                    source_messages.SourceControl(
+                        cfg=self.recorder_cfg, cfg_revision=revision
+                    )
                 )
-            )
+            except RecsError:
+                self.cfg = previous
+                raise
 
     def set_session_directory(self, session_directory: Path) -> None:
         self.session_directory = session_directory
@@ -294,7 +325,7 @@ class SourceProcess(Runnable):
         ):
             return
         exitcode = self.process.exitcode
-        unexpected_exit = exitcode not in (0, None) and not self.expected_stop
+        unexpected_exit = exitcode not in (0, None)
         if not forced and not unexpected_exit:
             return
         final_update = next(

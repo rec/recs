@@ -72,6 +72,17 @@ def test_json_watch_subscribes_before_snapshot_and_stops(
     assert json.loads(lines[2])['name'] == 'stopped'
 
 
+def test_watch_reports_event_overflow_before_snapshot() -> None:
+    watcher = watch.StatusWatcher(json_output=True)
+    for _ in range(watch.MAX_PENDING_EVENTS + 1):
+        watcher.receive(rpc.Event(name='rows'))
+
+    assert watcher.pending is not None
+    assert len(watcher.pending) == watch.MAX_PENDING_EVENTS
+    with pytest.raises(ConnectionError, match='Too many events'):
+        watcher.set_snapshot({})
+
+
 @pytest.mark.parametrize('arguments', [['--help'], ['--instance', '123', '--help']])
 def test_watch_help_does_not_discover_or_connect_to_instances(
     monkeypatch: pytest.MonkeyPatch,

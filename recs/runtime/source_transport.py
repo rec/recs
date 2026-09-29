@@ -1,4 +1,5 @@
 import threading
+from collections import deque
 from collections.abc import Callable
 from multiprocessing.connection import Connection
 from pathlib import Path
@@ -20,7 +21,7 @@ from recs.runtime.source_messages import (
 MAX_MERGED_WARNINGS = 64
 
 
-MAX_MERGED_FILES = 512
+MAX_PENDING_EVENTS = 1024
 
 
 MAX_MERGED_WAVEFORM_BATCHES = 5
@@ -77,6 +78,7 @@ class SourceUpdateTransport:
         self.connection = connection
         self.lock = threading.Lock()
         self.message: SourceUpdate | SourceFailure | None = None
+        self.events: deque[SourceUpdate | SourceFailure] = deque()
         self.message_timestamp: float | None = None
         self.max_message_age_seconds = 0.0
         self.max_send_seconds = 0.0
@@ -84,6 +86,7 @@ class SourceUpdateTransport:
         self.idle = threading.Event()
         self.idle.set()
         self.stopped = threading.Event()
+        self.failed = False
         self.thread = threading.Thread(
             target=self._send,
             daemon=True,
@@ -97,11 +100,23 @@ class SourceUpdateTransport:
         with self.lock:
             if self.stopped.is_set():
                 return
+            if isinstance(message, SourceFailure) or _has_durable_events(message):
+                if (
+                    len(self.events) + 1 + int(self.message is not None)
+                    > MAX_PENDING_EVENTS
+                ):
+                    raise RuntimeError('Source event transport is full')
+                if self.message is not None:
+                    self.events.append(self.message)
+                    self.message = None
+                    self.message_timestamp = None
+                self.events.append(message)
+                self.available.set()
+                self.idle.clear()
+                return
             if self.message is None:
                 self.message_timestamp = monotonic()
-            if isinstance(self.message, SourceUpdate) and isinstance(
-                message, SourceUpdate
-            ):
+            if isinstance(self.message, SourceUpdate):
                 self.message = _merge_updates(self.message, message)
             else:
                 self.message = message
@@ -113,7 +128,7 @@ class SourceUpdateTransport:
         self.available.set()
 
     def finish(self, timeout: float = SOURCE_FINISH_TIMEOUT) -> bool:
-        delivered = self.idle.wait(timeout)
+        delivered = self.idle.wait(timeout) and not self.failed
         self.stop()
         return delivered
 
@@ -122,8 +137,15 @@ class SourceUpdateTransport:
             self.available.wait()
             self.available.clear()
             with self.lock:
-                message, self.message = self.message, None
-                message_timestamp, self.message_timestamp = self.message_timestamp, None
+                if self.events:
+                    message = self.events.popleft()
+                    message_timestamp = None
+                else:
+                    message, self.message = self.message, None
+                    message_timestamp, self.message_timestamp = (
+                        self.message_timestamp,
+                        None,
+                    )
             if message is None:
                 continue
             message = self._with_transport_stats(message, message_timestamp)
@@ -133,12 +155,14 @@ class SourceUpdateTransport:
                 self.max_send_seconds = max(self.max_send_seconds, monotonic() - start)
             except (BrokenPipeError, EOFError, OSError):
                 with self.lock:
+                    self.failed = True
                     self.stopped.set()
                     self.message = None
+                    self.events.clear()
                     self.idle.set()
                 return
             with self.lock:
-                if self.message is None:
+                if self.message is None and not self.events:
                     self.idle.set()
                 else:
                     self.available.set()
@@ -256,7 +280,7 @@ def _merge_track_state_values[N: (int, float)](
 
 
 def _merge_files(first: list[Path], second: list[Path]) -> list[Path]:
-    return list(dict.fromkeys([*first, *second]))[-MAX_MERGED_FILES:]
+    return list(dict.fromkeys([*first, *second]))
 
 
 def _merge_warnings(
@@ -295,5 +319,19 @@ def _merge_file_map[N](
     second: dict[Path, N] | None,
 ) -> dict[Path, N]:
     combined = (first or {}) | (second or {})
-    keys = list(combined)[-MAX_MERGED_FILES:]
-    return {k: combined[k] for k in keys}
+    return combined
+
+
+def _has_durable_events(message: SourceUpdate) -> bool:
+    return bool(
+        message.files
+        or message.file_records
+        or message.timelines
+        or message.finished_files
+        or message.discarded_files
+        or message.config_revisions_applied
+        or message.calibration
+        or message.track_layout
+        or message.write_error
+        or message.writing_enabled is not None
+    )

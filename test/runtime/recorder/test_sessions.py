@@ -624,6 +624,32 @@ def test_new_session_links_records_and_keeps_device_timeline(
     assert new_record.files[-1].frame_count == 48_000
 
 
+def test_warning_display_is_bounded_without_losing_journal_entries(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], silent=True))
+    entries: list[session_record.Record] = []
+    rec.session.write = entries.append
+
+    rec._record_warning('first')
+    rec._record_warning('first')
+    for index in range(recorder.MAX_DISPLAY_WARNINGS):
+        rec._record_warning(f'warning {index}')
+
+    assert len(rec.warnings) == recorder.MAX_DISPLAY_WARNINGS
+    assert rec.warnings[0].message == 'warning 0'
+    assert len(entries) == recorder.MAX_DISPLAY_WARNINGS + 2
+    assert entries[-2] == session_record.WarningRecord(
+        timestamp=entries[0].timestamp,
+        message='first',
+        first_timestamp=entries[0].timestamp,
+        count=2,
+    )
+
+
 def test_identical_warnings_are_aggregated(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

@@ -358,8 +358,8 @@ def test_source_update_merge_uses_new_track_state_timing_after_transition() -> N
     assert result.track_state_timestamps == {'1': 2.0}
 
 
-def test_source_update_merge_bounds_file_metadata_backlog() -> None:
-    files = [Path(f'{i}.wav') for i in range(source_transport.MAX_MERGED_FILES + 2)]
+def test_source_update_merge_preserves_file_metadata_backlog() -> None:
+    files = [Path(f'{i}.wav') for i in range(514)]
     first_files = files[:400]
     second_files = files[400:]
     first = SourceUpdate(
@@ -401,13 +401,61 @@ def test_source_update_merge_bounds_file_metadata_backlog() -> None:
 
     result = source_transport._merge_updates(first, second)
 
-    assert len(result.files) == source_transport.MAX_MERGED_FILES
-    assert result.files[0] == files[2]
+    assert len(result.files) == len(files)
+    assert result.files[0] == files[0]
     assert result.files[-1] == files[-1]
     assert result.file_records is not None
-    assert len(result.file_records) == source_transport.MAX_MERGED_FILES
+    assert len(result.file_records) == len(files)
     assert result.file_end_frames is not None
-    assert len(result.file_end_frames) == source_transport.MAX_MERGED_FILES
+    assert len(result.file_end_frames) == len(files)
+
+
+def test_source_events_survive_blocked_send_and_precede_failure() -> None:
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    telemetry = SourceUpdate(channels={}, files=[], frames=1, source_name='Mic')
+    transport.start()
+    transport.publish(telemetry)
+    assert connection.started.wait(0.1)
+
+    files = [Path(f'{i}.wav') for i in range(514)]
+    for path in files:
+        transport.publish(telemetry._replace(files=[path], frames=0))
+    transport.publish(source_messages.SourceFailure('failed', 'Mic'))
+    connection.release.set()
+
+    assert transport.finish(timeout=2)
+    delivered = connection.messages[1:]
+    assert [
+        p for u in delivered[:-1] if isinstance(u, SourceUpdate) for p in u.files
+    ] == files
+    assert delivered[-1] == source_messages.SourceFailure('failed', 'Mic')
+
+
+def test_source_event_backlog_fails_explicitly_when_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(source_transport, 'MAX_PENDING_EVENTS', 2)
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    transport.start()
+    transport.publish(SourceUpdate(channels={}, files=[], frames=1, source_name='Mic'))
+    assert connection.started.wait(0.1)
+    for index in range(2):
+        transport.publish(
+            SourceUpdate(
+                channels={}, files=[Path(f'{index}.wav')], frames=0, source_name='Mic'
+            )
+        )
+
+    with pytest.raises(RuntimeError, match='Source event transport is full'):
+        transport.publish(
+            SourceUpdate(
+                channels={}, files=[Path('2.wav')], frames=0, source_name='Mic'
+            )
+        )
+    connection.release.set()
+    assert transport.finish(timeout=1)
 
 
 def test_source_update_merge_bounds_live_waveform_backlog() -> None:
