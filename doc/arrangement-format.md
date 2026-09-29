@@ -1,6 +1,5 @@
 # Audio arrangement scores
 
-Implemented initial profile of the [master format](../plan/master/verification-procedures.md#recs-a-common-language-for-things-that-happen-in-time).
 The native audio-edit score is now a recs score with an arrangement body.
 Old flat edit scores are no longer accepted. Session inputs use
 `recording.toml`; successful renders finalize a new recording score beside

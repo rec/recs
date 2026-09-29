@@ -96,8 +96,7 @@ continuous LFO rate ramps, modulation feedback, and richer cross-domain graph
 semantics. Each is independent work, not an implied extension of the current
 instrument renderer.
 
-See [the uFor extraction handover](master/verification-procedures.md#ufor-extraction-handover),
-[the instrument contract](../doc/sample-format.md), and
+See [the instrument contract](../doc/sample-format.md) and
 [the offline engine boundary](enge.md) for the surrounding plan.
 
 ## Additional Work Beyond The Prompt

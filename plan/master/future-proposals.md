@@ -26,8 +26,7 @@ reference exists and sample traversal remains engine work. This proposal does
 not reinstate the former waveform-generation pause or authorize new hosts.
 Existing recordings and engines can support these proposals.
 
-See [Deferred work](deferred-work.md) for the musical-model and engine decisions
-and [Verification procedures](verification-procedures.md) for the wider roadmap.
+See [Deferred work](deferred-work.md) for the musical-model and engine decisions.
 
 ## Suggested implementation order
 
@@ -382,8 +381,7 @@ positive rational playback speed. Source positions use the source timebase;
 timeline positions use the arrangement timebase. Resolve to physical time before
 applying speed. For source interval `[a, b)`, start `s`, and speed `r`, source
 time `u` appears at `s + (u-a)/r`, and duration is `(b-a)/r`. Final
-sample-boundary conversion follows
-[Time](verification-procedures.md#time-clocks-and-transport).
+sample-boundary conversion must state its rounding policy explicitly.
 
 The first profile uses speed 1. Audio speed changes require a selected resampling
 or time-stretch operation, with its pitch behavior explicit. Musical clips can

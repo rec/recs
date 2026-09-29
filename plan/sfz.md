@@ -44,8 +44,8 @@ Implement exact mappings that fit the existing uFor model:
 - key and velocity layer crossfades, including only curve shapes with an exact
   counterpart;
 - ordered alternatives after defining when their counter advances;
-- random alternatives only after the reproducibility design in
-  [Remaining Recsam Format Work](sample-format.md);
+- random alternatives using the deterministic selection contract in
+  [uFor's sample performance format](../../ufor/doc/sample-performance.md#alternate-sample-selection);
 - key-dependent amplitude, general pitch-key tracking, velocity-to-pitch, and
   key- or velocity-dependent envelope times;
 - remaining transport-independent aliases and documented SFZ defaults for
