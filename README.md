@@ -343,6 +343,33 @@ new session directory containing generated media, the resolved `edit.toml`, and
 a new `recording.toml` and capture journal. Each installed edit command provides
 Tyro-generated `--help`.
 
+An offline edit can use verified volume, HTTPS, or Git recording assets with
+`--asset-policy /path/to/assets.toml`. The operator-owned policy supplies an
+absolute cache root, a credential scope, per-asset byte and network-time limits,
+and exact approved URLs:
+
+```toml
+cache_root = "/var/cache/recs/assets"
+credential_scope = "studio-edit"
+maximum_bytes = 1073741824
+timeout = 30
+approved_https_urls = ["https://media.example.org/take.wav"]
+approved_git_urls = []
+
+[[volumes]]
+volume_id = "e44a2ec7-54d2-4b35-88e4-582d978c4e44"
+root = "/Volumes/Field Recordings"
+```
+
+Each volume root must be a mount whose measured UUID matches the policy ID.
+For remote Git acquisition, add `git_transport_repository` pointing to an
+existing bare repository on storage with a hard quota. Without that setting,
+previously cached Git bytes can still be used if the repository URL is approved.
+The policy grants no URL implicitly and contains no credentials. HTTP response
+headers are not configurable here. Without `--asset-policy`, edits retain the
+existing session-relative file behavior. The policy applies to ordinary edit
+commands; composition, calibration, and recording playback have separate paths.
+
 Offline edits decode, mix, normalize, hash, and encode audio in blocks of at most
 65,536 frames. Prepared sources and intermediate results use temporary float32
 backing files, preserving the prepared snapshot without lossy intermediate
