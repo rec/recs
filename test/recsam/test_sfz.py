@@ -189,11 +189,16 @@ def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:
     assert result.instrument is not None
     assert sfz.write(result.instrument).complete
     first, second = result.instrument.body.slots
+    assert first.choke_group is None
     assert result.instrument.body.slices[0].loop is not None
     assert result.instrument.body.slices[0].loop.start_frame == 10
     assert result.instrument.body.slices[0].loop.end_frame == 20
     assert result.instrument.body.slices[0].loop.mode == enums.LoopMode.until_release
     assert first.envelope.release[0].duration == Fraction(1, 1000)
+    assert second.choke_group == 'sfz-group-1-normal'
+    assert first.chokes[0].group == second.choke_group
+    assert first.chokes[0].mode == enums.ChokeMode.release
+    assert second.chokes == []
     assert second.trigger == enums.TriggerKind.logical_release
 
 
