@@ -11,9 +11,13 @@ import tyro
 from pydantic import BaseModel, Field
 from reccy.configuration.settings import write_text_atomically
 from reccy.paths import legal_filename
+from reccy.runtime.assets import AssetCacheError
+from ufor.assets import Asset, RelativeFileLocation
 from ufor.codec import score_toml
 
 from ..base.errors import RecsError
+from .asset_policy import load_asset_policy
+from .asset_resolver import FiniteAssetResolver
 from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording_chain
 
@@ -27,6 +31,10 @@ class ExportCli(BaseModel, frozen=True):
     destination: Annotated[Path, tyro.conf.Positional]
     resume: Path | None = None
     """Resume the reported staging directory after an interrupted export."""
+    asset_policy: Annotated[
+        Path | None,
+        tyro.conf.arg(help='Host policy for finite recording assets'),
+    ] = None
 
 
 class ExportProgress(BaseModel, frozen=True):
@@ -38,7 +46,13 @@ class ExportProgress(BaseModel, frozen=True):
     failed: list[str] = Field(default_factory=list)
 
 
-def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
+def export(
+    record: Path,
+    destination: Path,
+    resume: Path | None = None,
+    *,
+    resolver: FiniteAssetResolver | None = None,
+) -> Path:
     record = record.resolve()
     destination = destination.absolute()
     destination = destination.parent.resolve() / destination.name
@@ -58,7 +72,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
         for i, (p, _) in enumerate(records)
     }
     assets = {
-        (targets[p].parent / asset_path(a)).as_posix(): (p.parent, a)
+        (targets[p].parent / _export_path(a)).as_posix(): (p.parent, a)
         for p, d in records
         for a in d.assets
     }
@@ -76,13 +90,16 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
     for path, document in records:
         if document.body.state != 'sealed':
             raise RecsError(f'Cannot export an unfinished recording: {path}')
-        for asset in document.assets:
-            relative_path = asset_path(asset)
-            actual = sealed_asset(
-                path.parent / relative_path, path.parent, asset.name, asset.encoding
-            )
-            if actual.content != asset_content(asset):
-                raise RecsError(f'Asset bytes disagree with recording: {relative_path}')
+        if resolver is None:
+            for asset in document.assets:
+                relative_path = asset_path(asset)
+                actual = sealed_asset(
+                    path.parent / relative_path, path.parent, asset.name, asset.encoding
+                )
+                if actual.content != asset_content(asset):
+                    raise RecsError(
+                        f'Asset bytes disagree with recording: {relative_path}'
+                    )
     if resume is not None:
         temporary = resume.resolve()
         try:
@@ -140,13 +157,17 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             output = temporary / targets[path]
             output.parent.mkdir(parents=True, exist_ok=True)
             for asset in document.assets:
-                relative_path = asset_path(asset)
+                relative_path = _export_path(asset)
                 current = (targets[path].parent / relative_path).as_posix()
-                source = path.parent / relative_path
                 target = output.parent / relative_path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if current not in completed:
-                    shutil.copy2(source, target)
+                    if resolver is None:
+                        shutil.copy2(path.parent / relative_path, target)
+                    else:
+                        with resolver.open(asset, path.parent) as source:
+                            with target.open('wb') as destination_file:
+                                shutil.copyfileobj(source, destination_file)
                 actual = sealed_asset(target, output.parent, asset.name, asset.encoding)
                 if actual.content != asset_content(asset):
                     raise RecsError(f'Exported asset differs: {relative_path}')
@@ -173,6 +194,16 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             }
             exported = document.model_copy(
                 update={
+                    'assets': [
+                        asset.model_copy(
+                            update={
+                                'location': RelativeFileLocation(
+                                    path=_export_path(asset)
+                                )
+                            }
+                        )
+                        for asset in document.assets
+                    ],
                     'body': body.model_copy(
                         update={
                             'continued_from': rewritten[body.continued_from]
@@ -180,7 +211,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
                             else None,
                             'continued_at': [rewritten[p] for p in body.continued_at],
                         }
-                    )
+                    ),
                 }
             )
             output.write_text(score_toml(exported))
@@ -219,7 +250,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
                 f'Export destination appeared during copying: {destination}'
             )
         _publish_directory(temporary, destination)
-    except (OSError, RecsError, KeyboardInterrupt) as error:
+    except (OSError, RecsError, AssetCacheError, KeyboardInterrupt) as error:
         if current:
             progress.failed.append(current)
         # A disconnected/full disk can also prevent updating the progress report.
@@ -239,6 +270,12 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             f'failed {current or "publication"}: {error}'
         ) from error
     return destination
+
+
+def _export_path(asset: Asset) -> str:
+    if isinstance(asset.location, RelativeFileLocation):
+        return asset.location.path
+    return f'assets/{asset.name}'
 
 
 def _publish_directory(temporary: Path, destination: Path) -> None:
@@ -288,7 +325,10 @@ def main(argv: list[str] | None = None) -> int:
         prog='recs session export',
         description='Copy a recording and its continuations into a portable directory.',
     )
-    result = export(command.record, command.destination, command.resume)
+    resolver = load_asset_policy(command.asset_policy) if command.asset_policy else None
+    result = export(
+        command.record, command.destination, command.resume, resolver=resolver
+    )
     progress = ExportProgress.model_validate_json(
         (result / 'export-progress.json').read_text()
     )

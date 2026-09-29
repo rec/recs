@@ -1,4 +1,4 @@
-"""Host authority for finite assets used by one offline edit command."""
+"""Host authority for finite assets used by an offline command."""
 
 import secrets
 import tomllib
@@ -9,11 +9,12 @@ from reccy.runtime.assets import AssetStore
 from reccy.runtime.file_assets import VolumeMount
 
 from recs.base.errors import RecsError
-from recs.recording.asset_resolver import FiniteAssetResolver
-from recs.recording.recording_paths import mounted_disk_uuid
+
+from .asset_resolver import FiniteAssetResolver
+from .recording_paths import mounted_disk_uuid
 
 
-class EditAssetPolicy(BaseModel, frozen=True):
+class FiniteAssetPolicy(BaseModel, frozen=True):
     cache_root: Path
     credential_scope: str = Field(min_length=1)
     maximum_bytes: int = Field(gt=0, strict=True)
@@ -28,28 +29,26 @@ class EditAssetPolicy(BaseModel, frozen=True):
 
 def load_asset_policy(path: Path) -> FiniteAssetResolver:
     try:
-        policy = EditAssetPolicy.model_validate(tomllib.loads(path.read_text()))
+        policy = FiniteAssetPolicy.model_validate(tomllib.loads(path.read_text()))
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
-        raise RecsError(f'Cannot read edit asset policy {path}: {error}') from error
+        raise RecsError(f'Cannot read asset policy {path}: {error}') from error
     if not policy.cache_root.is_absolute():
-        raise RecsError('Edit asset cache_root must be an absolute path')
+        raise RecsError('Asset cache_root must be an absolute path')
     if (
         policy.git_transport_repository is not None
         and not policy.git_transport_repository.is_absolute()
     ):
-        raise RecsError('Edit Git transport repository must be an absolute path')
+        raise RecsError('Git transport repository must be an absolute path')
     for mount in policy.volumes:
         if not mount.root.is_absolute() or not mount.root.is_mount():
-            raise RecsError(f'Edit volume root is not an absolute mount: {mount.root}')
+            raise RecsError(f'Volume root is not an absolute mount: {mount.root}')
         try:
             observed = mounted_disk_uuid(mount.root)
         except OSError as error:
-            raise RecsError(
-                f'Cannot identify edit volume {mount.root}: {error}'
-            ) from error
+            raise RecsError(f'Cannot identify volume {mount.root}: {error}') from error
         if observed != mount.volume_id:
             raise RecsError(
-                f'Edit volume ID mismatch at {mount.root}: '
+                f'Volume ID mismatch at {mount.root}: '
                 f'expected {mount.volume_id}, observed {observed or "none"}'
             )
     return FiniteAssetResolver(
