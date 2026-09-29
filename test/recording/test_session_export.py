@@ -73,6 +73,31 @@ def test_export_rejects_changed_assets_before_writing(tmp_path: Path) -> None:
     assert not list(tmp_path.glob('.export.recs-export-*'))
 
 
+def test_export_does_not_replace_destination_created_during_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = _record(tmp_path / 'a', 0, None, None)
+    destination = tmp_path / 'export'
+    publish = session_export._publish_directory
+
+    def create_destination_before_publish(temporary: Path, target: Path) -> None:
+        target.mkdir()
+        (target / 'keep').write_text('unrelated')
+        publish(temporary, target)
+
+    monkeypatch.setattr(
+        session_export, '_publish_directory', create_destination_before_publish
+    )
+
+    with pytest.raises(RecsError, match='Export not published; staging retained'):
+        session_export.export(record, destination)
+
+    assert (destination / 'keep').read_text() == 'unrelated'
+    staging = list(tmp_path.glob('.export.recs-export-*'))
+    assert len(staging) == 1
+    assert (staging[0] / 'export-progress.json').exists()
+
+
 @pytest.mark.parametrize('interrupt', [OSError, KeyboardInterrupt])
 def test_resume_reuses_verified_files_and_restarts_partial_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interrupt: type[BaseException]

@@ -1,5 +1,7 @@
+import ctypes
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from typing import Annotated
@@ -14,6 +16,10 @@ from ufor.codec import score_toml
 from ..base.errors import RecsError
 from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording_chain
+
+RENAME_EXCL = 0x00000004
+RENAME_NOREPLACE = 1
+AT_FDCWD = -100
 
 
 class ExportCli(BaseModel, frozen=True):
@@ -35,9 +41,9 @@ class ExportProgress(BaseModel, frozen=True):
 def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
     record = record.resolve()
     destination = destination.absolute()
+    destination = destination.parent.resolve() / destination.name
     if destination.exists() or destination.is_symlink():
         raise RecsError(f'Export destination already exists: {destination}')
-    destination = destination.resolve()
     records = read_recording_chain(record)
     fingerprints = {
         str(p): asset_content(sealed_asset(p, p.parent, 'document', 'toml')).sha256
@@ -212,7 +218,7 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             raise RecsError(
                 f'Export destination appeared during copying: {destination}'
             )
-        temporary.rename(destination)
+        _publish_directory(temporary, destination)
     except (OSError, RecsError, KeyboardInterrupt) as error:
         if current:
             progress.failed.append(current)
@@ -233,6 +239,46 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
             f'failed {current or "publication"}: {error}'
         ) from error
     return destination
+
+
+def _publish_directory(temporary: Path, destination: Path) -> None:
+    if sys.platform == 'win32':
+        temporary.rename(destination)
+        return
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == 'darwin':
+        try:
+            rename = libc.renamex_np
+        except AttributeError:
+            raise RecsError('Exclusive directory rename is unavailable') from None
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        arguments = (os.fsencode(temporary), os.fsencode(destination), RENAME_EXCL)
+    elif sys.platform.startswith('linux'):
+        try:
+            rename = libc.renameat2
+        except AttributeError:
+            raise RecsError('Exclusive directory rename is unavailable') from None
+        rename.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        arguments = (
+            AT_FDCWD,
+            os.fsencode(temporary),
+            AT_FDCWD,
+            os.fsencode(destination),
+            RENAME_NOREPLACE,
+        )
+    else:
+        raise RecsError('Exclusive directory rename is unavailable')
+    rename.restype = ctypes.c_int
+    if rename(*arguments) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), str(destination))
 
 
 def main(argv: list[str] | None = None) -> int:
