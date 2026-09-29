@@ -264,6 +264,25 @@ def test_read_sfz_resolves_defined_sample_and_key(tmp_path: Path) -> None:
     assert result.instrument.body.slots[0].mapping.lowest_key == 60
 
 
+def test_read_sfz_requires_explicit_sequence_counter_rule(tmp_path: Path) -> None:
+    path = tmp_path / 'sequence.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text('<region> sample=sample.wav key=60 seq_length=2 seq_position=1')
+
+    default = read(path)
+    opted_in = read(path, sequence_counter='all_note_ons')
+
+    assert [i.location.opcode for i in default.unimplemented] == [
+        'seq_length',
+        'seq_position',
+    ]
+    assert opted_in.complete
+    assert opted_in.instrument is not None
+    assert opted_in.instrument.body.slots[0].sequence == selection.SequencePosition(
+        length=2, position=1
+    )
+
+
 def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     path = tmp_path / 'source.sfz'
     sample = tmp_path / 'sample.wav'

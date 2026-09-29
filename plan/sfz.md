@@ -9,6 +9,9 @@ includes velocity response, asset-aware loop and channel defaults, envelope
 shape mapping, release-trigger distinctions, half-open loop endpoints, and
 basic inheritance. Pure parsing, compilation and export now live in
 `ufor.sfz`; recs only resolves paths and supplies measured asset metadata.
+SFZ round-robin positions can be imported with the explicit `all_note_ons`
+counter rule; the default reports them as unsupported because SFZ players
+disagree on counter behavior.
 
 The remaining goal is a lossless, well-diagnosed import of useful,
 non-vendor-specific SFZ 1 and SFZ 2 behavior. Unsupported behavior must remain
@@ -43,7 +46,6 @@ Implement exact mappings that fit the existing uFor model:
 
 - key and velocity layer crossfades, including only curve shapes with an exact
   counterpart;
-- ordered alternatives after defining when their counter advances;
 - random alternatives using the deterministic selection contract in
   [uFor's sample performance format](../../ufor/doc/sample-performance.md#alternate-sample-selection);
 - key-dependent amplitude, general pitch-key tracking, velocity-to-pitch, and
