@@ -309,15 +309,6 @@ def test_sfz_import_rejects_symlinks_outside_its_directory(tmp_path: Path) -> No
             'SFZ opcode is not implemented',
         ),
         (
-            '<curve> curve_index=1',
-            'curve',
-            None,
-            None,
-            1,
-            False,
-            'SFZ header is not implemented',
-        ),
-        (
             '#include "other.sfz"',
             'preprocessor',
             '#include',
@@ -374,6 +365,24 @@ def test_read_sfz_reports_unimplemented_features(
     assert feature.location.line == 1
     assert feature.location.column == column
     assert feature.reason == reason
+
+
+def test_read_sfz_reports_unsupported_header_and_opcode(tmp_path: Path) -> None:
+    path = tmp_path / 'curve.sfz'
+    path.write_text('<curve> curve_index=1')
+
+    result = read(path)
+
+    assert result.instrument is None
+    assert len(result.unimplemented) == 2
+    assert result.unimplemented[0].reason == (
+        'SFZ curve header requires curve-table support'
+    )
+    opcode = result.unimplemented[1]
+    assert isinstance(opcode.location, sfz.SfzLocation)
+    assert opcode.location.header == 'curve'
+    assert opcode.location.opcode == 'curve_index'
+    assert opcode.value == '1'
 
 
 @pytest.mark.parametrize(
