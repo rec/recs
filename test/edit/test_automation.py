@@ -12,12 +12,12 @@ from ufor.automation import (
     Interpolation,
     Quantity,
     TimelineCurve,
+    TimelineSegment,
     evaluate,
 )
 from ufor.control import Scope
 from ufor.interface import ControlBinding, ControlType, Output, OutputSelection
 from ufor.modulation import Operation, Unit
-from ufor.segments import Segment
 from ufor.time import Rate, Timebase
 
 from recs.edit.automation import gain_values
@@ -171,7 +171,7 @@ def _automation(
                         interpolation=interpolation,
                         at=start,
                         initial=0.0,
-                        segments=[Segment(duration=end - start, to=1.0)],
+                        segments=[TimelineSegment(duration=end - start, to=1.0)],
                     )
                 ],
             ),

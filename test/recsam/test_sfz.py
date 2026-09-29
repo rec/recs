@@ -247,6 +247,23 @@ def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
         read(path)
 
 
+def test_read_sfz_resolves_defined_sample_and_key(tmp_path: Path) -> None:
+    path = tmp_path / 'defined.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text(
+        '#define $SAMPLE sample.wav\n'
+        '#define $KEY 60\n'
+        '<region> sample=$SAMPLE key=$KEY loop_mode=no_loop\n'
+    )
+
+    result = read(path)
+
+    assert result.complete
+    assert result.instrument is not None
+    assert result.instrument.assets[0].location.path == 'sample.wav'
+    assert result.instrument.body.slots[0].mapping.lowest_key == 60
+
+
 def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     path = tmp_path / 'source.sfz'
     sample = tmp_path / 'sample.wav'
