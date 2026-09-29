@@ -7,13 +7,13 @@ from typing import Annotated
 import tomlkit
 import tyro
 from pydantic import BaseModel, Field
+from reccy.configuration.settings import write_text_atomically
 from reccy.paths import legal_filename
 from ufor.codec import score_toml
 
 from ..base.errors import RecsError
 from .files import asset_content, asset_path, sealed_asset
 from .read import read_recording_chain
-from .recording_paths import write_text_atomically
 
 
 class ExportCli(BaseModel, frozen=True):
@@ -58,7 +58,6 @@ def export(record: Path, destination: Path, resume: Path | None = None) -> Path:
     }
     reserved = {p.as_posix() for p in targets.values()} | {
         'export-progress.json',
-        '.export-progress.json.tmp',
         'export-summary.toml',
     }
     paths = {Path(p) for p in [*assets, *reserved]}
