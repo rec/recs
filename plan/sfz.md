@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-`recs.recsam.sfz.read()` already returns `SfzReadResult`, containing a validated
+`recs.recsam.sfz.read()` already returns `SfzCompileResult`, containing a validated
 native uFor instrument when one can be constructed and an ordered collection of
 unimplemented features with source locations. The completed correctness work
 includes velocity response, asset-aware loop and channel defaults, envelope
@@ -14,6 +14,11 @@ velocity-dependent amplifier envelope durations are also imported.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
 counter rule; the default reports them as unsupported because SFZ players
 disagree on counter behavior.
+The pinned SFZ v1/v2 registry classifies 453 opcodes and the standard headers,
+drives unsupported-feature diagnostics, and generates the
+[support table](../../ufor/doc/sfz-support.md). SFZ 2 `#define` values expand
+at use sites with recursive and undefined variables rejected. Unsupported
+`<curve>`, `<effect>`, and `<sample>` sections have located diagnostics.
 
 The remaining goal is a lossless, well-diagnosed import of useful,
 non-vendor-specific SFZ 1 and SFZ 2 behavior. Unsupported behavior must remain
@@ -22,27 +27,7 @@ visible; it must never be silently approximated.
 Vendor extensions remain outside the compatibility promise. A general recsam
 concept should be added only when it is useful independently of SFZ.
 
-## 1. Opcode Registry And Diagnostics
-
-Create one registry classifying every standard header and opcode as:
-
-- supported;
-- dependent on asset metadata;
-- dependent on a new uFor model;
-- dependent on an external controller binding;
-- deferred because player semantics are ambiguous; or
-- a vendor extension.
-
-Use that registry to generate diagnostics and a public support table so code
-and documentation cannot drift. Preserve the current file, line, header,
-opcode, value, and reason for every unimplemented feature.
-
-Add SFZ 2 `#define` expansion at token values. Reject recursive and undefined
-variables, preserve original source locations, and do not add general textual
-evaluation. Register `<curve>`, `<effect>`, and `<sample>` even while their
-semantics remain unsupported.
-
-## 2. Currently Representable Features
+## 1. Currently Representable Features
 
 Implement exact mappings that fit the existing uFor model:
 
@@ -58,7 +43,7 @@ Keep discrete eligibility ranges separate from crossfade ranges. Reject region
 sets whose layering or alternative-selection scope cannot be represented
 coherently.
 
-## 3. New General Recsam Concepts
+## 2. New General Recsam Concepts
 
 Design these independently before adding importer mappings:
 
@@ -74,7 +59,7 @@ Design these independently before adding importer mappings:
 Do not add SFZ opcode names to the native uFor model. Filters remain blocked on a separate
 filter design.
 
-## 4. Controller Bindings
+## 3. Controller Bindings
 
 Design a companion binding document that maps MIDI and other protocols onto
 recsam's transport-neutral events and named controls. An SFZ import containing
