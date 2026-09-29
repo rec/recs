@@ -768,6 +768,23 @@ def test_default_output_directory_uses_collision_suffix(
     assert rec.session_directory == Path(f'{expected}_1')
 
 
+def test_session_directory_is_claimed_if_created_after_recorder_initialization(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
+    original = rec.session_directory
+    original.mkdir(parents=True)
+
+    rec._start_record()
+    rec._finish_record()
+
+    assert rec.session_directory == original.with_name(f'{original.name}_1')
+    assert (rec.session_directory / 'session-record.jsonl').exists()
+
+
 def test_daemon_default_output_directory_uses_largest_external_disk(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -12,6 +12,8 @@ from ufor.recording import AudioFragment, AudioStream, RecordingScore
 from recs.base.errors import RecsError
 from recs.recording.files import asset_path
 
+PLAYBACK_STOP_TIMEOUT = 2.0
+
 
 class PlaybackTimeline:
     """One recorded stream, read in its original timeline coordinates."""
@@ -98,17 +100,21 @@ class PlaybackRunner:
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        self._thread = threading.Thread(target=self._run, name='SessionPlayback')
+        self._thread = threading.Thread(
+            target=self._run, name='SessionPlayback', daemon=True
+        )
         self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
         with self._condition:
             self.stopped = True
             self._condition.notify_all()
         if self._thread is not None:
-            self._thread.join()
+            self._thread.join(PLAYBACK_STOP_TIMEOUT)
+            return not self._thread.is_alive()
         else:
             self.timeline.close()
+            return True
 
     def pause(self) -> None:
         with self._condition:

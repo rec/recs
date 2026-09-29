@@ -752,6 +752,18 @@ class Recorder(Runnables):
 
     def _start_record(self) -> None:
         if self.cfg.general.writes_files:
+            directory = self.session_directory
+            while True:
+                try:
+                    directory.mkdir(parents=True, exist_ok=False)
+                except FileExistsError:
+                    directory = recording_paths.available_directory(
+                        self.session_directory
+                    )
+                else:
+                    break
+            if directory != self.session_directory:
+                self._set_session_directory(directory)
             root = recording_paths.recovery_root(self.cfg.directory.output_directory)
             self._recovery_roots.add(root)
             recovery_report.register_unfinished_session(

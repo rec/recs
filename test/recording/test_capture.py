@@ -47,6 +47,9 @@ class MidiPort:
     def close(self) -> None:
         pass
 
+    def take_dropped(self) -> int:
+        return 0
+
 
 class PacketQueue:
     def __init__(self) -> None:

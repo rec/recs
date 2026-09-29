@@ -175,6 +175,20 @@ def test_source_update_finish_waits_for_final_send() -> None:
     assert finished.is_set()
 
 
+def test_source_update_finish_has_a_deadline() -> None:
+    connection = BlockingConnection()
+    transport = SourceUpdateTransport(connection)
+    transport.start()
+    transport.publish(SourceUpdate(channels={}, files=[], frames=0, source_name='Mic'))
+    assert connection.started.wait(0.1)
+
+    try:
+        assert not transport.finish(timeout=0.01)
+    finally:
+        connection.release.set()
+        transport.thread.join(1)
+
+
 def test_source_update_finish_returns_after_the_reader_disconnects() -> None:
     reader, writer = Pipe(duplex=False)
     reader.close()

@@ -115,7 +115,10 @@ class DeviceQueryStream:
             process.wait(STREAM_TIMEOUT)
         except subprocess.TimeoutExpired:
             process.kill()
-            process.wait()
+            try:
+                process.wait(STREAM_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                LOGGER.error('Device-query helper did not exit after kill')
         if process.stdout is not None:
             process.stdout.close()
         if reader is not None:

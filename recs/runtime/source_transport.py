@@ -24,6 +24,7 @@ MAX_MERGED_FILES = 512
 
 
 MAX_MERGED_WAVEFORM_BATCHES = 5
+SOURCE_FINISH_TIMEOUT = 2.0
 
 
 class SourceControlHandler:
@@ -111,9 +112,10 @@ class SourceUpdateTransport:
         self.stopped.set()
         self.available.set()
 
-    def finish(self) -> None:
-        self.idle.wait()
+    def finish(self, timeout: float = SOURCE_FINISH_TIMEOUT) -> bool:
+        delivered = self.idle.wait(timeout)
         self.stop()
+        return delivered
 
     def _send(self) -> None:
         while not self.stopped.is_set():

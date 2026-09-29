@@ -362,3 +362,32 @@ bind_port = 7000
         for line in (tmp_path / 'new/osc/telemetry.jsonl').read_text().splitlines()
     ]
     assert lines[0]['decoded'] == [{'path': '/level', 'types': 'f', 'args': [0.5]}]
+
+
+def test_card_replacement_reports_dropped_osc_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(recorder, 'MAX_CARD_REPLACE_EVENTS', 2)
+    config = tmp_path / 'osc.toml'
+    config.write_text('[[nodes]]\nname = "telemetry"\nbind_port = 7000\n')
+    fake_socket = FakeSocket()
+    packet = (codec.encode_message('/level', [0.5]), ('10.43.0.31', 7000))
+    fake_socket.received = [packet] * 3
+    warnings: list[str] = []
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'old/osc',
+        warnings.append,
+        lambda record: None,
+    )
+    osc_recorder.start()
+    osc_recorder.suspend_for_card_replace()
+    osc_recorder.poll()
+    osc_recorder.open_session(tmp_path / 'new/osc')
+    osc_recorder.stop()
+
+    assert warnings == [
+        'OSC node telemetry: card-replacement buffer full; dropping oldest events',
+        'OSC node telemetry: dropped 1 events during card replacement',
+    ]
