@@ -65,7 +65,9 @@ class Play(ControlCommand):
     """Play a recorded session, temporarily pausing capture if it is active."""
 
     rpc_command = 'play_session'
-    session: int = -1
+    session: int = Field(
+        default=-1, description='Negative index: -1 is latest, -2 is previous.'
+    )
     source: str | None = None
     channel: str | None = None
     output_channel: str | None = None

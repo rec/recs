@@ -84,7 +84,12 @@ class PauseRecording(BaseModel):
 
 class PlaySession(BaseModel):
     type: Literal['play_session']
-    session: int = Field(default=-1, strict=True, lt=0)
+    session: int = Field(
+        default=-1,
+        strict=True,
+        lt=0,
+        description='Negative index: -1 is latest, -2 is previous.',
+    )
     source: str | None = None
     channel: str | None = None
     output_channel: str | None = None
