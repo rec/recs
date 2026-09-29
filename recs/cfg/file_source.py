@@ -6,6 +6,7 @@ import soundfile
 from threa import HasThread, Runnable
 from ufor.encoding import Format, Subtype
 
+from recs.base.errors import RecsError
 from recs.base.types import SdType
 
 from .source import Source, Update, to_matrix
@@ -17,18 +18,19 @@ BLOCKCOUNT = 0x1000
 class FileSource(Source):
     def __init__(self, path: Path) -> None:
         self.path = path
-        assert self.path.exists()
-
-        with self._stream() as fp:
-            self.format = Format(fp.format.lower())
-            self.subtype = Subtype(fp.subtype.lower())
-            super().__init__(
-                channels=fp.channels,
-                format=self.format,
-                name=path.as_posix(),
-                samplerate=int(fp.samplerate),
-                subtype=self.subtype,
-            )
+        try:
+            with self._stream() as fp:
+                self.format = Format(fp.format.lower())
+                self.subtype = Subtype(fp.subtype.lower())
+                super().__init__(
+                    channels=fp.channels,
+                    format=self.format,
+                    name=path.as_posix(),
+                    samplerate=int(fp.samplerate),
+                    subtype=self.subtype,
+                )
+        except (OSError, soundfile.SoundFileError, ValueError) as error:
+            raise RecsError(f'Cannot read audio input {path}: {error}') from None
 
     def _stream(self) -> soundfile.SoundFile:
         return soundfile.SoundFile(file=self.path, mode='r')
