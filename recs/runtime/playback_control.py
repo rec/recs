@@ -47,7 +47,8 @@ class PlaybackControl:
         index = len(paths) + request.session
         if not 0 <= index < len(paths):
             raise RecsError(
-                f'No session {request.session}; {len(paths)} session(s) available'
+                f'No session {request.session}; use -1 for the latest of '
+                f'{len(paths)} available session(s)'
             )
         score_path = paths[index]
         score = read_recording(score_path)

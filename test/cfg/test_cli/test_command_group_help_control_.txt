@@ -283,9 +283,9 @@ usage: recs control play [-h] [PLAY OPTIONS]
 Play a recorded session, temporarily pausing capture if it is active.
 
  options
- ------------------------------------------------
+ ----------------------------------------------------------------------------
   -h, --help     show this help message and exit
-  --session INT  (default: -1)
+  --session INT  Negative index: -1 is latest, -2 is previous. (default: -1)
   --source {None}|STR
                  (default: None)
   --channel {None}|STR

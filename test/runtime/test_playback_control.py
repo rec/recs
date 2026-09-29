@@ -63,6 +63,25 @@ def test_play_selects_the_most_recent_session_and_changes_session(
     assert states[-1] == previous
 
 
+def test_unavailable_session_error_explains_relative_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / 'recording.toml').touch()
+    monkeypatch.setattr(
+        playback_control, 'read_recording', lambda path: _score('2026-09-01T12:00:00Z')
+    )
+    control = playback_control.PlaybackControl(
+        lambda: tmp_path,
+        lambda: pytest.fail('Capture must not pause'),
+        lambda: pytest.fail('Capture must not resume'),
+        lambda state: None,
+        lambda message: pytest.fail(message),
+    )
+
+    with pytest.raises(RecsError, match='use -1 for the latest'):
+        control.play(gui_protocol.PlaySession(type='play_session', session=-2))
+
+
 @pytest.mark.parametrize('was_paused', [False, True])
 @pytest.mark.parametrize('completion', ['stop', 'finished', 'failed'])
 def test_playback_restores_only_its_own_recording_pause(
