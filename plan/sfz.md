@@ -14,6 +14,8 @@ velocity-dependent amplifier envelope durations are also imported.
 Key and velocity crossfades preserve the separate mapping eligibility ranges;
 deterministic SFZ random ranges have their own selection condition. Finite
 `loop_count` values now map to native loop `repeat_count` and round-trip.
+Positive SFZ `count` values map to native one-shot `play_count` without
+retriggering envelopes; player-dependent `count=0` remains diagnosed.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
 counter rule; the default reports them as unsupported because SFZ players
 disagree on counter behavior.
@@ -49,7 +51,7 @@ Design these independently before adding importer mappings:
 - loop direction;
 - voice limits, voice stealing, repeated-trigger masking, and release-tail
   termination;
-- delayed start, repeat count, end fade, stereo width, channel position,
+- delayed start, end fade, stereo width, channel position,
   channel swapping, and polarity inversion;
 - mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
 - exact conversion between SFZ equalizer bandwidth and recsam resonance, if the
