@@ -50,6 +50,7 @@ from .source_process import SourceProcess
 
 LOGGER = logging.get_logger(__name__)
 SOURCE_STALL_TIMEOUT = device_lifecycle.SOURCE_STALL_TIMEOUT
+MAX_DISPLAY_WARNINGS = 256
 
 
 class Recorder(Runnables):
@@ -999,6 +1000,26 @@ class Recorder(Runnables):
             )
             return
         LOGGER.error('%s', warning)
+        if len(self.warnings) == MAX_DISPLAY_WARNINGS:
+            oldest = self.warnings[0]
+            count = oldest.count or 1
+            if not self._output_unmounted and count > self._recorded_warning_counts.get(
+                oldest.message, 0
+            ):
+                self.session.write(
+                    session_record.WarningRecord(
+                        timestamp=oldest.timestamp,
+                        message=oldest.message,
+                        first_timestamp=oldest.first_timestamp,
+                        count=count,
+                    )
+                )
+            self.warnings.pop(0)
+            self._warning_indexes.pop(oldest.message)
+            self._recorded_warning_counts.pop(oldest.message, None)
+            self._warning_indexes = {
+                record.message: index for index, record in enumerate(self.warnings)
+            }
         self._warning_indexes[warning] = len(self.warnings)
         self.warnings.append(ErrorRecord(timestamp=timestamp, message=warning))
         self._recorded_warning_counts[warning] = 1

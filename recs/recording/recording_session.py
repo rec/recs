@@ -14,6 +14,8 @@ from recs.recording.capture_events import SourceFile, capture_clock_id
 from recs.recording.events import EventWriter, host_clock_observation
 from recs.recording.finalize import finalize_recording
 
+MAX_RECORD_ERRORS = 256
+
 
 class RecordingSession:
     def __init__(self, session_id: str, started_at: float) -> None:
@@ -90,11 +92,13 @@ class RecordingSession:
             self.record_errors.extend(writer.take_errors())
             self.record_writer = None
         if not completed:
+            self.record_errors = self.record_errors[-MAX_RECORD_ERRORS:]
             return
         try:
             finalize_recording(writer.path)
         except (OSError, RecsError, SoundFileError, ValidationError) as error:
             self.record_errors.append(f'Cannot finalize recording: {error}')
+        self.record_errors = self.record_errors[-MAX_RECORD_ERRORS:]
 
     def record_file_finished(self, path: Path) -> None:
         if path in self.finished_files or path not in self.files:
