@@ -22,6 +22,7 @@ from ufor.automation import (
     Interpolation,
     Quantity,
     TimelineCurve,
+    TimelineSegment,
 )
 from ufor.control import Scope
 from ufor.encoding import Format, Subtype
@@ -36,7 +37,6 @@ from ufor.interface import (
 from ufor.modulation import Unit
 from ufor.recording import AudioStream, RecordingScore
 from ufor.references import RecordSelector
-from ufor.segments import Segment
 from ufor.streams import AudioType, FileDestination
 from ufor.time import Rate, Timebase
 
@@ -653,7 +653,7 @@ def _crossfade_automation(
                     interpolation=Interpolation.equal_power,
                     at=0,
                     initial=start,
-                    segments=[Segment(duration=duration, to=end)],
+                    segments=[TimelineSegment(duration=duration, to=end)],
                 )
             ],
         ),
