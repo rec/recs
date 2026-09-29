@@ -16,6 +16,9 @@ deterministic SFZ random ranges have their own selection condition. The
 documented `lovel` default of MIDI velocity 1 is preserved. Finite `loop_count`
 values now map to native loop `repeat_count` and round-trip.
 The `pitch` fine-tuning alias and integral `transpose` bounds are handled.
+Standard `tune` and `volume` bounds are enforced on import and export, and
+numeric SFZ group spellings share one choke identity. Conflicting `key` and
+`pitch_keycenter` order is diagnosed where players disagree.
 SFZ `off_by` is translated from its victim-side meaning into native trigger-side
 chokes, including distinct `off_mode` values; export reverses that mapping.
 SFZ `phase=invert` maps to generic polarity inversion independently of pan.
@@ -28,6 +31,9 @@ one-shot note-off behavior that varies by player remains diagnosed.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
 counter rule; the default reports them as unsupported because SFZ players
 disagree on counter behavior.
+Release-triggered sequence and random conditions that cannot use the native
+note-on state are diagnosed rather than approximated. Overlapping regions
+remain independent layers.
 The pinned SFZ v1/v2 registry classifies 453 opcodes and the standard headers,
 drives unsupported-feature diagnostics, and generates the
 [support table](../../ufor/doc/sfz-support.md). SFZ 2 `#define` values expand
@@ -40,17 +46,6 @@ visible; it must never be silently approximated.
 
 Vendor extensions remain outside the compatibility promise. A general recsam
 concept should be added only when it is useful independently of SFZ.
-
-## 1. Currently Representable Features
-
-Implement exact mappings that fit the existing uFor model:
-
-- remaining transport-independent aliases and documented SFZ defaults for
-  start, end, loops, gain, tuning, direction, and triggers.
-
-Keep discrete eligibility ranges separate from crossfade ranges. Reject region
-sets whose layering or alternative-selection scope cannot be represented
-coherently.
 
 ## 2. New General Recsam Concepts
 

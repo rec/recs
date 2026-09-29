@@ -151,6 +151,26 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     assert mapping.pitch_tracking
 
 
+def test_read_sfz_preserves_overlapping_layers(tmp_path: Path) -> None:
+    path = tmp_path / 'layers.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text(
+        '<region> sample=sample.wav key=60 lovel=1 hivel=90\n'
+        '<region> sample=sample.wav key=60 lovel=40 hivel=127'
+    )
+
+    result = read(path)
+
+    assert result.complete
+    assert result.instrument is not None
+    first, second = result.instrument.body.slots
+    assert first.selection is None
+    assert second.selection is None
+    assert first.mapping.maximum_velocity == 90 / 127
+    assert second.mapping.minimum_velocity == 40 / 127
+    assert sfz.write(result.instrument).complete
+
+
 def test_read_sfz_preserves_phase_inversion_with_pan(tmp_path: Path) -> None:
     path = tmp_path / 'phase.sfz'
     _write_wav(tmp_path / 'sample.wav')
