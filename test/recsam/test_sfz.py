@@ -146,7 +146,7 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     assert mapping.lowest_key == 0
     assert mapping.highest_key == 127
     assert mapping.reference_pitch_hz == pytest.approx(261.625565)
-    assert mapping.minimum_velocity == 0
+    assert mapping.minimum_velocity == 1 / 127
     assert mapping.maximum_velocity == 1
     assert mapping.pitch_tracking
 

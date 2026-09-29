@@ -12,8 +12,9 @@ basic inheritance. Pure parsing, compilation and export now live in
 Key-dependent amplitude, partial pitch-key tracking, pitch-by-velocity, and
 velocity-dependent amplifier envelope durations are also imported.
 Key and velocity crossfades preserve the separate mapping eligibility ranges;
-deterministic SFZ random ranges have their own selection condition. Finite
-`loop_count` values now map to native loop `repeat_count` and round-trip.
+deterministic SFZ random ranges have their own selection condition. The
+documented `lovel` default of MIDI velocity 1 is preserved. Finite `loop_count`
+values now map to native loop `repeat_count` and round-trip.
 Positive SFZ `count` values map to native one-shot `play_count` without
 retriggering envelopes; player-dependent `count=0` remains diagnosed.
 SFZ `loop_type` now preserves a loop's direction independently of whole-sample
