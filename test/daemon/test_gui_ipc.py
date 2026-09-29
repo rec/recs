@@ -196,8 +196,8 @@ def test_daemon_publisher_releases_pending_control_requests_on_shutdown() -> Non
 
     server.request_shutdown()
 
-    assert request.wait_for_response() == gui_protocol.RecordingState(
-        type='recording_state', paused=False
+    assert request.wait_for_response() == gui_protocol.Error(
+        type='error', message='recs is shutting down'
     )
 
 
@@ -205,7 +205,17 @@ def test_control_request_wait_times_out() -> None:
     request = gui_ipc.ControlRequest(gui_protocol.Calibrate(type='calibrate'))
 
     assert request.wait_for_response(timeout=0) == gui_protocol.Error(
-        type='error', message='recs did not answer before shutdown'
+        type='error', message='recs control timed out before execution'
+    )
+    assert not request.start()
+
+
+def test_active_gui_control_timeout_reports_unknown_outcome() -> None:
+    request = gui_ipc.ControlRequest(gui_protocol.Calibrate(type='calibrate'))
+    assert request.start()
+
+    assert request.wait_for_response(timeout=0) == gui_protocol.Error(
+        type='error', message='recs control timed out; outcome unknown'
     )
 
 

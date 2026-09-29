@@ -55,26 +55,46 @@ class RecordingSession:
     def finish(self, timestamp: float) -> None:
         if self.record_writer is None:
             return
-        if self.key_writer is not None:
-            self.write(self.key_writer.finish())
-            self.key_writer = None
-        for path in sorted(self.files):
-            if path.exists():
-                self.record_file_finished(path)
-        self.write(host_clock_observation())
-        self.write(
-            session_record.SessionFooter(
-                ended_at=session_record.timestamp_to_json(timestamp),
-                duration_seconds=timestamp - self.started_at,
-            )
-        )
-        self.record_writer.close()
+        writer = self.record_writer
+        completed = False
         try:
-            finalize_recording(self.record_writer.path)
+            if self.key_writer is not None:
+                self.write(self.key_writer.finish())
+                self.key_writer = None
+            for path in sorted(self.files):
+                if path.exists():
+                    self.record_file_finished(path)
+            self.write(host_clock_observation())
+            self.write(
+                session_record.SessionFooter(
+                    ended_at=session_record.timestamp_to_json(timestamp),
+                    duration_seconds=timestamp - self.started_at,
+                )
+            )
+            completed = True
+        except OSError as error:
+            self.record_errors.append(f'Cannot finish recording: {error}')
+        finally:
+            if self.key_writer is not None:
+                try:
+                    self.key_writer.output.close()
+                except OSError as error:
+                    self.record_errors.append(f'Cannot close key events: {error}')
+                    completed = False
+                self.key_writer = None
+            try:
+                writer.close()
+            except OSError as error:
+                self.record_errors.append(f'Cannot close record: {error}')
+                completed = False
+            self.record_errors.extend(writer.take_errors())
+            self.record_writer = None
+        if not completed:
+            return
+        try:
+            finalize_recording(writer.path)
         except (OSError, RecsError, SoundFileError, ValidationError) as error:
             self.record_errors.append(f'Cannot finalize recording: {error}')
-        self.record_errors.extend(self.record_writer.take_errors())
-        self.record_writer = None
 
     def record_file_finished(self, path: Path) -> None:
         if path in self.finished_files or path not in self.files:

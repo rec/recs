@@ -219,6 +219,26 @@ def test_finalization_retains_session_project_name(tmp_path: Path) -> None:
     assert read_recording(tmp_path / 'recording.toml').body.project_name == 'x18-show'
 
 
+def test_failed_journal_write_still_closes_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = RecordingSession('write-failure', 0.0)
+    session.start(tmp_path / 'session-record.jsonl', enabled=True)
+    writer = session.record_writer
+    assert writer is not None
+
+    def fail(entry: session_record.Record, *, sync: bool = False) -> None:
+        raise OSError('disk full')
+
+    monkeypatch.setattr(writer, 'write', fail)
+    session.finish(1.0)
+
+    assert writer.fp.closed
+    assert session.record_writer is None
+    assert session.record_errors == ['Cannot finish recording: disk full']
+    assert not (tmp_path / 'recording.toml').exists()
+
+
 def _audio(
     session: RecordingSession,
     directory: Path,

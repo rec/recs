@@ -120,6 +120,8 @@ class RecordingControlProtocol:
                 warning(f'Malformed GUI protocol message: {error}')
         requests = live.take_control_requests() if live is not None else []
         for request in requests:
+            if not request.start():
+                continue
             try:
                 response = self.handle(request.request)
             except RecsError as error:
@@ -128,6 +130,8 @@ class RecordingControlProtocol:
         if external is None:
             return
         for request in external.take_requests():
+            if not request.start():
+                continue
             try:
                 parsed = external_ipc.recs_request(request.request)
                 if isinstance(parsed, gui_protocol.Shutdown):

@@ -28,18 +28,35 @@ class ControlRequest:
         self.request = request
         self.response: gui_protocol.Response | None = None
         self.ready = threading.Event()
+        self.lock = threading.Lock()
+        self.started = False
+        self.cancelled = False
+
+    def start(self) -> bool:
+        with self.lock:
+            if self.cancelled:
+                return False
+            self.started = True
+            return True
 
     def respond(self, response: gui_protocol.Response) -> None:
-        self.response = response
-        self.ready.set()
+        with self.lock:
+            self.response = response
+            self.ready.set()
 
     def wait_for_response(
         self, timeout: float = CONTROL_RESPONSE_TIMEOUT
     ) -> gui_protocol.Response:
         if not self.ready.wait(timeout):
-            return gui_protocol.Error(
-                type='error', message='recs did not answer before shutdown'
-            )
+            with self.lock:
+                if self.response is None:
+                    self.cancelled = not self.started
+                    message = (
+                        'recs control timed out; outcome unknown'
+                        if self.started
+                        else 'recs control timed out before execution'
+                    )
+                    return gui_protocol.Error(type='error', message=message)
         assert self.response is not None
         return self.response
 
@@ -265,7 +282,7 @@ class DaemonGuiServer(Runnable):
             control_requests, self.control_requests = self.control_requests, []
 
         message = ipc.message_json(gui_protocol.Shutdown(type='shutdown'))
-        response = gui_protocol.RecordingState(type='recording_state', paused=False)
+        response = gui_protocol.Error(type='error', message='recs is shutting down')
         for request in control_requests:
             request.respond(response)
         for listener in listeners:
@@ -279,17 +296,18 @@ class DaemonGuiServer(Runnable):
             if (conn := self.backend.accept()) is None:
                 continue
             with self.lock:
-                if self.clients:
-                    conn.write(
-                        ipc.message_json(
-                            gui_protocol.Error(
-                                type='error',
-                                message='recs already has an active GUI client',
-                            )
+                occupied = bool(self.clients)
+            if occupied:
+                conn.write(
+                    ipc.message_json(
+                        gui_protocol.Error(
+                            type='error',
+                            message='recs already has an active GUI client',
                         )
                     )
-                    conn.close()
-                    continue
+                )
+                conn.close()
+                continue
 
             listener = GuiListener(
                 conn,
@@ -308,6 +326,11 @@ class DaemonGuiServer(Runnable):
 
     def _append_control_request(self, request: ControlRequest) -> None:
         with self.lock:
+            if self.shutdown_started:
+                request.respond(
+                    gui_protocol.Error(type='error', message='recs is shutting down')
+                )
+                return
             self.control_requests.append(request)
 
     def _append_protocol_error(self, error: str) -> None:

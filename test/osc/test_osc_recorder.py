@@ -130,6 +130,33 @@ resubscribe_period = 10
     assert finished.start_tick <= first['tick'] <= second['tick'] < finished.end_tick
 
 
+def test_osc_poll_limits_work_under_continuous_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text('[[nodes]]\nname = "telemetry"\nbind_port = 7000\n')
+    fake_socket = FakeSocket()
+    packet = (codec.encode_message('/level', [1]), ('10.43.0.18', 10024))
+    fake_socket.received = [packet] * (recorder.MAX_PACKETS_PER_POLL + 1)
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'session/osc',
+        lambda warning: None,
+        lambda record: None,
+    )
+    osc_recorder.start()
+
+    osc_recorder.poll()
+
+    node = osc_recorder.nodes['telemetry']
+    assert node.inbound_count == recorder.MAX_PACKETS_PER_POLL
+    assert len(fake_socket.received) == 1
+    osc_recorder.poll()
+    osc_recorder.stop()
+    assert node.inbound_count == recorder.MAX_PACKETS_PER_POLL + 1
+
+
 def test_hostname_resolution_does_not_block_recording(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -218,6 +245,53 @@ period = 1
     osc_recorder.stop()
 
     assert warnings == ['OSC node mixer resolve failed: DNS unavailable']
+
+
+def test_hostname_resolution_recovers_after_temporary_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / 'osc.toml'
+    config.write_text(
+        '[[nodes]]\nname = "mixer"\nhost = "mixer.invalid"\nport = 10024\n'
+        '[[nodes.polls]]\npath = "/status"\nperiod = 1\n'
+    )
+    calls = 0
+
+    def getaddrinfo(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise socket.gaierror('DNS unavailable')
+        return [(socket.AF_INET, socket.SOCK_DGRAM, 0, '', ('10.43.0.18', 10024))]
+
+    fake_socket = FakeSocket()
+    monkeypatch.setattr(recorder.socket, 'socket', lambda *args: fake_socket)
+    monkeypatch.setattr(recorder.socket, 'getaddrinfo', getaddrinfo)
+    osc_recorder = OscRecorder(
+        Cfg(output_directory=str(tmp_path), osc_nodes=config),
+        tmp_path / 'session/osc',
+        lambda warning: None,
+        lambda record: None,
+    )
+    osc_recorder.start()
+    node = osc_recorder.nodes['mixer']
+    for _ in range(100):
+        osc_recorder.poll()
+        if node.last_error is not None:
+            break
+        time.sleep(0.001)
+    assert node.last_error == 'DNS unavailable'
+    node.next_resolve = 0
+    for _ in range(100):
+        osc_recorder.poll()
+        if fake_socket.sent:
+            break
+        time.sleep(0.001)
+    osc_recorder.stop()
+
+    assert calls == 2
+    assert node.last_error is None
+    assert fake_socket.sent
 
 
 def test_native_packets_are_independently_readable(tmp_path: Path, monkeypatch) -> None:

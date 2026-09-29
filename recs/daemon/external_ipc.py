@@ -27,16 +27,33 @@ class ControlRequest:
         self.request = request
         self.response: rpc.Result | None = None
         self.ready = threading.Event()
+        self.lock = threading.Lock()
+        self.started = False
+        self.cancelled = False
+
+    def start(self) -> bool:
+        with self.lock:
+            if self.cancelled:
+                return False
+            self.started = True
+            return True
 
     def respond(self, response: rpc.Result) -> None:
-        self.response = response
-        self.ready.set()
+        with self.lock:
+            self.response = response
+            self.ready.set()
 
     def wait(self, timeout: float = EXTERNAL_RESPONSE_TIMEOUT) -> rpc.Result:
         if not self.ready.wait(timeout):
-            return ipc.Error(
-                type='error', message='recs did not answer before shutdown'
-            )
+            with self.lock:
+                if self.response is None:
+                    self.cancelled = not self.started
+                    message = (
+                        'recs control timed out; outcome unknown'
+                        if self.started
+                        else 'recs control timed out before execution'
+                    )
+                    return ipc.Error(type='error', message=message)
         assert self.response is not None
         return self.response
 
@@ -166,6 +183,8 @@ class ExternalServer(Reccy):
             with self._lock:
                 if control in self._pending:
                     self._pending.remove(control)
+                if control in self._requests:
+                    self._requests.remove(control)
         return response
 
     def on_stopping(self) -> None:

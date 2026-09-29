@@ -1,11 +1,13 @@
 from collections.abc import Mapping
 from pathlib import Path
+from threading import Event, Thread
 
 import numpy as np
 import pytest
 import soundfile
 from ufor.encoding import Format
 
+from recs.audio import file_opener
 from recs.audio.file_opener import FileOpener
 
 
@@ -43,3 +45,33 @@ def test_collisions_preserve_existing_audio_and_increment_before_the_suffix(
     data, rate = soundfile.read(tmp_path / 'take_2.wav')
     assert rate == 48_000
     np.testing.assert_array_equal(data, samples)
+
+
+def test_output_name_is_reserved_before_encoder_opens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opener = FileOpener(format=Format.wav)
+    path = tmp_path / 'take'
+    entered = Event()
+    proceed = Event()
+    output: list[soundfile.SoundFile] = []
+    original = soundfile.SoundFile
+
+    def delayed(*args: object, **kwargs: object) -> soundfile.SoundFile:
+        entered.set()
+        assert proceed.wait(2)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(file_opener.soundfile, 'SoundFile', delayed)
+    worker = Thread(target=lambda: output.append(opener.open(path, {})))
+    worker.start()
+    try:
+        assert entered.wait(2)
+        with pytest.raises(FileExistsError):
+            opener.open(path, {})
+    finally:
+        proceed.set()
+        worker.join(2)
+
+    assert not worker.is_alive()
+    output[0].close()
