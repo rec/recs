@@ -49,6 +49,10 @@ def test_edit_asset_policy_requires_measured_volume_id(
         'maximum_bytes = 1000000\n'
         'timeout = 2\n'
         'approved_https_urls = ["https://example.test/take.wav"]\n'
+        '[capacity]\n'
+        'maximum_object_bytes = 1000000\n'
+        'maximum_staging_bytes = 1000000\n'
+        'minimum_free_space = 0\n'
         '[[volumes]]\n'
         'volume_id = "expected-id"\n'
         f'root = "{tmp_path}"\n'
@@ -70,6 +74,10 @@ def test_edit_asset_policy_loads_approved_sources(tmp_path: Path) -> None:
         'maximum_bytes = 1000000\n'
         'timeout = 2\n'
         'approved_https_urls = ["https://example.test/take.wav"]\n'
+        '[capacity]\n'
+        'maximum_object_bytes = 10\n'
+        'maximum_staging_bytes = 10\n'
+        'minimum_free_space = 0\n'
     )
 
     resolver = load_asset_policy(policy)
@@ -77,6 +85,21 @@ def test_edit_asset_policy_loads_approved_sources(tmp_path: Path) -> None:
     assert resolver.approved_https_urls == ['https://example.test/take.wav']
     assert resolver.maximum_bytes == 1_000_000
     assert resolver.store.root.is_relative_to(tmp_path / 'cache')
+    assert resolver.store.capacity is not None
+    assert resolver.store.capacity.maximum_object_bytes == 10
+
+
+def test_edit_asset_policy_requires_capacity_budget(tmp_path: Path) -> None:
+    policy = tmp_path / 'assets.toml'
+    policy.write_text(
+        f'cache_root = "{tmp_path / "cache"}"\n'
+        'credential_scope = "edit-test"\n'
+        'maximum_bytes = 1000000\n'
+        'timeout = 2\n'
+    )
+
+    with pytest.raises(RecsError, match='capacity'):
+        load_asset_policy(policy)
 
 
 def test_dry_run_prints_score_toml_with_resource_comments(
@@ -137,6 +160,10 @@ def test_edit_renders_direct_audio_file(
         'credential_scope = "edit-test"\n'
         'maximum_bytes = 1000000\n'
         'timeout = 2\n'
+        '[capacity]\n'
+        'maximum_object_bytes = 1000000\n'
+        'maximum_staging_bytes = 1000000\n'
+        'minimum_free_space = 0\n'
     )
     monkeypatch.chdir(tmp_path)
 

@@ -360,6 +360,11 @@ timeout = 30
 approved_https_urls = ["https://media.example.org/take.wav"]
 approved_git_urls = []
 
+[capacity]
+maximum_object_bytes = 10737418240
+maximum_staging_bytes = 2147483648
+minimum_free_space = 1073741824
+
 [[volumes]]
 volume_id = "e44a2ec7-54d2-4b35-88e4-582d978c4e44"
 root = "/Volumes/Field Recordings"
