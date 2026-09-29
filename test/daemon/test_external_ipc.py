@@ -428,8 +428,19 @@ def test_external_server_times_out_pending_control_request(
 
     response = server.rpc_response(rpc.Request(command='status_snapshot'))
 
-    assert response.message == 'recs did not answer before shutdown'
+    assert response.message == 'recs control timed out before execution'
     assert server._pending == []
+    assert server.take_requests() == []
+
+
+def test_timed_out_active_control_reports_unknown_outcome() -> None:
+    request = external_ipc.ControlRequest(rpc.Request(command='status_snapshot'))
+    assert request.start()
+
+    response = request.wait(0)
+
+    assert response.message == 'recs control timed out; outcome unknown'
+    assert not request.cancelled
 
 
 def _eventually(check: Callable[[], bool]) -> bool:

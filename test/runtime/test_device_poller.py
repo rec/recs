@@ -107,6 +107,18 @@ def test_poller_keeps_only_latest_input_devices(
     assert poller.latest() is None
 
 
+def test_poller_ignores_malformed_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeQueryStream)
+    poller = DevicePoller(1)
+    poller.query_stream.snapshots = [[{'name': 'Mic'}]]
+
+    poller.poll()
+
+    assert poller.latest() is None
+
+
 def test_poller_starts_and_stops_query_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,3 +218,21 @@ def test_query_stream_uses_restart_backoff(
     now = 1.0
     stream.devices()
     assert len(starts) == 2
+
+
+def test_query_stream_retries_helper_start_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 10.0
+
+    def fail(*args: object, **kwargs: object) -> None:
+        raise OSError('process limit')
+
+    monkeypatch.setattr(device_poller.time, 'monotonic', lambda: now)
+    monkeypatch.setattr(device_poller.subprocess, 'Popen', fail)
+    stream = DeviceQueryStream()
+
+    stream.start()
+
+    assert stream.process is None
+    assert stream.next_start == now + device_poller.RESTART_BACKOFF_SECONDS

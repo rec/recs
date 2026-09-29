@@ -212,7 +212,14 @@ class ChannelWriter(Runnable):
             path = self.output_path_pattern.make_path(
                 self.track, self.cfg.aliases, timestamp, index
             )
-        sfs = [o.create(metadata, path) for o in self.openers]
+        with contextlib.ExitStack() as cleanup:
+            sfs = []
+            for opener in self.openers:
+                sf = opener.create(metadata, path)
+                cleanup.callback(Path(sf.name).unlink, missing_ok=True)
+                cleanup.callback(sf.close)
+                sfs.append(sf)
+            cleanup.pop_all()
         paths = [Path(sf.name) for sf in sfs]
         self.file_start_frames.update(dict.fromkeys(paths, start_frame))
         self.file_start_timestamps.update(dict.fromkeys(paths, timestamp))

@@ -21,6 +21,8 @@ from recs.recording.session_record import EventRecord, Record, timestamp_to_json
 from . import codec, config
 
 MAX_FILE_BYTES = 64 * 1024 * 1024
+MAX_PACKETS_PER_POLL = 256
+MAX_RESOLVE_BACKOFF_SECONDS = 30.0
 
 
 class OscRecorder(Runnable):
@@ -124,6 +126,9 @@ class OscNodeRecorder:
         self.next_subscriptions: list[float] = []
         self.card_replace_backlog: list[OscEvent] = []
         self.card_replace_paused = False
+        self.resolving = False
+        self.next_resolve = 0.0
+        self.resolve_backoff = 1.0
 
     def start(self) -> None:
         try:
@@ -139,11 +144,7 @@ class OscNodeRecorder:
             try:
                 ipaddress.IPv4Address(self.node.host)
             except ipaddress.AddressValueError:
-                threading.Thread(
-                    target=self._resolve_target,
-                    daemon=True,
-                    name=f'OscResolve-{self.node.name}',
-                ).start()
+                self._start_resolution()
             else:
                 self.target = (self.node.host, self.node.port)
                 self._start_outbound(now)
@@ -168,6 +169,13 @@ class OscNodeRecorder:
             return
         now = time.monotonic()
         self._receive_resolved_target(now)
+        if (
+            self.target is None
+            and self.node.host is not None
+            and not self.resolving
+            and now >= self.next_resolve
+        ):
+            self._start_resolution()
         if self.target is not None:
             for index, poll in enumerate(self.node.polls):
                 if now >= self.next_polls[index]:
@@ -179,7 +187,7 @@ class OscNodeRecorder:
                     self.next_subscriptions[index] = (
                         now + subscription.resubscribe_period
                     )
-        while True:
+        for _ in range(MAX_PACKETS_PER_POLL):
             try:
                 data, source = self.socket.recvfrom(65_535)
                 received_tick = time.monotonic_ns()
@@ -274,16 +282,31 @@ class OscNodeRecorder:
         assert isinstance(port, int)
         self.resolved_targets.put(((host, port), None))
 
+    def _start_resolution(self) -> None:
+        self.resolving = True
+        threading.Thread(
+            target=self._resolve_target,
+            daemon=True,
+            name=f'OscResolve-{self.node.name}',
+        ).start()
+
     def _receive_resolved_target(self, now: float) -> None:
         try:
             target, error = self.resolved_targets.get_nowait()
         except queue.Empty:
             return
+        self.resolving = False
         if error is not None:
+            self.next_resolve = now + self.resolve_backoff
+            self.resolve_backoff = min(
+                MAX_RESOLVE_BACKOFF_SECONDS, 2 * self.resolve_backoff
+            )
             self._fail('resolve', error)
             return
         assert target is not None
         self.target = target
+        self.last_error = None
+        self.resolve_backoff = 1.0
         self._start_outbound(now)
 
     def _start_outbound(self, now: float) -> None:

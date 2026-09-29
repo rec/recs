@@ -1,5 +1,6 @@
 import itertools
 from collections.abc import Mapping
+from contextlib import ExitStack
 from pathlib import Path
 
 import soundfile
@@ -19,9 +20,6 @@ class FileOpener(BaseModel):
         self, path: Path | str, metadata: Mapping[str, str], overwrite: bool = False
     ) -> soundfile.SoundFile:
         path = Path(path).with_suffix('.' + self.format)
-        if not overwrite and path.exists():
-            raise FileExistsError(str(path))
-
         subtype = self.subtype
         if subtype is None:
             if self.format == Format.flac:
@@ -33,20 +31,25 @@ class FileOpener(BaseModel):
             elif soundfile.check_format(self.format, Subtype.float):
                 subtype = Subtype.float
 
-        fp = soundfile.SoundFile(
-            channels=self.channels,
-            file=path,
-            format=self.format,
-            mode='w',
-            samplerate=self.samplerate,
-            subtype=subtype,
-        )
-
-        if self.format in ALLOWS_METADATA:
-            for k, v in metadata.items():
-                setattr(fp, k, v)
-
-        return fp
+        if not overwrite:
+            path.touch(exist_ok=False)
+        with ExitStack() as cleanup:
+            if not overwrite:
+                cleanup.callback(path.unlink)
+            fp = soundfile.SoundFile(
+                channels=self.channels,
+                file=path,
+                format=self.format,
+                mode='w',
+                samplerate=self.samplerate,
+                subtype=subtype,
+            )
+            cleanup.callback(fp.close)
+            if self.format in ALLOWS_METADATA:
+                for k, v in metadata.items():
+                    setattr(fp, k, v)
+            cleanup.pop_all()
+            return fp
 
     def create(self, metadata: Mapping[str, str], path: Path) -> soundfile.SoundFile:
         path = path.with_suffix('.' + self.format)

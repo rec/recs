@@ -10,6 +10,7 @@ from ufor.encoding import Format, Subtype
 
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
+from recs.audio.file_opener import FileOpener
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, SdType
 from recs.cfg.cfg import Cfg
@@ -108,6 +109,36 @@ def test_channel_writer(case, mock_devices):
         else:
             assert fp.date.startswith('2023-10-15T16:49:21')
             assert fp.software.startswith('https://github.com/rec/recs')
+
+
+def test_failed_second_format_closes_and_removes_first_output(
+    tmp_path: Path, mock_devices: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = Cfg(formats=[Format.wav, Format.flac])
+    track = cfg.aliases.to_track('Ext+2')
+    writer = ChannelWriter(
+        cfg, cfg.times.scale(track.source.samplerate), track, tmp_path
+    )
+    original_create = FileOpener.create
+    opened: list[soundfile.SoundFile] = []
+
+    def create(
+        self: FileOpener, metadata: dict[str, str], path: Path
+    ) -> soundfile.SoundFile:
+        if self.format == Format.flac:
+            raise OSError('disk full')
+        result = original_create(self, metadata, path)
+        opened.append(result)
+        return result
+
+    monkeypatch.setattr(FileOpener, 'create', create)
+
+    with pytest.raises(OSError, match='disk full'):
+        writer._open(0, conftest.TIMESTAMP)
+
+    assert opened[0].closed
+    assert not list(tmp_path.rglob('*.wav'))
+    assert not writer.files_written
 
 
 def test_channel_noise_floor_overrides_global_floor(mock_devices: None) -> None:

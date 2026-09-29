@@ -203,6 +203,9 @@ class FakeControlRequest:
         self.request = request or gui_protocol.Calibrate(type='calibrate')
         self.responses: list[gui_protocol.Response] = []
 
+    def start(self) -> bool:
+        return True
+
     def respond(self, response: gui_protocol.Response) -> None:
         self.responses.append(response)
 

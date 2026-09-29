@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import IntEnum, auto
 from pathlib import Path
 
-from reccy.paths import legal_path
+from reccy.paths import legal_filename, legal_path
 
 from recs.base.errors import RecsError
 from recs.cfg import aliases, track
@@ -95,10 +95,10 @@ class PathPattern:
         ts = datetime.fromtimestamp(timestamp)
         s = ts.strftime(self.path)
         p = s.format(
-            channel=track.name,
-            device=aliases.display_name(track.source),
+            channel=_filename_value(track.name),
+            device=_filename_value(aliases.display_name(track.source)),
             index=str(index),
-            track=aliases.display_name(track, short=False),
+            track=_filename_value(aliases.display_name(track, short=False)),
             **self.times(ts),
         )
         return self._with_media_directory(legal_path(Path(p)), timestamp)
@@ -113,13 +113,13 @@ class PathPattern:
     ) -> Path:
         ts = datetime.fromtimestamp(timestamp)
         directory = ts.strftime(self.raw_path).format(
-            channel=track.name,
-            device=aliases.display_name(track.source),
+            channel=_filename_value(track.name),
+            device=_filename_value(aliases.display_name(track.source)),
             index=str(index),
-            track=aliases.display_name(track, short=False),
+            track=_filename_value(aliases.display_name(track, short=False)),
             **{k: ts.strftime(v) for k, v in FIELD_TO_PSTRING.items()},
         )
-        name = f'{track_name} + {ts.strftime("%Y%m%d-%H%M%S")}'
+        name = f'{_filename_value(track_name)} + {ts.strftime("%Y%m%d-%H%M%S")}'
         if directory:
             path = legal_path(Path(directory) / name)
         else:
@@ -143,6 +143,14 @@ class PathPattern:
         except KeyError:
             prefix = self.raw_path.split('{', 1)[0].rstrip('/\\')
             return legal_path(Path(prefix or '.'))
+
+
+def _filename_value(value: str) -> str:
+    if any(part in {'.', '..'} for part in re.split(r'[/\\]', value)):
+        raise RecsError(
+            f'Filename value contains a path traversal component: {value!r}'
+        )
+    return legal_filename(value)
 
 
 DATE = {Req.year, Req.month, Req.day}

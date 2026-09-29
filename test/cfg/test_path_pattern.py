@@ -169,6 +169,28 @@ def test_path_pattern_replaces_problematic_characters(mock_devices: None) -> Non
     assert actual.match('takes-/Ext/Lead- Vocal + 20231015-164921')
 
 
+def test_substituted_name_cannot_create_a_directory(mock_devices: None) -> None:
+    pp = PathPattern('{device}')
+    cfg = Cfg(alias=['AC/DC=Ext'])
+
+    actual = pp.make_track_name_path(
+        'Lead/Vocal', cfg.aliases.to_track('Ext + 1'), cfg.aliases, TIMESTAMP, 1
+    )
+
+    assert actual.match('AC-DC/Lead-Vocal + 20231015-164921')
+
+
+@pytest.mark.parametrize('name', ['../outside', r'..\outside'])
+def test_track_name_rejects_traversal(mock_devices: None, name: str) -> None:
+    pp = PathPattern('{device}')
+    cfg = Cfg()
+
+    with pytest.raises(RecsError, match='path traversal'):
+        pp.make_track_name_path(
+            name, cfg.aliases.to_track('Ext + 1'), cfg.aliases, TIMESTAMP, 1
+        )
+
+
 def test_bad_field(mock_devices):
     with pytest.raises(RecsError) as e:
         PathPattern('recording/{truck}/{index}')
