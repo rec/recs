@@ -186,6 +186,29 @@ def test_read_sfz_preserves_phase_inversion_with_pan(tmp_path: Path) -> None:
     assert slot.processing.pan == 0.25
 
 
+def test_read_sfz_preserves_end_fade_swap_and_envelope_start(tmp_path: Path) -> None:
+    path = tmp_path / 'stereo.sfz'
+    _write_wav(tmp_path / 'stereo.wav', channels=2)
+    path.write_text(
+        '<region> sample=stereo.wav loop_mode=no_loop width=-100 '
+        'sample_fadeout=0.25 ampeg_start=25'
+    )
+
+    result = read(path)
+
+    assert result.complete
+    assert result.instrument is not None
+    slot = result.instrument.body.slots[0]
+    assert [(r.input, r.output) for r in slot.channels] == [
+        ('left', 'right'),
+        ('right', 'left'),
+    ]
+    assert slot.playback.end_fade_seconds == 0.25
+    assert slot.envelope is not None
+    assert slot.envelope.initial == 0.25
+    assert sfz.write(result.instrument).complete
+
+
 def test_read_sfz_returns_requested_midi_binding(tmp_path: Path) -> None:
     path = tmp_path / 'channels.sfz'
     _write_wav(tmp_path / 'sample.wav')
