@@ -1,3 +1,4 @@
+import ntpath
 import tomllib
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from pydantic import (
     model_validator,
 )
 from reccy.configuration.units import Seconds
+from reccy.paths import legal_filename
 
 OscArgument = str | int | float | bool
 
@@ -67,8 +69,8 @@ class Node(BaseModel):
     @field_validator('name')
     @classmethod
     def validate_name(cls, value: str) -> str:
-        if not value or '/' in value or '\\' in value:
-            raise ValueError('must be a non-empty filename')
+        if not value or value != legal_filename(value) or ntpath.isreserved(value):
+            raise ValueError('must be a non-empty portable filename')
         return value
 
     @field_validator('port', 'bind_port')
