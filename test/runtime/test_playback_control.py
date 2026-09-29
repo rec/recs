@@ -148,6 +148,48 @@ def test_preparation_failure_leaves_capture_and_current_playback_unchanged(
     assert len(pauses) == int(already_playing)
 
 
+@pytest.mark.parametrize('was_paused', [False, True])
+def test_playback_start_failure_restores_capture_and_closes_timeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, was_paused: bool
+) -> None:
+    (tmp_path / 'recording.toml').touch()
+    monkeypatch.setattr(
+        playback_control, 'read_recording', lambda path: _score('2026-09-01T12:00:00Z')
+    )
+
+    class FailingRunner(FakeRunner):
+        def start(self) -> None:
+            raise RuntimeError('cannot start playback thread')
+
+    monkeypatch.setattr(playback_control, 'PlaybackRunner', FailingRunner)
+    closed: list[None] = []
+    monkeypatch.setattr(
+        playback_control.PlaybackTimeline,
+        'close',
+        lambda self: closed.append(None),
+    )
+    resumes: list[None] = []
+    control = playback_control.PlaybackControl(
+        lambda: tmp_path,
+        lambda: gui_protocol.RecordingState(
+            type='recording_state', paused=True, was_paused=was_paused
+        ),
+        lambda: resumes.append(None),
+        lambda state: None,
+        lambda message: pytest.fail(message),
+    )
+
+    with pytest.raises(RuntimeError, match='cannot start playback thread'):
+        control.play(
+            gui_protocol.PlaySession(type='play_session', output_channel='1-2')
+        )
+
+    assert closed == [None]
+    assert len(resumes) == int(not was_paused)
+    assert control.state().state == 'waiting'
+    assert not control.resume_after_playback
+
+
 @pytest.mark.parametrize('has_healthy_session', [False, True])
 def test_invalid_recordings_are_reported_without_blocking_healthy_playback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, has_healthy_session: bool
