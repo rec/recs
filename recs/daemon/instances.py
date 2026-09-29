@@ -8,9 +8,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import settings
 from reccy.protocol import rpc
+from reccy.runtime.claims import ResourceClaim, ResourceClaimConflict
 from reccy.services import models
 
 InstanceRole = Literal['daemon', 'local']
+SETTINGS_CLAIM_MARKER = 'reccy-settings-claim-v1\n'
 
 
 class InstanceIdentity(BaseModel):
@@ -271,45 +273,40 @@ def claim_settings(
     identity: InstanceIdentity,
     home: Path | None = None,
     platform: models.Platform | None = None,
-) -> Path:
+) -> ResourceClaim:
     path = _settings_claim_path(settings_path, home, platform)
     path.parent.mkdir(parents=True, exist_ok=True)
-    claim = SettingsClaim(identity=identity, settings_path=settings_path)
+    _reserve_settings_claim(path, settings_path)
+    claim = ResourceClaim(path)
     try:
-        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError:
+        claim.acquire()
+    except ResourceClaimConflict:
         try:
-            existing = SettingsClaim.model_validate_json(path.read_text())
+            existing = SettingsClaim.model_validate_json(
+                path.with_suffix('.owner').read_text()
+            )
         except (OSError, ValueError):
-            raise ValueError(
-                f'Cannot determine the owner of settings {settings_path}'
-            ) from None
-        if _process_exists(existing.identity.pid):
-            raise ValueError(
-                f'Recs PID {existing.identity.pid} is already saving {settings_path}'
-            ) from None
-        path.unlink()
-        return claim_settings(settings_path, identity, home, platform)
-    with os.fdopen(descriptor, 'w') as file:
-        file.write(claim.model_dump_json() + '\n')
-        file.flush()
-        os.fsync(file.fileno())
-    return path
-
-
-def release_settings(
-    settings_path: str,
-    identity: InstanceIdentity,
-    home: Path | None = None,
-    platform: models.Platform | None = None,
-) -> None:
-    path = _settings_claim_path(settings_path, home, platform)
+            raise ValueError(f'Recs is already saving {settings_path}') from None
+        raise ValueError(
+            f'Recs PID {existing.identity.pid} is already saving {settings_path}'
+        ) from None
     try:
-        claim = SettingsClaim.model_validate_json(path.read_text())
-    except (OSError, ValueError):
-        return
-    if claim.identity == identity:
-        path.unlink(missing_ok=True)
+        path.with_suffix('.owner').unlink(missing_ok=True)
+        settings.write_json_model(
+            path.with_suffix('.owner'),
+            SettingsClaim(identity=identity, settings_path=settings_path),
+        )
+    except OSError:
+        claim.release()
+        raise
+    return claim
+
+
+def release_settings(claim: ResourceClaim) -> None:
+    try:
+        claim.path.with_suffix('.owner').unlink(missing_ok=True)
+    finally:
+        claim.release()
 
 
 def source_users(
@@ -378,6 +375,37 @@ def _settings_claim_path(
 ) -> Path:
     digest = sha256(settings_path.encode()).hexdigest()
     return instances_directory(home, platform) / f'settings-{digest}.lock'
+
+
+def _reserve_settings_claim(path: Path, settings_path: str) -> None:
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        try:
+            contents = path.read_text()
+        except OSError:
+            raise ValueError(
+                f'Cannot determine the owner of settings {settings_path}'
+            ) from None
+        if contents == SETTINGS_CLAIM_MARKER:
+            return
+        try:
+            old = SettingsClaim.model_validate_json(contents)
+        except ValueError:
+            raise ValueError(
+                f'Cannot determine the owner of settings {settings_path}'
+            ) from None
+        if _process_exists(old.identity.pid):
+            raise ValueError(
+                f'Recs PID {old.identity.pid} is already saving {settings_path}'
+            ) from None
+        raise ValueError(
+            f'Legacy settings claim must be cleared after stopping older Recs: {path}'
+        ) from None
+    with os.fdopen(descriptor, 'w') as file:
+        file.write(SETTINGS_CLAIM_MARKER)
+        file.flush()
+        os.fsync(file.fileno())
 
 
 def _process_exists(pid: int) -> bool:

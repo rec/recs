@@ -10,6 +10,7 @@ from time import monotonic
 from typing import cast
 
 from reccy.runtime import logging
+from reccy.runtime.claims import ResourceClaim
 from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
@@ -104,6 +105,7 @@ class Recorder(Runnables):
             if self.cfg.save_settings
             else None
         )
+        self.settings_claim: ResourceClaim | None = None
         self.external = external_ipc.ExternalServer(
             control_path=(
                 None
@@ -295,16 +297,19 @@ class Recorder(Runnables):
     def start(self) -> None:
         if self.settings_path is not None:
             try:
-                instances.claim_settings(self.settings_path, self.instance)
-            except ValueError as error:
+                self.settings_claim = instances.claim_settings(
+                    self.settings_path, self.instance
+                )
+            except (OSError, ValueError) as error:
                 raise RecsError(str(error)) from None
         try:
             self.external.start()
             self._publish_instance()
         except OSError as e:
             self.external.close()
-            if self.settings_path is not None:
-                instances.release_settings(self.settings_path, self.instance)
+            if self.settings_claim is not None:
+                instances.release_settings(self.settings_claim)
+                self.settings_claim = None
             raise RecsError(f'Cannot start Recs control server: {e}') from None
         super().start()
         Runnable.start(self)
@@ -366,8 +371,9 @@ class Recorder(Runnables):
                 self._playback.stop()
                 self.external.close()
                 instances.remove(self.instance)
-                if self.settings_path is not None:
-                    instances.release_settings(self.settings_path, self.instance)
+                if self.settings_claim is not None:
+                    instances.release_settings(self.settings_claim)
+                    self.settings_claim = None
                 self._receive_pending_updates()
                 self._finish_record()
                 if self.cfg.general.silence_preview:
@@ -851,12 +857,13 @@ class Recorder(Runnables):
         new_path = str(settings.mutable_settings_path(project_name))
         new_identity = self.instance.model_copy(update={'project_name': project_name})
         try:
-            instances.claim_settings(new_path, new_identity)
-        except ValueError as error:
+            new_claim = instances.claim_settings(new_path, new_identity)
+        except (OSError, ValueError) as error:
             raise RecsError(str(error)) from None
 
         old_identity = self.instance
         old_path = self.settings_path
+        old_claim = self.settings_claim
         old_directory = self.session_directory
         old_runtime_output_directory = self._devices.runtime_output_directory
         had_record = self.session.record_writer is not None
@@ -882,12 +889,12 @@ class Recorder(Runnables):
             except (OSError, RecsError, ValueError) as rollback_error:
                 self.running = False
                 with suppress(OSError):
-                    instances.release_settings(new_path, new_identity)
+                    instances.release_settings(new_claim)
                 raise RecsError(
                     f'Project switch failed and recording stopped: {rollback_error}'
                 ) from error
             with suppress(OSError):
-                instances.release_settings(new_path, new_identity)
+                instances.release_settings(new_claim)
             raise RecsError(
                 f'Project switch failed; previous project restored: {error}'
             ) from None
@@ -898,6 +905,7 @@ class Recorder(Runnables):
             self.instance = new_identity
             control.instance = new_identity
             self.settings_path = new_path
+            self.settings_claim = new_claim
             self._publish_instance()
             control.write_entry(
                 session_record.EventRecord(
@@ -906,8 +914,8 @@ class Recorder(Runnables):
                     value={'project_name': project_name, 'created': created},
                 )
             )
-            if old_path is not None:
-                instances.release_settings(old_path, old_identity)
+            if old_claim is not None:
+                instances.release_settings(old_claim)
         except (OSError, RecsError, ValueError) as error:
             if not had_record:
                 try:
@@ -915,6 +923,7 @@ class Recorder(Runnables):
                     self.instance = old_identity
                     control.instance = old_identity
                     self.settings_path = old_path
+                    self.settings_claim = old_claim
                     self._apply_project_workspace(old_workspace)
                     self._devices.set_runtime_output_directory(
                         old_runtime_output_directory
@@ -925,16 +934,17 @@ class Recorder(Runnables):
                     error = RecsError(f'{error}; rollback failed: {rollback_error}')
                 else:
                     with suppress(OSError):
-                        instances.release_settings(new_path, new_identity)
+                        instances.release_settings(new_claim)
                     raise RecsError(
                         f'Project switch failed; previous project restored: {error}'
                     ) from None
             self.running = False
             with suppress(OSError):
-                instances.release_settings(new_path, new_identity)
-            if old_path is not None:
+                instances.release_settings(new_claim)
+            if old_claim is not None:
                 with suppress(OSError):
-                    instances.release_settings(old_path, old_identity)
+                    instances.release_settings(old_claim)
+            self.settings_claim = None
             raise RecsError(
                 f'Project switch failed and recording stopped: {error}'
             ) from None
