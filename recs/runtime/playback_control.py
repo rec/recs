@@ -70,13 +70,24 @@ class PlaybackControl:
         self.channel = stream.track_name or _stream_channel(stream)
         self.output_channel = _channel_text(output)
         self.resume_after_playback = not self.pause_recording().was_paused
-        self.runner = PlaybackRunner(
-            timeline,
-            output,
-            lambda: self._results.put(None),
-            self._results.put,
-        )
-        self.runner.start()
+        try:
+            runner = PlaybackRunner(
+                timeline,
+                output,
+                lambda: self._results.put(None),
+                self._results.put,
+            )
+            runner.start()
+        except (OSError, RuntimeError, RecsError):
+            resume_after_playback = self.resume_after_playback
+            self.resume_after_playback = False
+            try:
+                timeline.close()
+            finally:
+                if resume_after_playback:
+                    self.resume_recording()
+            raise
+        self.runner = runner
         return self._publish()
 
     def stop(self) -> gui_protocol.PlaybackState:
