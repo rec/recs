@@ -15,6 +15,9 @@ Key and velocity crossfades preserve the separate mapping eligibility ranges;
 deterministic SFZ random ranges have their own selection condition. The
 documented `lovel` default of MIDI velocity 1 is preserved. Finite `loop_count`
 values now map to native loop `repeat_count` and round-trip.
+The `pitch` fine-tuning alias and integral `transpose` bounds are handled.
+SFZ `off_by` is translated from its victim-side meaning into native trigger-side
+chokes, including distinct `off_mode` values; export reverses that mapping.
 Positive SFZ `count` values map to native one-shot `play_count` without
 retriggering envelopes; player-dependent `count=0` remains diagnosed.
 SFZ `loop_type` now preserves a loop's direction independently of whole-sample
@@ -42,8 +45,7 @@ concept should be added only when it is useful independently of SFZ.
 Implement exact mappings that fit the existing uFor model:
 
 - remaining transport-independent aliases and documented SFZ defaults for
-  start, end, loops, gain, tuning, transposition, direction, triggers, and
-  exclusive groups.
+  start, end, loops, gain, tuning, direction, and triggers.
 
 Keep discrete eligibility ranges separate from crossfade ranges. Reject region
 sets whose layering or alternative-selection scope cannot be represented
