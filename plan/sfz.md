@@ -18,6 +18,7 @@ values now map to native loop `repeat_count` and round-trip.
 The `pitch` fine-tuning alias and integral `transpose` bounds are handled.
 SFZ `off_by` is translated from its victim-side meaning into native trigger-side
 chokes, including distinct `off_mode` values; export reverses that mapping.
+SFZ `phase=invert` maps to generic polarity inversion independently of pan.
 Positive SFZ `count` values map to native one-shot `play_count` without
 retriggering envelopes; player-dependent `count=0` remains diagnosed.
 SFZ `loop_type` now preserves a loop's direction independently of whole-sample
@@ -57,8 +58,7 @@ Design these independently before adding importer mappings:
 
 - voice limits, voice stealing, repeated-trigger masking, and release-tail
   termination;
-- end fade, stereo width, channel position,
-  channel swapping, and polarity inversion;
+- end fade, stereo width, channel position, and channel swapping;
 - mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
 - exact conversion between SFZ equalizer bandwidth and recsam resonance, if the
   transfer functions can be specified and tested.
