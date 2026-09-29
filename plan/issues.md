@@ -2,12 +2,6 @@
 
 This began as a source and test audit on 2026-09-29, not a runtime or hardware validation. Resolved issues have been removed; original issue numbers are retained for reference. Locations below refer to the code at the time of the audit. "Confirmed" means the behavior follows directly from the cited code; "risk" means the failure needs a particular scheduling, I/O, or external-device condition. Priorities reflect potential data loss and whether a normal user can encounter the condition. Existing tests often cover the happy path; a suggested test is a missing *failure-mode* test, not a claim that the whole module is untested.
 
-## P0: data integrity and recording safety
-
-6. **Project switch is not transactional (confirmed failure path).** `_switch_project` mutates the active configuration, device controls, identity, settings path, and possibly session before `_publish_instance` and `_new_session` finish. On `OSError`, `RecsError`, or `ValueError`, it releases only the new settings claim; it does not restore any earlier state ([recs/runtime/recorder.py](../recs/runtime/recorder.py)). A failed new-session open can leave the recorder configured for the new project while the old session/claim is still live, and writing may remain suspended. Prepare all fallible resources first or add a narrow rollback for this operation. Test failure at each publication/session boundary.
-
-   A related collision path should be checked in the same work: `SessionRecordWriter` silently chooses `session-record-1.jsonl` when the requested journal exists ([recs/recording/session_record.py](../recs/recording/session_record.py)), while unfinished-session registration and clearing use the originally requested `session-record.jsonl` ([recs/runtime/recorder.py](../recs/runtime/recorder.py)). A journal collision could therefore leave recovery tracking attached to the wrong file. Reserve the directory/journal once, and pass the actual journal path through all lifecycle calls.
-
 ## P2: errors, APIs, maintenance, and performance
 
 19. **Invalid file input uses an assertion instead of a user error (confirmed).** `FileSource.__init__` asserts the path exists, then opens it with libsndfile ([recs/cfg/file_source.py:17](../recs/cfg/file_source.py#L17)). Missing paths yield `AssertionError` (or a less clear libsndfile error with optimized Python) rather than `RecsError` naming the input. Validate with an ordinary exception and test missing, unreadable, and malformed audio inputs.
@@ -32,7 +26,7 @@ This began as a source and test audit on 2026-09-29, not a runtime or hardware v
 
 29. **Tiny files are not automatically a problem.** `recs/audio/header_size.py` is ~16 lines and called from one production module, so it could be inlined when next touched. `recs/daemon/gui_backend.py` is similarly small but provides an OS-specific IPC boundary used by tests; `recs/base/app_command.py` has several callers. There is no compelling immediate cleanup here. More consequential duplication is the atomic writer above, not the small modules themselves.
 
-30. **Some failure paths still lack end-to-end tests.** The tree has dedicated tests for audio, config, daemon, edit, MIDI, OSC, recording, and runtime; it is not generally untested. The remaining high-value scenarios are project-switch rollback at each publication and session boundary, and a complete final session document after more than 512 durable source-file events. There are already substantial fake-heavy recorder suites ([test/runtime/recorder/test_sessions.py](../test/runtime/recorder/test_sessions.py), [test/runtime/recorder/test_control.py](../test/runtime/recorder/test_control.py)); add focused failure injections there rather than another parallel end-to-end harness. Existing broad integration/regression tests should remain distinct from hardware validation.
+30. **Some failure paths still lack end-to-end tests.** The tree has dedicated tests for audio, config, daemon, edit, MIDI, OSC, recording, and runtime; it is not generally untested. A remaining high-value scenario is a complete final session document after more than 512 durable source-file events. Existing broad integration/regression tests should remain distinct from hardware validation.
 
 ## Additional work beyond the prompt
 

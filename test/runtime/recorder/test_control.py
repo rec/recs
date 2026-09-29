@@ -380,6 +380,156 @@ def test_project_switches_keep_independent_workspaces(
     assert rec._control.cfg.recording.noise_floor == 41
 
 
+def test_project_switch_restores_workspace_before_session_transition(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    rec = _switchable_recorder(monkeypatch, tmp_path)
+    old_cfg = rec._control.cfg
+    old_path = rec.settings_path
+    old_directory = rec.session_directory
+    apply = rec._apply_project_workspace
+
+    def fail_after_apply(loaded: settings.LoadedSettings) -> None:
+        apply(loaded)
+        if loaded.project_name == 'show':
+            raise OSError('cannot apply source layout')
+
+    monkeypatch.setattr(rec, '_apply_project_workspace', fail_after_apply)
+
+    with pytest.raises(RecsError, match='previous project restored'):
+        rec._switch_project('show')
+
+    assert rec._control.cfg == old_cfg
+    assert rec._control.project_name is None
+    assert rec._control.track_names == {}
+    assert rec.instance.project_name is None
+    assert rec.settings_path == old_path
+    assert rec.session_directory == old_directory
+
+
+def test_project_switch_stops_after_irreversible_session_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    rec = _switchable_recorder(monkeypatch, tmp_path)
+    rec._start_record()
+    rec.running = True
+    previous_path = rec.session.record_writer.path
+
+    def fail_after_close() -> gui_protocol.NewSessionStarted:
+        rec._finish_record()
+        raise OSError('cannot open new session')
+
+    monkeypatch.setattr(rec, '_new_session', fail_after_close)
+
+    with pytest.raises(RecsError, match='recording stopped'):
+        rec._switch_project('show')
+
+    assert not rec.running
+    assert rec.session.record_writer is None
+    assert previous_path.exists()
+
+
+def test_project_switch_stops_if_workspace_cannot_be_restored(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    rec = _switchable_recorder(monkeypatch, tmp_path)
+    rec.running = True
+
+    def fail_apply(loaded: settings.LoadedSettings) -> None:
+        raise OSError('source unavailable')
+
+    monkeypatch.setattr(rec, '_apply_project_workspace', fail_apply)
+
+    with pytest.raises(RecsError, match='recording stopped'):
+        rec._switch_project('show')
+
+    assert not rec.running
+
+
+def test_project_switch_stops_if_instance_publication_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    rec = _switchable_recorder(monkeypatch, tmp_path)
+    rec._start_record()
+    rec.running = True
+
+    def fail_publication(descriptor: object) -> None:
+        raise OSError('instance disk unavailable')
+
+    monkeypatch.setattr(recorder.instances, 'publish', fail_publication)
+
+    with pytest.raises(RecsError, match='recording stopped'):
+        rec._switch_project('show')
+
+    assert not rec.running
+    assert rec.session.record_writer is not None
+    assert rec.session.record_writer.path.is_relative_to(tmp_path / 'recordings/show')
+    rec._finish_record()
+
+
+def test_project_switch_restores_unrecorded_workspace_after_publication_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    rec = _switchable_recorder(monkeypatch, tmp_path)
+    rec.running = True
+    original_cfg = rec._control.cfg
+    publishes = 0
+
+    def publish(descriptor: object) -> None:
+        nonlocal publishes
+        publishes += 1
+        if publishes == 1:
+            raise OSError('instance disk unavailable')
+
+    monkeypatch.setattr(recorder.instances, 'publish', publish)
+
+    with pytest.raises(RecsError, match='previous project restored'):
+        rec._switch_project('show')
+
+    assert publishes == 2
+    assert rec.running
+    assert rec._control.cfg == original_cfg
+    assert rec._control.project_name is None
+    assert rec.instance.project_name is None
+
+
+def _switchable_recorder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Recorder:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    monkeypatch.setattr(recorder.settings, 'save', lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        recorder.instances, 'claim_settings', lambda path, identity: None
+    )
+    monkeypatch.setattr(
+        recorder.instances, 'release_settings', lambda path, identity: None
+    )
+    monkeypatch.setattr(recorder.instances, 'publish', lambda descriptor: None)
+    cfg = Cfg(
+        include=['Mic'],
+        output_directory=str(tmp_path / 'recordings'),
+        save_settings=True,
+        silent=True,
+    )
+    rec = Recorder(cfg)
+    loaded = settings.LoadedSettings(
+        cfg=cfg.set_attr('recording.noise_floor', 70),
+        track_names={'Mic': {'Vocal': 1}},
+        project_name='show',
+    )
+    monkeypatch.setattr(rec, '_load_project_workspace', lambda name: (loaded, False))
+    return rec
+
+
 def test_track_layout_updates_state_on_next_source_update(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,

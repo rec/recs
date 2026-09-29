@@ -3,6 +3,7 @@ import os
 import sys
 import uuid
 from collections.abc import Iterator, Sequence
+from contextlib import suppress
 from multiprocessing import connection
 from pathlib import Path
 from time import monotonic
@@ -767,10 +768,6 @@ class Recorder(Runnables):
                 self._set_session_directory(directory)
             root = recording_paths.recovery_root(self.cfg.directory.output_directory)
             self._recovery_roots.add(root)
-            recovery_report.register_unfinished_session(
-                root,
-                self.session_directory / 'session-record.jsonl',
-            )
         self.session.start(
             self.session_directory / 'session-record.jsonl',
             enabled=self.cfg.general.writes_files,
@@ -779,6 +776,10 @@ class Recorder(Runnables):
             ),
             channel_musicians=self._control.channel_musicians,
         )
+        if self.cfg.general.writes_files and self.session.record_writer is not None:
+            recovery_report.register_unfinished_session(
+                root, self.session.record_writer.path
+            )
         if self.cfg.general.writes_files and self.cfg.midi.record_midi:
             self._midi.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
@@ -794,15 +795,18 @@ class Recorder(Runnables):
             recovery_report.report_unfinished_sessions(root)
 
     def _finish_record(self) -> None:
+        record_path = (
+            self.session.record_writer.path
+            if self.session.record_writer is not None
+            else None
+        )
         self._midi.close_session()
         self._osc.close_session()
         self._flush_warning_summaries()
         timestamp = times.timestamp()
         self.session.finish(timestamp)
-        if self.cfg.general.writes_files:
-            recovery_report.clear_finished_session(
-                self.session_directory / 'session-record.jsonl'
-            )
+        if record_path is not None:
+            recovery_report.clear_finished_session(record_path)
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (
@@ -853,27 +857,87 @@ class Recorder(Runnables):
 
         old_identity = self.instance
         old_path = self.settings_path
+        old_directory = self.session_directory
+        old_runtime_output_directory = self._devices.runtime_output_directory
+        had_record = self.session.record_writer is not None
+        old_workspace = settings.LoadedSettings(
+            cfg=control.cfg,
+            track_names={
+                name: dict(names) for name, names in control.track_names.items()
+            },
+            tracks={
+                name: list(tracks) for name, tracks in control.saved_tracks.items()
+            },
+            musicians=dict(control.musicians),
+            channel_musicians=dict(control.channel_musicians),
+            project_name=control.project_name,
+        )
         try:
             self._apply_project_workspace(loaded)
+        except (OSError, RecsError, ValueError) as error:
+            try:
+                self._apply_project_workspace(old_workspace)
+                self._devices.set_runtime_output_directory(old_runtime_output_directory)
+                self._set_session_directory(old_directory)
+            except (OSError, RecsError, ValueError) as rollback_error:
+                self.running = False
+                with suppress(OSError):
+                    instances.release_settings(new_path, new_identity)
+                raise RecsError(
+                    f'Project switch failed and recording stopped: {rollback_error}'
+                ) from error
+            with suppress(OSError):
+                instances.release_settings(new_path, new_identity)
+            raise RecsError(
+                f'Project switch failed; previous project restored: {error}'
+            ) from None
+        control.project_name = project_name
+        try:
+            if had_record:
+                self._new_session()
             self.instance = new_identity
             control.instance = new_identity
-            control.project_name = project_name
             self.settings_path = new_path
             self._publish_instance()
-            if self.session.record_writer is not None:
-                self._new_session()
-        except (OSError, RecsError, ValueError):
-            instances.release_settings(new_path, new_identity)
-            raise
-        if old_path is not None:
-            instances.release_settings(old_path, old_identity)
-        control.write_entry(
-            session_record.EventRecord(
-                type='project_switched',
-                timestamp=session_record.timestamp_to_json(times.timestamp()),
-                value={'project_name': project_name, 'created': created},
+            control.write_entry(
+                session_record.EventRecord(
+                    type='project_switched',
+                    timestamp=session_record.timestamp_to_json(times.timestamp()),
+                    value={'project_name': project_name, 'created': created},
+                )
             )
-        )
+            if old_path is not None:
+                instances.release_settings(old_path, old_identity)
+        except (OSError, RecsError, ValueError) as error:
+            if not had_record:
+                try:
+                    control.project_name = old_workspace.project_name
+                    self.instance = old_identity
+                    control.instance = old_identity
+                    self.settings_path = old_path
+                    self._apply_project_workspace(old_workspace)
+                    self._devices.set_runtime_output_directory(
+                        old_runtime_output_directory
+                    )
+                    self._set_session_directory(old_directory)
+                    self._publish_instance()
+                except (OSError, RecsError, ValueError) as rollback_error:
+                    error = RecsError(f'{error}; rollback failed: {rollback_error}')
+                else:
+                    with suppress(OSError):
+                        instances.release_settings(new_path, new_identity)
+                    raise RecsError(
+                        f'Project switch failed; previous project restored: {error}'
+                    ) from None
+            self.running = False
+            with suppress(OSError):
+                instances.release_settings(new_path, new_identity)
+            if old_path is not None:
+                with suppress(OSError):
+                    instances.release_settings(old_path, old_identity)
+            raise RecsError(
+                f'Project switch failed and recording stopped: {error}'
+            ) from None
         return gui_protocol.ProjectSwitched(
             type='project_switched',
             project_name=project_name,
