@@ -19,6 +19,7 @@ class FakeEventClient:
         self.receive = receive
         self.role = role
         self.closed = False
+        self.terminal_reason: rpc.EventCloseReason | None = None
 
     def start(self) -> None:
         self.receive(
@@ -34,6 +35,9 @@ class FakeEventClient:
 
     def close(self) -> None:
         self.closed = True
+
+    def wait_closed(self, timeout: float | None = None) -> bool:
+        return self.closed
 
 
 class FakeControlClient:
@@ -70,6 +74,29 @@ def test_json_watch_subscribes_before_snapshot_and_stops(
     assert json.loads(lines[0])['type'] == 'status_snapshot_result'
     assert json.loads(lines[1])['name'] == 'rows'
     assert json.loads(lines[2])['name'] == 'stopped'
+
+
+def test_watch_reports_event_stream_closure_without_stop(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class DisconnectedEventClient(FakeEventClient):
+        def start(self) -> None:
+            self.terminal_reason = rpc.EventCloseReason.peer_eof
+
+        def wait_closed(self, timeout: float | None = None) -> bool:
+            return True
+
+    result = watch.watch(
+        watch.Watch(json_output=True),
+        DisconnectedEventClient,
+        FakeControlClient,
+    )
+
+    output = capsys.readouterr()
+    assert result == 1
+    assert json.loads(output.out.splitlines()[0])['type'] == 'status_snapshot_result'
+    assert 'event stream closed' in output.err
+    assert 'peer_eof' in output.err
 
 
 def test_watch_reports_event_overflow_before_snapshot() -> None:

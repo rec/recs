@@ -27,7 +27,11 @@ class Watch(BaseModel, frozen=True):
 
 
 class EventConnection(Protocol):
+    terminal_reason: rpc.EventCloseReason | None
+
     def start(self) -> None: ...
+
+    def wait_closed(self, timeout: float | None = None) -> bool: ...
 
     def close(self) -> None: ...
 
@@ -122,7 +126,10 @@ def watch(
         if not isinstance(result, dict):
             raise ConnectionError('Recs returned an invalid status snapshot')
         watcher.set_snapshot(result)
-        watcher.done.wait()
+        while not watcher.done.is_set() and not events.wait_closed(0.1):
+            pass
+        if not watcher.done.is_set():
+            raise ConnectionError(f'Recs event stream closed: {events.terminal_reason}')
     except (
         BrokenPipeError,
         ConnectionError,
