@@ -5,6 +5,7 @@ from typing import Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import units
+from reccy.configuration.update import validated_update
 from reccy.runtime import logging
 
 from recs.base.prefix_dict import PrefixDict
@@ -139,10 +140,7 @@ class Cfg(BaseModel):
         part, field = _cfg_address(address)
         if address not in self.mutable_attributes:
             raise ValueError(f'Immutable configuration attribute: {address}')
-        data = units.revalidation_dump(self)
-        section = cast(dict[str, object], data[part])
-        section[field] = value
-        return type(self)(**data)
+        return validated_update(self, (part, field), value)
 
     def _configure_keys(self) -> None:
         fields_set = set(self.model_fields_set)
