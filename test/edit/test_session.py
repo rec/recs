@@ -2,11 +2,13 @@ from pathlib import Path
 
 import numpy as np
 import soundfile
+from reccy.runtime.assets import AssetStore
 from ufor.interface import NormalizeMode
 
 from recs.edit.schema import parse_edit
 from recs.edit.session import execute_edit, prepare_edit
 from recs.recording import session_record
+from recs.recording.asset_resolver import FiniteAssetResolver
 from recs.recording.finalize import finalize_recording
 from recs.recording.read import read_recording
 
@@ -124,13 +126,27 @@ track = "voice"
     raw['outputs'][0]['stream'] = source_document.outputs[0].stream.model_dump()
     edit = type(edit).model_validate(raw)
     destination = tmp_path / 'edited'
+    store = AssetStore(tmp_path / 'cache', credential_scope='local-edit')
+    resolver = FiniteAssetResolver(
+        store,
+        mounts=[],
+        approved_https_urls=[],
+        https_headers=None,
+        approved_git_urls=[],
+        git_transport_repository=None,
+        fingerprint_key=b'x' * 32,
+        maximum_bytes=1_000_000,
+        timeout=1,
+    )
 
-    prepared = prepare_edit(edit, source_directory, destination)
+    with prepare_edit(
+        edit, source_directory, destination, resolver=resolver
+    ) as prepared:
+        assert not destination.exists()
+        assert prepared.edit.body.parts[0].score.path == '../source/recording.toml'
+        assert store.collect([], pressure=True) == []
 
-    assert not destination.exists()
-    assert prepared.edit.body.parts[0].score.path == '../source/recording.toml'
-
-    output_record = execute_edit(edit, source_directory, destination)
+    output_record = execute_edit(edit, source_directory, destination, resolver=resolver)
 
     rendered, sample_rate = soundfile.read(
         destination / 'audio/voice.wav', dtype='float32', always_2d=True
@@ -150,7 +166,10 @@ track = "voice"
         'sources': {
             f'root/voice-source/{source_document.outputs[0].name}': {
                 'session_id': 'input-session',
-                'files': [source_path.as_posix()],
+                'files': [
+                    f'{record_path}:'
+                    f'{source_document.body.streams[0].fragments[0].asset}'
+                ],
             }
         },
         'output_ranges': {'voice': {'start': 0, 'end': 48_000}},

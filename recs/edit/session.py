@@ -1,6 +1,7 @@
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from recs.edit.output import bit_depth, open_output, validate_outputs
 from recs.edit.record import ResolvedSource
 from recs.edit.render import Renderer
 from recs.recording import session_record
+from recs.recording.asset_resolver import FiniteAssetResolver
 from recs.recording.finalize import finalize_recording
 
 
@@ -30,22 +32,32 @@ class PreparedEdit(BaseModel, frozen=True):
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
 
+@contextmanager
 def prepare_edit(
     edit: ArrangementScore,
     edit_directory: Path,
     destination: Path,
     supplied: dict[Path, RecordingScore] | None = None,
-) -> PreparedEdit:
+    *,
+    resolver: FiniteAssetResolver | None = None,
+) -> Iterator[PreparedEdit]:
     if len(edit.body.media_types) != 1 or edit.body.media_types[0] != 'audio':
         raise RecsError(
             'This editor supports only media_types = ["audio"]: '
             f'{edit.body.media_types}'
         )
-    sources = resolve_sources(edit, edit_directory, supplied)
-    graph = validate_graph(edit, sources)
-    validate_outputs(edit, graph, destination)
-    canonical = canonical_edit(edit, sources, destination, edit_directory)
-    return PreparedEdit(edit=canonical, sources=sources, graph=graph)
+    with ExitStack() as resources:
+        sources = resolve_sources(
+            edit,
+            edit_directory,
+            supplied,
+            resolver=resolver,
+            resources=resources if resolver is not None else None,
+        )
+        graph = validate_graph(edit, sources)
+        validate_outputs(edit, graph, destination)
+        canonical = canonical_edit(edit, sources, destination, edit_directory)
+        yield PreparedEdit(edit=canonical, sources=sources, graph=graph)
 
 
 def execute_edit(
@@ -53,22 +65,24 @@ def execute_edit(
     edit_directory: Path,
     destination: Path,
     provenance: dict[str, object] | None = None,
+    *,
+    resolver: FiniteAssetResolver | None = None,
 ) -> Path:
     from .resources import plan_edit
 
     plan_edit(edit, edit_directory, destination).check()
-    prepared = prepare_edit(edit, edit_directory, destination)
-    canonical = prepared.edit
-    rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
-    return write_session(
-        score_toml(canonical),
-        canonical,
-        prepared.graph,
-        rendered,
-        destination,
-        _resolution_metadata(prepared.sources, prepared.graph)
-        | ({'provenance': provenance} if provenance is not None else {}),
-    )
+    with prepare_edit(edit, edit_directory, destination, resolver=resolver) as prepared:
+        canonical = prepared.edit
+        rendered = Renderer(canonical, prepared.sources, prepared.graph).outputs
+        return write_session(
+            score_toml(canonical),
+            canonical,
+            prepared.graph,
+            rendered,
+            destination,
+            _resolution_metadata(prepared.sources, prepared.graph)
+            | ({'provenance': provenance} if provenance is not None else {}),
+        )
 
 
 def write_session(
@@ -211,7 +225,7 @@ def _resolution_metadata(
             s.name if isinstance(s, ResolvedSource) else f'{a.part}/{a.output}': (
                 {
                     'session_id': s.session_id,
-                    'files': [f.path.as_posix() for f in s.fragments],
+                    'files': [f.source_path or f.path.as_posix() for f in s.fragments],
                 }
                 if isinstance(s, ResolvedSource)
                 else {
