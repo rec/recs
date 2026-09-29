@@ -22,6 +22,9 @@ numeric SFZ group spellings share one choke identity. Conflicting `key` and
 SFZ `off_by` is translated from its victim-side meaning into native trigger-side
 chokes, including distinct `off_mode` values; export reverses that mapping.
 SFZ `phase=invert` maps to generic polarity inversion independently of pan.
+SFZ `sample_fadeout` maps to a native linear end fade for unlooped single
+playback; `width=-100` swaps stereo channels when no pan is active, and
+`ampeg_start` maps to the native envelope's initial level.
 Positive SFZ `count` values map to native one-shot `play_count` without
 retriggering envelopes; player-dependent `count=0` remains diagnosed.
 SFZ `loop_type` now preserves a loop's direction independently of whole-sample
@@ -53,7 +56,7 @@ Design these independently before adding importer mappings:
 
 - voice limits, voice stealing, repeated-trigger masking, and release-tail
   termination;
-- end fade, stereo width, channel position, and channel swapping;
+- intermediate stereo width and channel position;
 - mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
 - exact conversion between SFZ equalizer bandwidth and recsam resonance, if the
   transfer functions can be specified and tested.
@@ -84,6 +87,7 @@ controller binding.
 - random delay, offset, pitch, and gain without reproducible random state;
 - MD5 assertions unless recs adopts general asset verification;
 - vendor extensions, including `#include`.
+- player-specific sample-unit interpretations of `sample_fadeout`.
 
 ## Tests
 
