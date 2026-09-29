@@ -51,7 +51,15 @@ def set_noise_floor(
 
 def set_track_names(
     control: 'RecordingControl', request: gui_protocol.SetTrackNames
-) -> gui_protocol.TrackNames:
+) -> gui_protocol.TrackNames | gui_protocol.TrackNamesConflict:
+    if (
+        'expected_track_names' in request.model_fields_set
+        and request.expected_track_names != control.track_names
+    ):
+        return gui_protocol.TrackNamesConflict(
+            type='track_names_conflict',
+            message='Track names changed since they were read',
+        )
     try:
         track_names = validate_track_names(request.track_names)
     except ValueError as e:

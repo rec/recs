@@ -150,6 +150,21 @@ def test_external_response_preserves_recs_response_type() -> None:
     }
 
 
+def test_external_response_preserves_track_names_conflict() -> None:
+    result = external_ipc.response(
+        rpc.Request(command='set_track_names'),
+        gui_protocol.TrackNamesConflict(
+            type='track_names_conflict',
+            message='Track names changed since they were read',
+        ),
+    )
+
+    assert result == {
+        'type': 'track_names_conflict',
+        'message': 'Track names changed since they were read',
+    }
+
+
 def test_external_response_preserves_pause_state() -> None:
     result = external_ipc.response(
         rpc.Request(command='pause_recording'),

@@ -188,7 +188,7 @@ response return the JSON string `"ok"`.
 | `get_cfg` | `address: str` | `cfg_value` |
 | `set_cfg` | `address: str`, `value` | `"ok"` |
 | `get_track_names` | none | `track_names` |
-| `set_track_names` | `track_names: object` | `"ok"` |
+| `set_track_names` | `track_names: object`, optional `expected_track_names: object` | `"ok"` or `track_names_conflict` |
 | `set_tracks` | `source: str`, `tracks: list` | `"ok"` |
 | `set_noise_floor` | `source: str`, `channel: int`, `noise_floor: float | null` | `"ok"` |
 | `set_key_label` | `key: str`, `label: str` | `"ok"` |
@@ -416,6 +416,11 @@ Track names use this shape:
 The outer key is the source key. Each inner key is a display name and its value
 is the track's first channel. `get_track_names` returns this object inside a
 `track_names` response. `set_track_names` replaces the complete mapping.
+When `expected_track_names` is supplied, recs compares it with the current
+complete mapping before changing anything. A mismatch returns
+`{"type":"track_names_conflict","message":"Track names changed since they were read"}`.
+Omitting the field retains the unconditional update behavior. A caller that
+edits one source must still send the complete map in both fields.
 
 `set_noise_floor` identifies a track by any channel in that track. A numeric
 value sets its override; `null` clears the override.

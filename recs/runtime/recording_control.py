@@ -195,7 +195,7 @@ class RecordingControl:
 
     def set_track_names(
         self, request: gui_protocol.SetTrackNames
-    ) -> gui_protocol.TrackNames:
+    ) -> gui_protocol.TrackNames | gui_protocol.TrackNamesConflict:
         return recording_track_config.set_track_names(self, request)
 
     def set_tracks(self, request: gui_protocol.SetTracks) -> gui_protocol.TracksSet:
