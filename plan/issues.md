@@ -4,8 +4,6 @@ This began as a source and test audit on 2026-09-29, not a runtime or hardware v
 
 ## P2: errors, APIs, maintenance, and performance
 
-25. **OSC node filename validation is incomplete across platforms (confirmed).** `Node.validate_name` rejects only slashes ([recs/osc/config.py:67](../recs/osc/config.py#L67)); `_next_path` uses the name directly as a filename ([recs/osc/recorder.py:358](../recs/osc/recorder.py#L358)). Names containing `:`, `*`, `?`, etc. are invalid on Windows, and special names can be ambiguous. Use `reccy.paths.legal_filename` consistently or reject invalid names before startup, with a Windows-oriented test.
-
 26. **`play` failure can leave recording paused (risk).** `PlaybackControl.play` pauses capture before constructing/starting the playback worker and has no cleanup if `PlaybackRunner.start` fails ([recs/runtime/playback_control.py:64](../recs/runtime/playback_control.py#L64)). Thread/process resource exhaustion can leave `resume_after_playback` set and the recording paused with no running playback. Make start failure restore capture and close the timeline.
 
 27. **A few names hide different operations (API trap).** The playback API uses negative `session` values (`len(paths) + request.session`) while the field itself is not named `relative_session` ([recs/runtime/playback_control.py:45](../recs/runtime/playback_control.py#L45)); `stop` means stop playback in that component but stop the recorder elsewhere; `project use` versus `project switch` also encode start-versus-live semantics only in help. Prefer explicit names/help and errors over silently accepting misleading indices. This is a documentation/API review item, not a call for a broad rename.
