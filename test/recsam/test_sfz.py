@@ -325,7 +325,7 @@ def test_sfz_import_rejects_symlinks_outside_its_directory(tmp_path: Path) -> No
             '1000',
             30,
             True,
-            'SFZ opcode is not implemented',
+            'SFZ filter requires a native filter model',
         ),
         (
             '#include "other.sfz"',
