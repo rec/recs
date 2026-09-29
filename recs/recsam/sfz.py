@@ -1,6 +1,7 @@
 """SFZ file acquisition; all format interpretation lives in Ufor."""
 
 from pathlib import Path
+from typing import Literal
 
 from ufor import sfz
 from ufor.time import Rate, Timebase
@@ -9,7 +10,11 @@ from .assets import read_audio_metadata
 
 
 def read(
-    path: Path, output_rate: int = 48_000, output_channels: list[str] | None = None
+    path: Path,
+    output_rate: int = 48_000,
+    output_channels: list[str] | None = None,
+    *,
+    sequence_counter: Literal['reject', 'all_note_ons'] = 'reject',
 ) -> sfz.SfzCompileResult:
     """Seal local assets and import with Recs' explicit stereo/48 kHz output policy."""
     source = sfz.parse(path.read_text(encoding='utf-8-sig'))
@@ -31,4 +36,5 @@ def read(
         output_channels=output_channels
         if output_channels is not None
         else ['left', 'right'],
+        sequence_counter=sequence_counter,
     )
