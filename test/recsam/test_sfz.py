@@ -267,6 +267,25 @@ def test_read_sfz_uses_asset_layout_and_embedded_loop(tmp_path: Path) -> None:
     assert stereo.processing.stereo_balance == 0.25
 
 
+@pytest.mark.parametrize(
+    ('wav_loop_type', 'direction'),
+    [(1, enums.Direction.mirror), (2, enums.Direction.backward)],
+)
+def test_read_sfz_preserves_embedded_wav_loop_direction(
+    tmp_path: Path, wav_loop_type: int, direction: enums.Direction
+) -> None:
+    path = tmp_path / 'embedded.sfz'
+    _write_wav(tmp_path / 'sample.wav', loop=(100, 199), loop_type=wav_loop_type)
+    path.write_text('<region> sample=sample.wav')
+
+    result = read(path)
+
+    assert result.complete
+    assert result.instrument is not None
+    assert result.instrument.body.slices[0].loop is not None
+    assert result.instrument.body.slices[0].loop.direction == direction
+
+
 def test_read_sfz_rejects_missing_asset(tmp_path: Path) -> None:
     path = tmp_path / 'missing.sfz'
     path.write_text('<region> sample=missing.wav loop_mode=no_loop')
@@ -827,7 +846,10 @@ def _instrument(
 
 
 def _write_wav(
-    path: Path, channels: int = 1, loop: tuple[int, int] | None = None
+    path: Path,
+    channels: int = 1,
+    loop: tuple[int, int] | None = None,
+    loop_type: int = 0,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(path), 'wb') as fp:
@@ -840,7 +862,9 @@ def _write_wav(
 
     start, end = loop
     data = path.read_bytes()
-    smpl = struct.pack('<15I', 0, 0, 20_833, 60, 0, 0, 0, 1, 0, 0, 0, start, end, 0, 0)
+    smpl = struct.pack(
+        '<15I', 0, 0, 20_833, 60, 0, 0, 0, 1, 0, 0, loop_type, start, end, 0, 0
+    )
     chunk = b'smpl' + struct.pack('<I', len(smpl)) + smpl
     data += chunk
     path.write_bytes(data[:4] + struct.pack('<I', len(data) - 8) + data[8:])
