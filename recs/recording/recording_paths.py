@@ -203,15 +203,6 @@ def existing_parent(path: Path) -> Path:
     return Path()
 
 
-def write_text_atomically(path: Path, content: str) -> None:
-    tmp = path.with_name(f'.{path.name}.tmp')
-    with tmp.open('w') as fp:
-        fp.write(content)
-        fp.flush()
-        os.fsync(fp.fileno())
-    tmp.replace(path)
-
-
 def open_folder(path: Path) -> None:
     commands = {
         'darwin': ['open', str(path)],

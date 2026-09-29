@@ -7,10 +7,11 @@ from typing import Annotated
 import tomlkit
 import tyro
 from pydantic import BaseModel, Field
+from reccy.configuration.settings import write_text_atomically
 from reccy.runtime import logging
 
 from ..base.errors import RecsError
-from . import recording_paths, session_record
+from . import session_record
 from .read import read_recording
 
 REPORT_FILE = 'recs-recovery-report.toml'
@@ -162,7 +163,7 @@ def report_unfinished_sessions(
         digest = _digest(text)
         try:
             if _digest_path(report_path) != digest:
-                recording_paths.write_text_atomically(report_path, text)
+                write_text_atomically(report_path, text)
         except OSError as e:
             LOGGER.error('Cannot write recovery report %s: %s', report_path, e)
             continue
@@ -241,7 +242,7 @@ def _save_worklist(worklist: RecoveryWorklist) -> None:
     path = worklist_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        recording_paths.write_text_atomically(path, worklist.model_dump_json())
+        write_text_atomically(path, worklist.model_dump_json())
     except OSError as error:
         LOGGER.warning('Cannot save recovery worklist %s: %s', path, error)
 
