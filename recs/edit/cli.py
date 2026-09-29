@@ -10,6 +10,7 @@ from ufor.interface import MixBinding, Part, ScoreReference
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, calibration_schema, commands, composition, session
+from recs.edit.asset_policy import load_asset_policy
 from recs.edit.options import EditOptions
 from recs.edit.resources import plan_calibration, plan_edit
 from recs.edit.schema import CommandKind
@@ -19,6 +20,7 @@ from recs.recording import recording_paths
 
 class EditCli(EditOptions, frozen=True):
     scratch_directory: Path | None = None
+    asset_policy: Path | None = None
     inputs: Annotated[list[Path], tyro.conf.Positional] = Field(default_factory=list)
 
     destination: Annotated[
@@ -164,7 +166,8 @@ def main(args: list[str] | None = None) -> int:
         target = next(d for d in complete.destinations if d.output == output.name)
         print(f'Output: {target.path} ({target.format}, frames {start}:{end})')
     with audio_workspace(cfg.scratch_directory):
-        session.execute_edit(complete, edit_directory, destination)
+        resolver = load_asset_policy(cfg.asset_policy) if cfg.asset_policy else None
+        session.execute_edit(complete, edit_directory, destination, resolver=resolver)
     return 0
 
 

@@ -8,7 +8,9 @@ from ufor.arrangement import Arrangement, ArrangementScore
 from ufor.codec import score_toml
 from ufor.time import Rate, Timebase
 
+from recs.base.errors import RecsError
 from recs.edit import commands
+from recs.edit.asset_policy import load_asset_policy
 from recs.edit.cli import EditCli, main
 from recs.recording import session_record
 from recs.recording.finalize import finalize_recording
@@ -35,6 +37,46 @@ def test_edit_cli_inputs_are_optional() -> None:
     cfg = tyro.cli(EditCli, args=[])
 
     assert cfg.inputs == []
+
+
+def test_edit_asset_policy_requires_measured_volume_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    policy = tmp_path / 'assets.toml'
+    policy.write_text(
+        f'cache_root = "{tmp_path / "cache"}"\n'
+        'credential_scope = "edit-test"\n'
+        'maximum_bytes = 1000000\n'
+        'timeout = 2\n'
+        'approved_https_urls = ["https://example.test/take.wav"]\n'
+        '[[volumes]]\n'
+        'volume_id = "expected-id"\n'
+        f'root = "{tmp_path}"\n'
+    )
+    monkeypatch.setattr(Path, 'is_mount', lambda p: p == tmp_path)
+    monkeypatch.setattr(
+        'recs.edit.asset_policy.mounted_disk_uuid', lambda p: 'actual-id'
+    )
+
+    with pytest.raises(RecsError, match='Edit volume ID mismatch'):
+        load_asset_policy(policy)
+
+
+def test_edit_asset_policy_loads_approved_sources(tmp_path: Path) -> None:
+    policy = tmp_path / 'assets.toml'
+    policy.write_text(
+        f'cache_root = "{tmp_path / "cache"}"\n'
+        'credential_scope = "edit-test"\n'
+        'maximum_bytes = 1000000\n'
+        'timeout = 2\n'
+        'approved_https_urls = ["https://example.test/take.wav"]\n'
+    )
+
+    resolver = load_asset_policy(policy)
+
+    assert resolver.approved_https_urls == ['https://example.test/take.wav']
+    assert resolver.maximum_bytes == 1_000_000
+    assert resolver.store.root.is_relative_to(tmp_path / 'cache')
 
 
 def test_dry_run_prints_score_toml_with_resource_comments(
@@ -89,9 +131,28 @@ def test_edit_renders_direct_audio_file(
     path = tmp_path / 'voice.wav'
     audio = np.linspace(-0.5, 0.5, 48_000, dtype=np.float32)
     soundfile.write(path, audio, 48_000, subtype='FLOAT')
+    policy = tmp_path / 'assets.toml'
+    policy.write_text(
+        f'cache_root = "{tmp_path / "cache"}"\n'
+        'credential_scope = "edit-test"\n'
+        'maximum_bytes = 1000000\n'
+        'timeout = 2\n'
+    )
     monkeypatch.chdir(tmp_path)
 
-    assert main(['clip', 'voice.wav', '--destination', 'result']) == 0
+    assert (
+        main(
+            [
+                'clip',
+                'voice.wav',
+                '--destination',
+                'result',
+                '--asset-policy',
+                str(policy),
+            ]
+        )
+        == 0
+    )
 
     rendered, sample_rate = soundfile.read(
         tmp_path / 'result/audio/voice.flac', dtype='float32'
