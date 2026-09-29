@@ -22,6 +22,7 @@ def service_paths(
         status=value.status,
         log=value.log,
         gui_endpoint=value.control_endpoint,
+        event_endpoint=value.event_endpoint,
     )
 
 

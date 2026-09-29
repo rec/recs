@@ -166,7 +166,11 @@ class ExternalServer(Reccy):
                 pending.append(batch)
         self._waveform_available.set()
 
-    def rpc_response(self, request: rpc.Request) -> rpc.Result:
+    def rpc_response(
+        self, request: rpc.Request, cancelled: threading.Event
+    ) -> rpc.Result:
+        if cancelled.is_set():
+            return ipc.Error(type='error', message='recs control request was cancelled')
         control = ControlRequest(request)
         with self._lock:
             if not self._started:

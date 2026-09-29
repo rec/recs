@@ -21,6 +21,7 @@ class ServicePaths(BaseModel):
     status: Path
     log: Path
     gui_endpoint: Path | str
+    event_endpoint: Path | str | None = None
 
 
 class StatusResult(BaseModel):
