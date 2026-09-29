@@ -16,6 +16,8 @@ deterministic SFZ random ranges have their own selection condition. Finite
 `loop_count` values now map to native loop `repeat_count` and round-trip.
 Positive SFZ `count` values map to native one-shot `play_count` without
 retriggering envelopes; player-dependent `count=0` remains diagnosed.
+SFZ `loop_type` now preserves a loop's direction independently of whole-sample
+`direction`, including backward and alternating loops.
 SFZ `delay` maps to a native delayed voice start distinct from envelope delay;
 one-shot note-off behavior that varies by player remains diagnosed.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
@@ -50,7 +52,6 @@ coherently.
 
 Design these independently before adding importer mappings:
 
-- loop direction;
 - voice limits, voice stealing, repeated-trigger masking, and release-tail
   termination;
 - end fade, stereo width, channel position,
