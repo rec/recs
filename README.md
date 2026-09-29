@@ -217,8 +217,12 @@ the path. Resume explicitly with the same source and destination:
 recs session export /path/to/session/recording.toml /path/to/export --resume /path/to/.export.recs-export-EXAMPLE
 ```
 
-Resume requires the original source documents and media to remain available and
-unchanged. It rechecks completed staged files before reuse and restarts partial
+Use `--asset-policy /path/to/assets.toml` to acquire volume, HTTPS, or Git
+assets under the same policy format as `recs edit`. Export copies them into
+`assets/` beside each score and rewrites their locations to relative files.
+Without a policy, export accepts only session-relative assets. Resume requires
+unchanged source documents and access to any asset not completed in staging.
+It rechecks completed staged files before reuse and restarts partial
 files from the beginning. A changed document, corrupt completed copy, or existing
 destination is refused. No originals or partial directories are deleted.
 `export-progress.json` lists files copied in this attempt, previously completed

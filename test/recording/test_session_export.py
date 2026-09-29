@@ -6,6 +6,9 @@ import numpy as np
 import pytest
 import soundfile
 import tomlkit
+from reccy.runtime.assets import AssetCategory, SourceKind, source_fingerprint
+from ufor.assets import DownloadLocation, RelativeFileLocation
+from ufor.codec import score_toml
 from ufor.references import RecordSelector
 
 from recs.base.errors import RecsError
@@ -14,7 +17,7 @@ from recs.edit.materialized import materialize_source
 from recs.edit.record import resolve_input
 from recs.recording import session_export, session_record, session_record_check
 from recs.recording.finalize import finalize_recording
-from recs.recording.read import read_recording_chain
+from recs.recording.read import read_recording, read_recording_chain
 
 
 def test_export_preserves_native_positions_and_remains_readable_after_source_moves(
@@ -71,6 +74,60 @@ def test_export_rejects_changed_assets_before_writing(tmp_path: Path) -> None:
         session_export.export(record, tmp_path / 'export')
     assert not (tmp_path / 'export').exists()
     assert not list(tmp_path.glob('.export.recs-export-*'))
+
+
+def test_export_uses_cached_https_asset_and_seals_relative_package(
+    tmp_path: Path,
+) -> None:
+    record = _record(tmp_path / 'source', 0, None, None)
+    original = (record.parent / 'take.wav').read_bytes()
+    document = read_recording(record)
+    audio_asset_name = document.body.streams[0].fragments[0].asset
+    url = 'https://example.test/take.wav'
+    document = document.model_copy(
+        update={
+            'assets': [
+                a.model_copy(update={'location': DownloadLocation(url=url)})
+                if a.name == audio_asset_name
+                else a
+                for a in document.assets
+            ]
+        }
+    )
+    record.write_text(score_toml(document))
+    (record.parent / 'take.wav').write_bytes(b'local copy is unavailable')
+    policy = tmp_path / 'assets.toml'
+    policy.write_text(
+        f'cache_root = "{tmp_path / "cache"}"\n'
+        'credential_scope = "export-test"\n'
+        'maximum_bytes = 1000000\n'
+        'timeout = 2\n'
+        f'approved_https_urls = ["{url}"]\n'
+    )
+    resolver = session_export.load_asset_policy(policy)
+    resolver.store.import_bytes(
+        original,
+        source_key=source_fingerprint({'kind': 'test'}, {}, None, {}),
+        category=AssetCategory.acquired,
+        source_kind=SourceKind.download,
+    )
+
+    with pytest.raises(RecsError, match='Asset is not a relative file'):
+        session_export.export(record, tmp_path / 'unapproved')
+
+    assert (
+        session_export.main(
+            [str(record), str(tmp_path / 'export'), '--asset-policy', str(policy)]
+        )
+        == 0
+    )
+
+    exported = tmp_path / 'export' / 'recording.toml'
+    copied = read_recording(exported)
+    asset = next(a for a in copied.assets if a.name == audio_asset_name)
+    assert asset.location == RelativeFileLocation(path=f'assets/{audio_asset_name}')
+    assert (exported.parent / asset.location.path).read_bytes() == original
+    assert session_record_check.check(exported) == []
 
 
 def test_export_does_not_replace_destination_created_during_publication(

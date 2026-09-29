@@ -10,9 +10,9 @@ from ufor.time import Rate, Timebase
 
 from recs.base.errors import RecsError
 from recs.edit import commands
-from recs.edit.asset_policy import load_asset_policy
 from recs.edit.cli import EditCli, main
 from recs.recording import session_record
+from recs.recording.asset_policy import load_asset_policy
 from recs.recording.finalize import finalize_recording
 
 
@@ -55,10 +55,10 @@ def test_edit_asset_policy_requires_measured_volume_id(
     )
     monkeypatch.setattr(Path, 'is_mount', lambda p: p == tmp_path)
     monkeypatch.setattr(
-        'recs.edit.asset_policy.mounted_disk_uuid', lambda p: 'actual-id'
+        'recs.recording.asset_policy.mounted_disk_uuid', lambda p: 'actual-id'
     )
 
-    with pytest.raises(RecsError, match='Edit volume ID mismatch'):
+    with pytest.raises(RecsError, match='Volume ID mismatch'):
         load_asset_policy(policy)
 
 

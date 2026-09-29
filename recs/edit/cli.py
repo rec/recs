@@ -10,17 +10,20 @@ from ufor.interface import MixBinding, Part, ScoreReference
 
 from recs.base.errors import RecsError
 from recs.edit import autocalibrate, calibration_schema, commands, composition, session
-from recs.edit.asset_policy import load_asset_policy
 from recs.edit.options import EditOptions
 from recs.edit.resources import plan_calibration, plan_edit
 from recs.edit.schema import CommandKind
 from recs.edit.workspace import audio_workspace
 from recs.recording import recording_paths
+from recs.recording.asset_policy import load_asset_policy
 
 
 class EditCli(EditOptions, frozen=True):
     scratch_directory: Path | None = None
-    asset_policy: Path | None = None
+    asset_policy: Annotated[
+        Path | None,
+        tyro.conf.arg(help='Host policy for finite recording assets'),
+    ] = None
     inputs: Annotated[list[Path], tyro.conf.Positional] = Field(default_factory=list)
 
     destination: Annotated[

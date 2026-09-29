@@ -234,9 +234,11 @@ all audio; its warnings and control markers come from the referenced journal.
 `recs explain /path/to/session/session-record.jsonl` still examines operational
 evidence directly, including captures that have not finalized.
 
-Export requires sealed scores and verifies every asset before copying.
+Export requires sealed scores and verifies every asset before publication.
 It includes all linked segments, rewrites common-score continuation paths,
-and verifies copied assets. Original journal bytes remain unchanged as evidence.
+and verifies copied assets. With an explicit asset policy, volume, HTTPS, and
+Git assets are acquired and rewritten as relative files in the package.
+Original journal bytes remain unchanged as evidence.
 The result starts at `recording.toml`; additional segments live under `sessions/`.
 Moving the exported directory preserves media references and native frame gaps.
 Export can preserve unresolved historical recordings, but it does not resolve
