@@ -9,6 +9,8 @@ includes velocity response, asset-aware loop and channel defaults, envelope
 shape mapping, release-trigger distinctions, half-open loop endpoints, and
 basic inheritance. Pure parsing, compilation and export now live in
 `ufor.sfz`; recs only resolves paths and supplies measured asset metadata.
+Key-dependent amplitude, partial pitch-key tracking, pitch-by-velocity, and
+velocity-dependent amplifier envelope durations are also imported.
 SFZ round-robin positions can be imported with the explicit `all_note_ons`
 counter rule; the default reports them as unsupported because SFZ players
 disagree on counter behavior.
@@ -48,8 +50,6 @@ Implement exact mappings that fit the existing uFor model:
   counterpart;
 - random alternatives using the deterministic selection contract in
   [uFor's sample performance format](../../ufor/doc/sample-performance.md#alternate-sample-selection);
-- key-dependent amplitude, general pitch-key tracking, velocity-to-pitch, and
-  key- or velocity-dependent envelope times;
 - remaining transport-independent aliases and documented SFZ defaults for
   start, end, loops, gain, tuning, transposition, direction, triggers, and
   exclusive groups.
