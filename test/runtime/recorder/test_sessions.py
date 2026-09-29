@@ -636,6 +636,7 @@ def test_warning_display_is_bounded_without_losing_journal_entries(
 
     rec._record_warning('first')
     rec._record_warning('first')
+    updated_timestamp = rec.warnings[0].timestamp
     for index in range(recorder.MAX_DISPLAY_WARNINGS):
         rec._record_warning(f'warning {index}')
 
@@ -643,7 +644,7 @@ def test_warning_display_is_bounded_without_losing_journal_entries(
     assert rec.warnings[0].message == 'warning 0'
     assert len(entries) == recorder.MAX_DISPLAY_WARNINGS + 2
     assert entries[-2] == session_record.WarningRecord(
-        timestamp=entries[0].timestamp,
+        timestamp=updated_timestamp,
         message='first',
         first_timestamp=entries[0].timestamp,
         count=2,
