@@ -8,7 +8,7 @@ import soundfile
 from pydantic import TypeAdapter
 from ufor.encoding import Format
 from ufor.events import MidiEvent, OscEvent, StoredEvent
-from ufor.recording import AudioStream, EventStream, GapReason
+from ufor.recording import AudioSpan, AudioStream, EventStream, GapReason
 from ufor.references import RecordSelector
 
 from recs.audio.block import Block
@@ -27,7 +27,7 @@ from recs.midi.recorder import MidiPacket, MidiRecorder
 from recs.osc import recorder
 from recs.osc.config import Node
 from recs.recording import session_record
-from recs.recording.capture_events import SourceFileEvents, capture_clock_id
+from recs.recording.capture_events import SourceFile, SourceFileEvents, capture_clock_id
 from recs.recording.files import asset_path, verify_recording
 from recs.recording.finalize import prepare_recording
 from recs.recording.read import read_recording, read_recording_chain
@@ -405,6 +405,65 @@ def test_reconnected_audio_keeps_independent_clock_evidence(tmp_path: Path) -> N
         RecsError, match='independent capture clocks require explicit alignment'
     ):
         resolve_input(edit, tmp_path)
+
+
+def test_finalized_session_keeps_more_than_512_file_lifecycle_events(
+    tmp_path: Path,
+) -> None:
+    file_count = 257
+    frames_per_file = 48_000
+    session = RecordingSession('many-files', 0.0)
+    session.start(tmp_path / 'session-record.jsonl', enabled=True)
+    session.write(
+        session_record.EventRecord(
+            type='source_online',
+            timestamp='observed',
+            source='Mic',
+            clock_id=capture_clock_id('Mic'),
+            channel_count=1,
+            sample_rate=frames_per_file,
+        )
+    )
+    audio = np.zeros(frames_per_file, dtype=np.float32)
+
+    for index in range(file_count):
+        path = tmp_path / f'audio/{index:04d}.wav'
+        path.parent.mkdir(exist_ok=True)
+        soundfile.write(path, audio, frames_per_file)
+        start = index * frames_per_file
+        end = start + frames_per_file
+        session.record_files(
+            [path],
+            {path: end},
+            {},
+            {path: [AudioSpan(start=start, count=frames_per_file)]},
+        )
+        session.record_file_started(
+            SourceFile(
+                path=path,
+                source_name='Mic',
+                track_name='1',
+                source_channels=[1],
+                channels=1,
+                sample_rate=frames_per_file,
+                bit_depth=16,
+                start_frame=start,
+                start_timestamp=float(index),
+            ),
+            None,
+        )
+        session.record_file_finished(path)
+
+    session.finish(float(file_count))
+
+    assert session.record_errors == []
+    document = read_recording(tmp_path / 'recording.toml')
+    streams = [s for s in document.body.streams if isinstance(s, AudioStream)]
+    assert len(streams) == 1
+    assert len(streams[0].fragments) == file_count
+    assert verify_recording(document, tmp_path).audio_frames == (
+        file_count * frames_per_file
+    )
 
 
 def test_tracks_from_one_capture_share_the_device_clock(tmp_path: Path) -> None:
