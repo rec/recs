@@ -10,7 +10,14 @@ from pytest_regressions.file_regression import FileRegressionFixture
 from ufor import modulation, sfz
 from ufor.assets import AudioDescription, ContentIdentity, RelativeFileLocation
 from ufor.control import Scope
-from ufor.interface import AudioBinding, EventType, Input, Output, PerformanceBinding
+from ufor.interface import (
+    AudioBinding,
+    EventType,
+    Input,
+    Output,
+    PerformanceBinding,
+    ScoreReference,
+)
 from ufor.samples import (
     controls,
     crossfade,
@@ -20,6 +27,7 @@ from ufor.samples import (
     processing,
     selection,
 )
+from ufor.sfz.model import SfzMidiBindingRequest
 from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
 
@@ -141,6 +149,26 @@ def test_read_sfz_mapping_defaults(tmp_path: Path) -> None:
     assert mapping.minimum_velocity == 0
     assert mapping.maximum_velocity == 1
     assert mapping.pitch_tracking
+
+
+def test_read_sfz_returns_requested_midi_binding(tmp_path: Path) -> None:
+    path = tmp_path / 'channels.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text('<region> sample=sample.wav lochan=2 hichan=3 loop_mode=no_loop')
+
+    result = read(
+        path,
+        midi_binding=SfzMidiBindingRequest(
+            instrument=ScoreReference(path='channels.toml'),
+            part='main',
+            repeated_key_release='newest',
+        ),
+    )
+
+    assert result.complete
+    assert result.binding is not None
+    assert result.binding.body.midi[0].channels == [2, 3]
+    assert result.binding.body.midi[0].controllers[0].control == 'sustain'
 
 
 def test_read_sfz_loops_and_choke_groups(tmp_path: Path) -> None:

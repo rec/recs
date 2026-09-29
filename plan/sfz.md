@@ -64,11 +64,14 @@ filter design.
 
 ## 3. Controller Bindings
 
-Design a companion binding document that maps MIDI and other protocols onto
-recsam's transport-neutral events and named controls. An SFZ import containing
-bindings will need to return both an instrument and bindings.
+The separate `performance_binding` score now describes MIDI channel-to-part,
+note identity, and named-control CC conversion independently of host adapters.
+SFZ import can return it alongside the instrument when the caller explicitly
+supplies an instrument reference, part, and repeated-key release rule. Shared
+`lochan`/`hichan` ranges map; mixed per-region ranges remain diagnosed.
+Other protocols need their own explicit input profile.
 
-Only then consider MIDI channel ranges, CC conditions and modulation, pitch
+Next consider CC conditions and modulation, pitch
 bend, aftertouch, key switches, previous-key conditions, initial CC values, and
 controller curves. Until that format exists, report these as requiring a
 controller binding.
@@ -104,6 +107,6 @@ fixture copied from one player's interpretation.
 - Recsam additions remain protocol-neutral and independently useful.
 - The full suite does not access real MIDI devices.
 
-## Additional Work Beyond The Prompt
+## Additional work beyond the prompt
 
 None.
