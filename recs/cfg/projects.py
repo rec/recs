@@ -155,14 +155,28 @@ def main(argv: list[str]) -> int:
         arguments.extend(command.names)
         return control_cli.main(arguments)
     if isinstance(command, ListProjects):
-        for path in sorted(projects_directory().glob('*.json')):
-            print(path.stem)
+        try:
+            with os.scandir(projects_directory()) as entries:
+                names = sorted(
+                    entry.name[:-5] for entry in entries if entry.name.endswith('.json')
+                )
+        except FileNotFoundError:
+            names = []
+        except OSError as error:
+            raise RecsError(f'Could not list recording projects: {error}') from None
+        for name in names:
+            print(name)
         return 0
     if isinstance(command, Delete):
         path = project_path(command.name)
-        if not path.exists():
-            raise RecsError(f'Unknown recording project: {command.name}')
-        path.unlink()
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            raise RecsError(f'Unknown recording project: {command.name}') from None
+        except OSError as error:
+            raise RecsError(
+                f'Could not delete recording project {command.name}: {error}'
+            ) from None
         return 0
     raise RecsError(f'Unsupported project command: {type(command).__name__}')
 
