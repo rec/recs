@@ -103,6 +103,10 @@ def test_export_uses_cached_https_asset_and_seals_relative_package(
         'maximum_bytes = 1000000\n'
         'timeout = 2\n'
         f'approved_https_urls = ["{url}"]\n'
+        '[capacity]\n'
+        'maximum_object_bytes = 1000000\n'
+        'maximum_staging_bytes = 1000000\n'
+        'minimum_free_space = 0\n'
     )
     resolver = session_export.load_asset_policy(policy)
     resolver.store.import_bytes(

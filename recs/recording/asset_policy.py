@@ -5,7 +5,7 @@ import tomllib
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from reccy.runtime.assets import AssetStore
+from reccy.runtime.assets import AssetCapacity, AssetStore
 from reccy.runtime.file_assets import VolumeMount
 
 from recs.base.errors import RecsError
@@ -19,6 +19,7 @@ class FiniteAssetPolicy(BaseModel, frozen=True):
     credential_scope: str = Field(min_length=1)
     maximum_bytes: int = Field(gt=0, strict=True)
     timeout: float = Field(gt=0, allow_inf_nan=False)
+    capacity: AssetCapacity
     volumes: list[VolumeMount] = Field(default_factory=list)
     approved_https_urls: list[str] = Field(default_factory=list)
     approved_git_urls: list[str] = Field(default_factory=list)
@@ -52,7 +53,11 @@ def load_asset_policy(path: Path) -> FiniteAssetResolver:
                 f'expected {mount.volume_id}, observed {observed or "none"}'
             )
     return FiniteAssetResolver(
-        AssetStore(policy.cache_root, credential_scope=policy.credential_scope),
+        AssetStore(
+            policy.cache_root,
+            credential_scope=policy.credential_scope,
+            capacity=policy.capacity,
+        ),
         mounts=policy.volumes,
         approved_https_urls=policy.approved_https_urls,
         https_headers=None,
