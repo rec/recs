@@ -99,6 +99,7 @@ class AudioFileRecord(FileRecord, frozen=True):
     source: str | None = None
     clock_id: Identifier
     frame_count: int | None = Field(default=None, ge=0, strict=True)
+    trigger_frame: int | None = Field(default=None, ge=0, strict=True)
     track_name: str | None = None
     source_channels: list[int] | None = None
     channels: int | None = Field(default=None, gt=0)

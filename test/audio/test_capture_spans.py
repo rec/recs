@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile
 from pytest_regressions.data_regression import DataRegressionFixture
 from ufor.encoding import Format
@@ -20,6 +22,103 @@ from recs.recording import session_record
 from recs.recording.capture_events import SourceFileEvents, capture_clock_id
 from recs.recording.finalize import prepare_recording
 from recs.recording.recording_session import RecordingSession
+
+
+def test_level_trigger_frame_is_recorded_with_preroll(tmp_path: Path) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 1}
+    )
+    writer = ChannelWriter(
+        Cfg(formats=[Format.wav], output_directory=str(tmp_path)),
+        TimeSettings[int](quiet_before_start=48000, stop_after_quiet=480000),
+        Track(source, '1'),
+    )
+    quiet = np.zeros(48000, dtype=np.float32)
+    loud = np.tile(np.array([-0.5, 0.5], dtype=np.float32), 24000)
+    writer.receive_update(
+        Block(block=quiet), 1.0, should_record=False, timeline_frame=48000
+    )
+    writer.receive_update(
+        Block(block=loud), 2.0, should_record=True, timeline_frame=96000
+    )
+    writer.stop()
+
+    events = SourceFileEvents([writer])
+    paths, records = events.new_files([writer], 32)
+    assert len(records) == 1
+    assert records[0].start_frame == 0
+    assert records[0].trigger_frame == 48000
+
+    session = RecordingSession('test', 0.0)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    session.record_file_started(records[0], None)
+    session.record_files(
+        paths,
+        events.end_frames([writer]),
+        events.end_timestamps([writer]),
+        events.spans([writer]),
+    )
+    session.record_file_finished(paths[0])
+    session.finish(2.0)
+    assert [f.trigger_frame for f in session_record.read(journal).files] == [
+        48000,
+        48000,
+    ]
+
+
+@pytest.mark.parametrize('record_everything', [False, True])
+def test_non_level_starts_have_no_trigger_frame(
+    tmp_path: Path, record_everything: bool
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 1}
+    )
+    writer = ChannelWriter(
+        Cfg(formats=[Format.wav], output_directory=str(tmp_path)),
+        TimeSettings[int](record_everything=record_everything),
+        Track(source, '1'),
+    )
+    block = np.tile(np.array([-0.5, 0.5], dtype=np.float32), 24000)
+    if not record_everything:
+        block = np.zeros(48000, dtype=np.float32)
+    writer.receive_update(
+        Block(block=block), 1.0, should_record=True, timeline_frame=48000
+    )
+    writer.stop()
+
+    _, records = SourceFileEvents([writer]).new_files([writer], 32)
+    assert len(records) == 1
+    assert records[0].trigger_frame is None
+    session = RecordingSession('test', 0.0)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    session.record_file_started(records[0], None)
+    session.finish(1.0)
+    started = next(
+        json.loads(line)
+        for line in journal.read_text().splitlines()
+        if '"file_started"' in line
+    )
+    assert 'trigger_frame' not in started
+
+
+def test_file_split_has_no_new_trigger_frame(tmp_path: Path) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 1}
+    )
+    writer = ChannelWriter(
+        Cfg(formats=[Format.wav], output_directory=str(tmp_path)),
+        TimeSettings[int](longest_file_time=48000),
+        Track(source, '1'),
+    )
+    block = Block(block=np.tile(np.array([-0.5, 0.5], dtype=np.float32), 24000))
+    writer.receive_update(block, 1.0, timeline_frame=48000)
+    writer.receive_update(block, 2.0, timeline_frame=96000)
+    writer.stop()
+
+    _, records = SourceFileEvents([writer]).new_files([writer], 32)
+    assert [r.trigger_frame for r in records] == [0, None]
 
 
 def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(

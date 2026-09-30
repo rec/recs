@@ -170,6 +170,7 @@ class RecordingSession:
                 file.source_name, file.track_name, file.capture_id
             ),
             frame_count=file.start_frame,
+            trigger_frame=file.trigger_frame,
             path=file.path.as_posix(),
             source_channels=file.source_channels,
             bit_depth=file.bit_depth,
