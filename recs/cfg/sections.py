@@ -531,14 +531,14 @@ class Recording(BaseModel):
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-c',), help='How much quiet after the end'),
-    ] = 2.0
+    ] = 10.0
 
     quiet_before_start: Annotated[
         units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(aliases=('-b',), help='How much quiet before a recording'),
-    ] = 1.0
+    ] = 10.0
 
     stop_after_quiet: Annotated[
         units.Seconds,

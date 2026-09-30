@@ -174,9 +174,9 @@ readiness inspects a project or configuration without recording; preflight check
   --shortest-file-time TIME
         Files shorter than this duration get deleted (default: 1.0)
   -c TIME, --quiet-after-end TIME
-        How much quiet after the end (default: 2.0)
+        How much quiet after the end (default: 10.0)
   -b TIME, --quiet-before-start TIME
-        How much quiet before a recording (default: 1.0)
+        How much quiet before a recording (default: 10.0)
   --stop-after-quiet TIME
         How much quiet before stopping a recording (default: 20.0)
   -t TIME, --total-run-time TIME
