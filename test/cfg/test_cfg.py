@@ -137,8 +137,9 @@ def test_device_profiles_apply_to_matching_device(
 
     assert profiled.recording.noise_floor == 42
     assert profiled.recording.quiet_after_end == 5
-    assert profiled.recording.quiet_before_start == 1
+    assert profiled.recording.quiet_before_start == 10
     assert unprofiled.recording.noise_floor == 70
+    assert unprofiled.recording.quiet_after_end == 10
 
 
 def test_device_profile_noise_floor_overrides_global_default(
