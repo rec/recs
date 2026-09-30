@@ -184,6 +184,12 @@ class DeviceLifecycle:
     def poll(self, paused: bool, expired: bool) -> None:
         if self.poller is None or (snapshot := self.poller.latest()) is None:
             return
+        if muted_name := self.cfg.muted_device_name:
+            snapshot = {
+                name: info
+                for name, info in snapshot.items()
+                if info['name'] != muted_name
+            }
         if snapshot:
             self.no_devices_reported = False
         elif not self.present_hardware and not self.cfg.selection.include:
@@ -341,7 +347,7 @@ class DeviceLifecycle:
     def _add_detected_hardware(self, snapshot: dict[str, DeviceDict]) -> bool:
         if self.cfg.device.devices.name:
             return True
-        devices = get_input_devices(list(snapshot.values()))
+        devices = get_input_devices(list(snapshot.values()), self.cfg.muted_device_name)
         aliases = Aliases(self.cfg.device.alias, devices)
         for source, tracks in input_device_tracks(self.cfg, devices):
             if source.key in self.source_processes:

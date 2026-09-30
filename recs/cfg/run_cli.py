@@ -34,6 +34,10 @@ def run_cli(cfg: Cfg, loaded_settings: settings.LoadedSettings | None = None) ->
             gui_ipc.run_remote_gui(metadata, cfg)
         else:
             loaded = loaded_settings or settings.load(cfg, cli_overrides(sys.argv[1:]))
+            if not loaded.cfg.directory.files and (
+                warning := loaded.cfg.mic_mute_decision[1]
+            ):
+                print(warning, file=sys.stderr)
             if loaded.cfg.save_settings:
                 Recorder(loaded.cfg, loaded).run()
             else:

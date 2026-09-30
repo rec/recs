@@ -44,6 +44,10 @@ def run() -> int:
             from recs.cfg import projects
 
             return projects.main(sys.argv[2:])
+        if len(sys.argv) > 1 and sys.argv[1] == 'mute':
+            from recs.cfg import mic_mute
+
+            return mic_mute.main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'gui-child':
             from recs.ui.gui_child import main
 

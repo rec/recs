@@ -6,6 +6,7 @@ from typing import Self, cast
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import units
 from reccy.configuration.update import validated_update
+from reccy.device import DeviceDict
 from reccy.runtime import logging
 
 from recs.base.prefix_dict import PrefixDict
@@ -23,9 +24,9 @@ from recs.cfg.sections import (
     Selection,
 )
 
-from . import metadata, path_pattern, time_settings
+from . import device, metadata, mic_mute, path_pattern, time_settings
 from .aliases import Aliases
-from .device import InputDevices, get_input_devices, input_devices
+from .device import InputDevices, get_input_devices
 from .track import source_track
 
 CFG_PARTS = (
@@ -172,15 +173,28 @@ class Cfg(BaseModel):
         object.__setattr__(self, '__pydantic_fields_set__', fields_set)
 
     @cached_property
+    def initial_device_inventory(self) -> list[DeviceDict]:
+        return list(device.query_devices())
+
+    @cached_property
+    def mic_mute_decision(self) -> tuple[mic_mute.MicMute | None, str | None]:
+        return mic_mute.resolve(self.initial_device_inventory)
+
+    @cached_property
+    def muted_device_name(self) -> str | None:
+        choice = self.mic_mute_decision[0]
+        return choice.device_name if choice is not None and choice.is_muted else None
+
+    @cached_property
     def input_devices(self) -> InputDevices:
         if self.directory.files:
             return PrefixDict()
 
         if self.device.devices.name:
             devices = json.loads(self.device.devices.read_text())
-            return get_input_devices(devices)
+            return get_input_devices(devices, self.muted_device_name)
 
-        return input_devices()
+        return get_input_devices(self.initial_device_inventory, self.muted_device_name)
 
     @cached_property
     def aliases(self) -> Aliases:

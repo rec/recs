@@ -55,6 +55,7 @@ def test_help(cli_help: CliHelp) -> None:
             'control',
             'watch',
             'project',
+            'mute',
             'sessions',
             'session',
             'test-input',

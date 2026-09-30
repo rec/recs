@@ -58,8 +58,16 @@ class InputDevice(Source):
 InputDevices = PrefixDict[InputDevice]
 
 
-def get_input_devices(devices: Sequence[DeviceDict]) -> InputDevices:
-    return PrefixDict({d.key: d for i in devices if (d := InputDevice(i)).channels})
+def get_input_devices(
+    devices: Sequence[DeviceDict], muted_device_name: str | None = None
+) -> InputDevices:
+    return PrefixDict(
+        {
+            d.key: d
+            for i in devices
+            if i['name'] != muted_device_name and (d := InputDevice(i)).channels
+        }
+    )
 
 
 def query_devices() -> Sequence[DeviceDict]:
