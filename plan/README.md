@@ -6,7 +6,6 @@ complete. Proposals do not authorize implementation by themselves.
 
 ## recs work
 
-- [System microphone policy](system-microphone.md)
 - [Remaining SFZ import work](sfz.md)
 - [Instrument-host boundary and acceptance](sample-playback.md)
 - [baccy recording import](baccy-recording-import.md): the importer exists, but

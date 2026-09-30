@@ -49,6 +49,38 @@ def test_recorder_runs_without_devices(
     assert caplog.messages == ['No input devices detected']
 
 
+def test_possible_room_mic_stays_muted_after_poll(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mic = {
+        'name': 'Built-in Microphone',
+        'max_input_channels': 2,
+        'max_output_channels': 0,
+        'default_samplerate': 48_000,
+    }
+    interface = {
+        'name': 'Interface',
+        'max_input_channels': 4,
+        'max_output_channels': 2,
+        'default_samplerate': 48_000,
+    }
+    monkeypatch.setattr(device, 'query_devices', lambda: [mic, interface])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+
+    rec = Recorder(Cfg(silent=True))
+    assert list(rec._devices.hardware) == ['Interface']
+
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [
+        {'Built-in Microphone': mic, 'Interface': interface}
+    ]
+    rec._poll_devices()
+
+    assert list(rec._devices.hardware) == ['Interface']
+    assert 'Built-in Microphone' not in rec.state.state
+
+
 def test_recorder_adds_device_detected_after_start(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

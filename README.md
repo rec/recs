@@ -39,11 +39,28 @@ recs --info
 ## Recording
 
 Run recs with no arguments to record available audio inputs in the current
-directory:
+directory, except any possible room mic that it mutes:
 
 ```console
 recs
 ```
+
+On a machine without a saved mic-mute choice, recs checks the audio devices
+available at startup. Devices with one or two input channels and no output
+channels are mic candidates. If exactly one candidate's name contains the word
+“Microphone,” recs excludes it from recording and prints a warning. If there
+are candidates but no unique name match, recs records them normally and warns
+that no room mic was muted. With no candidates, it records normally without a
+warning. This is a name-based heuristic, not a guarantee that a room microphone
+is excluded.
+
+Run `recs mute` to choose a mic candidate or deliberately choose no mute. The
+choice is saved for the machine in `~/.config/recs/mic-mute.json` (or
+`%APPDATA%\recs\mic-mute.json` on Windows), and suppresses later startup
+warnings. `recs mute --clear` removes the choice silently, restoring the
+startup heuristic. Other differently named inputs continue recording. A saved
+name mutes every device reported under that name. If the saved name is absent
+at startup, recs warns because a renamed microphone would no longer be muted.
 
 By default, recs records audio as FLAC, records MIDI inputs, and omits quiet
 audio between files. A day directory contains one or more time-named session

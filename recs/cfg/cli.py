@@ -18,8 +18,8 @@ LINES = (
     'sessions ROOT lists recordings; session COMMAND manages one recording; '
     'record check PATH validates a recording document and its media.',
     'control pause/resume affect capture; control stop/continue affect playback. '
-    'project manages saved recording projects; --profiles loads per-device JSON '
-    'defaults.',
+    'project manages saved recording projects; mute manages a machine-wide '
+    'microphone exclusion; --profiles loads per-device JSON defaults.',
     'readiness inspects a project or configuration without recording; '
     'preflight checks a running daemon.',
 )
