@@ -598,6 +598,7 @@ class EventWriter:
         self.files_written: list[Path] = []
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
+        self.file_trigger_frames: dict[Path, int] = {}
         self.file_end_frames: dict[Path, int] = {}
         self.file_end_timestamps: dict[Path, float] = {}
 

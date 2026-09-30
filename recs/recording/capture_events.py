@@ -23,6 +23,7 @@ class SourceFile(NamedTuple):
     start_frame: int | None = None
     start_timestamp: float | None = None
     capture_id: str | None = None
+    trigger_frame: int | None = None
 
 
 class SourceFileEvents:
@@ -99,6 +100,7 @@ class SourceFileEvents:
                     start_frame=writer.file_start_frames[path],
                     start_timestamp=writer.file_start_timestamps[path],
                     capture_id=self.capture_id,
+                    trigger_frame=writer.file_trigger_frames.get(path),
                 )
                 for path in new_files
             )

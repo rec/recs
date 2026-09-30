@@ -21,6 +21,7 @@ files:
   source_channels:
   - 1
   stream_id: audio:test%2Ftestdata%2Ffile_inputs%2Fmono.wav:1
+  trigger_frame: 0
 - bit_depth: 32
   clock_id: clock:test/testdata/file_inputs/stereo.wav
   frame_count: 48000
@@ -30,6 +31,7 @@ files:
   - 1
   - 2
   stream_id: audio:test%2Ftestdata%2Ffile_inputs%2Fstereo.wav:1-2
+  trigger_frame: 0
 project_name: -default-
 started_at: <timestamp>
 warnings: []

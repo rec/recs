@@ -100,6 +100,7 @@ class ChannelWriter(Runnable):
         self.file_end_timestamps: dict[Path, float] = {}
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
+        self.file_trigger_frames: dict[Path, int] = {}
         self.file_spans: dict[Path, list[AudioSpan]] = {}
         self.observed_ranges: list[TickRange] = []
         self.finished_files: set[Path] = set()
@@ -195,7 +196,9 @@ class ChannelWriter(Runnable):
                     Path(sf.name).unlink()
                 self._discard_file(Path(sf.name))
 
-    def _open(self, start_frame: int, timestamp: float) -> Sequence[SoundFile]:
+    def _open(
+        self, start_frame: int, timestamp: float, trigger_frame: int | None = None
+    ) -> Sequence[SoundFile]:
         date = datetime.fromtimestamp(timestamp).isoformat()
         index = 1 + len(self.files_written)
         metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
@@ -223,6 +226,8 @@ class ChannelWriter(Runnable):
         paths = [Path(sf.name) for sf in sfs]
         self.file_start_frames.update(dict.fromkeys(paths, start_frame))
         self.file_start_timestamps.update(dict.fromkeys(paths, timestamp))
+        if trigger_frame is not None:
+            self.file_trigger_frames.update(dict.fromkeys(paths, trigger_frame))
         self.file_end_frames.update(dict.fromkeys(paths, start_frame))
         self.file_end_timestamps.update(dict.fromkeys(paths, timestamp))
         self.file_spans.update({p: [] for p in paths})
@@ -235,6 +240,7 @@ class ChannelWriter(Runnable):
         self.files_written.remove_path(path)
         self.file_start_frames.pop(path, None)
         self.file_start_timestamps.pop(path, None)
+        self.file_trigger_frames.pop(path, None)
         self.file_end_frames.pop(path, None)
         self.file_end_timestamps.pop(path, None)
         self.file_spans.pop(path, None)
@@ -285,11 +291,18 @@ class ChannelWriter(Runnable):
             )
 
             if should_record:
+                trigger_frame = None
                 if not self._sfs:  # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
                     self._blocks.clip(length, from_start=True)
+                    if (
+                        not self.times.record_everything
+                        and block.volume
+                        >= time_settings.db_to_amplitude(self.noise_floor)
+                    ):
+                        trigger_frame = self.timeline_frame - len(block)
 
-                self._write_blocks(self._blocks.blocks)
+                self._write_blocks(self._blocks.blocks, trigger_frame)
                 self._blocks.clear()
                 self.quiet_frames = 0
             else:
@@ -329,7 +342,9 @@ class ChannelWriter(Runnable):
 
         self._close()
 
-    def _write_blocks(self, blox: Iterable[TimedBlock]) -> None:
+    def _write_blocks(
+        self, blox: Iterable[TimedBlock], trigger_frame: int | None = None
+    ) -> None:
         for b in blox:
             # Check if this block will overrun the file size or length
             remains: list[int] = []
@@ -344,7 +359,9 @@ class ChannelWriter(Runnable):
             if remains and min(remains) <= len(b):
                 self._close()
 
-            self._sfs = self._sfs or self._open(b.start_frame, b.timestamp)
+            if not self._sfs:
+                self._sfs = self._open(b.start_frame, b.timestamp, trigger_frame)
+                trigger_frame = None
             for sf in self._sfs:
                 start = time.monotonic()
                 sf.write(b.block)

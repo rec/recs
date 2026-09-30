@@ -110,6 +110,12 @@ Payload offsets consecutively cover the file, while native positions can have
 gaps. `quantity_count` is the sum of stored frames. Finalization requires native
 boundaries and checks them against the payload.
 
+When an audio level starts a capture, `trigger_frame` records the first
+above-threshold block's start frame in the same source clock as `frame_count`.
+It is not the exact sample where the sound began. It is absent for other
+starts, including record-everything, forced starts, starts caused only by
+another track in band mode, and file splits.
+
 A `source_online` event precedes any audio record for its device and records
 the source name, `clock_id`, channel count, and sample rate. The device sample
 rate is authoritative for that clock and must match decoded audio payloads.
