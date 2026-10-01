@@ -389,6 +389,24 @@ def test_read_sfz_requires_explicit_sequence_counter_rule(tmp_path: Path) -> Non
     )
 
 
+def test_read_sfz_polyphony_keeps_default_diagnostic_and_accepts_choice(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / 'polyphony.sfz'
+    _write_wav(tmp_path / 'sample.wav')
+    path.write_text('<region> sample=sample.wav group=4 polyphony=2 key=60')
+
+    default = read(path)
+    accepted = read(path, polyphony_overflow='oldest_immediate')
+
+    assert default.instrument is not None
+    assert [i.location.opcode for i in default.unimplemented] == ['polyphony']
+    assert accepted.complete
+    assert accepted.instrument is not None
+    assert accepted.instrument.body.slots[0].voice_pool == 'sfz-group-4'
+    assert accepted.instrument.body.voice_pools[0].policy.maximum_voices == 2
+
+
 def test_sfz_import_seals_assets_without_changing_media(tmp_path: Path) -> None:
     path = tmp_path / 'source.sfz'
     sample = tmp_path / 'sample.wav'
