@@ -37,6 +37,11 @@ disagree on counter behavior.
 Release-triggered sequence and random conditions that cannot use the native
 note-on state are diagnosed rather than approximated. Overlapping regions
 remain independent layers.
+Numeric SFZ `polyphony` now maps to group-scoped native voice pools with
+oldest-immediate retirement. The default retains the instrument with a located
+assumption diagnostic; callers can accept the rule explicitly. Conflicting
+limits, legato variants, and limits that may reject simultaneous layers remain
+diagnosed.
 The pinned SFZ v1/v2 registry classifies 453 opcodes and the standard headers,
 drives unsupported-feature diagnostics, and generates the
 [support table](../../ufor/doc/sfz-support.md). SFZ 2 `#define` values expand
@@ -54,8 +59,8 @@ concept should be added only when it is useful independently of SFZ.
 
 Design these independently before adding importer mappings:
 
-- voice limits, voice stealing, repeated-trigger masking, and release-tail
-  termination;
+- repeated-trigger masking and release-tail termination, beyond the existing
+  group-scoped voice limits and oldest-immediate stealing rule;
 - intermediate stereo width and channel position;
 - mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
 - exact conversion between SFZ equalizer bandwidth and recsam resonance, if the

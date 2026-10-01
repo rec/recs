@@ -16,6 +16,7 @@ def read(
     output_channels: list[str] | None = None,
     *,
     sequence_counter: Literal['reject', 'all_note_ons'] = 'reject',
+    polyphony_overflow: Literal['diagnose', 'oldest_immediate'] = 'diagnose',
     midi_binding: SfzMidiBindingRequest | None = None,
 ) -> sfz.SfzCompileResult:
     """Seal local assets and import with Recs' explicit stereo/48 kHz output policy."""
@@ -39,5 +40,6 @@ def read(
         if output_channels is not None
         else ['left', 'right'],
         sequence_counter=sequence_counter,
+        polyphony_overflow=polyphony_overflow,
         midi_binding=midi_binding,
     )
