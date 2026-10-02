@@ -607,6 +607,16 @@ normally. The configured output directory is not changed or saved: recs applies
 the relative path from the old card's mount point to the new card's mount point
 for this session only.
 
+When a write error follows an unmount and recs switches directories, each
+affected audio writer also replays up to
+`recording.recovery_frame_overlap` recent attempted frames (default `8192`)
+at their original source-frame positions in the first file on the new card.
+This is a best-effort overlap, not proof that the old card kept every earlier
+write. A deliberate `card_replace` does not add this overlap. The new session
+is independently readable: its `card_replace_finished` journal event records
+the previous session record path and card UUID, and `recs session show` displays
+`card_replacement_from`. It does not automatically load the old card.
+
 While recs is waiting for a replacement card, `rows` events and
 `status_snapshot` include an error record with `message` set to `"awaiting
 card"` and `value` set to `true`. When recs finds a destination card, that

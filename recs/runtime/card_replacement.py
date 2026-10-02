@@ -20,6 +20,7 @@ class CardReplacement:
         self.deadline = 0.0
         self.next_poll = 0.0
         self.old_mount: recording_paths.MountedDisk | None = None
+        self.previous_record_path: Path | None = None
         self.output_relative = Path()
         self.use_old_mount_immediately = False
 

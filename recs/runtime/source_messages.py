@@ -81,3 +81,4 @@ class SourceControl(NamedTuple):
     tracks: list[Track] | None = None
     waveforms_enabled: bool | None = None
     writing_enabled: bool | None = None
+    recovery_failover: bool = False

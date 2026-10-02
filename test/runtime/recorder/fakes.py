@@ -121,7 +121,9 @@ class FakeSourceProcess:
     def set_waveforms_enabled(self, enabled: bool) -> None:
         self.waveforms_enabled = enabled
 
-    def set_writing_enabled(self, enabled: bool) -> None:
+    def set_writing_enabled(
+        self, enabled: bool, recovery_failover: bool = False
+    ) -> None:
         self.writing_enabled = enabled
 
     def calibrate(self, tracks: list[str]) -> None:

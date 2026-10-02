@@ -462,6 +462,11 @@ class Recorder(Runnables):
         ):
             self._record_warning(f'Device {source} write failed: {error}')
             return
+        self._card_replacement.previous_record_path = (
+            self.session.record_writer.path
+            if self.session.record_writer is not None
+            else self._record_path()
+        )
         self._card_replacement.start_after_unmount(
             self.cfg,
             Path(self.cfg.directory.output_directory),
@@ -484,6 +489,11 @@ class Recorder(Runnables):
     def _card_replace(self) -> gui_protocol.CardReplaceStarted:
         result = self._card_replacement.start(
             self.cfg, self.session_directory, times.timestamp()
+        )
+        self._card_replacement.previous_record_path = (
+            self.session.record_writer.path
+            if self.session.record_writer is not None
+            else self._record_path()
         )
         self._set_awaiting_card(True)
         self._devices.set_writing_enabled(False)
@@ -591,6 +601,9 @@ class Recorder(Runnables):
     def _monitor_card_replacement(self) -> bool:
         if not self._card_replacement.active:
             return False
+        if self._output_unmounted and not self._devices.writing_is_suspended:
+            return True
+        recovery_failover = self._output_unmounted
         if (
             destination := self._card_replacement.destination(
                 self.cfg,
@@ -616,15 +629,20 @@ class Recorder(Runnables):
         self._output_unmounted = False
         self._set_awaiting_card(False)
         self._start_record()
+        assert self._card_replacement.previous_record_path is not None
+        assert self._card_replacement.old_mount is not None
         self._write_record_entry(
             session_record.EventRecord(
                 type='card_replace_finished',
                 timestamp=session_record.timestamp_to_json(timestamp),
+                from_path=str(self._card_replacement.previous_record_path),
                 to_path=str(destination.output_directory),
+                disk_uuid=self._card_replacement.old_mount.uuid,
                 reason=destination.reason,
             )
         )
-        self._devices.set_writing_enabled(True)
+        self._card_replacement.previous_record_path = None
+        self._devices.set_writing_enabled(True, recovery_failover=recovery_failover)
         return False
 
     def _poll_devices(self) -> None:

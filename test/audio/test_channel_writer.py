@@ -14,7 +14,9 @@ from recs.audio.file_opener import FileOpener
 from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, SdType
 from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
 from recs.cfg.time_settings import TimeSettings
+from recs.cfg.track import Track
 from test import conftest
 
 SAMPLERATE = 44_100
@@ -340,6 +342,56 @@ def test_channel_writer_records_max_write_seconds(
     writer._receive_block(Block(block=II[0]), conftest.TIMESTAMP, True)
 
     assert writer._state().max_write_seconds == 0.25
+
+
+def test_recovery_replays_last_attempted_frames_at_original_position(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    cfg = Cfg(
+        output_directory=str(tmp_path),
+        formats=[Format.wav],
+        sdtype=SdType.int16,
+        shortest_file_time=2.0,
+        recovery_frame_overlap=0x2000,
+    )
+    times = cfg.times.scale(48_000)
+    track = Track(source, '1')
+    old = ChannelWriter(cfg, times, track, tmp_path / 'old')
+    first = Block(block=np.full((48_000, 1), 100, dtype=np.int16))
+    failed = Block(block=np.full((48_000, 1), 200, dtype=np.int16))
+    later = Block(block=np.full((48_000, 1), 300, dtype=np.int16))
+    old.receive_update(first, 1.0, should_record=True, timeline_frame=48_000)
+    original_write = soundfile.SoundFile.write
+    failed_once = False
+
+    def fail_next_write(file: soundfile.SoundFile, data: np.ndarray) -> None:
+        nonlocal failed_once
+        if not failed_once:
+            failed_once = True
+            raise OSError('card disconnected')
+        original_write(file, data)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'write', fail_next_write)
+    with pytest.raises(OSError, match='card disconnected'):
+        old.receive_update(failed, 2.0, should_record=True, timeline_frame=96_000)
+    old.stop_after_write_error()
+
+    replacement = ChannelWriter(cfg, times, track, tmp_path / 'new')
+    old.replay_to(replacement)
+    replacement.receive_update(later, 3.0, should_record=True, timeline_frame=144_000)
+    replacement.stop()
+
+    path = replacement.files_written[0]
+    samples, rate = soundfile.read(path, dtype='int16')
+    assert rate == 48_000
+    assert len(samples) == 56_192
+    assert np.all(samples[:0x2000] == 200)
+    assert np.all(samples[0x2000:] == 300)
+    assert replacement.file_start_frames[path] == 96_000 - 0x2000
+    assert replacement.file_spans[path][0].start == 96_000 - 0x2000
 
 
 @tdir

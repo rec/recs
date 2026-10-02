@@ -38,7 +38,7 @@ class SourceControlHandler:
         start_calibration: Callable[[list[str]], None],
         set_tracks: Callable[[list[Track], SourceTrackNames], None],
         set_waveforms_enabled: Callable[[bool], None],
-        set_writing_enabled: Callable[[bool], None],
+        set_writing_enabled: Callable[[bool, bool], None],
     ) -> None:
         self.connection = connection
         self.set_cfg = set_cfg
@@ -70,7 +70,9 @@ class SourceControlHandler:
             if message.waveforms_enabled is not None:
                 self.set_waveforms_enabled(message.waveforms_enabled)
             if message.writing_enabled is not None:
-                self.set_writing_enabled(message.writing_enabled)
+                self.set_writing_enabled(
+                    message.writing_enabled, message.recovery_failover
+                )
 
 
 class SourceUpdateTransport:

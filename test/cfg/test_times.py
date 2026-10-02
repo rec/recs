@@ -29,3 +29,10 @@ def test_card_replace_times_must_be_positive() -> None:
 
     with pytest.raises(ValueError, match='must be positive'):
         Cfg(card_replace_timeout_seconds=0)
+
+
+def test_recovery_frame_overlap_is_nonnegative() -> None:
+    assert Cfg().recording.recovery_frame_overlap == 0x2000
+    assert Cfg(recovery_frame_overlap=0).recording.recovery_frame_overlap == 0
+    with pytest.raises(ValueError):
+        Cfg(recovery_frame_overlap=-1)

@@ -61,6 +61,7 @@ def test_session_browser_lists_session_records_as_json(
             'disk_events': 1,
             'markers': 2,
             'continued_from': None,
+            'card_replacement_from': None,
             'continued_at': ['next/recording.toml'],
             'sources': ['Mic', 'audio:Mic:1', 'midi:Launchkey'],
             'marker_labels': ['g', 'solo'],
