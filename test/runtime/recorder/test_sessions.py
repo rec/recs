@@ -9,7 +9,7 @@ from recs.base.errors import ErrorRecord
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_protocol
-from recs.recording import recording_paths, session_record
+from recs.recording import recording_paths, session_browser, session_record
 from recs.recording.capture_events import SourceFile
 from recs.runtime import (
     disk_space,
@@ -391,6 +391,7 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     monkeypatch: pytest.MonkeyPatch,
     mock_devices: None,
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     old = tmp_path / 'old-card'
     new = tmp_path / 'new-card'
@@ -443,6 +444,18 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
     assert rec.awaiting_card is not None
     assert not rec.awaiting_card.value
     assert rec._control.status_snapshot().errors == [rec.awaiting_card]
+    new_record = rec._record_path()
+    replacement = session_record.read(new_record)
+    assert replacement.continued_from is None
+    assert replacement.events[-1].type == 'card_replace_finished'
+    assert replacement.events[-1].from_path == str(old_record)
+    assert replacement.events[-1].disk_uuid == 'old-uuid'
+    rec._finish_record()
+    summary = session_browser.summarize(rec.session_directory)
+    assert summary is not None
+    assert summary.card_replacement_from == str(old_record)
+    assert session_browser.show([str(rec.session_directory)]) == 0
+    assert f'card_replacement_from: {old_record}' in capsys.readouterr().out
 
 
 def test_unmounted_recording_disk_starts_card_replacement(
@@ -467,6 +480,64 @@ def test_unmounted_recording_disk_starts_card_replacement(
     assert not rec._devices.writing_enabled
     assert rec.awaiting_card is not None
     assert rec.awaiting_card.value
+
+
+def test_error_failover_waits_for_writers_before_switching(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+    tmp_path: Path,
+) -> None:
+    old = tmp_path / 'old-card'
+    new = tmp_path / 'new-card'
+    old.mkdir()
+    new.mkdir()
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    old_disk = recording_paths.MountedDisk(old, 'old-uuid')
+    new_disk = recording_paths.MountedDisk(new, 'new-uuid')
+    mounts: list[recording_paths.MountedDisk] = []
+    monkeypatch.setattr(recording_paths, 'mounted_disks_with_uuid', lambda: mounts)
+    monkeypatch.setattr(
+        recording_paths, 'mounted_record_disks', lambda: [disk.path for disk in mounts]
+    )
+    monkeypatch.setattr(
+        disk_space.shutil, 'disk_usage', lambda path: DiskUsage(100, 0, 100)
+    )
+    suspended = [False]
+    rec = Recorder(
+        Cfg(
+            include=['Mic'],
+            output_directory=str(old / 'recs'),
+            disk_removable_emergency=['1'],
+            silent=True,
+        )
+    )
+    writing_changes: list[tuple[bool, bool]] = []
+    set_writing_enabled = rec._devices.set_writing_enabled
+
+    def observe_writing(enabled: bool, recovery_failover: bool = False) -> None:
+        writing_changes.append((enabled, recovery_failover))
+        set_writing_enabled(enabled, recovery_failover)
+
+    monkeypatch.setattr(rec._devices, 'set_writing_enabled', observe_writing)
+    monkeypatch.setattr(
+        type(rec._devices),
+        'writing_is_suspended',
+        property(lambda self: suspended[0]),
+    )
+    rec._start_record()
+    rec._recording_disk = old_disk
+    previous = rec._record_path()
+    rec._record_write_error('Mic', 'card disconnected')
+    mounts.append(new_disk)
+
+    assert rec._monitor_card_replacement()
+    assert rec._record_path() == previous
+    suspended[0] = True
+    assert not rec._monitor_card_replacement()
+    assert rec._record_path() != previous
+    assert session_record.read(rec._record_path()).events[-1].from_path == str(previous)
+    assert writing_changes[-1] == (True, True)
 
 
 def test_card_replacement_uses_mounted_disk_with_emergency_reserve(

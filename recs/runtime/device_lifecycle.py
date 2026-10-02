@@ -163,7 +163,9 @@ class DeviceLifecycle:
         for source in self.source_processes.values():
             source.set_waveforms_enabled(enabled)
 
-    def set_writing_enabled(self, enabled: bool) -> None:
+    def set_writing_enabled(
+        self, enabled: bool, recovery_failover: bool = False
+    ) -> None:
         self.writing_enabled = enabled
         self.writing_suspended = {
             name
@@ -171,7 +173,7 @@ class DeviceLifecycle:
             if not source.is_alive
         }
         for name, source in self.source_processes.items():
-            source.set_writing_enabled(enabled)
+            source.set_writing_enabled(enabled, recovery_failover)
             if enabled:
                 self.writing_suspended.discard(name)
 

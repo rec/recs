@@ -85,6 +85,8 @@ class ChannelWriter(Runnable):
         self.track_names: SourceTrackNames = {}
 
         self._blocks = Blocks[TimedBlock]()
+        self._recovery_blocks: list[TimedBlock] = []
+        self._recovery_frames = 0
         self._lock = Lock()
 
         if track.source.format is None or 'formats' in cfg.model_fields_set:
@@ -104,6 +106,7 @@ class ChannelWriter(Runnable):
         self.file_spans: dict[Path, list[AudioSpan]] = {}
         self.observed_ranges: list[TickRange] = []
         self.finished_files: set[Path] = set()
+        self._recovery_files: set[Path] = set()
         self.discarded_files: set[Path] = set()
         self.discarded_spans: list[AudioSpan] = []
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
@@ -181,11 +184,34 @@ class ChannelWriter(Runnable):
                     sf.close()
             self.stopped = True
 
+    def replay_to(self, replacement: 'ChannelWriter') -> None:
+        if not self._recovery_blocks:
+            return
+        for block in self._recovery_blocks:
+            begin = block.start_frame
+            end = begin + len(block)
+            if (
+                replacement.observed_ranges
+                and replacement.observed_ranges[-1].end == begin
+            ):
+                replacement.observed_ranges[-1] = TickRange(
+                    start=replacement.observed_ranges[-1].start, end=end
+                )
+            else:
+                replacement.observed_ranges.append(TickRange(start=begin, end=end))
+            replacement.timeline_frame = end
+            replacement.timestamp = (
+                block.timestamp + len(block) / self.track.source.samplerate
+            )
+        replacement._write_blocks(self._recovery_blocks, retain_short=True)
+
     def _close(self) -> None:
         sfs, self._sfs = self._sfs, ()
         for sf in sfs:
-            if self.times.record_everything or (
-                sf.frames and sf.frames >= self.times.shortest_file_time
+            if (
+                self.times.record_everything
+                or Path(sf.name) in self._recovery_files
+                or (sf.frames and sf.frames >= self.times.shortest_file_time)
             ):
                 sf.close()
                 self.finished_files.add(Path(sf.name))
@@ -343,9 +369,13 @@ class ChannelWriter(Runnable):
         self._close()
 
     def _write_blocks(
-        self, blox: Iterable[TimedBlock], trigger_frame: int | None = None
+        self,
+        blox: Iterable[TimedBlock],
+        trigger_frame: int | None = None,
+        retain_short: bool = False,
     ) -> None:
         for b in blox:
+            self._remember_recovery_block(b)
             # Check if this block will overrun the file size or length
             remains: list[int] = []
 
@@ -361,6 +391,8 @@ class ChannelWriter(Runnable):
 
             if not self._sfs:
                 self._sfs = self._open(b.start_frame, b.timestamp, trigger_frame)
+                if retain_short:
+                    self._recovery_files.update(Path(sf.name) for sf in self._sfs)
                 trigger_frame = None
             for sf in self._sfs:
                 start = time.monotonic()
@@ -393,6 +425,32 @@ class ChannelWriter(Runnable):
             self.frames_in_file += len(b)
             self.frames_written += len(b)
             self.bytes_in_file += len(b) * self.frame_size
+
+    def _remember_recovery_block(self, block: TimedBlock) -> None:
+        limit = self.cfg.recording.recovery_frame_overlap
+        if not limit:
+            return
+        self._recovery_blocks.append(
+            TimedBlock(
+                block=block.block.copy(),
+                start_frame=block.start_frame,
+                timestamp=block.timestamp,
+            )
+        )
+        self._recovery_frames += len(block)
+        while self._recovery_frames > limit:
+            first = self._recovery_blocks[0]
+            excess = self._recovery_frames - limit
+            if excess >= len(first):
+                self._recovery_blocks.pop(0)
+                self._recovery_frames -= len(first)
+            else:
+                self._recovery_blocks[0] = TimedBlock(
+                    block=first.block[excess:].copy(),
+                    start_frame=first.start_frame + excess,
+                    timestamp=first.timestamp + excess / self.track.source.samplerate,
+                )
+                self._recovery_frames = limit
 
 
 def _noise_floor(cfg: Cfg, track: Track) -> float:

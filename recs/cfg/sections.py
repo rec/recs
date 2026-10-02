@@ -483,6 +483,13 @@ class Recording(BaseModel):
         tyro.conf.arg(help='How long to wait for a replacement recording card'),
     ] = 300.0
 
+    recovery_frame_overlap: Annotated[
+        int,
+        tyro.conf.arg(
+            help='Frames to replay on a new recording card after a write error'
+        ),
+    ] = Field(default=0x2000, ge=0, strict=True)
+
     disk_auto_switch: Annotated[
         bool,
         Mutable,

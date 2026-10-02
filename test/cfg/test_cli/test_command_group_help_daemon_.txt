@@ -158,6 +158,8 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
         How often to poll for a replacement recording card (default: 1.0)
   --card-replace-timeout-seconds TIME
         How long to wait for a replacement recording card (default: 300.0)
+  --recovery-frame-overlap INT
+        Frames to replay on a new recording card after a write error (default: 8192)
   --disk-auto-switch, --no-disk-auto-switch
         Switch to a better removable disk after a disk-space alert (default: True)
   --moving-average-time TIME

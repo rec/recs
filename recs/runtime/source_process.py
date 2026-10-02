@@ -92,6 +92,11 @@ class SourceControlTransport:
                     if control.writing_enabled is not None
                     else self.control.writing_enabled
                 ),
+                recovery_failover=(
+                    control.recovery_failover
+                    if control.writing_enabled is not None
+                    else self.control.recovery_failover
+                ),
             )
             self.available.set()
 
@@ -263,11 +268,15 @@ class SourceProcess(Runnable):
                 source_messages.SourceControl(waveforms_enabled=enabled)
             )
 
-    def set_writing_enabled(self, enabled: bool) -> None:
+    def set_writing_enabled(
+        self, enabled: bool, recovery_failover: bool = False
+    ) -> None:
         self.writing_enabled = enabled
         if self.started:
             self.control_transport.publish(
-                source_messages.SourceControl(writing_enabled=enabled)
+                source_messages.SourceControl(
+                    writing_enabled=enabled, recovery_failover=recovery_failover
+                )
             )
 
     def join(self, timeout: float | None = None) -> None:

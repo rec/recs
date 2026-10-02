@@ -95,11 +95,14 @@ class SourceControlApplier:
         recorder.runnables = recorder.input_stream, *recorder.channel_writers
         recorder.pending_track_layout = [track.name for track in tracks]
 
-    def set_writing_enabled(self, enabled: bool) -> None:
+    def set_writing_enabled(
+        self, enabled: bool, recovery_failover: bool = False
+    ) -> None:
         recorder = self.recorder
         if enabled == recorder.writing_enabled:
             return
         if not enabled:
+            recorder.suspended_directory = recorder.session_directory
             for writer in recorder.channel_writers:
                 try:
                     writer.stop()
@@ -135,7 +138,13 @@ class SourceControlApplier:
                 )
             )
             return
-        tracks = [writer.track for writer in recorder.channel_writers]
+        previous_writers = recorder.channel_writers
+        replay = (
+            recovery_failover
+            and recorder.suspended_directory is not None
+            and recorder.session_directory != recorder.suspended_directory
+        )
+        tracks = [writer.track for writer in previous_writers]
         recorder.channel_writers = tuple(
             ChannelWriter(
                 cfg=recorder.cfg,
@@ -147,12 +156,49 @@ class SourceControlApplier:
         )
         for writer in recorder.channel_writers:
             writer.set_track_names(recorder.track_names)
-        recorder.file_events.reset_writers(recorder.channel_writers)
+        if replay:
+            recorder.file_events = SourceFileEvents(
+                recorder.channel_writers, recorder.file_events.capture_id
+            )
+        else:
+            recorder.file_events.reset_writers(recorder.channel_writers)
         recorder.runnables = recorder.input_stream, *recorder.channel_writers
         recorder.writing_enabled = True
+        if replay:
+            try:
+                for previous, replacement in zip(
+                    previous_writers, recorder.channel_writers, strict=True
+                ):
+                    previous.replay_to(replacement)
+            except OSError as error:
+                self.suspend_after_write_error(error)
+                return
+            files, file_records = recorder.file_events.new_files(
+                recorder.channel_writers, recorder.sample_bit_depth
+            )
+            recorder.update_transport.publish(
+                SourceUpdate(
+                    channels={},
+                    files=files,
+                    frames=0,
+                    source_name=recorder.source.key,
+                    file_records=file_records,
+                    file_end_frames=recorder.file_events.end_frames(
+                        recorder.channel_writers
+                    ),
+                    file_end_timestamps=recorder.file_events.end_timestamps(
+                        recorder.channel_writers
+                    ),
+                    file_spans=recorder.file_events.spans(recorder.channel_writers),
+                    frame_count=recorder.buffer.timeline_frames,
+                    writing_enabled=True,
+                )
+            )
+        recorder.suspended_directory = None
 
     def suspend_after_write_error(self, error: OSError) -> None:
         recorder = self.recorder
+        recorder.suspended_directory = recorder.session_directory
         for writer in recorder.channel_writers:
             writer.stop_after_write_error()
         recorder.file_events.remember_finished_files(recorder.channel_writers)
@@ -213,6 +259,7 @@ class SourceRecorder(Runnables):
         self.waveform_generation = max(0, waveform_generation - int(waveforms_enabled))
         self.waveforms_enabled = False
         self.writing_enabled = writing_enabled
+        self.suspended_directory: Path | None = None
         self.waveform: LiveWaveform | None = None
         self.pending_waveform_layout: WaveformLayoutData | None = None
         self.calibration = SourceCalibration(self.source.samplerate)

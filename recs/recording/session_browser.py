@@ -81,6 +81,7 @@ class SessionSummary(BaseModel):
     disk_events: int = 0
     markers: int = 0
     continued_from: str | None = None
+    card_replacement_from: str | None = None
     continued_at: list[str] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     marker_labels: list[str] = Field(default_factory=list)
@@ -213,6 +214,16 @@ def summarize(path: Path) -> SessionSummary | None:
         if journal
         else 0,
         continued_from=body.continued_from,
+        card_replacement_from=next(
+            (
+                e.from_path
+                for e in journal.events
+                if e.type == 'card_replace_finished' and e.from_path
+            ),
+            None,
+        )
+        if journal
+        else None,
         continued_at=body.continued_at,
         sources=sorted(
             {s.source_id for s in body.streams}
@@ -325,5 +336,7 @@ def _print_summary(value: SessionSummary) -> None:
     print(f'markers: {value.markers}')
     if value.continued_from:
         print(f'continued_from: {value.continued_from}')
+    if value.card_replacement_from:
+        print(f'card_replacement_from: {value.card_replacement_from}')
     for path in value.continued_at:
         print(f'continued_at: {path}')

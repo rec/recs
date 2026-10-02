@@ -594,6 +594,18 @@ def test_source_control_commands_preserve_order_while_send_blocks() -> None:
     ]
 
 
+def test_recovery_failover_survives_coalesced_source_controls() -> None:
+    transport = source_process.SourceControlTransport(FakeSendConnection())
+    transport.publish(SourceControl(writing_enabled=True, recovery_failover=True))
+    transport.publish(SourceControl(session_directory=Path('replacement')))
+
+    assert transport.control == SourceControl(
+        writing_enabled=True,
+        recovery_failover=True,
+        session_directory=Path('replacement'),
+    )
+
+
 def test_source_control_commands_fail_explicitly_when_backlogged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

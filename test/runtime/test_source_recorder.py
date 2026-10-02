@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import soundfile
 from threa import Runnable
 
 from recs.audio.block import Block
@@ -280,6 +281,52 @@ def test_source_recorder_runs_control_updates_without_audio(
     assert recorder.pending_config_revisions == [1]
     assert recorder.waveform is not None
     assert recorder.pending_waveform_layout is not None
+
+
+@pytest.mark.parametrize('write_error', [False, True])
+def test_source_recorder_replays_only_after_error_and_directory_switch(
+    tmp_path: Path, write_error: bool
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    source.input_stream = lambda sdtype, update_callback: IdleInputStream()
+    cfg = Cfg(
+        output_directory=str(tmp_path),
+        record_everything=True,
+        recovery_frame_overlap=0x2000,
+    )
+    transport = SourceUpdateTransport(BlockingConnection())
+    recorder = SourceRecorder(
+        cfg,
+        EmptyControlConnection(),
+        tmp_path / 'old',
+        threading.Event(),
+        [Track(source, '1')],
+        transport,
+    )
+    block = Block(block=np.ones((48_000, 1), dtype=np.int16))
+    recorder.channel_writers[0].receive_update(block, 1.0, timeline_frame=48_000)
+    recorder.buffer.timeline_frames = 48_000
+    recorder.control.set_writing_enabled(False)
+
+    recorder.control.set_session_directory(tmp_path / 'new')
+    recorder.control.set_writing_enabled(True, recovery_failover=write_error)
+
+    replacement = recorder.channel_writers[0]
+    assert bool(replacement.files_written) == write_error
+    if write_error:
+        replay = transport.events[-1]
+        assert isinstance(replay, SourceUpdate)
+        assert replay.file_records is not None
+        assert replay.file_records[0].start_frame == 48_000 - 0x2000
+        assert replay.file_spans is not None
+        assert next(iter(replay.file_spans.values()))[0].start == 48_000 - 0x2000
+    replacement.receive_update(block, 2.0, timeline_frame=96_000)
+    replacement.stop()
+    assert soundfile.info(replacement.files_written[0]).frames == (
+        48_000 + (0x2000 if write_error else 0)
+    )
 
 
 def test_source_update_merge_summarizes_warning_backlog() -> None:
