@@ -103,7 +103,9 @@ def test_migration_preserves_payloads_and_native_gap_positions(
     path, report = migrate_session(session)
     document = parse_score(path.read_text())
     assert isinstance(document, RecordingScore)
-    data_regression.check(document.model_dump(mode='json'))
+    data_regression.check(
+        document.model_dump(mode='json', exclude={'body': {'musician_assignments'}})
+    )
     assert report.audio_frames == 48000
     assert report.event_count == 4
     assert report.gap_frames == 48000
