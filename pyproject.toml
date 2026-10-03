@@ -8,6 +8,7 @@ readme = "README.md"
 license = "MIT"
 classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3.14"]
 dependencies = [
+    "dvice",
     "numpy",
     "rich",
     "sounddevice",
@@ -65,7 +66,8 @@ quote-style = "single"
 exclude-newer = "1 week"
 
 [tool.uv.sources]
-reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
+dvice = { git = "ssh://git@github.com/rec/dvice.git", branch = "main" }
+reccy = { git = "ssh://git@github.com/rec/reccy.git", branch = "main" }
 ufor = { git = "https://github.com/rec/ufor.git", branch = "main" }
 
 
