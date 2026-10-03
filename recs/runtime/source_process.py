@@ -8,6 +8,7 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
 
+from dvice.supervision import join_process
 from threa import Runnable
 
 from recs.base.errors import RecsError
@@ -290,15 +291,9 @@ class SourceProcess(Runnable):
             name='SourceFinalUpdates',
         )
         reader.start()
-        self.process.join(STOP_TIMEOUT if timeout is None else timeout)
-        forced = False
-        if self.process.is_alive():
-            self.process.terminate()
-            self.process.join(STOP_TIMEOUT)
-            forced = True
-        if self.process.is_alive():
-            self.process.kill()
-            self.process.join(STOP_TIMEOUT)
+        forced = join_process(
+            self.process, STOP_TIMEOUT if timeout is None else timeout, STOP_TIMEOUT
+        )
         finished.set()
         reader.join(STOP_TIMEOUT)
         self._record_exit_failure(forced)

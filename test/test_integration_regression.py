@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 import soundfile
 import tdir
+from dvice import poller
 from reccy.device import DeviceDict
 from ufor.encoding import Format
 
 from recs.cfg import device
-from recs.runtime import device_poller
 
 from .conftest import FakeDeviceQueryStream
 from .recs_runner import RecsRunner
@@ -49,7 +49,7 @@ def test_hardware_recording_regression(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(device, 'query_devices', query_devices)
-    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
+    monkeypatch.setattr(poller, 'DeviceQueryStream', FakeDeviceQueryStream)
     first = _run(monkeypatch, tmp_path / 'first')
     second = _run(monkeypatch, tmp_path / 'second')
 
