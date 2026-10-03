@@ -221,7 +221,10 @@ and first timestamp. None of these operational summaries replaces payload data.
 Musician operations are event records: `musician_added`, `musician_edited`,
 `musician_deleted`, `musician_assigned`, and
 `musician_removed_from_channels`. The header remains the assignment snapshot;
-these events describe changes made while the session is open.
+these events describe changes made while the session is open. Finalization
+copies the snapshot and subsequent assignment changes into ordered
+`recording.toml` observations. Their wall-clock timestamps are not exact audio
+frame boundaries.
 
 Volume changes close current files and the current journal. The old journal
 names the next one; the new header uses `continued_from`. Ordinary disk

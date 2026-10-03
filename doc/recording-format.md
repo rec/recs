@@ -31,8 +31,14 @@ recovery scan reports the missing score even if the journal has a footer.
 | `body.journal` | Asset ID of the preserved capture journal |
 | `body.streams` | Typed audio or event streams, each with a local ID and original opaque `source_id` |
 | `body.clock_observations` | Optional source/session tick observations with uncertainty and timing source; no automatic drift fit |
+| `body.musician_assignments` | Ordered observations of musician assignments by source and one-based input channels; an entry without a musician clears that source |
 | `body.unfinished_files` | Original stream ID, original journal path, and observed opening timestamp; these are evidence, not verified asset references |
 | `body.continued_from`, `continued_at` | Previous and following `recording.toml` paths, resolved relative to this score; they may cross volume roots |
+
+`musician_assignments` preserves the session-start snapshot and subsequent
+assignment changes in journal order. These are wall-clock observations, not
+sample-exact boundaries. Empty musician and channel fields clear an assignment;
+the score does not duplicate musician identity records or track-naming policy.
 
 Audio streams have an `AudioType`, native `end` frame, captured fragments, and
 explicit gaps. A fragment references an asset and records `asset_start`, stream
