@@ -1,16 +1,22 @@
 # Active plans and ownership
 
 Use [the README](../README.md) and [project documentation](../doc/) for
-implemented recs behavior. The documents here retain work that is not yet
-complete. Proposals do not authorize implementation by themselves.
+implemented recs behavior. Active plans describe work that is not yet complete;
+completed checklists are retained below as records. Proposals do not authorize
+implementation by themselves.
 
 ## recs work
 
 - [Remaining SFZ import work](sfz.md)
 - [Instrument-host boundary and acceptance](sample-playback.md)
-- [baccy recording import](baccy-recording-import.md): the importer exists, but
-  source-media relocation and backup verification are separate operations.
-- [Human and experimental verification](human.md)
+
+## Completed work
+
+- [baccy recording import](baccy-recording-import.md): completed, including
+  source-media relocation and backup verification, per user report on
+  3 October 2026.
+- [Human and experimental verification](human.md): physical verification of
+  implemented recs behavior completed per user report on 3 October 2026.
 
 ## Shared-model and engine work
 

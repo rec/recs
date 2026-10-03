@@ -83,9 +83,32 @@ and action assertions are distinct from floating-point comparisons. Do not
 promise bit identity between different numeric backends without supporting
 evidence. Unsupported engine features must fail explicitly, not be ignored.
 
-Live transport, audio-device latency, underruns, and VST hosting need separate
-authorization and acceptance. Automated offline tests do not establish hardware
-readiness; see [human verification](human.md).
+Future live transport, audio-device latency, underruns, and VST hosting need
+separate authorization and physical acceptance. Automated offline tests do not
+establish hardware readiness.
+
+## Future instrument backend and live playback verification
+
+1. Build conformance instruments for samples and synth voices. The sample case
+   covers forward, backward, and mirror direction; loops; selection; choking;
+   stereo layout; and deterministic variation. The synth case covers oscillator
+   phase/reset, pitch, envelope release, control modulation, layering, and routing.
+2. Render one fixed event stream with each candidate backend and a simple
+   reference implementation. Compare timing, duration, pitch, channel layout,
+   lifecycle actions, selection order, and samples where exact agreement is expected.
+3. Repeat at block sizes 64, 128, 256, and 1024 frames. Confirm timing and
+   deterministic selection do not depend on block size.
+4. Test realistic instruments at increasing polyphony. Measure CPU, resident
+   memory, cache size, render time, and underruns with shared and multichannel
+   sample assets.
+5. On target hardware, measure input-to-audio latency with a loopback recording,
+   including expected peak CPU and storage load.
+6. Document every recsam behavior that cannot be represented exactly. Reject a
+   backend that silently changes required semantics.
+
+Pass when the selected backend has an explicit compatibility boundary, stable
+block-independent behavior, bounded sample memory, and acceptable measured
+latency and underrun rates.
 
 ## Additional work beyond the prompt
 
