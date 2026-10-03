@@ -8,7 +8,6 @@ implementation by themselves.
 ## recs work
 
 - [Remaining SFZ import work](sfz.md)
-- [Instrument-host boundary and acceptance](sample-playback.md)
 
 ## Completed work
 

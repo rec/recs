@@ -55,5 +55,5 @@ source bindings. Unit strings such as `10ms` are authoring input, not native
 data: normalize them before constructing uFor models.
 
 This changes instrument documents, not recording descriptors or production
-sessions. Creating samples from edits and implementing a sampler remain deferred
-in [Sample Playback](../plan/sample-playback.md).
+sessions. Creating instruments from edits and hosting playback belong outside
+recs; the sampler engine is in enge.

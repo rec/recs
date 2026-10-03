@@ -105,10 +105,11 @@ those transport protocols.
 The initial sample/synth definitions and portable event/state contract exist.
 uFor prepares actions; enge owns their bounded audio realization and snapshots.
 Keep authoring and host concerns outside that core, and do not make Python class
-layout the portable specification. enge currently has a NumPy synth reference;
-its [execution plan](../../../enge/plan/engine-execution.md) owns engine extension
-and backend decisions. A VST wrapper is a separate host, not an instrument score.
-See [the playback boundary](../sample-playback.md) for recs host acceptance.
+layout the portable specification. enge now has NumPy and native synth and
+sampler engines; its [execution plan](../../../enge/plan/engine-execution.md)
+owns remaining engine and backend decisions. A VST wrapper is a separate host,
+not an instrument score.
+Instrument playback acceptance belongs to a separate host.
 
 ### External samplers and change from today
 
@@ -121,8 +122,9 @@ embedded-loop inspection. There is no parallel native format.
 Existing `Processing` and `SoundSettings` represent a limited sound-processing
 vocabulary. General DSP belongs in [Processors](deferred-work.md#synthesizers-dsp-and-analysis-graphs); the existing
 peaking EQ does not already implement arbitrary filters or synthesis. The
-[playback plan](../sample-playback.md) still describes an engine to build.
-Adopting a universal envelope does not make that stateful engine exist.
+[enge README](../../../enge/README.md) describes the implemented engines and
+remaining work. Adopting a universal envelope does not replace engine
+conformance and host acceptance.
 
 ### Additional work beyond the prompt
 

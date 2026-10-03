@@ -1,8 +1,7 @@
 # Human And Experimental Verification
 
 Status: Physical verification of implemented recs behavior completed per user
-report on 3 October 2026. Future instrument playback acceptance remains in
-[the instrument-host plan](sample-playback.md).
+report on 3 October 2026. Instrument playback belongs to a separate host.
 
 ## Purpose
 
