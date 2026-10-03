@@ -5,9 +5,12 @@ import pytest
 
 from recs.musicians import SourceMusician
 from recs.recording import session_record
+from recs.recording.finalize import finalize_recording
+from recs.recording.read import read_recording
 from recs.recording.session_record import (
     AudioFileRecord,
     EventRecord,
+    SessionFooter,
     SessionRecordWriter,
 )
 
@@ -74,6 +77,67 @@ def test_session_record_preserves_channel_musician_snapshot(tmp_path: Path) -> N
     writer.close()
 
     assert session_record.read(writer.path).channel_musicians == assignments
+
+
+def test_finalized_recording_preserves_musician_assignment_changes(
+    tmp_path: Path,
+) -> None:
+    writer = SessionRecordWriter(
+        tmp_path / 'session-record.jsonl',
+        started_at='2026-09-04T12:00:00Z',
+        channel_musicians={'X18': SourceMusician(musician='mike', channels=[1, 2])},
+    )
+    writer.write(
+        EventRecord(
+            type='musician_removed_from_channels',
+            timestamp='2026-09-04T12:00:01Z',
+            source='X18',
+            value={'name': 'mike', 'channels': [2]},
+        )
+    )
+    writer.write(
+        EventRecord(
+            type='musician_deleted',
+            timestamp='2026-09-04T12:00:02Z',
+            value={'name': 'mike', 'sources': ['X18']},
+        )
+    )
+    writer.write(
+        EventRecord(
+            type='musician_assigned',
+            timestamp='2026-09-04T12:00:03Z',
+            source='X18',
+            value=SourceMusician(musician='alex', channels=[1]).model_dump(),
+        )
+    )
+    writer.write(
+        EventRecord(
+            type='musician_removed_from_channels',
+            timestamp='2026-09-04T12:00:04Z',
+            source='X18',
+            value={'name': 'alex', 'channels': []},
+        )
+    )
+    writer.write(SessionFooter(ended_at='2026-09-04T12:00:05Z', duration_seconds=5))
+    writer.close()
+
+    observations = read_recording(
+        finalize_recording(writer.path)
+    ).body.musician_assignments
+    assert [o.observed_at for o in observations] == [
+        '2026-09-04T12:00:00Z',
+        '2026-09-04T12:00:01Z',
+        '2026-09-04T12:00:02Z',
+        '2026-09-04T12:00:03Z',
+        '2026-09-04T12:00:04Z',
+    ]
+    assert [(o.musician, o.channels) for o in observations] == [
+        ('mike', [1, 2]),
+        ('mike', [1]),
+        (None, []),
+        ('alex', [1]),
+        (None, []),
+    ]
 
 
 def test_session_record_writer_reports_fsync_errors(

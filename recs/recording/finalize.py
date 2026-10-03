@@ -7,7 +7,7 @@ from typing import Annotated
 
 import soundfile
 import tyro
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from ufor.assets import Asset
 from ufor.codec import score_toml
 from ufor.recording import (
@@ -17,6 +17,7 @@ from ufor.recording import (
     EventStream,
     Gap,
     GapReason,
+    MusicianAssignmentObservation,
     Recording,
     RecordingScore,
     UnfinishedFile,
@@ -26,6 +27,7 @@ from ufor.streams import AudioType
 from ufor.time import Rate, Timebase
 
 from ..base.errors import RecsError
+from ..musicians import SourceMusician
 from . import session_record
 from .files import asset_content, asset_path, sealed_asset, verify_events
 
@@ -386,6 +388,7 @@ def prepare_recording(
             observed_duration_seconds=footer.duration_seconds if footer else None,
             journal=original.name,
             clock_observations=observations,
+            musician_assignments=_musician_assignment_observations(entries, header),
             streams=streams,
             unfinished_files=[
                 UnfinishedFile(
@@ -447,3 +450,79 @@ def recorded_gaps(
         else:
             gaps.append(Gap(start=start, end=finish, reason=reason))
     return gaps
+
+
+def _musician_assignment_observations(
+    entries: list[session_record.Record], header: session_record.SessionHeader
+) -> list[MusicianAssignmentObservation]:
+    assignments = dict(header.channel_musicians or {})
+    result = [
+        MusicianAssignmentObservation(
+            observed_at=header.started_at,
+            source_name=source,
+            musician=assignment.musician,
+            channels=assignment.channels,
+        )
+        for source, assignment in sorted(assignments.items())
+    ]
+
+    def observe(source: str, timestamp: str) -> None:
+        assignment = assignments.get(source)
+        result.append(
+            MusicianAssignmentObservation(
+                observed_at=timestamp,
+                source_name=source,
+                musician=assignment.musician if assignment else None,
+                channels=assignment.channels if assignment else [],
+            )
+        )
+
+    for entry in entries:
+        if not isinstance(entry, session_record.EventRecord):
+            continue
+        if entry.type == 'musician_assigned':
+            if entry.source is None:
+                raise RecsError('Musician assignment has no source')
+            try:
+                assignments[entry.source] = SourceMusician.model_validate(entry.value)
+            except ValidationError as error:
+                raise RecsError(f'Invalid musician assignment: {error}') from error
+            observe(entry.source, entry.timestamp)
+        elif entry.type == 'musician_removed_from_channels':
+            if entry.source is None or not isinstance(entry.value, dict):
+                raise RecsError('Musician removal has no source or value')
+            previous = assignments.get(entry.source)
+            channels = entry.value.get('channels')
+            if (
+                previous is None
+                or entry.value.get('name') != previous.musician
+                or not isinstance(channels, list)
+                or any(type(channel) is not int for channel in channels)
+                or not set(channels) <= set(previous.channels)
+            ):
+                raise RecsError('Musician removal disagrees with its assignment')
+            remaining = (
+                [c for c in previous.channels if c not in channels] if channels else []
+            )
+            if remaining:
+                assignments[entry.source] = previous.model_copy(
+                    update={'channels': remaining}
+                )
+            else:
+                del assignments[entry.source]
+            observe(entry.source, entry.timestamp)
+        elif entry.type == 'musician_deleted':
+            if not isinstance(entry.value, dict) or not isinstance(
+                entry.value.get('sources'), list
+            ):
+                raise RecsError('Musician deletion has no sources')
+            for source in entry.value['sources']:
+                if (
+                    not isinstance(source, str)
+                    or source not in assignments
+                    or assignments[source].musician != entry.value.get('name')
+                ):
+                    raise RecsError('Musician deletion disagrees with its assignment')
+                del assignments[source]
+                observe(source, entry.timestamp)
+    return result
