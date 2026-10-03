@@ -1,5 +1,6 @@
 import signal
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -15,6 +16,7 @@ from recs.base.signals import raise_keyboard_interrupt_on_signal
 from recs.base.types import SDTYPE, SdType
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
+from recs.cfg.file_source import FileSource
 from recs.cfg.time_settings import TimeSettings
 from recs.cfg.track import Track
 from test import conftest
@@ -333,7 +335,7 @@ def test_channel_writer_records_max_write_seconds(
         shortest_file_time=1,
         stop_after_quiet=50,
     )
-    values = iter([0.0, 0.25, 0.25, 0.25])
+    values = iter([0.0, 0.25, 0.25, 0.25, 0.25])
     monkeypatch.setattr(
         'recs.audio.channel_writer.time.monotonic', lambda: next(values)
     )
@@ -342,6 +344,156 @@ def test_channel_writer_records_max_write_seconds(
     writer._receive_block(Block(block=II[0]), conftest.TIMESTAMP, True)
 
     assert writer._state().max_write_seconds == 0.25
+
+
+def test_channel_writer_flushes_after_interval_even_during_quiet(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    cfg = Cfg(output_directory=str(tmp_path), formats=[Format.wav])
+    writer = ChannelWriter(
+        cfg,
+        TimeSettings[int](quiet_after_end=48_000, stop_after_quiet=96_000),
+        Track(source, '1'),
+    )
+    clock = [0.0]
+    monkeypatch.setattr(
+        'recs.audio.channel_writer.time', SimpleNamespace(monotonic=lambda: clock[0])
+    )
+    original_flush = soundfile.SoundFile.flush
+    flushed: list[Path] = []
+
+    def flush(file: soundfile.SoundFile) -> None:
+        if Path(file.name) in writer.files_written:
+            flushed.append(Path(file.name))
+        original_flush(file)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'flush', flush)
+    audio = Block(block=np.ones((24_000, 1), dtype=np.int16))
+    quiet = Block(block=np.zeros((48_000, 1), dtype=np.int16))
+
+    writer.receive_update(audio, 0.5, should_record=True, timeline_frame=24_000)
+    assert not flushed
+    assert np.shares_memory(writer._recovery_blocks[0].block, audio.block)
+
+    clock[0] = 1.0
+    writer.receive_update(quiet, 1.5, should_record=False, timeline_frame=72_000)
+    assert flushed == list(writer.files_written)
+
+    clock[0] = 1.5
+    writer.receive_update(audio, 2.0, should_record=True, timeline_frame=96_000)
+    assert flushed == list(writer.files_written) * 2
+    writer.stop()
+
+
+def test_channel_writer_flushes_fast_queued_audio_by_frame_count(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    writer = ChannelWriter(
+        Cfg(output_directory=str(tmp_path), formats=[Format.wav]),
+        TimeSettings[int](),
+        Track(source, '1'),
+    )
+    monkeypatch.setattr(
+        'recs.audio.channel_writer.time', SimpleNamespace(monotonic=lambda: 0.0)
+    )
+    original_flush = soundfile.SoundFile.flush
+    flushed = 0
+
+    def flush(file: soundfile.SoundFile) -> None:
+        nonlocal flushed
+        if Path(file.name) in writer.files_written:
+            flushed += 1
+        original_flush(file)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'flush', flush)
+    audio = Block(block=np.ones((24_000, 1), dtype=np.int16))
+    writer.receive_update(audio, 0.5, should_record=True, timeline_frame=24_000)
+    assert flushed == 0
+    writer.receive_update(audio, 1.0, should_record=True, timeline_frame=48_000)
+    assert flushed == 1
+    writer.stop()
+
+
+def test_file_input_recovery_does_not_retain_large_read_buffer_or_sync_fast_audio(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    input_file = tmp_path / 'input.wav'
+    soundfile.write(input_file, np.ones(48_000, dtype=np.int16), 48_000)
+    source = FileSource(input_file)
+    writer = ChannelWriter(
+        Cfg(output_directory=str(tmp_path / 'output'), formats=[Format.wav]),
+        TimeSettings[int](),
+        Track(source, '1'),
+    )
+    monkeypatch.setattr(
+        'recs.audio.channel_writer.time', SimpleNamespace(monotonic=lambda: 0.0)
+    )
+    original_flush = soundfile.SoundFile.flush
+    flushed = 0
+
+    def flush(file: soundfile.SoundFile) -> None:
+        nonlocal flushed
+        if Path(file.name) in writer.files_written:
+            flushed += 1
+        original_flush(file)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'flush', flush)
+    large_read = np.ones((48_000 * 4, 1), dtype=np.int16)
+    writer.receive_update(
+        Block(block=large_read[:48_000]),
+        1.0,
+        should_record=True,
+        timeline_frame=48_000,
+    )
+
+    assert not np.shares_memory(writer._recovery_blocks[0].block, large_read)
+    assert flushed == 0
+    writer.stop()
+
+
+def test_flush_error_preserves_replay_audio(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    cfg = Cfg(output_directory=str(tmp_path), formats=[Format.wav])
+    times = TimeSettings[int](stop_after_quiet=96_000)
+    track = Track(source, '1')
+    writer = ChannelWriter(cfg, times, track, tmp_path / 'old')
+    clock = [0.0]
+    monkeypatch.setattr(
+        'recs.audio.channel_writer.time', SimpleNamespace(monotonic=lambda: clock[0])
+    )
+    audio = Block(block=np.ones((24_000, 1), dtype=np.int16))
+    writer.receive_update(audio, 0.5, should_record=True, timeline_frame=24_000)
+    original_flush = soundfile.SoundFile.flush
+    failed_once = False
+
+    def fail_once(file: soundfile.SoundFile) -> None:
+        nonlocal failed_once
+        if not failed_once and Path(file.name) in writer.files_written:
+            failed_once = True
+            raise OSError('card disconnected during sync')
+        original_flush(file)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'flush', fail_once)
+    clock[0] = 1.0
+    with pytest.raises(OSError, match='card disconnected during sync'):
+        writer.receive_update(audio, 1.0, should_record=True, timeline_frame=48_000)
+    writer.stop_after_write_error()
+
+    replacement = ChannelWriter(cfg, times, track, tmp_path / 'new')
+    writer.replay_to(replacement)
+    replacement.stop()
+    assert soundfile.info(replacement.files_written[0]).frames == 48_000
 
 
 def test_recovery_replays_last_attempted_frames_at_original_position(
@@ -355,7 +507,8 @@ def test_recovery_replays_last_attempted_frames_at_original_position(
         formats=[Format.wav],
         sdtype=SdType.int16,
         shortest_file_time=2.0,
-        recovery_frame_overlap=0x2000,
+        flush_time=0,
+        flush_overlap_time=0.5,
     )
     times = cfg.times.scale(48_000)
     track = Track(source, '1')
@@ -387,11 +540,11 @@ def test_recovery_replays_last_attempted_frames_at_original_position(
     path = replacement.files_written[0]
     samples, rate = soundfile.read(path, dtype='int16')
     assert rate == 48_000
-    assert len(samples) == 56_192
-    assert np.all(samples[:0x2000] == 200)
-    assert np.all(samples[0x2000:] == 300)
-    assert replacement.file_start_frames[path] == 96_000 - 0x2000
-    assert replacement.file_spans[path][0].start == 96_000 - 0x2000
+    assert len(samples) == 72_000
+    assert np.all(samples[:24_000] == 200)
+    assert np.all(samples[24_000:] == 300)
+    assert replacement.file_start_frames[path] == 72_000
+    assert replacement.file_spans[path][0].start == 72_000
 
 
 @tdir
