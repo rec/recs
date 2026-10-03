@@ -26,8 +26,8 @@ itself.
 | uFor | Portable scores, validation, instrument preparation, lifecycle traces, and language-neutral conformance cases |
 | enge | Synth and sampler realization, engine preparation, voice state, bounded audio rendering, snapshots, and engine-level audio conformance |
 | tuney | Authoring/UI behavior and application-specific keyboard/learning policy; its reusable synth implementation moves into enge |
-| recs | Capture, asset inspection and session media, editing, offline-host integration, encoding, and export |
-| Hosts and bindings | Performance-input adaptation, transport clocks, audio devices, MIDI/OSC, VST hosting, files, and delivery |
+| recs | Capture, asset inspection and session media, existing editing, encoding, and export |
+| Hosts and bindings | Instrument authoring, offline-host integration, performance-input adaptation, transport clocks, audio devices, MIDI/OSC, VST hosting, files, and delivery |
 
 uFor determines what a score means. enge determines how the supported synth and
 sample profiles turn its prepared actions into audio. A host decides when to run
@@ -114,8 +114,8 @@ Do not add audio-device code, MIDI/OSC connections, GUI, file output, or plugin
 discovery to enge. Those integrations reuse the completed engines through host
 adapters.
 
-See [the offline instrument contract](sample-playback.md#offline-instrument-contract)
-and [the uFor handover](ufor.md) for the portable contract enge realizes.
+See [enge's execution contract](../../enge/plan/engine-execution.md) and
+[the uFor handover](ufor.md) for the portable contract enge realizes.
 
 ## Additional Work Beyond The Prompt
 

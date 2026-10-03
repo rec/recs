@@ -52,24 +52,50 @@ The remaining goal is a lossless, well-diagnosed import of useful,
 non-vendor-specific SFZ 1 and SFZ 2 behavior. Unsupported behavior must remain
 visible; it must never be silently approximated.
 
-Vendor extensions remain outside the compatibility promise. A general recsam
-concept should be added only when it is useful independently of SFZ.
+Vendor extensions remain outside the compatibility promise. Add a portable uFor
+concept only when it is useful independently of SFZ.
 
-## 2. New General Recsam Concepts
+## Priorities by User Interest
 
-Design these independently before adding importer mappings:
+This ranks the remaining work by the likely payoff to someone importing and
+playing real instruments, not by opcode count or implementation convenience.
+The pure mappings belong in uFor; recs supplies local asset facts. An eventual
+player or editor owns live MIDI input and playback, not recs.
 
-- repeated-trigger masking and release-tail termination, beyond the existing
-  group-scoped voice limits and oldest-immediate stealing rule;
-- intermediate stereo width and channel position;
-- mappings for the richer shared envelope/LFO behavior, including LFO fade-in;
-- exact conversion between SFZ equalizer bandwidth and recsam resonance, if the
-  transfer functions can be specified and tested.
+1. **Keyswitches and controller conditions.** Articulation switching, `loccN`/
+   `hiccN`, trigger CC ranges, and initial CC values unlock many real-world
+   instrument libraries. Extend the separate performance-binding model and
+   portable selection state before mapping them; do not guess how a host reads
+   or schedules controllers.
+2. **Basic filters and their musical controls.** Cutoff and resonance have a
+   large audible effect. uFor now defines resonant filters and enge renders
+   them, so map only SFZ responses and ranges with a verified equivalent.
+   Then consider key/velocity tracking and filter envelopes or LFOs; diagnose
+   responses that are not equivalent rather than approximating them.
+3. **Pitch bend and aftertouch.** These make an imported instrument expressive
+   under performance. Define their transport-neutral event and binding rules,
+   then map the SFZ ranges and modulation targets that those rules can express.
+4. **Amplitude and pitch LFOs, plus richer envelopes.** Vibrato, tremolo and
+   evolving patches are more compelling than another static mapping. Reuse
+   uFor's shared envelope/LFO semantics, including fade-in, and declare any
+   SFZ timing or shape mismatch explicitly.
+5. **Repeated-note and release behavior.** Repeated-trigger masking and
+   release-tail termination matter for drums and realistic legato. Specify
+   portable rules beyond the existing voice limits and oldest-immediate
+   stealing rule before mapping SFZ controls.
+6. **Stereo width and position.** Intermediate width and channel placement
+   are useful for stereo samples, but less fundamental than articulation and
+   timbre. Keep their native channel semantics independent of SFZ opcode names.
+7. **Reproducible random variation.** Random gain, pitch, offset, and delay can
+   enliven repeated notes, but need declared random state so renders and
+   snapshots remain reproducible.
+8. **Equalization.** Map SFZ EQ only after its bandwidth and resonance transfer
+   functions are specified and tested against the native EQ model.
 
-Do not add SFZ opcode names to the native uFor model. Filters remain blocked on a separate
-filter design.
+Output buses, sends, effects, generated waveforms, and waveguides remain
+separate, larger designs rather than prerequisites for the above work.
 
-## 3. Controller Bindings
+## Controller Bindings
 
 The separate `performance_binding` score now describes MIDI channel-to-part,
 note identity, and named-control CC conversion independently of host adapters.
@@ -78,18 +104,16 @@ supplies an instrument reference, part, and repeated-key release rule. Shared
 `lochan`/`hichan` ranges map; mixed per-region ranges remain diagnosed.
 Other protocols need their own explicit input profile.
 
-Next consider CC conditions and modulation, pitch
-bend, aftertouch, key switches, previous-key conditions, initial CC values, and
-controller curves. Until that format exists, report these as requiring a
-controller binding.
+The prioritized binding work also includes previous-key conditions and
+controller curves. Until each construct has a defined portable representation,
+report it as requiring a controller binding.
 
 ## Explicit Deferrals
 
-- filters, filter envelopes, and filter LFOs;
 - beat synchronization without a transport and tempo model;
 - output buses, sends, and `<effect>` without a routing graph;
 - generated waveforms and waveguides without a synthesis-source model;
-- random delay, offset, pitch, and gain without reproducible random state;
+- random delay, offset, pitch, and gain until reproducible random state exists;
 - MD5 assertions unless recs adopts general asset verification;
 - vendor extensions, including `#include`.
 - player-specific sample-unit interpretations of `sample_fadeout`.
@@ -112,7 +136,7 @@ fixture copied from one player's interpretation.
 - Every successful conversion preserves all represented behavior.
 - Every unsupported construct has a precise location and explanation.
 - The generated support table comes from the runtime registry.
-- Recsam additions remain protocol-neutral and independently useful.
+- Native uFor additions remain protocol-neutral and independently useful.
 - The full suite does not access real MIDI devices.
 
 ## Additional work beyond the prompt
