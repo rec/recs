@@ -17,6 +17,10 @@ def test_cli_and_api_use_the_same_numeric_config_values() -> None:
         args=[
             '--quiet-before-start',
             '250ms',
+            '--flush-time',
+            '500ms',
+            '--flush-overlap-time',
+            '1.5s',
             '--ui-refresh-rate',
             '20Hz',
             '--waveform-bucket-milliseconds',
@@ -30,6 +34,9 @@ def test_cli_and_api_use_the_same_numeric_config_values() -> None:
         ],
     )
     assert parsed.recording.quiet_before_start == 0.25
+    assert parsed.recording.flush_time == 0.5
+    assert parsed.recording.flush_overlap_time == 1.5
+    assert parsed.get_attr('recording.flush_time') == 0.5
     assert parsed.console.ui_refresh_rate == 20.0
     assert parsed.console.waveform_bucket_milliseconds == 20
     assert parsed.recording.memory_reserve_megabytes == 1000

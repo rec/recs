@@ -161,8 +161,10 @@ readiness inspects a project or configuration without recording; preflight check
         How often to poll for a replacement recording card (default: 1.0)
   --card-replace-timeout-seconds TIME
         How long to wait for a replacement recording card (default: 300.0)
-  --recovery-frame-overlap INT
-        Frames to replay on a new recording card after a write error (default: 8192)
+  --flush-time TIME
+        How often to sync open audio files (default: 1.0)
+  --flush-overlap-time TIME
+        Extra audio retained for recording-card failover (default: 1.0)
   --disk-auto-switch, --no-disk-auto-switch
         Switch to a better removable disk after a disk-space alert (default: True)
   --moving-average-time TIME

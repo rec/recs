@@ -483,12 +483,17 @@ class Recording(BaseModel):
         tyro.conf.arg(help='How long to wait for a replacement recording card'),
     ] = 300.0
 
-    recovery_frame_overlap: Annotated[
-        int,
-        tyro.conf.arg(
-            help='Frames to replay on a new recording card after a write error'
-        ),
-    ] = Field(default=0x2000, ge=0, strict=True)
+    flush_time: Annotated[
+        units.Seconds,
+        cli_metadata.TIME_SPEC,
+        tyro.conf.arg(help='How often to sync open audio files'),
+    ] = Field(default=1.0, ge=0)
+
+    flush_overlap_time: Annotated[
+        units.Seconds,
+        cli_metadata.TIME_SPEC,
+        tyro.conf.arg(help='Extra audio retained for recording-card failover'),
+    ] = Field(default=1.0, ge=0)
 
     disk_auto_switch: Annotated[
         bool,

@@ -294,7 +294,8 @@ def test_source_recorder_replays_only_after_error_and_directory_switch(
     cfg = Cfg(
         output_directory=str(tmp_path),
         record_everything=True,
-        recovery_frame_overlap=0x2000,
+        flush_time=0,
+        flush_overlap_time=0.5,
     )
     transport = SourceUpdateTransport(BlockingConnection())
     recorder = SourceRecorder(
@@ -319,13 +320,13 @@ def test_source_recorder_replays_only_after_error_and_directory_switch(
         replay = transport.events[-1]
         assert isinstance(replay, SourceUpdate)
         assert replay.file_records is not None
-        assert replay.file_records[0].start_frame == 48_000 - 0x2000
+        assert replay.file_records[0].start_frame == 24_000
         assert replay.file_spans is not None
-        assert next(iter(replay.file_spans.values()))[0].start == 48_000 - 0x2000
+        assert next(iter(replay.file_spans.values()))[0].start == 24_000
     replacement.receive_update(block, 2.0, timeline_frame=96_000)
     replacement.stop()
     assert soundfile.info(replacement.files_written[0]).frames == (
-        48_000 + (0x2000 if write_error else 0)
+        48_000 + (24_000 if write_error else 0)
     )
 
 

@@ -31,8 +31,10 @@ def test_card_replace_times_must_be_positive() -> None:
         Cfg(card_replace_timeout_seconds=0)
 
 
-def test_recovery_frame_overlap_is_nonnegative() -> None:
-    assert Cfg().recording.recovery_frame_overlap == 0x2000
-    assert Cfg(recovery_frame_overlap=0).recording.recovery_frame_overlap == 0
+@pytest.mark.parametrize('field', ('flush_time', 'flush_overlap_time'))
+def test_audio_flush_times_are_nonnegative(field: str) -> None:
+    assert getattr(Cfg().recording, field) == 1.0
+    assert getattr(Cfg(**{field: 0}).recording, field) == 0
+    assert getattr(Cfg(**{field: '250ms'}).recording, field) == 0.25
     with pytest.raises(ValueError):
-        Cfg(recovery_frame_overlap=-1)
+        Cfg(**{field: '-1s'})

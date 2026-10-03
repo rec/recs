@@ -1,4 +1,5 @@
 import contextlib
+import math
 import time
 from collections.abc import Iterable, Sequence
 from datetime import datetime
@@ -18,6 +19,7 @@ from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, SdType
 from recs.cfg import path_pattern, time_settings, track_names
 from recs.cfg.cfg import Cfg
+from recs.cfg.file_source import FileSource
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.misc import counter, file_list
@@ -87,6 +89,8 @@ class ChannelWriter(Runnable):
         self._blocks = Blocks[TimedBlock]()
         self._recovery_blocks: list[TimedBlock] = []
         self._recovery_frames = 0
+        self._last_flush_time: float | None = None
+        self._frames_since_flush = 0
         self._lock = Lock()
 
         if track.source.format is None or 'formats' in cfg.model_fields_set:
@@ -207,6 +211,8 @@ class ChannelWriter(Runnable):
 
     def _close(self) -> None:
         sfs, self._sfs = self._sfs, ()
+        self._last_flush_time = None
+        self._frames_since_flush = 0
         for sf in sfs:
             if (
                 self.times.record_everything
@@ -258,6 +264,8 @@ class ChannelWriter(Runnable):
         self.file_end_timestamps.update(dict.fromkeys(paths, timestamp))
         self.file_spans.update({p: [] for p in paths})
         self.files_written.extend(paths)
+        self._last_flush_time = None
+        self._frames_since_flush = 0
         return sfs
 
     def _discard_file(self, path: Path) -> None:
@@ -339,6 +347,7 @@ class ChannelWriter(Runnable):
                     else self.times.quiet_before_start,
                     from_start=True,
                 )
+                self._flush_if_due()
 
             if self.stopped or self.quiet_frames > self.times.stop_after_quiet:
                 self._write_and_close()
@@ -425,18 +434,23 @@ class ChannelWriter(Runnable):
             self.frames_in_file += len(b)
             self.frames_written += len(b)
             self.bytes_in_file += len(b) * self.frame_size
+            self._frames_since_flush += len(b)
+            self._flush_if_due()
 
     def _remember_recovery_block(self, block: TimedBlock) -> None:
-        limit = self.cfg.recording.recovery_frame_overlap
+        limit = math.ceil(
+            (self.cfg.recording.flush_time + self.cfg.recording.flush_overlap_time)
+            * self.track.source.samplerate
+        )
         if not limit:
             return
-        self._recovery_blocks.append(
-            TimedBlock(
+        if isinstance(self.track.source, FileSource):
+            block = TimedBlock(
                 block=block.block.copy(),
                 start_frame=block.start_frame,
                 timestamp=block.timestamp,
             )
-        )
+        self._recovery_blocks.append(block)
         self._recovery_frames += len(block)
         while self._recovery_frames > limit:
             first = self._recovery_blocks[0]
@@ -446,11 +460,29 @@ class ChannelWriter(Runnable):
                 self._recovery_frames -= len(first)
             else:
                 self._recovery_blocks[0] = TimedBlock(
-                    block=first.block[excess:].copy(),
+                    block=first.block[excess:],
                     start_frame=first.start_frame + excess,
                     timestamp=first.timestamp + excess / self.track.source.samplerate,
                 )
                 self._recovery_frames = limit
+
+    def _flush_if_due(self) -> None:
+        if not self._sfs or not self._frames_since_flush:
+            return
+        now = time.monotonic()
+        if self._last_flush_time is None:
+            self._last_flush_time = now
+        interval = self.cfg.recording.flush_time
+        if now - self._last_flush_time < interval and (
+            isinstance(self.track.source, FileSource)
+            or self._frames_since_flush
+            < math.ceil(interval * self.track.source.samplerate)
+        ):
+            return
+        for sf in self._sfs:
+            sf.flush()
+        self._frames_since_flush = 0
+        self._last_flush_time = time.monotonic()
 
 
 def _noise_floor(cfg: Cfg, track: Track) -> float:
