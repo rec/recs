@@ -1,5 +1,8 @@
 # Import `import into baccy` recordings into recs sessions
 
+Status: Complete, including source-media relocation and backup verification,
+per user report on 3 October 2026.
+
 ## Goal
 
 Import the non-MP3 recordings in the repository-top-level

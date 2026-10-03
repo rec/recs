@@ -1,10 +1,15 @@
 # Human And Experimental Verification
 
+Status: Physical verification of implemented recs behavior completed per user
+report on 3 October 2026. Future instrument playback acceptance remains in
+[the instrument-host plan](sample-playback.md).
+
 ## Purpose
 
-This is the single checklist for recs behavior that requires real recordings,
-physical devices, deployed hardware, third-party applications, or performance
-measurement. Automated checks remain in the feature plans and test suite.
+This records verification of implemented recs behavior that required real
+recordings, physical devices, deployed hardware, third-party applications, or
+performance measurement. Automated checks remain in the feature plans and test
+suite.
 
 Use expendable media for failure tests and back up source recordings. For every
 run, record the recs revision, date, host, operating system, configuration,
@@ -195,29 +200,6 @@ stale.
 Pass when there are no unexplained dropped frames, memory remains bounded, the
 CPU does not thermally throttle, queues recover, and write latency retains a
 documented safety margin.
-
-## Instrument Backend And Live Playback
-
-1. Build conformance instruments for samples and synth voices. The sample case
-   covers forward, backward, and mirror direction; loops; selection; choking;
-   stereo layout; and deterministic variation. The synth case covers oscillator
-   phase/reset, pitch, envelope release, control modulation, layering, and routing.
-2. Render one fixed event stream with each candidate backend and a simple
-   reference implementation. Compare timing, duration, pitch, channel layout,
-   lifecycle actions, selection order, and samples where exact agreement is expected.
-3. Repeat at block sizes 64, 128, 256, and 1024 frames. Confirm timing and
-   deterministic selection do not depend on block size.
-4. Test realistic instruments at increasing polyphony. Measure CPU, resident
-   memory, cache size, render time, and underruns with shared and multichannel
-   sample assets.
-5. On target hardware, measure input-to-audio latency with a loopback recording,
-   including expected peak CPU and storage load.
-6. Document every recsam behavior that cannot be represented exactly. Reject a
-   backend that silently changes required semantics.
-
-Pass when the selected backend has an explicit compatibility boundary, stable
-block-independent behavior, bounded sample memory, and acceptable measured
-latency and underrun rates.
 
 ## Additional work beyond the prompt
 
