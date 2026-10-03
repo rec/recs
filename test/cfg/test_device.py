@@ -1,7 +1,5 @@
-import subprocess as sp
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any, NoReturn
 
 import numpy as np
 import pytest
@@ -73,46 +71,3 @@ def test_input_device_uses_sounddevice_adc_time(
 
     assert updates[0].timestamp == 199.25
     assert updates[0].status == 'overflow'
-
-
-def test_query_device_failure_is_not_an_empty_device_list(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    error = sp.CalledProcessError(1, ['recs', 'query-devices'])
-
-    def fail(*args: Any, **kwargs: Any) -> NoReturn:
-        raise error
-
-    monkeypatch.setattr(sp, 'run', fail)
-
-    with pytest.raises(sp.CalledProcessError) as exc_info:
-        device.query_devices()
-
-    assert exc_info.value is error
-
-
-def test_query_device_does_not_receive_terminal_interrupts(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    kwargs: dict[str, Any] = {}
-
-    def run(*args: Any, **run_kwargs: Any) -> sp.CompletedProcess[str]:
-        kwargs.update(run_kwargs)
-        return sp.CompletedProcess(args, 0, stdout='[]')
-
-    monkeypatch.setattr(sp, 'run', run)
-
-    assert device.query_devices() == []
-    assert kwargs['start_new_session'] is True
-    assert kwargs['timeout'] == device.DEVICE_QUERY_TIMEOUT
-
-
-def test_query_device_timeout_is_empty_device_list(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def timeout(*args: Any, **kwargs: Any) -> NoReturn:
-        raise sp.TimeoutExpired(['recs', 'query-devices'], timeout=5)
-
-    monkeypatch.setattr(sp, 'run', timeout)
-
-    assert device.query_devices() == []

@@ -1,9 +1,8 @@
-import json
-import subprocess
 from collections.abc import Callable, Sequence
 from typing import Any, cast, override
 
 import numpy as np
+from dvice import discovery
 from reccy.device import DeviceDict, device_key
 from threa import Runnable, Wrapper
 
@@ -12,8 +11,6 @@ from recs.base.prefix_dict import PrefixDict
 from recs.base.types import SdType
 
 from .source import Source, Update
-
-DEVICE_QUERY_TIMEOUT = 5.0
 
 
 class InputDevice(Source):
@@ -71,18 +68,7 @@ def get_input_devices(
 
 
 def query_devices() -> Sequence[DeviceDict]:
-    try:
-        r = subprocess.run(
-            app_command.command('query-devices'),
-            text=True,
-            check=True,
-            start_new_session=True,
-            stdout=subprocess.PIPE,
-            timeout=DEVICE_QUERY_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
-        return []
-    return cast(list[DeviceDict], json.loads(r.stdout))
+    return discovery.query_devices(app_command.command('query-devices'))
 
 
 def input_devices() -> InputDevices:

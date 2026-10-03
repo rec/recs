@@ -2,10 +2,10 @@ import multiprocessing as mp
 import sys
 
 import tyro
+from dvice.discovery import devices_json, stream_devices
 from pydantic import BaseModel, ValidationError
 from reccy.runtime import logging
 
-from recs.base._query_device import devices_json, stream_devices
 from recs.base.errors import RecsError
 from recs.cfg import cli, run_cli
 

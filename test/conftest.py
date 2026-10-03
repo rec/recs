@@ -6,10 +6,11 @@ from multiprocessing import connection, dummy
 from pathlib import Path
 
 import pytest
+from dvice import poller
 from reccy.device import DeviceDict
 
 from recs.cfg import device
-from recs.runtime import device_poller, source_process, source_recorder
+from recs.runtime import source_process, source_recorder
 
 pytest_plugins = ['reccy.pytest_plugin']
 
@@ -30,6 +31,9 @@ def query_devices(kind=None):
 
 
 class FakeDeviceQueryStream:
+    def __init__(self, command: object = None) -> None:
+        pass
+
     def start(self) -> None:
         pass
 
@@ -71,13 +75,13 @@ def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_mp(monkeypatch):
     monkeypatch.setattr(connection, 'wait', wait)
     monkeypatch.setattr(source_process, 'mp', dummy)
-    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
+    monkeypatch.setattr(poller, 'DeviceQueryStream', FakeDeviceQueryStream)
 
 
 @pytest.fixture
 def mock_devices(monkeypatch):
     monkeypatch.setattr(device, 'query_devices', query_devices)
-    monkeypatch.setattr(device_poller, 'DeviceQueryStream', FakeDeviceQueryStream)
+    monkeypatch.setattr(poller, 'DeviceQueryStream', FakeDeviceQueryStream)
 
 
 @pytest.fixture
