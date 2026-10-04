@@ -1,75 +1,33 @@
-# Cross-domain proposals and implemented profiles
+# Remaining cross-domain proposals
 
-This document mixes proposed applications with implemented portable profiles.
-See [the plan index](../README.md) for current owners and authoritative contracts.
-An implemented definition does not imply that its live host or player exists.
-
-Navigation: [controls](#sampled-quantities-curves-and-physical-controls),
-[events](#events-requests-and-sequences),
-[arrangements](#arrangements-sequences-and-nested-mixes),
-[bindings](#implementations-endpoints-and-parameter-mappings),
-[slideshow](#live-slideshow-format),
-[lighting](#fixture-controls-dmx-and-spatial-light-fields),
-[broadcasts](#radio-programmes-live-sections-and-rebroadcast),
-[later features](#future-features-worth-building).
-
-This is a suggested implementation order for extending recs and uFor. Existing
-format documentation remains authoritative for what works today; the proposals
-below are not a claim that every described feature is missing.
-
-The order puts shared editing rules before the tools that need them, and makes the
-slideshow the first new performance application. Build only the foundation each
-milestone needs: a slideshow need not wait for all MIDI-CI, CV, or plugin work.
-The initial envelope and voice-lifecycle contracts are implemented in uFor.
-[enge](../enge.md) owns shared synth and sampler implementation; its synth
-reference exists and sample traversal remains engine work. This proposal does
-not reinstate the former waveform-generation pause or authorize new hosts.
-Existing recordings and engines can support these proposals.
-
-See [Deferred work](deferred-work.md) for the musical-model and engine decisions.
+These are future applications and unresolved host/model extensions. Implemented
+score schemas, codecs, and pure reference behavior belong to their owning
+project's documentation. Use [the plan index](../README.md) for current owners;
+these proposals do not authorize implementation.
 
 ## Suggested implementation order
 
-| Step | Useful outcome | Main dependency |
+| Step | Useful outcome | Existing foundation |
 | --- | --- | --- |
-| 1 | [Give controls a shared meaning](#sampled-quantities-curves-and-physical-controls) | Existing quantity and time types |
-| 2 | [Make actions editable and replayable](#events-requests-and-sequences) | Time and control rules |
-| 3 | [Combine reusable scores](#arrangements-sequences-and-nested-mixes) | Quantities and event playback rules |
-| 4 | [Connect a score to one real implementation](#implementations-endpoints-and-parameter-mappings) | Named score inputs, outputs, and parameters |
-| 5 | [Build the first new performance tool](#live-slideshow-format) | Timing, cues, and a minimal display binding |
-| 6 | [Bring lighting into the timeline](#fixture-controls-dmx-and-spatial-light-fields) | Control curves and physical bindings |
-| 7 | [Preserve what actually aired](#radio-programmes-live-sections-and-rebroadcast) | Arrangements, bindings, and run records |
-| 8 | [Improve the tools through use](#future-features-worth-building) | Experience with the earlier tools |
+| 1 | [Deliver controls and add richer quantities](#sampled-quantities-curves-and-physical-controls) | Scalar automation and time types |
+| 2 | [Play editable actions through a host](#events-requests-and-sequences) | Sequence playback and raw event models |
+| 3 | [Extend arrangement realization](#arrangements-sequences-and-nested-mixes) | Named parts, nested scores, event connections, and control clips |
+| 4 | [Activate one real binding](#implementations-endpoints-and-parameter-mappings) | Binding schemas and parameter conversion |
+| 5 | [Build a slideshow player](#live-slideshow-format) | Slideshow definitions and selection resolver |
+| 6 | [Deliver fixture and pixel timelines](#fixture-controls-dmx-and-spatial-light-fields) | Fixture scores, layouts, patches, and existing drivers |
+| 7 | [Run a broadcast and preserve what aired](#radio-programmes-live-sections-and-rebroadcast) | Broadcast definitions and run records |
+| 8 | [Improve tools through use](#future-features-worth-building) | Experience with the earlier hosts |
 | 9 | [Explore additional domains](#new-data-domains-and-interchange-formats) | A concrete need and representative data |
 
-### Reading this plan
-
-A **score** describes an editable work; a **run** records what happened in a
-performance. A **host** plays or renders it. An **adapter** is installed code that
-talks to a device or engine; a **binding** supplies its mappings and local
-settings. A **sealed asset** is a file identified by its recorded size and hash.
-Named inputs and outputs are score connections, not network ports.
-
-Examples illustrate behavior. Unless linked to an implemented specification, they
-are design sketches rather than loadable scores. Each section starts with its
-purpose and first useful result, followed by the detailed rules.
+Each host should implement one useful profile before broadening its capabilities.
+Shared-model changes belong in uFor; engine extensions belong in
+[enge's roadmap](../../../enge/plan/roadmap.md). New playback and authoring hosts
+belong outside recs. Existing definitions do not imply that a live player exists.
 
 ## Sampled quantities, curves, and physical controls
 
-**Milestone 1: Give controls a shared meaning.** Start with the scalar controls
-needed by the next feature. Add dense arrays and physical CV delivery when a
-concrete device needs them.
-
-**First useful result:** Edit gain, frequency, and gate curves without confusing
-their units. Check interpolation, defaults, and competing writers.
-
-**Implemented scalar profile:** uFor now provides editable automation scores,
-TOML round trips, JSON Schema, and a pure evaluator for these three quantities.
-See the [automation format](../../../ufor/doc/automation-format.md) and
-[portable cases](../../../ufor/conformance/automation.json). Direct-writer
-conflicts and explicit add/multiply contributions are checked within a score.
-Graph-wide ownership, GUI editing, dense arrays, physical delivery, and the
-broader quantity proposals below remain later work.
+Remaining scope includes graph-wide ownership, editing tools, dense arrays,
+physical CV delivery, richer quantities, and analysis-result streams.
 
 ### Quantity types
 
@@ -106,32 +64,12 @@ Reshaping, selecting channels, downmixing, and rate conversion are declared
 operations. DSP may exceed audio full scale internally; clipping or limiting
 belongs to the output contract, not every intermediate array.
 
-A fragment connects asset frame zero or another asset offset to a native timeline
-position and frame count. The session record describes missing intervals. Filling
-an audio gap with zero for listening does not turn lost samples into measured
-silence.
+### Remaining control integration
 
-### Curves and parameter automation
-
-A curve contains ordered `{tick, value}` knots and interpolation `hold` or
-`linear`, plus a timebase and target quantity. Knots are strictly increasing.
-Before the first knot use the instance's base parameter value; after the last knot
-hold its value. A clip limits the interval over which its curve is active.
-
-`hold` is mandatory for enums, gates, and booleans. Linear interpolation operates
-in the declared canonical unit. A logarithmic frequency sweep must use an explicit
-log-domain mapping; it is not a host preference. Equal-power audio crossfades are
-a paired mix operation, not a generic interpolation for arbitrary quantities.
-Preserve an existing standalone equal-power gain lane by storing linear knots in
-squared gain and applying an explicit nonnegative square-root mapping. This
-reproduces `sqrt((1-t)*a*a + t*b*b)` without treating that rule as interpolation
-for voltage, pitch, or an enum. With no instance override, the base parameter
-value is its declared default.
-
-At a parameter, a direct automation lane replaces the base value. Additional
-modulation is allowed only through a declared combiner such as additive volts or
-multiplicative gain. Reject competing writers without one. Scope can be global,
-part, or voice; its lifetime must match the owning object.
+Graph-wide writer ownership, GUI editing, dense sampled arrays, and physical
+delivery remain host or model extensions. Reuse the
+[automation format](../../../ufor/doc/automation-format.md) for implemented
+scalar curves, defaults, interpolation, and add/multiply contributions.
 
 ### CV and gates
 
@@ -164,91 +102,13 @@ Keep loudness, envelope, onset events, and spectral arrays as distinct types.
 Derived streams reference the source and processor run so a user can regenerate
 them without confusing them with the original measurement.
 
-### Integration notes
-
-recs audio blocks remain efficient NumPy arrays at runtime. Add descriptors around
-stored and routed streams, not one Python object per sample. Recsam's `Control`
-polarity/default becomes a dimensionless specialization of the common parameter
-contract. Preserve the existing distinction between linear edit gains and recsam
-decibel parameters during conversion. Voltage and feature validity are new
-contracts; neither can safely inherit audio defaults.
-
 ## Events, requests, and sequences
 
-**Milestone 2: Make actions editable and replayable.** Reuse the event envelope,
-then specify seeking, looping, and note ownership. Add a small UMP representation
-before expanding device-specific MIDI support; MIDI-CI host integration can follow
-later.
-
-**First useful result:** Crop, loop, and seek a sequence without stuck notes or
-accidental external actions. Preserve raw MIDI and UMP data, including unknown
-messages.
-
-### Remaining scope
-
-The milestone 2 library profile is implemented in uFor: `SequenceSelection`,
-`state_at`, and `plan_playback` provide half-open selections, control snapshots,
-active-note retrigger/omit policies, loop-qualified ownership, and end cleanup.
-Raw captures remain inert. `UmpEvent` preserves exact packet words, checks packet
-length, exposes known groups, and distinguishes SysEx7 from SysEx8 packet families.
-Portable conformance examples and the host application contract are in
-[uFor's sequence playback specification](../../../ufor/doc/sequence-playback.md).
-
 Host transport integration, MIDI-CI handling, SysEx reassembly/conversion, and
-request execution remain later work. The VL70m code remains a limited MIDI 1.0
-proof of concept. This milestone introduces no audio generation or device output.
-
-### Event envelope
-
-Each stream declares its timebase and permitted event schema. Each event has
-`tick`, `ordinal`, `kind`, and a typed payload. The ordinal breaks timestamp ties
-and also identifies the event within its stream. Source identity and capture-clock
-observations belong to its recording context. Authored sequences use the same
-records as captured semantic event streams.
-
-| Event family | Payload and identity |
-| --- | --- |
-| Performance | Trigger, release, and scoped control change; part and trigger ID |
-| Key | Physical key identifier, logical text when available, press/release, modifiers, repeat flag |
-| Parameter change | Structured destination, typed value, and scope |
-| Cue | Named timeline marker or transport cue, with a declared action |
-| Request | Named endpoint operation, typed arguments, request ID, and replay policy |
-| Result | Request ID, observed completion time, outcome, and typed result or error |
-| Raw protocol | Protocol identifier, exact payload bytes, direction, and transport metadata |
-
-Trigger IDs identify an active performance instance, not a pitch. Two overlapping
-notes on the same key must have distinct IDs and independently match releases.
-Retain recsam's `part`, `trigger_id`, normalized velocity, and optional
-`pitch_hz`. A zero-velocity semantic trigger remains a trigger. MIDI's
-interpretation of particular wire messages belongs to its adapter.
-
-Illustrative inline sequence body:
-
-```toml
-timebase = "audio"
-event_schema = "recs.performance"
-
-[[events]]
-tick = 0
-ordinal = 0
-kind = "trigger"
-part = "lead"
-trigger_id = "note-1"
-key = 69
-velocity = 0.8
-pitch_hz = 440.0
-
-[[events]]
-tick = 48000
-ordinal = 1
-kind = "release"
-part = "lead"
-trigger_id = "note-1"
-```
-
-At 48 kHz these events hold a note for one second; its audible release tail
-depends on the instrument. A sequence declares its extent separately from the last
-event so trailing silence or held control state is representable.
+request execution remain later work. Reuse
+[uFor's sequence playback specification](../../../ufor/doc/sequence-playback.md)
+for implemented cropping, seeking, looping, note ownership, and end cleanup.
+Raw captures remain inert until an explicit adapter interprets them.
 
 ### Raw capture and semantic editing
 
@@ -262,20 +122,7 @@ resolution, sustain interpretation, and conversion to pitched performance. Keep
 SysEx or other unrecognized messages as typed raw data. Export to a more limited
 protocol reports quantization and unsupported per-note expression.
 
-### MIDI 1.0 and MIDI 2.0 boundary
-
-The event envelope is transport-neutral. A raw MIDI event therefore records a
-protocol family and exact wire representation, rather than treating a list of
-seven-bit bytes as the universal MIDI form. MIDI 1.0 byte streams, Standard MIDI
-Files, and UMP are distinct encodings of related musical meaning.
-
-The first MIDI 2.0 work defines a small UMP layer before adding more
-device-specific MIDI formats. It must represent MIDI 1.0 messages carried in UMP,
-native MIDI 2.0 channel-voice messages, group assignment, and exact UMP packet
-words. It also distinguishes SysEx7 from SysEx8. A captured UMP stream preserves
-its packet sequence even when no semantic adapter understands a manufacturer
-message. Conversion to a MIDI 1.0 byte stream is an explicit lossy operation when
-the source uses MIDI 2.0-only precision or expression.
+### MIDI and endpoint integration
 
 MIDI-CI discovery, Profiles, and Property Exchange describe a device's current
 capabilities or exchange protocol. They do not silently alter an instrument
@@ -313,225 +160,39 @@ rendering and seek reconstruction simulate requests or retain them as events; on
 a run explicitly binding an enabled action endpoint can dispatch them. Recording a
 request's result does not guarantee the same result on replay.
 
-### Editing, loops, and seeking
-
-A sequence clip selects a half-open event interval and translates its timestamps
-using [Arrangements](future-proposals.md#arrangements-sequences-and-nested-mixes).
-Include parameter state at its start through a checkpoint or replay.
-Start-inside-note behavior is explicit: `retrigger_active` creates a new scoped
-trigger at the clip boundary; `omit_active` waits for subsequent triggers. The
-former restarts envelopes and does not reproduce the sound of a sustained voice
-already in progress.
-
-At a clip end, release all triggers owned by that clip and let the arrangement's
-tail policy determine retained output. At a loop boundary, close that iteration's
-trigger ownership and reconstruct the next iteration's starting state. Qualify
-each trigger ID with its clip and loop iteration so repeated clips cannot release
-one another's notes. Requests with effects are not repeated by a loop unless its
-execution policy allows it.
-
-### Integration notes
-
-The performance types now live in `ufor.events`, using the common `tick` and
-`ordinal` envelope. recs imports them directly and its former event module is
-removed. Common sequences and native JSONL share these types. The [instrument
-contract](../../../ufor/doc/instrument-format.md) records their scope and
-lifecycle boundary. Preserve MIDI and OSC capture data and its original timing
-during conversion. tuney's `CharPress` maps to key events; its private cached
-character and callback handles remain runtime details. Keep recorder status events
-as run observations; they are not automatically commands to execute during
-playback.
-
 ## Arrangements, sequences, and nested mixes
 
-**Milestone 3: Combine reusable scores.** Extend existing audio arrangements to
-events and controls. Reuse current composition machinery and identify unsupported
-cases before adding fields.
-
-**First useful result:** Combine recorded audio, a control curve, and an event
-sequence. Reuse a nested score twice with independent state and timing.
-
-**Implemented profile:** uFor arrangements already resolve named audio parts,
-event connections, nested score instances, and selected audio clips. This
-milestone adds a reusable automation score's public `control` output and an
-arrangement `control_clips` placement. The curve's target selects a sibling
-part's public parameter. Resolution checks the output contract, target, exact
-clock conversion, parameter unit/scope/range, and one writer per target. An
-audio request includes the curve from its clip start through the requested end,
-which preserves its state for cropped rendering. The worked composition test
-contains a recorded audio clip, a sequence driving an instrument, and a control
-curve targeting a light-score parameter. See [uFor's arrangement
+Remaining extensions include logical gates, voice/instrument control scopes,
+control combiners, tempo anchoring, audio speed changes, reversal, and host
+audio/device execution. Reuse [uFor's arrangement
 format](../../../ufor/doc/arrangement-format.md) and [automation
-format](../../../ufor/doc/automation-format.md).
+format](../../../ufor/doc/automation-format.md) for existing nested score and
+control-clip behavior.
 
-The profile deliberately supports part-scoped numeric controls at speed one.
-Logical gates, voice/instrument scopes, control combiners, tempo anchoring,
-audio time-stretching, reversal, and host audio/device execution remain later
-work. Raw event captures stay inert unless an explicit adapter interprets them.
+### Playback speed and tempo
 
-### Sources and clips
+A future clip-speed profile needs positive rational speed and exact timebase
+conversion. For source interval `[a, b)`, timeline start `s`, and speed `r`,
+source time `u` appears at `s + (u-a)/r`; duration is `(b-a)/r`. Specify final
+sample-boundary rounding explicitly. Audio speed changes require a selected
+resampling or time-stretch operation, with its pitch behavior explicit.
 
-A source references a recording stream, a sequence, an instrument-driven graph,
-another arrangement's exported output, or a declared live endpoint. File assets
-become source nodes through their typed reader. In-memory materialization is an
-execution detail, not a portable source locator.
+Musical clips may follow a parent tempo map when marked beat-anchored. A physical
+recording stays in physical time unless explicitly warped. Reversal must be a
+declared operation, not a negative speed applied to requests and note lifecycles.
 
-A clip names its source and lane, a source interval, a timeline start, and a
-positive rational playback speed. Source positions use the source timebase;
-timeline positions use the arrangement timebase. Resolve to physical time before
-applying speed. For source interval `[a, b)`, start `s`, and speed `r`, source
-time `u` appears at `s + (u-a)/r`, and duration is `(b-a)/r`. Final
-sample-boundary conversion must state its rounding policy explicitly.
-
-The first profile uses speed 1. Audio speed changes require a selected resampling
-or time-stretch operation, with its pitch behavior explicit. Musical clips can
-follow a parent tempo map when marked beat-anchored. A physical recording stays in
-physical time unless explicitly warped. Reversal is an operation, not a negative
-speed quietly applied to requests and note lifecycles.
-
-At 48 kHz, selecting frames 48000 through 528000 from an interview and placing
-them at timeline frame zero plays ten seconds from its one-second point. The clip
-selects a named part's output. See the [implemented audio arrangement
-example](../../doc/arrangement-format.md).
-
-### Mixing and automation
-
-Routes connect explicit inputs and outputs. Numeric audio summing, event merging,
-control selection, and lighting blending are distinct operations. A track with
-overlapping clips declares its overlap rule; unsupported combinations fail
-validation. Stereo audio does not automatically become mono, and MIDI events do
-not become sound without an instrument.
-
-Clip gain is a linear audio multiplier. General effects are processor nodes. A
-crossfade names both clips, its interval, and curve law; preserve the existing
-equal-power behavior as a named audio mix contract. Existing independent
-equal-power gain lanes use the squared-gain mapping in
-[Quantities](future-proposals.md#sampled-quantities-curves-and-physical-controls).
-Parameter automation uses the common structured target and curve rules. Multiple
-control writers require an explicit combiner, including manual overrides and
-automation.
-
-Rendering declares a finite requested interval and a tail policy: truncate at the
-end or retain a specified additional duration. Delays, release envelopes, and
-reverberation may continue after the last clip. An open-ended live source does not
-make an offline render silently infinite.
-
-### A mix of mixes
-
-An arrangement dependency exposes named outputs and optional exported parameters.
-Its internals retain a private namespace. Every instance has its own state, time
-mapping, and voice ownership. Definition-reference cycles are invalid even when a
-contained DSP operation has internal feedback.
-
-An outer clip can select a range from an inner arrangement. The compiler can
-flatten or cache it only when it preserves state, pre-roll, tails, and parameter
-scope. A cached render records definition/dependency digests and the realized
-binding. A changed instrument or plugin binding invalidates that cached result.
-Cache implementation is optional; correct nesting is not.
-
-Keep authoring recipes separate from the resulting work. A recipe such as “trim
-silence, calibrate, then mix” produces an arrangement and any derived assets.
-Retain the recipe as provenance if useful, but playback does not need to execute
-CLI strings to discover what the work means.
-
-### Integration notes
-
-recs already uses uFor arrangement scores, named parts and outputs, and separate
-render destinations. Extend that foundation rather than repeat the migration.
-Preserve existing integer-frame audio editing and rendered results.
-
-Editing recipes such as CompositionEdit describe authoring operations. Their
-result should remain a score that can play without rerunning those commands. Keep
-whole-program normalization an explicit offline operation; it cannot be promised
-for unknown future live audio.
+Whole-program normalization remains an offline operation; a host cannot promise
+it for unknown future live audio. Render caching and state checkpoints are
+separate proposals below.
 
 ## Implementations, endpoints, and parameter mappings
 
-**Milestone 4: Connect a score to one real implementation.** Build the smallest
-binding needed for one existing driver. A general plugin host is a later project.
-
-**First useful result:** Preview a score and send it through one real adapter.
-Check parameter conversions and report unsupported capabilities before output
-begins.
-
-**Implemented profile:** uFor now has `BindingScore`, a portable declaration of
-a referenced definition, named host adapter, implementation revision, capability
-and stream contracts, channel maps, physical-control semantics, opaque state, and
-parameter maps. It supports identity, affine, log-normalized, ratio-to-dB,
-monotone piecewise, and explicit enum conversions. The first concrete identity is
-`sysexy.vl70m`, for the existing VL70m SysEx librarian; it validates material but
-does not open a MIDI device. See [the binding format](../../../ufor/doc/binding-format.md).
-
-Host adapter lookup, display/output selection, credentials, and actual device or
-plugin activation remain host work. No hardware was contacted by this milestone.
-
-For example, a score asks for a filter cutoff in Hz. A binding translates that
-value into the selected device's parameter and records any limitations.
-
-### What a binding contains
-
-A binding score names the logical definition or endpoint, an installed adapter
-name, implementation identity/revision, input/output channel mapping, parameter
-mapping, and supported capabilities. Physical bindings additionally identify local
-device selectors and calibration. Credentials are resolved through local
-configuration and are never included in the portable content package.
-
-An installed adapter owns executable code, plugin discovery, library loading, wire
-serialization, and calls into the implementation. A definition contains registered
-operation IDs, not executable module paths. Built-in DSP, external plugin hosts,
-existing application engines, and hardware endpoints can all implement this
-contract without sharing a single binary ABI.
-
-The capability declaration includes exact stream types and rates, parameter
-domains and update resolution, live/offline support, latency, state restore,
-determinism claim, and available failure observations. A host validates the
-selected graph against it before activation. Unknown required capabilities fail
-preparation; an editor can still display the unbound definition.
-
-### Parameter mapping
-
-Every mapped parameter names a canonical parameter name, a stable native
-identifier, conversion, valid input/output ranges, and automation resolution.
-Native display names are labels, not stable identifiers. A mapping can be
-identity, affine, logarithmic, a monotone piecewise table, or an explicit enum
-table. Anything more complex is implemented by an adapter with a named tested
-contract, not embedded code in TOML.
-
-Illustrative binding body for a hypothetical plugin with normalized logarithmic
-cutoff. It makes no claim about a particular real plugin:
-
-```toml
-adapter = "example.plugin-host"
-implementation = "example.filter"
-implementation_revision = "1"
-
-[[parameters]]
-parameter = "cutoff_hz"
-native_id = "cutoff"
-conversion = "log_normalize"
-input_min = 20.0
-input_max = 20000.0
-output_min = 0.0
-output_max = 1.0
-out_of_range = "reject"
-```
-
-For this mapping, `y = log(x/20) / log(20000/20)`. The endpoints map to 0 and 1;
-their geometric mean maps to 0.5. Do not use a linear map because both endpoints
-fit. An inverse mapping exists here, but an enum table or quantized mapping may be
-many-to-one; feedback must then be reported as quantized/ambiguous rather than
-falsely reconstructing the original value.
-
-For amplitude gain, converting a positive multiplier `g` to decibels uses `20 *
-log10(g)`. Zero maps to an explicit native mute or supported silence value; it is
-not a finite dB value. Likewise, a fixture's unsupported gobo has no nearest
-numeric meaning. Reject or require an authored substitution.
-
-Plugin APIs expose their own parameter identities, ranges, flags, and automation
-contracts. For example, CLAP's parameter interface describes parameter metadata
-and parameter update behavior. Adapters must honor those contracts, rather than
-assuming every knob accepts arbitrary per-sample updates. [CLAP parameter
-interface](https://github.com/free-audio/clap/blob/main/include/clap/ext/params.h).
+The next host step is to preview a score and send it through one real adapter,
+checking capabilities before output begins. Reuse the existing
+[binding format](../../../ufor/doc/binding-format.md), parameter mappings, and
+capability contracts. Adapter lookup, display/output selection, credentials,
+and device/plugin activation remain host work. Select one concrete plugin host
+for a first integration rather than adding every SDK.
 
 ### Controls entering the graph
 
@@ -572,403 +233,68 @@ application adopts the format. Reuse actual drivers and service adapters; do not
 rewrite network transports to make the score model uniform.
 
 showCo continues owning operational setup and service actions. uFor owns the
-portable score model; recs and the other hosts execute it through their selected
-bindings. Plugin hosting is a new implementation task, with a single concrete host
+portable score model; hosts execute it through their selected bindings. Plugin hosting is a new implementation task, with a single concrete host
 chosen for the first integration. The format proposal does not require adding
 every plugin SDK as a dependency.
 
 ## Live slideshow format
 
-**Milestone 5: Build the first new performance tool.** Prioritize the long-planned
-slideshow once timing and a minimal display binding are ready. Start with still
-images, bulk selection, crops, accessible text, and manual or timed advance. Add
-video assets and accompaniment in subsequent increments of the same format.
+Build a player using the existing
+[slideshow format](../../../ufor/doc/slideshow-format.md) and selection resolver.
+The first useful result is to resolve directories and exclusions, finish with two
+explicit images, edit crops and timing, and replay a recorded manual presentation.
+Include accessibility in that first usable player.
 
-**First useful result:** Resolve directories and exclusions, finish with two
-explicit images, edit their crops and timing, and replay a recorded manual
-presentation. Include accessibility in the first usable player.
+Remaining host work includes asset inspection/sealing, image/video decoding,
+display selection, preview, cue delivery, caption rendering, and audio playback.
+Reject unsupported transitions or decoders rather than substituting them.
+Expose concise alt text at item entry and longer descriptions on demand.
 
-**Implemented profile:** uFor now has `SlideshowScore` with sealed image/video
-assets, ordered items, normalized crop/rotation/fit, required alt text, manual or
-cue advance, transitions, accompaniment, caption tracks, and ordered observed run
-records. Its pure resolver sorts host-supplied relative paths and applies declared
-inclusion/exclusion rules. See [the slideshow format](../../../ufor/doc/slideshow-format.md).
-Decoding, display output, audio playback, caption rendering, and cue delivery
-remain host work.
-
-A slideshow is an ordered visual performance: it can play automatically, be
-advanced by a person, react to a cue, or mix those modes during one run. It is
-editable without opening an image or video codec. Still images are its primary
-material; video clips are allowed as visual assets. General video editing and
-codec implementation remain outside this plan.
-
-### The score
-
-A slideshow score contains named visual assets, ordered items, optional audio
-accompaniment, caption tracks, image descriptions, cues, and a default run policy.
-Each item has a stable name. Its visual source is either an explicit asset or a
-declared directory selection. A directory selection is resolved to explicit items
-when it is imported or sealed, so later directory changes cannot silently alter an
-authored show.
-
-An item has a display interval in the slideshow timebase. A still image needs a
-positive duration. A video clip selects a finite source interval and has a
-declared playback speed of one in the first profile. Its embedded audio is mute
-unless the score explicitly supplies it as an accompaniment source. This keeps
-visual editing and audio accompaniment independent.
-
-Visual placement declares a normalized crop rectangle, rotation in right-angle
-steps, and a fit rule: `contain`, `cover`, or `stretch`. Cropping changes only the
-item's view of the asset. A display binding chooses an actual screen, projector,
-resolution, color conversion, and image/video decoder.
-
-### Ordering and bulk selection
-
-A bulk selection is an authoring instruction, not a vague filesystem lookup. It
-names a relative directory, whether to recurse, inclusion and exclusion patterns,
-and an ordering rule. The first profile supports `path` ordering by Unicode
-code-point order of normalized relative paths. A later natural or capture-time
-order needs its own specified comparator.
-
-The selection resolves only regular files beneath the score root. It rejects paths
-that escape the root through `..` or a symlink. Patterns apply to the normalized
-relative path, use `/` as a separator, and do not match directories by themselves.
-The resolved result records each source asset's path, byte length, and SHA-256. An
-empty selection is an error unless it is explicitly marked optional.
-
-The selection may be followed by ordinary explicit items. This expresses “play
-these directories, excluding these files and patterns, then finish with these two
-images” without special end-of-show fields:
-
-```toml
-[[selections]]
-name = "travel"
-directory = "photos/travel"
-recursive = true
-include = ["**/*.jpg", "**/*.png"]
-exclude = ["**/draft-*", "**/duplicate.jpg"]
-order = "path"
-duration = { seconds = 8 }
-
-[[items]]
-name = "closing-sunrise"
-asset = "photos/finale/sunrise.jpg"
-duration = { seconds = 12 }
-
-[[items]]
-name = "closing-map"
-asset = "photos/finale/map.png"
-duration = { seconds = 12 }
-```
-
-Resolving the selection creates one item per matching asset, in the declared
-order, before `closing-sunrise` and `closing-map`. The author may then edit any
-resolved item, move it, replace its crop, or remove it. The original selection
-remains provenance and can be deliberately re-resolved as a new edit operation; it
-never changes the existing order by itself.
-
-### Transitions and timing
-
-Each item starts after its predecessor's display interval, except where an
-explicit transition overlaps them. A transition belongs to the boundary between
-two named items and declares a nonnegative duration no longer than either visible
-interval. The first profile has `cut`, `crossfade`, and directional `wipe`; a host
-rejects an unsupported transition instead of substituting one. A zero-duration
-transition is a cut.
-
-Cues are typed events with a slideshow position and ordinal. They may mark a
-slide, arm an operator action, or expose a named output for a binding. The
-definition records no executable shell command, network request, or device
-address. A binding decides whether a named cue controls lights, sound, a screen,
-or an operator interface.
-
-### Audio accompaniment and captions
-
-An accompaniment is a separate audio source, such as a recording stream or audio
-asset, with an explicit slideshow start position and finite source range. It may
-begin before the first visual item or continue after the last one when the
-requested render interval includes it. Visual advance never trims or seeks the
-accompaniment unless the authored run policy says so.
-
-Every audible accompaniment needs a caption track for the hearing-impaired. A
-track declares language and contains ordered, non-overlapping timed captions with
-text and optional speaker name. It may instead reference a sealed WebVTT, TTML,
-IMSC, or EBU-TT asset when preserving a source format matters. Captions use
-slideshow time, including an explicit offset from their audio source, so a host
-does not guess synchronization from filename or duration.
-
-```toml
-[accompaniment]
-asset = "audio/narration.flac"
-start = { seconds = 0 }
-
-[[captions]]
-start = { seconds = 2 }
-end = { seconds = 5 }
-language = "en"
-speaker = "Tom"
-text = "The first train arrived before sunrise."
-```
-
-### Image descriptions
-
-Every visual item has an authorable text description for visually impaired
-audiences. `alt` is a concise identification suitable for immediate screen reader
-output. `description` is an optional longer account. Both describe the authored
-crop and item context, not merely the source filename. A video item also provides
-a description of its visual action or refers to timed audio description cues when
-that action changes during the clip.
-
-Descriptions are part of the editable item. They are not generated from image
-analysis, hidden in display-specific metadata, or replaced when an asset is
-renamed. A host can present `alt` at item entry and make the longer description
-available on demand without changing the visual timeline.
-
-### Live performance and run records
-
-The score's times describe the planned presentation. Manual holds change the
-actual run, whose timestamps must be recorded separately. Before implementing
-accompaniment in manual mode, choose and document whether audio continues, pauses,
-or seeks when visuals move. Captions must follow the audible audio position; image
-descriptions follow the displayed item. Do not let the host guess this
-relationship.
-
-
-The default policy is one of `automatic`, `manual`, or `cue`. Automatic items
-advance at their scheduled boundary. Manual items hold until an explicit operator
-advance. Cue items hold until their named cue occurs. The performer may safely
-advance, go back, hold, jump to a named item, or temporarily take manual control;
-each action is an observed run event.
-
-A run record captures the resolved asset list and hashes, entered items,
-transition starts, operator actions, delivered cues, caption presentation, and
-display failures. Returning to an earlier item is an observable choice, not a
-rewrite of the authored timeline. An as-presented replay follows recorded
+Manual navigation must use the authored accompaniment policy. Captions follow
+audible audio position; image descriptions follow the displayed item. Record
+entered items, transitions, operator actions, delivered cues, caption
+presentation, and display failures. As-presented replay follows those recorded
 decisions; a fresh performance follows the definition and current binding.
 
-### Preparation and validation
-
-Preparation verifies assets, resolves selections, validates transition bounds,
-checks that all caption intervals are valid, and requires `alt` for every item. It
-reports a video asset whose selected source interval or decoder is unsupported.
-Keep pure score validation separate from host readiness checks. The host checks
-decoders, display support, and audio output before a performance.
-
-The portable package holds image and video assets, audio accompaniment, caption
-assets when used, the resolved slideshow definition, and optional run records.
-Each dependency remains relative to the package root and sealed by byte length and
-SHA-256. A missing optional visual may use a declared replacement item; a missing
-required visual or accessible text is a preparation failure.
-
-### Build in small steps
-
-This is a format plan. The next implementation work is a pure schema and selection
-resolver with language-neutral cases for ordering, exclusions, transitions,
-captions, descriptions, and recorded manual decisions. Image/video decoding,
-screen output, cue delivery, caption rendering, and audio playback belong to hosts
-and bindings. A later decision may add richer crops, animation, multiple displays,
-live camera inputs, or new transition contracts.
+Later proposals include additional ordering comparators, richer crops,
+animation, multiple displays, live camera inputs, and new transition contracts.
+General video editing and codec implementation remain outside this plan.
 
 ## Fixture controls, DMX, and spatial light fields
 
-**Milestone 6: Bring lighting into the timeline.** Reuse lyte drivers. Begin with
-one fixture profile and one pixel layout before broadening device coverage.
+Use the existing [fixture format](../../../ufor/doc/fixture-format.md), layouts,
+and patches with lyte's drivers. The first useful host result is to repatch a
+fixture or rewire a pixel string without editing its cues, using the same
+resolved values and layout for preview and delivery.
 
-**First useful result:** Repatch a fixture or rewire a pixel string without
-editing its cues. Preview and delivery use the same values and layout, with
-explicit stop behavior.
+Remaining host work includes timeline delivery, preview integration, calibrated
+device profiles, and measured output timing. Keep semantic fixture state,
+spatial fields, and raw device traffic distinguishable. Bindings must explicitly
+carry wire/display universe conventions, channel encodings, and calibration.
 
-**Implemented profile:** uFor now has `FixtureScore` for semantic numeric and
-discrete fixture cues, channel encodings, compositor and stop rules, raw DMX
-capture, and separate `FixturePatch` records that map logical fixtures to display
-and Art-Net wire universes and DMX start slots. Existing uFor light layouts and
-wiring, including coordinate frames and separate pixel patches, provide the
-independent pixel-field representation. See [the fixture format](../../../ufor/doc/fixture-format.md).
-DMX/Art-Net transmission and preview remain host work.
+Multi-universe delivery needs a synchronization strategy and measured skew;
+equal authored timestamps do not prove simultaneous physical presentation.
+Device profiles own transfer curves, component order, RGBW conversion,
+quantization, and power limiting. Normalized RGB is not evidence of linear color.
 
-Lighting has two principal editable forms: semantic fixture state and spatial
-fields. Raw device traffic is a third capture representation. Keep all three
-distinguishable.
-
-### Fixture state
-
-A fixture definition exposes named typed parameters: intensity, color, pan, tilt,
-strobe, gobo selection, or device-specific functions. Continuous parameters use
-quantities with units or a declared normalized domain. Discrete modes use enums
-and hold interpolation. A fixture profile maps these to the selected device mode's
-channels, packed values, and ranges.
-
-Use degrees for a calibrated pan/tilt interface where the physical meaning is
-known. Retain an explicitly named normalized-position interface when it is not; do
-not label an arbitrary DMX fraction as a measured angle. A profile documents which
-semantic operations a fixture cannot perform.
-
-Two lighting sources do not automatically add like audio. A compositor declares
-per-parameter rules, such as maximum intensity, ordered override, or color blend.
-Discrete gobo selections never average. Competing writers to a patched address are
-a validation error unless the installation declares the compositor.
-
-### DMX and Art-Net
-
-An authored cue targets logical fixtures and parameters. A binding supplies
-fixture mode, universe, starting slot, and endpoint. This allows re-patching a
-show without rewriting every cue. Keep raw DMX snapshots as ordered byte arrays
-with explicit slot count and universe identity when exact capture matters. Raw
-playback requires a matching patch contract and bypasses semantic remapping.
-
-Art-Net is an output/capture transport for the selected representation, not a new
-semantic quantity. Specify raw wire address and human display universe separately.
-The current lyte driver translates `universe + universe_offset` to the wire
-address, normally using offset -1. Carry that choice into the binding explicitly;
-do not infer it from a bare universe number.
-
-Bindings declare multi-byte channel order, slot offsets, quantization, and
-discrete value tables. For example, a profile may encode a 16-bit value into a
-coarse and fine slot; this is different from driving two independent dimmers. Keep
-packet sequence numbers and arrival timing in raw capture provenance.
-Multi-universe output needs a declared synchronization strategy and measured skew;
-saving equal timestamps does not prove simultaneous physical presentation.
-
-### Pixel geometry
-
-A pixel field is an array over stable element names, with color components and
-optional alpha defined by its schema. It references a layout containing ordered
-elements, coordinates, coordinate units/frame, and named regions. Lines, matrices,
-rings, wearables, irregular meshes, and spatial arrangements are all layouts of
-elements. Matrix row/column addressing is an authoring view of the same stable
-names.
-
-Illustrative small layout body:
-
-```toml
-coordinate_unit = "metre"
-coordinate_frame = "installation"
-
-[[elements]]
-name = "left"
-position = [0.0, 0.0, 0.0]
-
-[[elements]]
-name = "right"
-position = [0.1, 0.0, 0.0]
-
-[[regions]]
-name = "pair"
-elements = ["left", "right"]
-```
-
-Store pixel order explicitly. A separate physical patch maps element names to
-device and LED indices. Rewiring a string changes that patch, not the animation.
-An animation that depends on distance consumes coordinates; one that chases along
-a path consumes a declared ordered region. Missing geometry is an error for the
-former, not permission to assume the pixels form a line.
-
-Use a specified linear RGB working space for the first field profile, with
-explicit conversion at device output. Calibration, transfer curve, component
-order, RGBW conversion, quantization, and power limiting belong to the device
-profile. Do not silently call all normalized RGB arrays linear. Color fidelity
-across different devices needs calibration and is not guaranteed by shared channel
-names.
-
-### Time and playback
-
-An authored animation graph generates fields from timeline position, parameters,
-and declared state. A recorded field stream keeps actual frame timestamps and
-layout identity. State changes hold until the next change unless a semantic curve
-specifies interpolation. A sink schedules at its supported refresh rate and
-reports dropped updates; the recording retains original timing.
-
-Stop/disconnect behavior belongs to the endpoint profile: blackout, fade, or
-defined held state. Resetting all raw bytes to zero is not a universal semantic
-“off” for every fixture function. Preview uses the same layout and control
-resolution as physical output, with delivery replaced by visualization.
-
-### Integration notes
-
-Keep lyte's efficient frame arrays, renderers, and drivers. Introduce named
-layouts and explicit color interpretation around them. Separate reusable fixture
-capabilities from physical patching, retaining range and overlap validation. Adapt
-existing show and installation models as each application adopts the common score;
-check their current implementation at that point.
+Sinks schedule at their supported refresh rate and report dropped updates.
+Stop/disconnect applies the profile's blackout, fade, or held-state policy;
+zero raw bytes are not a universal semantic off. Adapt existing show and
+installation models as their applications adopt the common score, checking
+their current implementation before changing drivers.
 
 ## Radio programmes, live sections, and rebroadcast
 
-**Milestone 7: Preserve what actually aired.** Build programme transport after
-arrangements, bindings, and run recording work together. Start with recorded
+Build programme transport using the existing
+[broadcast format](../../../ufor/doc/broadcast-format.md). Start with recorded
 sections and one live input; add delayed relay and rolling buffers later.
+Input connections, scheduling, playout, relay buffering, delivery, and capture
+remain host work.
 
-**First useful result:** Run a recording, a cued live section, and a replacement
-source. Replay the captured timing and decisions without needing the original live
-input.
-
-**Implemented profile:** uFor now has `BroadcastScore` with recorded/live/relay
-source declarations, fixed/after/cue starts, every planned end rule, transitions,
-unavailability and late-join policy, relay buffer requirements, capture intent,
-provisional-cue detection, and ordered as-aired delivery observations. It validates
-unknown references and cyclic `after` schedules while preserving actual decisions
-independently of a future live source. See [the broadcast format](../../../ufor/doc/broadcast-format.md).
-Input connection, playout, relay buffering, delivery, and audio capture remain
-host work.
-
-A broadcast score schedules content that may not exist yet. It describes intended
-playout; a run records actual playout. A completed recording and a future
-programme are different objects.
-
-### Programme structure
-
-A broadcast exposes programme outputs and contains ordered sections. Each section
-names a source, scheduled start, duration policy, transition, and behavior when
-content is unavailable. A source may be a recording, a nested arrangement, a live
-input, or a live relay from another programme.
-
-Every section uses exactly one start rule:
-
-- `at`: a fixed position on the programme timeline, optionally anchored to UTC.
-- `after`: begin after the named previous section actually finishes.
-- `cue`: begin on an operator cue, with an earliest position and deadline.
-
-Every section uses exactly one end rule: a fixed duration, a fixed end position,
-or a cue/source-end bounded by a maximum duration. Reject cyclic `after`
-dependencies. Unresolved cue timings make the plan provisional, not malformed.
-
-Illustrative section within a one-hour programme whose `programme` timebase has
-one tick per second:
-
-```toml
-[[sections]]
-name = "guest"
-source = "guest-feed"
-start = { kind = "at", tick = 600 }
-end = { kind = "at", tick = 900 }
-transition = { kind = "cut" }
-unavailable = { kind = "replacement", source = "standby-bed" }
-late_join = "current"
-capture = true
-```
-
-This reserves minutes 10 through 15. If the feed appears at 10:20, a `current`
-late join takes its then-current content and still ends at minute 15. It does not
-replay the missing 20 seconds. A replacement source must be prepared for the
-entire reserved interval and declare its looping or end behavior.
-
-### Three uses of live material
-
-| Intent | Definition |
-| --- | --- |
-| Future live section | Logical microphone or contributor endpoint to be bound for this run |
-| Live relay | Another programme's currently produced stream, with latency/buffer policy |
-| Later replay of a live section | Sealed capture asset and its actual timeline placement |
-
-A delayed relay additionally declares a required buffer duration. It can start
-only when that amount of captured data exists. A source that has not happened yet
-cannot be rendered ahead of time. Offline preparation may render the known
-sections and show unresolved intervals, but must label that result incomplete.
-
-The programme can be rebroadcast in two intentional ways. Replaying the captured
-programme reproduces what aired. Running its definition again repeats recorded
-sections and obtains new live material for its live sections. Selecting between
-these creates a concrete replay arrangement or a new run; the player must not
-silently choose according to whether a microphone happens to be connected.
+A delayed relay starts only after its required captured interval is available.
+Offline preparation may render known sections and show unresolved live intervals,
+but must label the result incomplete. Replaying a captured programme and running
+its definition with new live material are distinct operator choices.
 
 ### Transitions, overruns, and failures
 
@@ -995,8 +321,8 @@ adapter can observe them.
 
 ### Application responsibilities
 
-recs resolves and renders content, journals decisions, and records programme
-audio. streamO delivers a selected programme output and supplies supported live
+A programme host resolves and renders content and journals playout decisions.
+recs records programme audio. streamO delivers a selected programme output and supplies supported live
 feed adapters. showCo presents run readiness, timing, actionable failures, and
 operator cues. lyte can consume synchronized programme controls through another
 output. Scheduling is owned by one broadcast transport; applications must not
@@ -1030,44 +356,20 @@ prerequisite, and define an observable acceptance case.
 
 ### Make performance instruments richer
 
-Build on existing named slices. Consider linked microphone takes, reusable slot
-groups, and voice retirement after their interactions are specified. A sample
-browser could create an instrument directly from selected recs recording ranges,
-retaining the original take and edit provenance.
+A sample browser could create an instrument directly from selected recs
+recording ranges, retaining the original take and edit provenance.
 
-Reproducible humanization could vary timing, pitch, dynamics, and take choice from
-a documented seed and algorithm. Keep authored randomness separate from the result
-of one performance, so “try another take” and “repeat this take” are different
-operations.
+Timing humanization and authoring tools for seeded variations remain possible
+extensions. Reuse existing seeded sample selection and pitch/gain variation;
+keep authored randomness separate from the observed result of one performance.
 
-The first [modulation profile](deferred-work.md#envelopes-lfos-and-modulation) now
-defines envelope/LFO state and curve semantics. Looped envelopes,
+Remaining [modulation extensions](deferred-work.md#envelopes-lfos-and-modulation)
+include looped envelopes,
 random/sample-and-hold sources, and continuous rate ramps remain later extensions
 requiring their own conformance cases. Granular synthesis, convolution, time
 stretching, and physical modeling are useful later processor capabilities. Prefer
 binding an existing implementation when it meets the contract. Add a new universal
 parameter only when its meaning across implementations can actually be stated.
-
-### Synth and sampler work belongs to enge
-
-The [enge handover](../enge.md) assigns both engine goals; enge's execution plan
-owns backend and audio-conformance work. uFor owns portable semantics and cases.
-VST hosting is a separate decision. These engine extensions are not prerequisites
-for the slideshow, lighting, or broadcast milestones.
-
-#### Minimum envelope and voice-lifecycle contract
-
-The initial uFor contract and conformance cases now specify:
-
-- How a trigger starts a voice and its envelope, including retriggering.
-- How release, sustain-pedal changes, and legato affect the envelope and voice.
-- Which trigger owns each voice, including overlapping notes of the same pitch.
-- When a voice finishes, and how it is retired on stop or when capacity is reached.
-
-These rules have concrete event sequences, expected states, and voice lifetimes.
-enge's existing synth reference realizes the supported subset. Further portable
-semantics need uFor cases before engine support; finishing every tuning, LFO, or
-synthesis extension is not a prerequisite for the initial engines.
 
 ### Connect sound, gesture, and space
 
@@ -1189,3 +491,7 @@ their incomplete semantics into generic fields.
 - [Audio Definition Model usage guidance](https://www.itu.int/dms_pub/itu-r/opb/rep/R-REP-BS.2388-6-2025-TOC-HTM-E.htm)
 - [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
 - [SMuFL](https://www.smufl.org/)
+
+## Additional work beyond the prompt
+
+None.

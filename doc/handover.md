@@ -15,5 +15,4 @@ bounded rendering, automation, normalization, and encoding buffers. See the
 uFor owns portable instrument semantics; enge owns both synth and sampler engine
 implementation. recs owns capture and its existing editing and encoding tools;
 future instrument authoring and playback belong to a separate host. The
-[enge handover](../plan/enge.md) supersedes the earlier model-first
-waveform-generation pause.
+[enge roadmap](../../enge/plan/roadmap.md) owns further engine work.

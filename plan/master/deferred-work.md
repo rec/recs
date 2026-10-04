@@ -1,8 +1,8 @@
-# Musical-model inventory and remaining decisions
+# Remaining musical-model and DSP decisions
 
-This is a mixed implemented/proposed inventory, not a list of wholly deferred
-features. Use [the plan index](../README.md) for ownership and current status.
-Each extension still needs concrete semantics and conformance cases.
+These are unresolved extensions, not instructions to rebuild existing models.
+Use [the plan index](../README.md) for owners and authoritative specifications.
+Each extension needs concrete semantics and language-neutral conformance cases.
 
 Navigation: [instruments](#sample-instruments-and-performance-objects),
 [modulation](#envelopes-lfos-and-modulation),
@@ -10,225 +10,33 @@ Navigation: [instruments](#sample-instruments-and-performance-objects),
 
 ## Sample instruments and performance objects
 
-### Incomplete
+Instrument authoring, playback hosts, and plugin/VST integration remain separate
+application work. They belong outside recs and uFor. Use
+[enge's roadmap](../../../enge/plan/roadmap.md) for remaining engine work rather
+than maintaining another synth or sampler checklist here.
 
-The sample preparation trace, including pedal/legato gate delivery and voice
-retirement, is complete. Synth definitions and lifecycle traces are implemented
-too. Both engine goals belong to [enge](../enge.md): shared synthesis (an initial
-reference exists) and sampler implementation. Native backend selection, VST
-wrapping, and recs host integration remain separate work.
-
-### Preserve the useful recsam model
-
-The [uFor sample format](../../../ufor/doc/instrument-format.md) and
-`ufor/samples/` models describe slots, key/velocity selection, loops,
-articulations, sustain, choke groups, crossfades, envelopes, LFOs, scoped
-controls, EQ, and independent reference pitch. Keep those musical concepts.
-Do not flatten them into thousands of primitive graph connections simply to
-make every object look identical.
-
-The new instrument score wraps a typed `sample_instrument` definition,
-exposes a performance input and named audio outputs, and references common
-assets, parameters, and events. General processing after the instrument uses
-the processor graph. Voice-specific processing stays in its voice template.
-
-### Assets and slots
-
-Replace `SampleSlot.sample` paths with asset IDs. Asset metadata owns native
-sample rate, frame count, channel layout, and encoding. A named slice owns one
-half-open range in that asset's native frames; slots reference that slice.
-Loop positions stay in the same native asset frame coordinates and must be
-contained in the selected slice. Never express sample trim points in musical
-beats or reinterpret them at the output sample rate.
-
-A slot selects keys and velocity intervals, trigger kind, articulation, and
-optional alternate-take set. Key is a selection coordinate; target pitch is
-independent. A pitch-tracked slot declares `reference_pitch_hz` and requires a
-resolved performance pitch. Unpitched percussion does not need a fictitious
-reference pitch.
-
-Slot playback uses nullable overrides: omission inherits, while an explicit
-default overrides. Envelope overrides replace the complete envelope.
-Preparation resolves these declarations into complete immutable voice settings.
-Do not replace every combination rule with a generic dictionary merge:
-additive gain in dB, envelope overrides, and local modulation references have
-different existing meanings. Preserve them explicitly during the first cutover.
-
-The uFor envelope/LFO profile intentionally changes some current rules.
-Its [cutover table](../../../ufor/doc/modulation-format.md#changes-from-recsam-and-remaining-boundaries)
-specifies segment expansion, curve translation, exact timing, retriggering,
-and phase during delay. Resolve inheritance into a complete envelope before
-constructing its uFor definition; do not layer partial segment lists through
-a generic merge.
-
-### Voice and layer behavior
-
-One performance trigger may create several voices. Distinguish a trigger limit
-from a voice limit. Before playback implementation, define both capacities and
-deterministic retirement: released voices first, then oldest trigger, with ID
-as a tie-breaker. Retirement applies the instrument's explicit fade duration.
-It must not depend on processing block size or incidental container order.
-
-Sustain retains the existing pedal and release-trigger semantics. Choking a
-group, releasing a key, stealing a voice, and stopping transport are distinct
-causes of retirement. Define which causes fire release samples; do not let an
-implementation accidentally emit a release sample for every internal removal.
-
-For multiple microphones, add linked layers only with a shared take-selection
-identity. Choose the take once, then create close/room voices from that same
-take, each with explicit channel selection, alignment offset, gain, and output.
-Independent microphone random selection would create a performance that was
-never recorded.
-
-Round-robin counters belong to named selection sets and reset at the declared
-performance start. Random behavior requires an identified algorithm and seed,
-plus reset rules independent of block size. The first usable profile may use
-deterministic ordered selection only; stochastic portability is a later feature
-until its algorithm has conformance examples.
-
-### Processing and reuse
-
-An instrument can expose `dry`, `room`, or other named outputs. A parent
-arrangement connects those explicitly. Each instrument node instance owns its
-voice/control state; two uses of the same definition do not share sustain or
-round-robin counters. Both slot and instrument processing run per voice before
-mixing, preserving the original sample contract. A shared post-mix/send effect
-is a separate graph node.
-
-Keep normalized performance controls independent of MIDI CC numbers and OSC
-addresses. One named `breath` control can shape a sample filter, an oscillator,
-and light intensity through explicit mappings, without teaching the sampler
-those transport protocols.
-
-### Small sampler contract and later implementations
-
-The initial sample/synth definitions and portable event/state contract exist.
-uFor prepares actions; enge owns their bounded audio realization and snapshots.
-Keep authoring and host concerns outside that core, and do not make Python class
-layout the portable specification. enge now has NumPy and native synth and
-sampler engines; its [execution plan](../../../enge/plan/engine-execution.md)
-owns remaining engine and backend decisions. A VST wrapper is a separate host,
-not an instrument score.
-Instrument playback acceptance belongs to a separate host.
-
-### External samplers and change from today
-
-`InstrumentScore` is now the common root; `SampleInstrument` is its typed
-body. The former `format_version` root and Recsam model modules are removed.
-[safaz](https://github.com/rec/safaz) owns SFZ conversion with explicit
-unsupported-feature diagnostics, local path resolution, symlink containment,
-hashing, decoding, and embedded-loop inspection. There is no parallel native format.
-
-Existing `Processing` and `SoundSettings` represent a limited sound-processing
-vocabulary. General DSP belongs in [Processors](deferred-work.md#synthesizers-dsp-and-analysis-graphs); the existing
-peaking EQ does not already implement arbitrary filters or synthesis. The
-[enge README](../../../enge/README.md) describes the implemented engines and
-remaining work. Adopting a universal envelope does not replace engine
-conformance and host acceptance.
-
-### Additional work beyond the prompt
-
-None.
-
+If a future profile adds trigger-wide capacities beyond existing voice pools,
+specify deterministic retirement and release-sample behavior explicitly. One
+trigger can own several voices; trigger limits and voice limits are distinct.
 
 ## Envelopes, LFOs, and modulation
 
-### Incomplete
+Remaining model extensions include looped envelopes, random/sample-and-hold
+sources, continuous LFO rate ramps, modulation feedback, and general audio-rate
+execution. A looped envelope needs entry/exit, release-from-loop, and zero-time
+cycle rules. These require their own conformance cases rather than another
+envelope or oscillator implementation.
 
-Looped envelopes, continuous LFO rate ramps, modulation feedback, oscillator
-lifecycle extensions, and general audio-rate execution remain unfinished.
-Sampler work belongs to enge; VST hosting remains separately deferred. Instrument preparation,
-pedal and legato gate delivery, voice retirement, portable action traces, and
-seeded sample selection and variation are complete format work.
-
-### Selected model
-
-| Subject | First-profile decision |
-| --- | --- |
-| Envelope shape | One ordered segment representation, with a separate release list; ADSR is an authoring preset |
-| Curves | Normalized exponential with signed curvature; zero is linear, and +/-5 reproduces Recsam's documented exponential directions |
-| Time | Exact rational seconds or quarter-note beats; hosts supply integrated beat position; no per-stage frame rounding |
-| Release | Capture the current level, skip remaining on-segments, consume the full release duration; repeated releases do not restart |
-| Retrigger | Explicit current-value, reset-to-initial, or ignore policy |
-| Sustain | Hold the final on-list level; physical pedal and legato decisions remain in the instrument adapter |
-| Completion | Hold the terminal level and report completion; voice retirement is separate |
-| LFO phase | Exact rational phase with continuous accumulation across stepped rate changes; zero rate freezes |
-| LFO reset | Free, trigger-reset, or transport-reset policy; explicit reset always applies |
-| Shapes | tuney's sine, square, and duty/skew triangle equations with exact transition conventions |
-| Activation | Phase advances during delay; separate activation weight preserves neutral routes and supports fade-in |
-| Ownership | State per voice or per instrument instance, never shared through definition identity |
-| Ordering | Strict time/ordinal order; completed and zero-time segments are consumed before each event |
-| Seeking | Replay events, optionally from state bound to the same definition/history; reject backward queries from a later state |
-
-An envelope can be unipolar or bipolar, held or one-shot, and have any finite
-number of segments. A release can contain several segments and end at a
-nonzero level. This supports reusable controls for pitch, filters, lighting,
-and gain without imposing sample-voice policy on the definition.
-
-### Connection contract
-
-Sources produce dimensionless values. Routes explicitly map them into target
-units or dimensionless multipliers. Source activation is applied after mapping,
-interpolating from zero for addition or one for multiplication. Resolve the
-base value and single replacement-automation producer, add mapped offsets,
-then multiply mapped factors. Reject out-of-domain values unless an explicit
-clipping operation is present. Use stable route identities for numerical
-reduction, never list order as modulation priority.
-
-These semantics are now implemented by `ufor.modulation.Modulation`, with typed
-parameter domains, scope and unit checks, explicit mappings, and scalar
-evaluation. See [routes](../../../ufor/doc/instrument-format.md#modulation-routes)
-and [portable cases](../../../ufor/conformance/routes.json). Binding source
-declarations to instrument generators and context ownership is part of the
-completed native instrument cutover; the existing arrangement-only parameter target
-remains separate.
-
-### Cutover and remaining work
-
-Recsam now uses the shared uFor envelope/LFO definitions. The old fixed classes
-and route hierarchy are removed. Native slot envelopes are whole overrides,
-playback inheritance survives serialization, and SFZ adapters report unsupported
-curves and behavior explicitly. There is no alternate Recsam reader.
-
-The canonical specification gives before/after mappings, including the old
-exponential curves and the changed phase behavior during LFO delay. Instrument
-preparation now supplies pedal/legato gate delivery, voice retirement, and
-portable action traces for these models. Audio oscillator lifecycle integration
-must also use the phase/reset contract without copying a waveform engine into
-uFor.
-
-Looped envelopes, random/sample-and-hold sources, continuous LFO rate ramps,
-modulation feedback, and audio-rate execution remain deferred. A looped contour
-needs explicit entry/exit and zero-time-cycle semantics; the current profile
-rejects it. The sampler, compiled engine, and possible VST still require the
-separate execution decision after the instrument model gate.
-
-### Additional work beyond the prompt
-
-None.
-
+Named envelope and addressed LFO event integration belongs to
+[enge's execution plan](../../../enge/plan/engine-execution.md).
+The current contracts are documented in
+[uFor's modulation format](../../../ufor/doc/modulation-format.md).
 
 ## Synthesizers, DSP, and analysis graphs
 
-### Incomplete
-
-General processor execution, graph preparation, host latency handling, and
-plugin hosting remain deferred. The initial oscillator lifecycle and audio
-reference are implemented in enge; broader engine support follows its own plan.
-
-### First synth-instrument definition
-
-Implemented in uFor: a typed synth instrument is a sibling of the sample
-instrument score. Its mapped voice templates reuse the extracted oscillator,
-envelope, LFO, modulation, processing, controls, and performance-event models.
-It must explicitly specify output routes, trigger/lifecycle behavior, and
-oscillator pitch and phase/reset inputs. It does not model samples, loops,
-arbitrary processor graphs, feedback, or transport-specific MIDI behavior.
-
-Portable acceptance includes schema and codec round trips, mapping and
-reference validation, exact oscillator phase/state observations, shared
-sustain/choke/voice-limit traces, snapshot restoration, and rejection of features
-outside the first profile. Engine audio fixtures live in enge.
+General cross-domain processor graphs, host latency compensation, and plugin
+hosting remain proposed work. enge owns its engine and effects extensions;
+the following graph design is not a claim that those implementations are absent.
 
 ### Operation and instance
 
@@ -252,36 +60,6 @@ Do not assume that similarly named operations have identical DSP. An abstract
 compressor describes intent; an exact operation contract additionally fixes its
 detector, knee, envelope equations, channel linking, and numerical behavior.
 Bind abstract intent only to a declared matching profile, and record the choice.
-
-### Extract tuney's oscillator contract
-
-Use `tuney/audio/oscillator.py` and its existing waveform functions as the
-starting implementation evidence. Extract the definition and pure mathematical
-contract from UI annotations, callable enum members, NumPy buffer allocation,
-and application note handling. Plan reuse of the existing implementation when
-execution work resumes; do not build a second oscillator during model work.
-
-| Existing feature | Shared-model treatment |
-| --- | --- |
-| Sine | State its phase convention and output range; duty cycle has no effect |
-| Square | Define pulse width, polarity, exact transition values, and behavior at duty 0 and 1 |
-| Triangle/saw family | Preserve continuous duty/skew semantics and define rising/falling orientation from the actual equations, not just waveform names |
-| Start, length, and period | Replace implicit sample-index conventions with an explicit phase/clock contract; settle reset and phase continuity under changing frequency |
-| Key-scaled gain | Keep reference selection key and dB-per-key-interval mapping separate from oscillator Hz and waveform shape |
-
-tuney's gain calculation currently uses twelve key steps per scaling interval.
-Do not reinterpret that as a frequency octave under an arbitrary tuning without
-an explicit decision. Its square and saw/triangle implementations are not
-band-limited; a future anti-aliased realization must declare the chosen profile
-and tolerances rather than claim identical sample values.
-
-Publish units, defaults, admissible values, equations, and state transitions.
-Keep phase evolution separate from shape evaluation so envelopes, LFOs, and
-audio oscillators can share suitable definitions without conflating their rates
-or lifetime. Reconcile these decisions with [Modulation](deferred-work.md#envelopes-lfos-and-modulation).
-Stage 3 acceptance uses scores, parameter mappings, phase/state examples,
-and existing source inspection. New waveform generation and audio regression
-fixtures wait for the later execution milestone.
 
 ### Graph contract
 
@@ -317,7 +95,7 @@ authorize a hidden arbitrary conversion from audio directly to RGB.
 
 ### Feedback and latency
 
-When execution resumes, the first scheduler should support acyclic graphs.
+The general processor scheduler should first support acyclic graphs.
 Ordinary delay and feedback effects
 can be encapsulated operations with defined internal state; that covers many
 synthesizer patches without permitting algebraic graph loops.
@@ -356,169 +134,48 @@ processor's output is the reliable way to retain an otherwise unavailable or
 nonreproducible realization. Plugin version identifiers alone cannot guarantee
 sample-identical results on every machine.
 
-### Change from today
-
-Reuse recs's existing separation of graph validation, materialized audio,
-rendering, and output encoding. Generalize port types and processing nodes
-instead of adding parallel renderers to each CLI edit command. Keep recsam
-voice rendering as a planned specialized engine behind its common ports.
-
-lyte's `AnimationSpec`/`MixerSpec` already describe source graphs, but `impl`
-currently resolves Python factories. Move that executable lookup to installed
-bindings. tuney's `Oscillator` currently combines waveform selection and runtime
-generation; extract its specification and plan reuse of its implementation,
-while leaving its tuning UI local. A compiled engine and VST instrument wrapper
-are later options. Keep any Python reference, compiled realization, and host
-wrapper accountable to the same language-neutral cases. No new DSP engine or
-plugin host is implemented by this documentation change.
-
-
 ## Pitch, tunings, and scales
 
-### Incomplete
+Remaining work includes noncontiguous tuning maps, broader keyboard mappings,
+MTS byte import and sparse updates, and their host realization policies. Existing
+pitch expressions, dense finite/repeating tables, scale calculations, Scala
+conversion, and oscillator contracts belong to uFor's documentation.
 
-Noncontiguous tuning maps, broader keyboard mappings, MTS byte import and
-sparse updates, plus host realization rules, remain future model or adapter
-work. The current portable model deliberately does not inherit tuney's
-instrument-range fallback.
+### Sparse mappings and host policy
 
-### Repetition is musical data
+A finite table need not be ascending or contiguous. Undefined degrees must remain
+explicit during validation and preparation. An instrument's decision to
+substitute a playable note belongs to a separate visible mapping policy, not
+modulo indexing in the tuning definition. Do not copy tuney's instrument-range
+fallback into the portable model.
 
-Support both repeating and finite definitions, including finite frequency
-ratios relative to a reference frequency. Do not infer repetition merely because
-values form a list, or because an instrument must respond to every input key.
+Keyboard mappings and reference frequency are separate from Scala scale data.
+Preserve that separation when adding keyboard-map import. Report interchange
+rounding and unsupported expressions.
 
-| Definition | Meaning outside the listed range |
-| --- | --- |
-| Repeating adjacent-ratio pattern | Continue multiplying successive intervals, including inverse traversal below the reference degree |
-| Repeating reference-ratio cycle | Repeat degree ratios with an explicit frequency multiplier for each cycle |
-| Finite ratio table | Only declared degrees exist; each ratio is relative to the declared reference Hz |
-| Finite frequency table | Only declared degrees exist, with explicit positive Hz values |
-
-These are distinct semantics to capture in a compact discriminated model during
-stage 3. Adjacent ratios describe successive intervals; reference ratios describe
-positions relative to an origin. A reader must never guess which a list means.
-The earlier equal-division representation can be authoring shorthand for a
-repeated single interval rather than another independently maintained model.
-
-Separate **pattern length in steps** from **frequency multiplier per cycle**.
-Western 12-tone equal temperament has a one-step repeating interval
-`2^(1/12)`. Its one-step multiplier is also `2^(1/12)`; twelve steps give `2`.
-A twelve-step just-intonation pattern may have twelve adjacent ratios
-whose product is `2`. Neither pattern length nor multiplier is necessarily 12
-or an octave. Do not force all just-intonation scales to have twelve steps.
-
-For adjacent ratios `r[0] ... r[N-1]`, define
-`f(k+1) / f(k) = r[k mod N]` relative to the reference degree. The cycle
-multiplier is the product of those ratios, not a second independently editable
-value. For reference ratios `q[i]` and cycle multiplier `P`, define
-`f(a*N+i) = reference_hz * P^a * q[i]`, with `0 <= i < N`, `q[0] = 1`,
-and degree zero at the reference. Specify Euclidean division for negative
-degrees so implementations in different languages agree.
-
-Illustrative finite ratio entries, with no wrapping:
-
-```toml
-representation = "ratio_table"
-reference_hz = "440"
-entries = [
-  { degree = -1, ratio = "2/3" },
-  { degree = 0, ratio = "1" },
-  { degree = 1, ratio = "5/4" },
-]
-```
-
-Degree 1 is 550 Hz; degree 2 is undefined. Frequency and ratio values are
-positive, but a ratio below one is valid. A finite table need not be ascending
-or contiguous. Undefined pitch remains explicit during validation/preparation.
-Any instrument decision to substitute a playable note belongs to a separate,
-visible mapping policy, not to modulo indexing in the tuning definition.
-
-### Human-readable frequency and ratio expressions
-
-Adopt the user's frequency/ratio minilanguage, a superset of Scala pitch-value
-notation. Fractional authoring such as `5/4` and `2/3` is a requirement, not an
-optional display convenience. `/` means division and `^` means exponentiation.
-Keep exact rational arithmetic where possible; retain powers such as the
-equal-tempered interval symbolically until numerical evaluation is needed.
-Do not require composers to replace fractions with decimal approximations or
-numerator/denominator object syntax.
-
-TOML expression values are quoted strings. Frequency fields supply the Hz
-context; ratio fields supply a dimensionless context; Scala cents values must
-keep their cents meaning. A cents offset has ratio `2^(cents/1200)` regardless
-of tuning step size. Parsing yields typed values or expression nodes, not
-executable Python. The authored expression is authoritative; numerical results
-are derived values with a stated evaluation precision.
-
-Before implementing the parser, document the actual minilanguage's complete
-grammar, precedence, associativity, grouping, signs, whitespace, and decimal
-rules. `2^(1/12)` above makes the intended grouping explicit. In particular,
-distinguish Scala's decimal-cents syntax from a decimal ratio or Hz value by
-the declared value kind/import context. Preserve Scala inputs' meaning rather
-than treating their decimals as ordinary ratios. Publish accepted and rejected
-examples, zero-denominator handling, and positive finite-result requirements.
-Do not invent unspecified operators while extracting the existing language.
-
-tuney's currently inspected `scale/evaluate.py` uses Python AST arithmetic and
-math/random calls. It is not evidence that the requested `/` and `^` language
-is already implemented there. Locate and reconcile the user's minilanguage
-before porting a parser; Python `^` must not acquire XOR semantics. The portable
-frequency language does not inherit arbitrary functions, randomness, or Python
-evaluation from tuney's broader expression UI.
-
-### Scala and MIDI interchange
-
-Scala is a primary tuning interchange target. Preserve its ratio/cents entries,
-implicit unison, and final period entry, translating to explicit repeat
-semantics. A Scala list contains offsets from unison, not adjacent interval
-ratios; converting to adjacent ratios requires successive quotients. Keyboard
-mapping and reference frequency are separate from that scale data. See the
-[Scala scale-file specification](https://huygens-fokker.org/scala/scl_format.html).
+### MIDI tuning interchange
 
 MIDI Tuning Standard per-key frequency tables are finite mappings and must not
-gain automatic repetition. The MTS Scale/Octave extensions also support
-repetition; handle that explicitly in their adapter rather than assuming all
-MTS messages describe the same kind of tuning. See the
+gain automatic repetition. Scale/Octave extensions need explicit repetition
+semantics in their adapter. Exporting a finite table to a repeating format
+requires an explicit musical decision. See the
 [MIDI Association's tuning specification summary](https://midi.org/midi-tuning-updated-specification).
-Report interchange rounding and unsupported expressions. Exporting a finite
-table to a repeating format requires an explicit musical decision.
 
-### Scales and performance
+Broader MIDI 2.0 semantic conversion, MIDI-CI host integration, SysEx
+reassembly, and conversion remain separate from exact raw UMP packet storage.
 
-A scale selects and names degrees from a tuning. Preserve tuney's selection,
-spelling, accidentals, offsets, reference frequency, and detuning semantics.
-Keyboard mappings and educational presentation do not change the underlying
-frequency definition. Avoid baking MIDI's key range into the common degree type.
+### Performance mapping and acceptance
 
-Authored performance events reference tuning degrees and scores. Preparation
-resolves them to one authoritative `pitch_hz`; retain authored degrees as
-provenance. A frequency measurement already in Hz needs no scale assignment.
 Specify whether pitch bend acts before or after retuning, with explicit scope
-and range. Repeated same-key triggers retain independent identities.
+and range. MIDI and CV bindings must report quantization and limitations on
+independent pitches. Host mapping and educational presentation must not silently
+change the underlying tuning.
 
-Sample playback relates event frequency to the slot's reference frequency;
-oscillators consume Hz. MIDI and CV bindings report quantization and limitations
-on independent pitches. These contracts can be designed and checked without
-generating audio or implementing a sampler.
+Extend portable fixtures for noncontiguous finite ratio/Hz tables, undefined
+degrees, keyboard maps, MTS per-key tables, and sparse updates. Define numeric
+tolerances for interchange rounding. Keep UI annotations, file dialogs, and
+fallback selection local to the application.
 
-### Extraction and acceptance
-
-Extract musical definitions and pure calculations from tuney's `Tuning`,
-`Computed`, `Ratios`, `Table`, and `Scale`. Keep UI annotations, file dialogs,
-and fallback selection local. `Table.__call__` currently uses modulo indexing
-to keep tuney's instrument playable; that is explicitly not the finite-table
-contract. Review the host mapping when adopting the new model rather than
-silently copying that fallback or changing tuney in this planning revision.
-
-Use language-neutral fixtures for exact fractions, fractional powers, a
-one-step equal-tempered pattern, a twelve-step just-intonation example,
-non-octave cycles, negative degrees, finite ratio/Hz boundaries, Scala import,
-and MTS per-key tables. Preserve tuney examples where they express intended
-musical behavior; identify intentional corrections separately. Define numeric
-tolerances for irrational results. Extensions to portable pitch semantics need
-parser, model, and pitch-value tests before corresponding engine support.
-
-### Additional work beyond the prompt
+## Additional work beyond the prompt
 
 None.

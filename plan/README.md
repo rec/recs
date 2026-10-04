@@ -1,31 +1,32 @@
 # Active plans and ownership
 
 Use [the README](../README.md) and [project documentation](../doc/) for
-implemented recs behavior. Active plans describe work that is not yet complete;
-completed checklists are retained below as records. Proposals do not authorize
+implemented recs behavior. Plans contain only unresolved work and proposals;
+completed plans remain recoverable in Git history. Proposals do not authorize
 implementation by themselves.
 
 ## recs work
 
 None. SFZ work now belongs to [safaz](https://github.com/rec/safaz/blob/main/plan/sfz.md).
 
-## Completed work
+## Remaining proposals
 
-- [baccy recording import](baccy-recording-import.md): completed, including
-  source-media relocation and backup verification, per user report on
-  3 October 2026.
-- [Human and experimental verification](human.md): physical verification of
-  implemented recs behavior completed per user report on 3 October 2026.
-
-## Shared-model and engine work
-
-- [uFor ownership and remaining model decisions](ufor.md)
-- [enge ownership and engine work](enge.md)
 - [Cross-domain proposals](master/future-proposals.md)
 - [Musical-model decisions](master/deferred-work.md)
 
-Read the owning project's current format documentation before treating any
-proposed profile as implemented.
+## Owning projects
+
+- [uFor documentation](../../ufor/doc/api-map.md) owns portable models and
+  implemented reference semantics. Its [asset-location](../../ufor/plan/url-paths.md)
+  and [cache](../../ufor/plan/asset-cache.md) plans track remaining host work.
+- [enge's roadmap](../../enge/plan/roadmap.md) owns engine sequencing; its
+  [execution plan](../../enge/plan/engine-execution.md) tracks control and live
+  execution integration.
+- [safaz's plan](../../safaz/plan/sfz.md) owns remaining SFZ conversion work.
+
+Read the owning project's current documentation before implementing an extension.
+Do not repeat completed model migrations or maintain competing engine checklists
+in recs.
 
 ## Additional work beyond the prompt
 
