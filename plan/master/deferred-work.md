@@ -115,9 +115,9 @@ Instrument playback acceptance belongs to a separate host.
 
 `InstrumentScore` is now the common root; `SampleInstrument` is its typed
 body. The former `format_version` root and Recsam model modules are removed.
-`ufor.sfz` owns pure conversion with explicit unsupported-feature diagnostics.
-recs retains local path resolution, symlink containment, hashing, decoding and
-embedded-loop inspection. There is no parallel native format.
+[safaz](https://github.com/rec/safaz) owns SFZ conversion with explicit
+unsupported-feature diagnostics, local path resolution, symlink containment,
+hashing, decoding, and embedded-loop inspection. There is no parallel native format.
 
 Existing `Processing` and `SoundSettings` represent a limited sound-processing
 vocabulary. General DSP belongs in [Processors](deferred-work.md#synthesizers-dsp-and-analysis-graphs); the existing

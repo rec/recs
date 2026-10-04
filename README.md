@@ -427,9 +427,9 @@ Unchanged historical sessions are not rewritten or reported again. Use
 `recs session recover-scan ROOT` to deliberately discover sessions copied into
 an already-known recording root.
 
-Recsam provides Pydantic models for the recs sample-instrument format and SFZ
-import/export with explicit reporting of unsupported features. Audio playback
-of Recsam instruments is not implemented yet.
+Sample instrument definitions belong to [uFor](https://github.com/rec/ufor).
+SFZ import/export and sample inspection belong to
+[safaz](https://github.com/rec/safaz).
 
 ## Reference Documentation
 
@@ -440,7 +440,7 @@ of Recsam instruments is not implemented yet.
 - [Audio Arrangement Scores](doc/arrangement-format.md)
 - [recs Protocol](doc/recs_protocol.md)
 - [Configuration Units](doc/configuration-units.md)
-- [Sample Instrument Scores](doc/sample-format.md)
+- [Sample Instrument Scores](https://github.com/rec/ufor/blob/main/doc/instrument-format.md)
 
 Current unfinished design work is kept under `plan/`. Historical reviews and
 completed plans are deliberately not retained as product documentation.

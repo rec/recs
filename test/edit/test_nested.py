@@ -7,6 +7,7 @@ import soundfile
 from ufor.arrangement import ArrangementScore
 from ufor.codec import score_toml
 from ufor.interface import Output, OutputSelection, Part, ScoreReference
+from ufor.samples.instrument import SampleInstrumentScore
 
 from recs.edit.commands import complete_or_generate
 from recs.edit.graph import validate_graph
@@ -152,13 +153,60 @@ def test_forwarded_output_and_package_boundaries(tmp_path: Path) -> None:
 def test_instrument_realization_is_reported_as_unsupported(tmp_path: Path) -> None:
     from ufor.sequence import SequenceScore
 
-    from recs.recsam.sfz import read
-
-    soundfile.write(tmp_path / 'sample.wav', np.zeros(48000, dtype=np.float32), 48000)
-    path = tmp_path / 'piano.sfz'
-    path.write_text('<region> sample=sample.wav key=69')
-    instrument = read(path).instrument
-    assert instrument is not None
+    instrument = SampleInstrumentScore.model_validate(
+        {
+            'name': 'piano',
+            'title': 'Piano',
+            'timebases': [{'name': 'output', 'rate': {'numerator': 48000}}],
+            'assets': [
+                {
+                    'name': 'sample',
+                    'location': {'kind': 'relative_file', 'path': 'sample.wav'},
+                    'encoding': 'WAV/FLOAT',
+                    'content': {'byte_length': 192044, 'sha256': '0' * 64},
+                    'audio': {
+                        'timebase': 'output',
+                        'channels': ['mono'],
+                        'frames': 48000,
+                    },
+                }
+            ],
+            'inputs': [
+                {
+                    'name': 'performance',
+                    'stream': {
+                        'family': 'event',
+                        'timebase': 'output',
+                        'kinds': ['trigger', 'release', 'control_change'],
+                    },
+                    'binding': {'performance': True},
+                }
+            ],
+            'outputs': [
+                {
+                    'name': 'audio',
+                    'stream': {'timebase': 'output', 'channels': ['mono']},
+                    'binding': {'audio': True},
+                }
+            ],
+            'body': {
+                'settings': {},
+                'slices': [{'name': 'sample', 'asset': 'sample', 'end_frame': 48000}],
+                'slots': [
+                    {
+                        'name': 'piano',
+                        'slice': 'sample',
+                        'mapping': {
+                            'lowest_key': 69,
+                            'highest_key': 69,
+                            'pitch_tracking': False,
+                        },
+                        'channels': [{'input': 'mono', 'output': 'mono', 'gain': 1}],
+                    }
+                ],
+            },
+        }
+    )
     (tmp_path / 'piano.toml').write_text(score_toml(instrument))
     audio = next(p.stream for p in instrument.outputs)
     notes = SequenceScore.model_validate(
