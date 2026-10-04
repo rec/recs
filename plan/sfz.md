@@ -42,6 +42,12 @@ oldest-immediate retirement. The default retains the instrument with a located
 assumption diagnostic; callers can accept the rule explicitly. Conflicting
 limits, legato variants, and limits that may reject simultaneous layers remain
 diagnosed.
+Sticky `sw_last` keyswitches now select regions per part, with optional
+`sw_default`; an unmapped key inside the declared switch range clears the
+selection. `loccN`/`hiccN` note-on conditions now use part-local controller
+state and map to named controls when a MIDI binding is requested. Controller
+conditions without that binding, and release conditions that need note-on
+controller history, retain located diagnostics.
 The pinned SFZ v1/v2 registry classifies 453 opcodes and the standard headers,
 drives unsupported-feature diagnostics, and generates the
 [support table](../../ufor/doc/sfz-support.md). SFZ 2 `#define` values expand
@@ -62,11 +68,11 @@ playing real instruments, not by opcode count or implementation convenience.
 The pure mappings belong in uFor; recs supplies local asset facts. An eventual
 player or editor owns live MIDI input and playback, not recs.
 
-1. **Keyswitches and controller conditions.** Articulation switching, `loccN`/
-   `hiccN`, trigger CC ranges, and initial CC values unlock many real-world
-   instrument libraries. Extend the separate performance-binding model and
-   portable selection state before mapping them; do not guess how a host reads
-   or schedules controllers.
+1. **Remaining keyswitch and controller behavior.** Sticky `sw_last`, optional
+   `sw_default`, and `loccN`/`hiccN` note-on conditions are complete. Held and
+   previous-key switches, CC-triggered regions, and initial CC values still
+   need precise portable selection and binding rules. Do not guess how a host
+   reads or schedules controllers.
 2. **Basic filters and their musical controls.** Cutoff and resonance have a
    large audible effect. uFor now defines resonant filters and enge renders
    them, so map only SFZ responses and ranges with a verified equivalent.
