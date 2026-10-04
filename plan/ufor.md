@@ -35,8 +35,10 @@ The repository at `~/code/ufor` currently provides:
 - synth-instrument scores, synth lifecycle traces, and voice settings that
   reuse the portable oscillator, envelope, LFO, modulation, routing, and
   performance models; and
-- pure SFZ parsing, compilation, export, and precise unsupported-feature
-  diagnostics, plus bounded VL70m MIDI 1.0 SysEx inspection and relocation.
+- bounded VL70m MIDI 1.0 SysEx inspection and relocation.
+
+SFZ parsing, compilation, export, asset inspection, and diagnostics belong to
+[safaz](https://github.com/rec/safaz).
 
 The defining documentation and portable cases live alongside the package, in
 `~/code/ufor/doc/`, `~/code/ufor/schema/`, and `~/code/ufor/conformance/`.
@@ -48,11 +50,12 @@ acceptance boundary.
 | Project | Responsibility |
 | --- | --- |
 | uFor | Portable definitions, validation, codecs, schema, exact mathematical/state references, preparation and lifecycle traces, and conformance cases |
-| recs | Capture, sealed local asset facts, session migration, editing, export, SFZ file acquisition, and existing audio rendering |
+| recs | Capture, sealed local asset facts, session migration, editing, export, and existing audio rendering |
 | tuney | Authoring/UI policy, instrument-range mapping, broader expressions, Scala file access, MIDI delivery, and its existing waveform-host behavior |
 | enge | Shared synth and sampler engines: realize prepared uFor actions as bounded audio buffers |
 | lyte | Lighting-host state, drivers, installation-specific patching, and physical delivery |
 | streamO and showCo | Operational streaming, transport, service, and run responsibilities |
+| safaz | SFZ conversion, compatibility diagnostics, and sample-file inspection |
 | reccy | Shared Python application infrastructure, with no portable-format ownership |
 
 uFor must not grow adapters that silently choose host policies. For example,
@@ -96,7 +99,7 @@ continuous LFO rate ramps, modulation feedback, and richer cross-domain graph
 semantics. Each is independent work, not an implied extension of the current
 instrument renderer.
 
-See [the instrument contract](../doc/sample-format.md) and
+See [the instrument contract](https://github.com/rec/ufor/blob/main/doc/instrument-format.md) and
 [the offline engine boundary](enge.md) for the surrounding plan.
 
 ## Additional Work Beyond The Prompt

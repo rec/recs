@@ -7,7 +7,7 @@ implementation by themselves.
 
 ## recs work
 
-- [Remaining SFZ import work](sfz.md)
+None. SFZ work now belongs to [safaz](https://github.com/rec/safaz/blob/main/plan/sfz.md).
 
 ## Completed work
 
