@@ -66,8 +66,8 @@ quote-style = "single"
 exclude-newer = "1 week"
 
 [tool.uv.sources]
-dvice = { git = "ssh://git@github.com/rec/dvice.git", branch = "main" }
-reccy = { git = "ssh://git@github.com/rec/reccy.git", branch = "main" }
+dvice = { git = "https://github.com/rec/dvice.git", branch = "main" }
+reccy = { git = "https://github.com/rec/reccy.git", branch = "main" }
 ufor = { git = "https://github.com/rec/ufor.git", branch = "main" }
 
 
