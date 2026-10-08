@@ -205,10 +205,9 @@ wheels = [
 [[package]]
 name = "dvice"
 version = "0.1.0"
-source = { git = "https://github.com/rec/dvice.git?branch=main#bf2f3276ad3072479f4e4a3c8ffeb0a3182273f1" }
+source = { git = "https://github.com/rec/dvice.git?branch=main#14e295053fb973c8c1c5a6ec9465ae93bc346585" }
 dependencies = [
     { name = "pydantic" },
-    { name = "reccy" },
     { name = "sounddevice" },
     { name = "threa" },
     { name = "tyro" },

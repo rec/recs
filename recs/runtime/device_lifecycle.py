@@ -3,7 +3,8 @@ from multiprocessing import connection
 from pathlib import Path
 from typing import cast
 
-from reccy.device import DeviceDict
+from dvice.device import DeviceDict, device_key
+from dvice.health import DiscoveryHealth
 
 from recs.base import times
 from recs.base.errors import RecsError
@@ -110,6 +111,8 @@ class DeviceLifecycle:
         self.present_hardware: set[str] = set()
         self.no_devices_reported = False
         self.no_channels_reported = False
+        self.discovery_sequence = -1
+        self.discovery_failure_reported = False
         self.poller: DevicePoller | None = None
         if self.hardware_sources or not self.file_sources:
             self.poller = self.device_poller(cfg.console.sleep_time_device)
@@ -184,14 +187,29 @@ class DeviceLifecycle:
         }
 
     def poll(self, paused: bool, expired: bool) -> None:
-        if self.poller is None or (snapshot := self.poller.latest()) is None:
+        if self.poller is None:
             return
+        status = self.poller.status
+        if status.sequence == self.discovery_sequence:
+            return
+        self.discovery_sequence = status.sequence
+        if status.failure is not None:
+            if not self.discovery_failure_reported:
+                self.warning(
+                    f'Device discovery unavailable ({status.failure}); '
+                    'keeping current device state'
+                )
+                self.discovery_failure_reported = True
+            return
+        if status.health != DiscoveryHealth.healthy or status.devices is None:
+            return
+        if self.discovery_failure_reported:
+            self.warning('Device discovery recovered')
+            self.discovery_failure_reported = False
+        devices = status.devices
         if muted_name := self.cfg.muted_device_name:
-            snapshot = {
-                name: info
-                for name, info in snapshot.items()
-                if info['name'] != muted_name
-            }
+            devices = [i for i in devices if i['name'] != muted_name]
+        snapshot = {device_key(i): i for i in devices}
         if snapshot:
             self.no_devices_reported = False
         elif not self.present_hardware and not self.cfg.selection.include:

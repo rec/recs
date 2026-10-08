@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from pathlib import Path
 
+from dvice.health import DiscoveryStatus
+
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
@@ -67,8 +69,7 @@ class FakePoller:
     def poll(self) -> None:
         pass
 
-    def latest(self) -> None:
-        return None
+    status = DiscoveryStatus()
 
 
 def test_reap_drains_all_pending_source_messages() -> None:

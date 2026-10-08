@@ -728,7 +728,7 @@ def test_control_request_pauses_and_resumes_recording(
     rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     assert rec._devices.poller is not None
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
     rec._poll_devices()
     assert rec._devices.hardware['Mic'].running
     pause = FakeControlRequest(gui_protocol.PauseRecording(type='pause_recording'))

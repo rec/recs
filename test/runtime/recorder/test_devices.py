@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from dvice.health import DiscoveryFailure, DiscoveryHealth, DiscoveryStatus
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.state import ChannelState
@@ -72,9 +73,7 @@ def test_possible_room_mic_stays_muted_after_poll(
     assert list(rec._devices.hardware) == ['Interface']
 
     assert rec._devices.poller is not None
-    rec._devices.poller.snapshots = [
-        {'Built-in Microphone': mic, 'Interface': interface}
-    ]
+    rec._devices.poller.snapshots = [[mic, interface]]
     rec._poll_devices()
 
     assert list(rec._devices.hardware) == ['Interface']
@@ -91,12 +90,81 @@ def test_recorder_adds_device_detected_after_start(
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     assert rec._devices.poller is not None
     assert rec.error_messages() == []
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
     rec._poll_devices()
 
     assert 'Mic' in rec._devices.hardware
     assert rec._devices.hardware['Mic'].started
     assert list(rec.state.state) == ['Mic']
+
+
+def test_duplicate_display_names_with_supplied_ids_remain_online_after_reordering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = {
+        'name': 'USB Audio',
+        'uid': 'first',
+        'max_input_channels': 1,
+        'max_output_channels': 2,
+        'default_samplerate': 48_000,
+    }
+    second = {**first, 'uid': 'second'}
+    monkeypatch.setattr(device, 'query_devices', lambda: [first, second])
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(silent=True))
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [[first, second], [second, first], [second]]
+
+    rec._poll_devices()
+    assert rec._devices.present == {'uid:first', 'uid:second'}
+    rec._poll_devices()
+    assert rec._devices.present == {'uid:first', 'uid:second'}
+    assert all(s.start_count == 1 for s in rec._devices.hardware.values())
+    rec._poll_devices()
+    assert rec._devices.present == {'uid:second'}
+    assert not rec._devices.hardware['uid:first'].running
+    assert rec._devices.hardware['uid:second'].running
+
+
+def test_discovery_failure_warns_once_without_stopping_devices_and_reports_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    mic_info = next(i for i in DEVICES if i['name'] == 'Mic')
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [[mic_info]]
+    rec._poll_devices()
+    mic = rec._devices.hardware['Mic']
+    poller = rec._devices.poller
+    poller.discovery_status = DiscoveryStatus(
+        devices=[],
+        sequence=2,
+        health=DiscoveryHealth.retrying,
+        failure=DiscoveryFailure.exited,
+    )
+    rec._poll_devices()
+    rec._poll_devices()
+    poller.discovery_status = poller.discovery_status.model_copy(update={'sequence': 3})
+    rec._poll_devices()
+    assert mic.running and mic.stop_count == 0
+    assert rec._devices.present == {'Mic'}
+    assert rec.error_messages() == [
+        'Device discovery unavailable (exited); keeping current device state'
+    ]
+
+    poller.snapshots = [[mic_info]]
+    rec._poll_devices()
+    rec._poll_devices()
+    assert rec.error_messages()[-1] == 'Device discovery recovered'
+    assert len(rec.error_messages()) == 2
+    assert mic.start_count == 1
+    poller.snapshots = [[]]
+    rec._poll_devices()
+    assert not mic.running
+    assert rec._devices.present == set()
 
 
 def test_recorder_waits_for_missing_included_devices(
@@ -114,7 +182,7 @@ def test_recorder_waits_for_missing_included_devices(
     assert rec.error_messages() == []
 
     assert rec._devices.poller is not None
-    rec._devices.poller.snapshots = [{'Ext': ext_info, 'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[ext_info, mic_info]]
     rec._poll_devices()
 
     assert list(rec._devices.hardware) == ['Mic']
@@ -132,10 +200,10 @@ def test_recorder_replaces_returning_device(
     mic = rec._devices.hardware['Mic']
 
     rec._devices.poller.snapshots = [
-        {},
-        {'Mic': mic_info, 'Unexpected': mic_info},
-        {},
-        {'Mic': mic_info},
+        [],
+        [mic_info, {**mic_info, 'name': 'Unexpected'}],
+        [],
+        [mic_info],
     ]
 
     rec._poll_devices()
@@ -218,10 +286,10 @@ def test_failed_device_waits_for_reconnect(
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
     rec._devices.poller.snapshots = [
-        {'Mic': mic_info},
-        {'Mic': mic_info},
-        {},
-        {'Mic': mic_info},
+        [mic_info],
+        [mic_info],
+        [],
+        [mic_info],
     ]
 
     rec._poll_devices()
@@ -247,9 +315,7 @@ def test_device_with_too_few_channels_stays_offline(
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), silent=True))
     flower = rec._devices.hardware['Flower 8']
-    rec._devices.poller.snapshots = [
-        {'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}
-    ]
+    rec._devices.poller.snapshots = [[{'max_input_channels': 2, 'name': 'Flower 8'}]]
 
     rec._poll_devices()
 
@@ -268,7 +334,7 @@ def test_slow_device_clock_stays_offline(
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
 
     rec._poll_devices()
     now = 110.0
@@ -297,7 +363,7 @@ def test_slow_device_clock_ignores_startup_grace(
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
 
     rec._poll_devices()
     now = 104.0
@@ -326,7 +392,7 @@ def test_stalled_source_is_stopped(
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
 
     rec._poll_devices()
     now += recorder.SOURCE_STALL_TIMEOUT + 1

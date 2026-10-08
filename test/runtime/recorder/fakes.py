@@ -3,6 +3,8 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from dvice.device import DeviceDict
+from dvice.health import DiscoveryHealth, DiscoveryStatus
 from threa import Runnable
 
 from recs.base.errors import RecsError
@@ -23,10 +25,19 @@ class DiskUsage(NamedTuple):
 
 class FakePoller(Runnable):
     def __init__(self, interval: float) -> None:
-        self.snapshots: list[dict[str, Any] | None] = []
+        self.snapshots: list[list[DeviceDict] | None] = []
+        self.discovery_status = DiscoveryStatus()
 
-    def latest(self) -> dict[str, Any] | None:
-        return self.snapshots.pop(0) if self.snapshots else None
+    @property
+    def status(self) -> DiscoveryStatus:
+        if self.snapshots and (devices := self.snapshots.pop(0)) is not None:
+            self.discovery_status = DiscoveryStatus(
+                devices=devices,
+                sequence=self.discovery_status.sequence + 1,
+                health=DiscoveryHealth.healthy,
+                generation=1,
+            )
+        return self.discovery_status.model_copy(deep=True)
 
     def poll(self) -> None:
         pass
@@ -64,7 +75,7 @@ class FakeSourceProcess:
         session_directory: Path,
         track_names: dict[str, dict[str, int]] | None = None,
     ) -> None:
-        self.name = tracks[0].source.name
+        self.name = tracks[0].source.key
         self.source = tracks[0].source
         self.tracks = tracks
         self.connection = FakeConnection()

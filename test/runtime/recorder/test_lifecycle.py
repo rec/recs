@@ -110,9 +110,7 @@ def test_display_receives_recorder_errors(
     monkeypatch.setattr(recorder.live, 'Live', ClosedDisplay)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE)))
     flower = rec._devices.hardware['Flower 8']
-    rec._devices.poller.snapshots = [
-        {'Flower 8': {'max_input_channels': 2, 'name': 'Flower 8'}}
-    ]
+    rec._devices.poller.snapshots = [[{'max_input_channels': 2, 'name': 'Flower 8'}]]
 
     rec._poll_devices()
 
