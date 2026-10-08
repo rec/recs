@@ -157,6 +157,7 @@ class FakeProcess:
         name: str | None = None,
     ) -> None:
         self.alive = False
+        self.pid: int | None = None
         self.kwargs = kwargs
         self.name = name
         self.terminated = False
@@ -172,6 +173,7 @@ class FakeProcess:
 
     def start(self) -> None:
         self.alive = True
+        self.pid = 1
 
     def terminate(self) -> None:
         self.alive = False

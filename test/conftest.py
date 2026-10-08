@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from dvice import poller
+from dvice.health import DiscoveryHealth, DiscoveryStatus
 from reccy.device import DeviceDict
 
 from recs.cfg import device
@@ -32,7 +33,7 @@ def query_devices(kind=None):
 
 class FakeDeviceQueryStream:
     def __init__(self, command: object = None) -> None:
-        pass
+        self.status = DiscoveryStatus()
 
     def start(self) -> None:
         pass
@@ -41,7 +42,20 @@ class FakeDeviceQueryStream:
         pass
 
     def devices(self) -> list[DeviceDict]:
-        return device.query_devices()
+        devices = list(device.query_devices())
+        self.status = DiscoveryStatus(
+            devices=devices,
+            sequence=self.status.sequence + 1,
+            health=DiscoveryHealth.healthy,
+            generation=1,
+        )
+        return devices
+
+
+class ThreadProcess(dummy.Process):
+    @property
+    def pid(self) -> int | None:
+        return self.ident
 
 
 class FakeMidiPort:
@@ -73,6 +87,7 @@ def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def mock_mp(monkeypatch):
+    monkeypatch.setattr(dummy, 'Process', ThreadProcess)
     monkeypatch.setattr(connection, 'wait', wait)
     monkeypatch.setattr(source_process, 'mp', dummy)
     monkeypatch.setattr(poller, 'DeviceQueryStream', FakeDeviceQueryStream)

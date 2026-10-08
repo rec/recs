@@ -42,7 +42,7 @@ def test_slow_device_clock_reports_once_per_session(
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
-    rec._devices.poller.snapshots = [{'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info]]
     update = SourceUpdate(
         channels={'1': ChannelState()},
         files=[],
@@ -1025,7 +1025,7 @@ def test_record_records_source_and_track_lifecycle_events(
     )
     rec._start_record()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
-    rec._devices.poller.snapshots = [{'Mic': mic_info}, {}, {'Mic': mic_info}]
+    rec._devices.poller.snapshots = [[mic_info], [], [mic_info]]
 
     rec._poll_devices()
     rec._receive_update(
