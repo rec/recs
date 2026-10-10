@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-09-29T18:08:12.13565Z"
+exclude-newer = "2026-10-03T11:04:27.491119Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "recs"
-version = "0.12.5"
+version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "dvice" },
