@@ -104,6 +104,10 @@ venv.bak/
 .envrc
 .idea/
 
+# Local recording backups and render experiments
+/backups/
+/results copy*/
+
 # Output files in the top directory
 # /*.flac
 # /*.m4a
