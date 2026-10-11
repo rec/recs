@@ -30,7 +30,6 @@ jobs:
     env:
       ARTIFACT_NAME: Recs-${{ github.ref_name }}-${{ matrix.package }}.${{ matrix.extension }}
       QT_QPA_PLATFORM: offscreen
-      UV_NO_SOURCES: '1'
     strategy:
       fail-fast: false
       matrix:
