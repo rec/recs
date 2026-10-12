@@ -1,5 +1,6 @@
 import copy
 import json
+import sys
 from datetime import datetime, timedelta
 from hashlib import sha256
 from multiprocessing import connection, dummy
@@ -80,9 +81,12 @@ def mock_midi_devices(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    home = Path('/tmp') / f'recs-{sha256(str(tmp_path).encode()).hexdigest()[:12]}'
+    # Unix sockets need short paths; Windows uses named pipes instead.
+    directory = tmp_path if sys.platform == 'win32' else Path('/tmp')
+    home = directory / f'recs-{sha256(str(tmp_path).encode()).hexdigest()[:12]}'
     home.mkdir(exist_ok=True)
     monkeypatch.setenv('HOME', str(home))
+    monkeypatch.setenv('USERPROFILE', str(home))
 
 
 @pytest.fixture

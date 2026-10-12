@@ -46,7 +46,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-build_root="${TMPDIR:-/tmp}/recs-release-build"
+build_root="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}/recs-release-build"
 repo_root="$(pwd)"
 uv run --with pyinstaller --with pillow pyinstaller \
   --noconfirm \

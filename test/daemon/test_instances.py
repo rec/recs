@@ -57,8 +57,8 @@ def test_publish_and_remove_instance_descriptor(tmp_path: Path) -> None:
             started_at=1,
             role='local',
         ),
-        control_endpoint='/tmp/recs-control.sock',
-        event_endpoint='/tmp/recs-events.sock',
+        control_endpoint=str(Path.home() / 'recs-control.sock'),
+        event_endpoint=str(Path.home() / 'recs-events.sock'),
         protocol_version=11,
         sources=['Mic'],
     )
@@ -84,8 +84,8 @@ def test_discover_accepts_only_the_instance_described_by_its_endpoint(
             started_at=2,
             role='local',
         ),
-        control_endpoint='/tmp/live.sock',
-        event_endpoint='/tmp/live-events.sock',
+        control_endpoint=str(Path.home() / 'live.sock'),
+        event_endpoint=str(Path.home() / 'live-events.sock'),
         protocol_version=11,
     )
     stale = live.model_copy(
@@ -93,7 +93,7 @@ def test_discover_accepts_only_the_instance_described_by_its_endpoint(
             'identity': live.identity.model_copy(
                 update={'start_token': 'stale', 'started_at': 1}
             ),
-            'control_endpoint': '/tmp/stale.sock',
+            'control_endpoint': str(Path.home() / 'stale.sock'),
         }
     )
     instances.publish(live, tmp_path)
@@ -135,17 +135,20 @@ def test_resolve_prefers_newest_local_and_uses_daemon_as_fallback(
     older = _descriptor('local', 100, 2)
     newest = _descriptor('local', 200, 3)
     monkeypatch.setattr(instances, 'discover', lambda: [newest, older, daemon])
-    monkeypatch.setattr(instances, 'external_control_endpoint', lambda: '/tmp/daemon')
-    monkeypatch.setattr(instances, 'external_event_endpoint', lambda: '/tmp/events')
+    monkeypatch.setattr(
+        instances, 'external_control_endpoint', lambda: str(Path.home() / 'daemon')
+    )
+    monkeypatch.setattr(
+        instances, 'external_event_endpoint', lambda: str(Path.home() / 'events')
+    )
 
     assert instances.resolve(instances.Selector()).identity == newest.identity
     assert instances.resolve(instances.Selector(instance=-2)).identity == older.identity
     assert (
         instances.resolve(instances.Selector(instance=300)).identity == daemon.identity
     )
-    assert (
-        instances.resolve(instances.Selector(daemon=True)).control_endpoint
-        == '/tmp/daemon'
+    assert instances.resolve(instances.Selector(daemon=True)).control_endpoint == str(
+        Path.home() / 'daemon'
     )
 
 
@@ -167,15 +170,17 @@ def test_resolve_reports_available_instances_when_selector_is_unavailable(
 
 def test_settings_writer_finds_only_a_live_matching_destination(monkeypatch) -> None:
     match = _descriptor('local', 100, 2).model_copy(
-        update={'settings_path': '/tmp/second-interface.json'}
+        update={'settings_path': str(Path.home() / 'second-interface.json')}
     )
     other = _descriptor('local', 200, 3).model_copy(
-        update={'settings_path': '/tmp/other.json'}
+        update={'settings_path': str(Path.home() / 'other.json')}
     )
     monkeypatch.setattr(instances, 'discover', lambda: [other, match])
 
-    assert instances.settings_writer('/tmp/second-interface.json') == match
-    assert instances.settings_writer('/tmp/missing.json') is None
+    assert (
+        instances.settings_writer(str(Path.home() / 'second-interface.json')) == match
+    )
+    assert instances.settings_writer(str(Path.home() / 'missing.json')) is None
 
 
 def test_source_users_excludes_the_current_instance(monkeypatch) -> None:
@@ -211,16 +216,18 @@ def test_settings_claim_excludes_another_live_instance(
     )
     second = first.model_copy(update={'pid': 200, 'start_token': 'second'})
     first_claim = instances.claim_settings(
-        '/tmp/second-interface.json', first, tmp_path
+        str(Path.home() / 'second-interface.json'), first, tmp_path
     )
 
     with pytest.raises(ValueError, match='Recs PID 100 is already saving'):
-        instances.claim_settings('/tmp/second-interface.json', second, tmp_path)
+        instances.claim_settings(
+            str(Path.home() / 'second-interface.json'), second, tmp_path
+        )
 
     instances.release_settings(first_claim)
     assert first_claim.path.read_text() == instances.SETTINGS_CLAIM_MARKER
     second_claim = instances.claim_settings(
-        '/tmp/second-interface.json', second, tmp_path
+        str(Path.home() / 'second-interface.json'), second, tmp_path
     )
     assert second_claim.path == first_claim.path
     instances.release_settings(second_claim)
@@ -232,7 +239,7 @@ def test_settings_claim_blocks_legacy_claims_until_coordinated_cleanup(
     identity = instances.InstanceIdentity(
         pid=100, start_token='old', started_at=1, role='local'
     )
-    settings_path = '/tmp/second-interface.json'
+    settings_path = str(Path.home() / 'second-interface.json')
     claim = instances.claim_settings(settings_path, identity, tmp_path)
     instances.release_settings(claim)
     claim.path.write_text(
@@ -262,12 +269,16 @@ def test_settings_claim_recovers_after_another_process_exits(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match=f'Recs PID {pid} is already saving'):
-        instances.claim_settings('/tmp/second-interface.json', identity, tmp_path)
+        instances.claim_settings(
+            str(Path.home() / 'second-interface.json'), identity, tmp_path
+        )
 
     parent.send('exit')
     process.join(5)
     assert process.exitcode == 0
-    claim = instances.claim_settings('/tmp/second-interface.json', identity, tmp_path)
+    claim = instances.claim_settings(
+        str(Path.home() / 'second-interface.json'), identity, tmp_path
+    )
     instances.release_settings(claim)
 
 
@@ -275,7 +286,9 @@ def _hold_settings_claim(home: Path, connection: Connection) -> None:
     identity = instances.InstanceIdentity(
         pid=os.getpid(), start_token='child', started_at=1, role='local'
     )
-    claim = instances.claim_settings('/tmp/second-interface.json', identity, home)
+    claim = instances.claim_settings(
+        str(Path.home() / 'second-interface.json'), identity, home
+    )
     connection.send(identity.pid)
     connection.recv()
     assert claim.path.exists()
@@ -293,7 +306,7 @@ def _descriptor(
             started_at=started_at,
             role=role,
         ),
-        control_endpoint=f'/tmp/{pid}.sock',
-        event_endpoint=f'/tmp/{pid}-events.sock',
+        control_endpoint=str(Path.home() / f'{pid}.sock'),
+        event_endpoint=str(Path.home() / f'{pid}-events.sock'),
         protocol_version=11,
     )

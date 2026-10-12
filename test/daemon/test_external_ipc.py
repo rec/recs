@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from reccy.protocol import rpc
 from reccy.reccy import Reccy
+from reccy.services.models import Platform
 
 from recs.base.waveform import (
     WaveformBatchData,
@@ -226,7 +227,7 @@ def test_external_response_preserves_project_switched() -> None:
         gui_protocol.ProjectSwitched(
             type='project_switched',
             project_name='x18-show',
-            settings_path='/tmp/x18-show.json',
+            settings_path=str(Path.home() / 'x18-show.json'),
         ),
     )
 
@@ -234,7 +235,7 @@ def test_external_response_preserves_project_switched() -> None:
         'type': 'project_switched',
         'project_name': 'x18-show',
         'created': False,
-        'settings_path': '/tmp/x18-show.json',
+        'settings_path': str(Path.home() / 'x18-show.json'),
     }
 
 
@@ -305,7 +306,7 @@ def test_external_server_publishes_subscribed_waveforms(
         return server
 
     monkeypatch.setattr(external_ipc.rpc, 'Server', make_server)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     layout = _waveform_layout()
     batch = _waveform_batch(0)
     server.start()
@@ -359,7 +360,7 @@ def test_external_server_bounds_waveforms_while_event_connection_blocks(
         return server
 
     monkeypatch.setattr(external_ipc.rpc, 'Server', make_server)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     server.start()
     server.set_waveform_subscription(True, Cfg())
     server.publish_waveforms(_waveform_layout(), [])
@@ -379,8 +380,10 @@ def test_external_server_bounds_waveforms_while_event_connection_blocks(
     server.close()
 
 
+@pytest.mark.parametrize('platform', [Platform.linux, Platform.windows])
 def test_external_server_publishes_rows_and_shutdown_once(
     monkeypatch: pytest.MonkeyPatch,
+    platform: Platform,
 ) -> None:
     created: list[FakeRpcServer] = []
 
@@ -403,7 +406,7 @@ def test_external_server_publishes_rows_and_shutdown_once(
         return server
 
     monkeypatch.setattr(external_ipc.rpc, 'Server', make_server)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home(), platform=platform)
 
     server.start()
     server.publish_rows([{'device': 'Mic'}], [])
@@ -411,8 +414,16 @@ def test_external_server_publishes_rows_and_shutdown_once(
 
     assert created[0].started
     assert isinstance(server, Reccy)
-    assert created[0].control_endpoint == Path('/tmp/.local/state/recs/control.sock')
-    assert created[0].event_endpoint == Path('/tmp/.local/state/recs/events.sock')
+    if platform == Platform.windows:
+        assert created[0].control_endpoint == r'\\.\pipe\recs-control'
+        assert created[0].event_endpoint == r'\\.\pipe\recs-events'
+    else:
+        assert created[0].control_endpoint == (
+            Path.home() / '.local/state/recs/control.sock'
+        )
+        assert created[0].event_endpoint == (
+            Path.home() / '.local/state/recs/events.sock'
+        )
     assert created[0].published == [
         ('rows', {'rows': [{'device': 'Mic'}], 'errors': []}),
         ('shutdown', {}),
@@ -425,7 +436,7 @@ def test_external_server_releases_pending_request_when_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     server.start()
     request = external_ipc.ControlRequest(rpc.Request(command='get_cfg'))
     server._pending.append(request)
@@ -439,7 +450,7 @@ def test_external_server_rejects_request_after_closing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     server.start()
     server.close()
 
@@ -452,7 +463,7 @@ def test_external_server_rejects_second_control_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     server.start()
     server._pending.append(external_ipc.ControlRequest(rpc.Request(command='get_cfg')))
 
@@ -467,7 +478,7 @@ def test_external_server_times_out_pending_control_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
-    server = external_ipc.ExternalServer(home=Path('/tmp'))
+    server = external_ipc.ExternalServer(home=Path.home())
     server.start()
     monkeypatch.setattr(external_ipc, 'EXTERNAL_RESPONSE_TIMEOUT', 0)
 

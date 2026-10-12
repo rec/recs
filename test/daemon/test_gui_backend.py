@@ -8,7 +8,7 @@ from recs.daemon import gui_backend
 
 
 def test_backend_selects_unix_socket_for_path() -> None:
-    backend = gui_backend.server_backend(Path('/tmp/recs.sock'))
+    backend = gui_backend.server_backend(Path.home() / 'recs.sock')
 
     assert isinstance(backend, ipc.UnixSocketServerBackend)
 

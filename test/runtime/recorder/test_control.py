@@ -45,8 +45,8 @@ def test_recorder_rejects_an_active_settings_writer(
             started_at=1,
             role='local',
         ),
-        control_endpoint='/tmp/writer.sock',
-        event_endpoint='/tmp/writer-events.sock',
+        control_endpoint=str(Path.home() / 'writer.sock'),
+        event_endpoint=str(Path.home() / 'writer-events.sock'),
         protocol_version=11,
         settings_path=rec.settings_path,
     )

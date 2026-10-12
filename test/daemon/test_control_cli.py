@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -123,14 +124,16 @@ def test_control_commands_send_one_rpc_request(
 ) -> None:
     monkeypatch.setattr(control_cli.rpc, 'Client', FakeClient)
     monkeypatch.setattr(
-        control_cli.instances, 'external_control_endpoint', lambda: '/tmp/recs.sock'
+        control_cli.instances,
+        'external_control_endpoint',
+        lambda: str(Path.home() / 'recs.sock'),
     )
 
     assert control_cli.main(arguments) == 0
 
     assert len(FakeClient.clients) == 1
     client = FakeClient.clients[0]
-    assert client.endpoint == '/tmp/recs.sock'
+    assert client.endpoint == str(Path.home() / 'recs.sock')
     assert client.role == 'recs-control'
     assert client.timeout == 6
     assert client.calls == [(rpc_command, params)]
@@ -212,14 +215,14 @@ def test_control_can_target_a_specific_local_instance(
 ) -> None:
     monkeypatch.setattr(control_cli.rpc, 'Client', FakeClient)
     target = control_cli.instances.Target(
-        control_endpoint='/tmp/local.sock',
-        event_endpoint='/tmp/local-events.sock',
+        control_endpoint=str(Path.home() / 'local.sock'),
+        event_endpoint=str(Path.home() / 'local-events.sock'),
     )
     monkeypatch.setattr(control_cli.instances, 'resolve', lambda selector: target)
 
     assert control_cli.main(['--instance', '43120', 'pause']) == 0
 
-    assert FakeClient.clients[0].endpoint == '/tmp/local.sock'
+    assert FakeClient.clients[0].endpoint == str(Path.home() / 'local.sock')
     assert FakeClient.clients[0].calls == [('pause_recording', {})]
 
 

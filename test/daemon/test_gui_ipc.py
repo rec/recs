@@ -317,7 +317,7 @@ def test_status_write_is_not_synchronized(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(gui_ipc.settings, 'write_json_model', write_json_model)
 
-    gui_ipc._write_status(Path('/tmp/status.json'), DaemonStatus())
+    gui_ipc._write_status(Path.home() / 'status.json', DaemonStatus())
 
     assert synchronizations == [False]
 
@@ -452,7 +452,7 @@ def test_remote_row_provider_exposes_latest_rows(
     connection = FakeConnection(['{"type":"rows","rows":[{"device":"Mic"}]}\n'])
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
     client.start()
     assert _eventually(lambda: list(client.rows()) == [{'device': 'Mic'}])
 
@@ -469,7 +469,7 @@ def test_remote_row_provider_exposes_latest_errors(
     )
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
     client.start()
 
     assert _eventually(lambda: client.errors() == ['Device Mic failed'])
@@ -483,7 +483,7 @@ def test_remote_row_provider_closes_on_protocol_error(
         ['{"type":"error","message":"GUI protocol version 3 is not supported"}\n']
     )
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
 
     client.start()
 
@@ -496,7 +496,7 @@ def test_remote_row_provider_closes_on_shutdown(
 ) -> None:
     connection = FakeConnection(['{"type":"shutdown"}\n'])
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
 
     client.start()
 
@@ -509,7 +509,7 @@ def test_remote_row_provider_sends_key_events(
     connection = FakeConnection()
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
     client.start()
     client.record_key(KeyEvent(type='key_pressed', key='g'))
 
@@ -522,7 +522,7 @@ def test_remote_row_provider_sends_shutdown(
     connection = FakeConnection()
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
     client.start()
     client.shutdown()
 
@@ -535,7 +535,7 @@ def test_remote_row_provider_fails_when_hello_cannot_be_sent(
     connection = FakeConnection(broken=True)
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
 
-    client = gui_ipc.RemoteGuiClient(Path('/tmp/recs.sock'))
+    client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')
 
     with pytest.raises(BrokenPipeError, match='Could not send GUI hello'):
         client.start()
@@ -550,7 +550,7 @@ def test_endpoint_reachable_checks_metadata_socket(
     metadata = DaemonMetadata(
         module='recs',
         platform=Platform.linux,
-        control_endpoint='/tmp/recs.sock',
+        control_endpoint=str(Path.home() / 'recs.sock'),
     )
 
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
@@ -587,7 +587,7 @@ def test_run_remote_gui_reports_connection_failure(
     metadata = DaemonMetadata(
         module='recs',
         platform=Platform.linux,
-        control_endpoint='/tmp/recs.sock',
+        control_endpoint=str(Path.home() / 'recs.sock'),
     )
 
     def connect(endpoint: str | Path) -> FakeConnection:

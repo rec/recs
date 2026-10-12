@@ -15,7 +15,7 @@ def test_remote_selects_daemon_when_endpoint_is_reachable(
     metadata = DaemonMetadata(
         module='recs',
         platform=Platform.linux,
-        control_endpoint='/tmp/recs.sock',
+        control_endpoint=str(Path.home() / 'recs.sock'),
     )
     calls: list[str] = []
 
@@ -47,7 +47,7 @@ def test_remote_fails_when_daemon_endpoint_is_absent(
     metadata = DaemonMetadata(
         module='recs',
         platform=Platform.linux,
-        control_endpoint='/tmp/recs.sock',
+        control_endpoint=str(Path.home() / 'recs.sock'),
     )
 
     monkeypatch.setattr(run_cli.gui_ipc, 'load_metadata', lambda: metadata)

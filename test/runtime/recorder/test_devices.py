@@ -442,8 +442,8 @@ def test_unavailable_source_names_another_recs_instance(
             role='local',
             project_name='second-interface',
         ),
-        control_endpoint='/tmp/other.sock',
-        event_endpoint='/tmp/other-events.sock',
+        control_endpoint=str(Path.home() / 'other.sock'),
+        event_endpoint=str(Path.home() / 'other-events.sock'),
         protocol_version=11,
     )
     monkeypatch.setattr(
