@@ -282,6 +282,8 @@ class SourceRecorder(Runnables):
             contextlib.suppress(KeyboardInterrupt),
             self,
         ):
+            # A finite input may finish before all runnables report running.
+            self.running = True
             pending: BufferedUpdate | None = None
             while self.running and not self.stop_event.is_set():
                 self.control.receive()
@@ -292,7 +294,7 @@ class SourceRecorder(Runnables):
                     update = pending or self.buffer.get(timeout=POLL_TIMEOUT)
                     pending = None
                 except Empty:
-                    if not self.input_stream.running:
+                    if self.input_stream.stopped:
                         break
                 else:
                     self.control.receive()

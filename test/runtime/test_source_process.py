@@ -723,9 +723,9 @@ def test_source_process_join_drains_real_child_final_updates(
     while owner.is_alive and time.monotonic() < deadline:
         time.sleep(0.01)
     owner.join()
-    updates = [
-        update for update in owner.take_updates() if isinstance(update, SourceUpdate)
-    ]
+    messages = owner.take_updates()
+    assert not [m for m in messages if isinstance(m, SourceFailure)], messages
+    updates = [u for u in messages if isinstance(u, SourceUpdate)]
 
     assert updates
     assert any(update.file_records for update in updates), updates

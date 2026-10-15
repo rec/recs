@@ -240,6 +240,45 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
     transport.stop()
 
 
+def test_source_recorder_records_input_that_finishes_during_startup(
+    tmp_path: Path,
+) -> None:
+    source = InputDevice(
+        {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
+    )
+    audio = np.full((48_000, 1), 0.5, dtype=np.float32)
+
+    def input_stream(
+        sdtype: object, update_callback: Callable[[Update], None]
+    ) -> Runnable:
+        class ImmediateInputStream(Runnable):
+            def start(self) -> None:
+                super().start()
+                update_callback(Update(audio, 1.0))
+                self.stop()
+
+        return ImmediateInputStream()
+
+    source.input_stream = input_stream
+    recorder = SourceRecorder(
+        Cfg(record_everything=True, formats=['wav'], output_directory=str(tmp_path)),
+        OneMessageControlConnection(source_messages.SourceControl(), threading.Event()),
+        tmp_path,
+        threading.Event(),
+        [Track(source, '1')],
+        SourceUpdateTransport(BlockingConnection()),
+    )
+
+    recorder.run()
+
+    files = recorder.channel_writers[0].files_written
+    assert len(files) == 1
+    assert files[0].is_relative_to(tmp_path)
+    recorded, sample_rate = soundfile.read(files[0], always_2d=True)
+    assert sample_rate == 48_000
+    np.testing.assert_array_equal(recorded, audio)
+
+
 def test_source_recorder_runs_control_updates_without_audio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

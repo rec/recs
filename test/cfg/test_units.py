@@ -1,3 +1,4 @@
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import tyro
 from pydantic import ValidationError
 from reccy.configuration import units
 
+from recs.cfg import disk_threshold
 from recs.cfg.cfg import Cfg
 from recs.cfg.cli import CliCfg
 from recs.cfg.sections import Console, Recording
@@ -106,7 +108,7 @@ def test_device_profiles_accept_units_and_keep_other_settings(tmp_path: Path) ->
         ('10m', '600s'),
         ('2 min', '120s'),
         ('0.25s', '0.25s'),
-        ('10ms', '0.010s'),
+        ('10ms', '0.01s'),
         ('1e3', '1000'),
     ],
 )
@@ -124,6 +126,20 @@ def test_disk_threshold_units_roundtrip(value: str, normalized: str) -> None:
 def test_invalid_disk_thresholds_fail_during_configuration(value: str) -> None:
     with pytest.raises(ValidationError):
         Recording(disk_alert_thresholds=[value])
+
+
+@pytest.mark.parametrize(
+    ('value', 'amount', 'normalized'),
+    [('0.25s', Fraction(1, 4), '0.25s'), ('10ms', Fraction(1, 100), '0.01s')],
+)
+def test_disk_thresholds_accept_rational_unit_magnitudes(
+    monkeypatch: pytest.MonkeyPatch, value: str, amount: Fraction, normalized: str
+) -> None:
+    monkeypatch.setattr(disk_threshold, 'magnitude', lambda value, unit: amount)
+
+    assert Recording(disk_alert_thresholds=[value]).disk_alert_thresholds == [
+        normalized
+    ]
 
 
 def test_osc_periods_accept_units_without_changing_output_types() -> None:
