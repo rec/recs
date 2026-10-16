@@ -16,6 +16,7 @@ from recs.base import times
 from recs.cfg import device, run_cli
 from recs.cfg.cfg import Cfg
 from recs.recording import session_record
+from recs.runtime.source_process import SourceProcess
 
 from .conftest import BLOCK_SIZE, DEVICES, DEVICES_FILE
 from .recs_runner import RecsRunner
@@ -29,6 +30,20 @@ BLOCK_TIME = BLOCK_SIZE / SAMPLERATE
 TESTDATA = Path(__file__).parent / 'testdata/end_to_end'
 FILE_INPUTS = Path(__file__).parent / 'testdata/file_inputs'
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture
+def capture_processes(monkeypatch: pytest.MonkeyPatch) -> dict[str, SourceProcess]:
+    processes: dict[str, SourceProcess] = {}
+    start = SourceProcess.start
+
+    def start_capture(source: SourceProcess) -> None:
+        processes[source.name] = source
+        start(source)
+
+    monkeypatch.setattr(SourceProcess, 'start', start_capture)
+    return processes
+
 
 CASES = (
     ('default', {}, EVENT_COUNT),
@@ -114,7 +129,9 @@ def test_file_inputs(
 
 @tdir
 def test_flaky_device_end_to_end(
-    mock_mp: None, monkeypatch: pytest.MonkeyPatch
+    mock_mp: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capture_processes: dict[str, SourceProcess],
 ) -> None:
     schedule = DeviceSchedule()
     monkeypatch.setattr(device, 'query_devices', schedule)
@@ -132,6 +149,7 @@ def test_flaky_device_end_to_end(
         _send_blocks(runner, [first], 2)
 
         schedule.set()
+        capture_processes['Mic'].stop()
         _wait_until_stopped(first)
 
         schedule.set('Mic')
@@ -183,6 +201,7 @@ def test_long_gaps_end_to_end(
 def test_flaky_device_and_long_gaps_end_to_end(
     mock_mp: None,
     monkeypatch: pytest.MonkeyPatch,
+    capture_processes: dict[str, SourceProcess],
 ) -> None:
     schedule = DeviceSchedule()
     monkeypatch.setattr(device, 'query_devices', schedule)
@@ -208,6 +227,7 @@ def test_flaky_device_and_long_gaps_end_to_end(
         _send_blocks(runner, [ext, flower, mic], 2)
 
         schedule.set('Ext', 'Flower 8')
+        capture_processes['Mic'].stop()
         _wait_until_stopped(mic)
         _send_blocks(runner, [ext, flower], 2)
 
@@ -215,6 +235,7 @@ def test_flaky_device_and_long_gaps_end_to_end(
         mic_returned = _wait_for_stream(runner, 'Mic', offset=1)
         _send_blocks(runner, [ext, flower, mic_returned], 2)
         schedule.set('Ext', 'Flower 8')
+        capture_processes['Mic'].stop()
         _wait_until_stopped(mic_returned)
         _wait_for_thread(thread, runner)
 

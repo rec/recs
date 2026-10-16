@@ -1044,6 +1044,8 @@ def test_record_records_source_and_track_lifecycle_events(
             source_name='Mic',
         )
     )
+    # Missing discovery alone must not interrupt a progressing capture.
+    rec._devices.hardware['Mic'].alive = False
     rec._poll_devices()
     rec._reap_sources()
     rec._poll_devices()

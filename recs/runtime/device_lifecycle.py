@@ -106,6 +106,7 @@ class DeviceLifecycle:
         self.source_last_updates = dict.fromkeys(
             self.source_processes, state.start_time
         )
+        self.source_last_progress: dict[str, float] = {}
         self.failed_sources: set[str] = set()
         self.lag_reported: set[str] = set()
         self.present_hardware: set[str] = set()
@@ -218,13 +219,24 @@ class DeviceLifecycle:
         compatible: set[str] = set()
         for name, source in self.hardware_sources.items():
             info = snapshot.get(name)
+            channels = int(info['max_input_channels']) if info is not None else 0
+            # Some backends hide open inputs; progressing capture is stronger evidence.
+            if (
+                (info is None or channels < source.required_channels)
+                and not paused
+                and not expired
+                and self.writing_enabled
+                and source.source.name != muted_name
+                and self._capture_progressing(source)
+            ):
+                compatible.add(name)
+                continue
             if info is None:
                 if name in self.present_hardware:
                     self.warning(f'Device {name} went offline')
                 self.failed_sources.discard(name)
                 source.stop()
                 continue
-            channels = int(info['max_input_channels'])
             if channels < source.required_channels:
                 source.stop()
                 if name not in self.failed_sources:
@@ -358,6 +370,8 @@ class DeviceLifecycle:
         )
         now = times.timestamp()
         self.source_last_updates[update.source_name] = now
+        if update.frames > 0:
+            self.source_last_progress[update.source_name] = now
         if source.running and not self._frame_clock_valid(source, now):
             source.stop()
             self.failed_sources.add(update.source_name)
@@ -447,6 +461,18 @@ class DeviceLifecycle:
                 )
         for warning in update.buffer_warnings or []:
             self.warning(warning)
+
+    def _capture_progressing(self, source: SourceProcess) -> bool:
+        last_progress = self.source_last_progress.get(source.name)
+        return (
+            source.is_alive
+            and bool(source.running)
+            and source.name not in self.failed_sources
+            and self.source_frames[source.name]
+            > self.source_frames_at_start[source.name]
+            and last_progress is not None
+            and times.timestamp() - last_progress <= SOURCE_STALL_TIMEOUT
+        )
 
     def _frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
         if source.name not in self.hardware_sources:

@@ -5,7 +5,7 @@ from dvice.health import DiscoveryFailure, DiscoveryHealth, DiscoveryStatus
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.base.state import ChannelState
-from recs.cfg import device
+from recs.cfg import device, mic_mute
 from recs.cfg.cfg import Cfg
 from recs.runtime import (
     recorder,
@@ -14,6 +14,192 @@ from recs.runtime.recorder import Recorder
 from recs.runtime.source_messages import BufferStats, SourceFailure, SourceUpdate
 from test.conftest import DEVICES, DEVICES_FILE
 from test.runtime.recorder.fakes import ClosedDisplay, FakePoller, FakeSourceProcess
+
+
+@pytest.fixture
+def capturing_interface(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Recorder:
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: 100.0)
+    monkeypatch.setattr(device, 'query_devices', lambda: DEVICES)
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(
+        Cfg(
+            devices=Path(DEVICES_FILE),
+            include=['Flower 8'],
+            output_directory=str(tmp_path),
+            silent=True,
+        )
+    )
+    assert rec._devices.poller is not None
+    rec._devices.poller.snapshots = [
+        [next(i for i in DEVICES if i['name'] == 'Flower 8')]
+    ]
+    rec._poll_devices()
+    return rec
+
+
+@pytest.mark.parametrize('channels', [None, 0, 2])
+def test_progressing_capture_survives_missing_or_reduced_discovery(
+    capturing_interface: Recorder, monkeypatch: pytest.MonkeyPatch, channels: int | None
+) -> None:
+    rec = capturing_interface
+    source = rec._devices.hardware['Flower 8']
+    info = next(i for i in DEVICES if i['name'] == 'Flower 8')
+    now = 100.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    events: list[str] = []
+    rec._devices.event = lambda event, **details: events.append(event)
+
+    for _ in range(4):
+        now += 5
+        rec._receive_update(
+            SourceUpdate(
+                channels={
+                    source.tracks[0].name: ChannelState(is_active=False, max_amp=0)
+                },
+                files=[],
+                frames=5 * 48_000,
+                source_name='Flower 8',
+            )
+        )
+        rec._devices.poller.snapshots = [
+            [] if channels is None else [{**info, 'max_input_channels': channels}]
+        ]
+        rec._poll_devices()
+
+    rec._devices.poller.snapshots = [[info]]
+    rec._poll_devices()
+
+    assert source.running and source.is_alive
+    assert source.start_count == 1
+    assert source.stop_count == 0
+    assert rec._devices.present == {'Flower 8'}
+    assert rec._devices.failed == set()
+    assert rec.error_messages() == []
+    assert events == []
+
+
+@pytest.mark.parametrize('channels', [None, 2])
+@pytest.mark.parametrize(
+    'health', ['no_frames', 'stale', 'failed', 'dead', 'restarted']
+)
+def test_discovery_does_not_preserve_unhealthy_capture(
+    capturing_interface: Recorder,
+    monkeypatch: pytest.MonkeyPatch,
+    channels: int | None,
+    health: str,
+) -> None:
+    rec = capturing_interface
+    source = rec._devices.hardware['Flower 8']
+    info = next(i for i in DEVICES if i['name'] == 'Flower 8')
+    now = 100.0 if health == 'no_frames' else 120.0
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now)
+    rec._receive_update(
+        SourceUpdate(
+            channels={source.tracks[0].name: ChannelState()},
+            files=[],
+            frames=0 if health == 'no_frames' else 20 * 48_000,
+            source_name='Flower 8',
+        )
+    )
+    if health == 'stale':
+        now += recorder.SOURCE_STALL_TIMEOUT + 1
+        rec._receive_update(
+            SourceUpdate(
+                channels={source.tracks[0].name: ChannelState()},
+                files=[],
+                frames=0,
+                source_name='Flower 8',
+            )
+        )
+    elif health == 'failed':
+        rec._receive_source_message(
+            SourceFailure(message='capture failed', source_name='Flower 8')
+        )
+    elif health == 'dead':
+        source.alive = False
+    elif health == 'restarted':
+        source.stop()
+        rec._reap_sources()
+        rec._devices.poller.snapshots = [[info]]
+        rec._poll_devices()
+        assert source.start_count == 2
+    if health in ('no_frames', 'stale'):
+        assert source.running
+    rec._devices.poller.snapshots = [
+        [] if channels is None else [{**info, 'max_input_channels': channels}]
+    ]
+
+    rec._poll_devices()
+
+    assert not source.running
+    assert rec._devices.present == set()
+
+
+@pytest.mark.parametrize('channels', [None, 2])
+def test_stall_detection_stops_capture_despite_discovery_override(
+    capturing_interface: Recorder, monkeypatch: pytest.MonkeyPatch, channels: int | None
+) -> None:
+    rec = capturing_interface
+    source = rec._devices.hardware['Flower 8']
+    info = next(i for i in DEVICES if i['name'] == 'Flower 8')
+    rec._receive_update(
+        SourceUpdate(
+            channels={source.tracks[0].name: ChannelState()},
+            files=[],
+            frames=48_000,
+            source_name='Flower 8',
+        )
+    )
+    rec._devices.poller.snapshots = [
+        [] if channels is None else [{**info, 'max_input_channels': channels}]
+    ]
+    rec._poll_devices()
+    assert source.running
+    monkeypatch.setattr(
+        recorder.times, 'timestamp', lambda: 100 + recorder.SOURCE_STALL_TIMEOUT + 1
+    )
+
+    rec._stop_stalled_sources()
+
+    assert not source.started
+    assert 'Flower 8' in rec._devices.failed
+    assert rec.error_messages() == ['Device Flower 8 stopped sending updates']
+
+
+@pytest.mark.parametrize('action', ['pause', 'mute'])
+@pytest.mark.parametrize('channels', [None, 2, 10])
+def test_explicit_pause_and_mute_override_recent_capture_progress(
+    capturing_interface: Recorder, action: str, channels: int | None
+) -> None:
+    rec = capturing_interface
+    source = rec._devices.hardware['Flower 8']
+    rec._receive_update(
+        SourceUpdate(
+            channels={source.tracks[0].name: ChannelState()},
+            files=[],
+            frames=48_000,
+            source_name='Flower 8',
+        )
+    )
+    if action == 'pause':
+        rec._control.pause_recording('pause_recording')
+    else:
+        mic_mute.save(mic_mute.MicMute(device_name='Flower 8', is_muted=True))
+        rec._devices.set_cfg(
+            Cfg(devices=Path(DEVICES_FILE), include=['Flower 8'], silent=True)
+        )
+    info = next(i for i in DEVICES if i['name'] == 'Flower 8')
+    rec._devices.poller.snapshots = [
+        [] if channels is None else [{**info, 'max_input_channels': channels}]
+    ]
+
+    rec._poll_devices()
+    rec._reap_sources()
+    rec._poll_devices()
+
+    assert not source.running
+    assert source.start_count == 1
 
 
 def test_recorder_reports_no_selected_channels(
