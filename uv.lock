@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-10-09T15:41:25.43242Z"
+exclude-newer = "2026-10-09T16:43:06.325956Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -963,7 +963,7 @@ wheels = [
 [[package]]
 name = "ufor"
 version = "0.2.0"
-source = { git = "https://github.com/rec/ufor.git?branch=main#cdd23cfb00e2a874c6d7c5f25757f65ee5fc6af6" }
+source = { git = "https://github.com/rec/ufor.git?branch=main#2d3378a8ec8a8b09cda18256d306cc9031b82c04" }
 dependencies = [
     { name = "pydantic" },
     { name = "reccy" },
