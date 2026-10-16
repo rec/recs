@@ -7,7 +7,6 @@ from pydantic import BaseModel, ValidationError
 from reccy.runtime import logging
 
 from recs.base.errors import RecsError
-from recs.cfg import cli, run_cli
 
 LOGGER = logging.get_logger(__name__)
 
@@ -161,7 +160,7 @@ def run() -> int:
             from recs.edit.cli import main
 
             return main(sys.argv[2:])
-        from recs.cfg import projects
+        from recs.cfg import cli, projects, run_cli
 
         arguments = sys.argv[1:]
         if arguments[:1] == ['calibrate']:
