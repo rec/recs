@@ -67,6 +67,10 @@ class ChannelWriter(Runnable):
     def active(self) -> Active:
         return Active.active if self._sfs else Active.inactive
 
+    @property
+    def active_files(self) -> list[Path]:
+        return [Path(f.name) for f in self._sfs]
+
     def __init__(
         self,
         cfg: Cfg,

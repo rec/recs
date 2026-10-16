@@ -109,23 +109,27 @@ class SourceFileEvents:
 
     def end_frames(self, writers: Sequence['ChannelWriter']) -> dict[Path, int]:
         result = self.pending_file_end_frames | {
-            p: frame for w in writers for p, frame in w.file_end_frames.items()
+            p: w.file_end_frames[p]
+            for w in writers
+            for p in {*w.active_files, *w.finished_files}
         }
         self.pending_file_end_frames = {}
         return result
 
     def spans(self, writers: Sequence['ChannelWriter']) -> dict[Path, list[AudioSpan]]:
         result = self.pending_file_spans | {
-            p: list(s) for w in writers for p, s in w.file_spans.items()
+            p: list(w.file_spans[p])
+            for w in writers
+            for p in {*w.active_files, *w.finished_files}
         }
         self.pending_file_spans = {}
         return result
 
     def end_timestamps(self, writers: Sequence['ChannelWriter']) -> dict[Path, float]:
         result = self.pending_file_end_timestamps | {
-            p: timestamp
+            p: w.file_end_timestamps[p]
             for w in writers
-            for p, timestamp in w.file_end_timestamps.items()
+            for p in {*w.active_files, *w.finished_files}
         }
         self.pending_file_end_timestamps = {}
         return result

@@ -24,6 +24,57 @@ from recs.recording.finalize import prepare_recording
 from recs.recording.recording_session import RecordingSession
 
 
+def test_finished_files_leave_live_updates_but_remain_in_the_recording(
+    tmp_path: Path,
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 1}
+    )
+    writer = ChannelWriter(
+        Cfg(formats=[Format.wav], output_directory=str(tmp_path)),
+        TimeSettings[int](longest_file_time=96000),
+        Track(source, '1'),
+    )
+    samples = np.tile(np.array([-0.5, 0.5], dtype=np.float32), 24000)
+    events = SourceFileEvents([writer])
+    session = RecordingSession('test', 0.0)
+    previous_files: list[Path] = []
+    try:
+        for i in range(3):
+            writer.receive_update(
+                Block(block=samples),
+                float(i + 1),
+                should_record=True,
+                timeline_frame=(i + 1) * 48000,
+            )
+            paths, records = events.new_files([writer], 32)
+            for record in records:
+                session.record_file_started(record, None)
+            frames = events.end_frames([writer])
+            timestamps = events.end_timestamps([writer])
+            spans = events.spans([writer])
+            assert len(frames) == (1 if i == 0 else 2)
+            assert set(frames) == set(timestamps) == set(spans)
+            if len(previous_files) > 1:
+                assert previous_files[0] not in frames
+            session.record_files(paths, frames, timestamps, spans)
+            for path in events.finished([writer]):
+                session.record_file_finished(path)
+            previous_files.extend(paths)
+    finally:
+        writer.stop()
+    events.remember_finished_files([writer])
+    assert set(events.end_frames([writer])) == set(previous_files)
+    assert set(events.spans([writer])) == set(previous_files)
+    assert sorted(session.file_end_frames.values()) == [48000, 96000, 144000]
+    assert len(session.file_spans) == 3
+    for path in previous_files:
+        with soundfile.SoundFile(path) as audio:
+            assert audio.samplerate == 48000
+            assert len(audio) == 48000
+            np.testing.assert_allclose(audio.read(dtype='float32').ravel(), samples)
+
+
 def test_level_trigger_frame_is_recorded_with_preroll(tmp_path: Path) -> None:
     source = InputDevice(
         {'name': 'Mic', 'default_samplerate': 48000, 'max_input_channels': 1}
