@@ -48,6 +48,8 @@ class InputDevice(Source):
             device=self.name,
             dtype=sdtype,
             samplerate=self.samplerate,
+            # Avoid repeating per-track work for driver-dependent tiny fragments.
+            blocksize=self.samplerate // 50,
         )
         return Wrapper(stream)
 

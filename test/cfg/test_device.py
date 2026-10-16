@@ -1,9 +1,11 @@
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import sounddevice
+import soundfile
 
 from recs.base import times
 from recs.base.types import SdType
@@ -40,9 +42,11 @@ def test_input_devices_use_stable_host_identity() -> None:
 
 def test_input_device_uses_sounddevice_adc_time(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     updates: list[Update] = []
     monkeypatch.setattr(times, 'timestamp', lambda: 200.0)
+    samples = np.sin(2 * np.pi * 440 * np.arange(48000) / 48000).astype(np.float32)
 
     class FakeInputStream:
         def __init__(
@@ -53,14 +57,17 @@ def test_input_device_uses_sounddevice_adc_time(
             device: str,
             dtype: SdType,
             samplerate: int,
+            blocksize: int,
         ) -> None:
-            array = np.zeros((512, channels), dtype=dtype)
-            callback(
-                array,
-                len(array),
-                SimpleNamespace(inputBufferAdcTime=123.25, currentTime=124.0),
-                'overflow',
-            )
+            for start in range(0, len(samples), blocksize):
+                array = samples[start : start + blocksize].reshape(-1, channels).copy()
+                callback(
+                    array,
+                    len(array),
+                    SimpleNamespace(inputBufferAdcTime=123.25, currentTime=124.0),
+                    'overflow',
+                )
+                array.fill(0)
 
     monkeypatch.setattr(sounddevice, 'InputStream', FakeInputStream)
     source = device.InputDevice(
@@ -71,3 +78,7 @@ def test_input_device_uses_sounddevice_adc_time(
 
     assert updates[0].timestamp == 199.25
     assert updates[0].status == 'overflow'
+    assert len(updates) == 50
+    recorded = np.concatenate([u.array for u in updates]).ravel()
+    np.testing.assert_array_equal(recorded, samples)
+    soundfile.write(tmp_path / 'captured.wav', recorded, 48000, subtype='FLOAT')
