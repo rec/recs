@@ -267,11 +267,15 @@ class DeviceLifecycle:
 
     def reap(self) -> None:
         for name, source in self.source_processes.items():
-            if not source.started or source.is_alive:
+            if not source.started or (source.is_alive and source.running):
                 continue
-            self._drain(source.connection)
             expected = not source.running
-            source.join(timeout=0)
+            if source.is_alive:
+                # join drains updates while enforcing the normal shutdown deadline.
+                source.join()
+            else:
+                self._drain(source.connection)
+                source.join(timeout=0)
             for update in source.take_updates():
                 self.receive_message(update)
             if (

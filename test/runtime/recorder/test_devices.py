@@ -38,6 +38,38 @@ def capturing_interface(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Reco
     return rec
 
 
+def test_disconnected_source_is_joined_before_reconnection(
+    capturing_interface: Recorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lifecycle = capturing_interface._devices
+    source = lifecycle.hardware['Flower 8']
+    info = next(i for i in DEVICES if i['name'] == 'Flower 8')
+
+    def request_stop() -> None:
+        source.running = False
+        source.stop_count += 1
+
+    monkeypatch.setattr(source, 'stop', request_stop)
+    lifecycle.poller.snapshots = [[]]
+    lifecycle.poll(paused=False, expired=False)
+    assert source.is_alive
+    assert not source.running
+    final = SourceUpdate(channels={}, files=[], frames=48_000, source_name='Flower 8')
+    source.pending_updates.append(final)
+
+    lifecycle.reap()
+
+    assert not source.is_alive
+    assert not source.started
+    assert source.join_count == 1
+    assert lifecycle.frames['Flower 8'] == 48_000
+    lifecycle.poller.snapshots = [[info]]
+    lifecycle.poll(paused=False, expired=False)
+    assert source.is_alive
+    assert source.running
+    assert source.start_count == 2
+
+
 @pytest.mark.parametrize('channels', [None, 0, 2])
 def test_progressing_capture_survives_missing_or_reduced_discovery(
     capturing_interface: Recorder, monkeypatch: pytest.MonkeyPatch, channels: int | None
