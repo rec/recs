@@ -19,6 +19,16 @@ class RecordingControlTarget(Protocol):
     shutdown_started: bool
     track_names: dict[str, dict[str, int]]
 
+    def subscribe_audio(
+        self, request: gui_protocol.SubscribeAudio
+    ) -> gui_protocol.AudioSubscribed: ...
+
+    def unsubscribe_audio(
+        self, request: gui_protocol.UnsubscribeAudio
+    ) -> gui_protocol.AudioUnsubscribed: ...
+
+    def audio_status(self) -> gui_protocol.AudioStatusResult: ...
+
     def calibrate(self, request: gui_protocol.Calibrate) -> gui_protocol.Calibrated: ...
 
     def add_musician(
@@ -123,6 +133,10 @@ class RecordingControlProtocol:
             if not request.start():
                 continue
             try:
+                if isinstance(request.request, gui_protocol.SubscribeAudio):
+                    raise RecsError(
+                        'Audio subscriptions require the external control endpoint'
+                    )
                 response = self.handle(request.request)
             except RecsError as error:
                 response = gui_protocol.Error(type='error', message=str(error))
@@ -164,6 +178,12 @@ class RecordingControlProtocol:
             external.publish_rows(rows, errors)
 
     def handle(self, request: gui_protocol.Request) -> gui_protocol.Response:
+        if isinstance(request, gui_protocol.SubscribeAudio):
+            return self.control.subscribe_audio(request)
+        if isinstance(request, gui_protocol.UnsubscribeAudio):
+            return self.control.unsubscribe_audio(request)
+        if isinstance(request, gui_protocol.AudioStatusRequest):
+            return self.control.audio_status()
         if isinstance(request, gui_protocol.AddMusician):
             return self.control.add_musician(request)
         if isinstance(request, gui_protocol.AssignMusician):

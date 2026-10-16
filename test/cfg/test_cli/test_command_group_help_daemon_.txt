@@ -34,6 +34,8 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
 
  general options
  -------------------------------------------------------------------------------------------
+  --forward-audio, --no-forward-audio
+        Allow local clients to subscribe to live input audio (default: False)
   --calibrate, --no-calibrate
         Detect and print noise levels, do not record (default: False)
   --default-record-directory STR

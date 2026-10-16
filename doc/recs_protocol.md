@@ -10,6 +10,11 @@ The public API uses `reccy.protocol.rpc`. The separate daemon GUI socket remains
 private implementation detail. Live waveforms are available through the public
 control and event endpoints described below.
 
+Opt-in continuous PCM subscriptions use `subscribe_audio`, `unsubscribe_audio`,
+and `audio_status`. Negotiation uses this control API; audio uses a separate local
+binary connection. See [live audio forwarding](audio-forwarding.md) for the
+contract, Python client, privacy behavior, and resource limits.
+
 ## Quick start
 
 Use `reccy.protocol.rpc.Client` for a control request. It handles the connection,

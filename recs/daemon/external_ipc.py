@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from collections import deque
 from pathlib import Path
@@ -169,6 +170,23 @@ class ExternalServer(Reccy):
     def rpc_response(
         self, request: rpc.Request, cancelled: threading.Event
     ) -> rpc.Result:
+        if request.command == 'subscribe_audio' and os.name != 'nt':
+            try:
+                endpoint = Path(self.control_endpoint)
+                for path in (endpoint, endpoint.parent):
+                    info = path.stat()
+                    if info.st_uid != os.getuid() or info.st_mode & 0o022:
+                        return ipc.Error(
+                            type='error',
+                            message=(
+                                'Audio subscriptions require a user-owned control '
+                                'endpoint and directory not writable by other users'
+                            ),
+                        )
+            except OSError:
+                return ipc.Error(
+                    type='error', message='Audio control endpoint is unavailable'
+                )
         if cancelled.is_set():
             return ipc.Error(type='error', message='recs control request was cancelled')
         control = ControlRequest(request)
@@ -259,6 +277,9 @@ def response(
     if isinstance(value, gui_protocol.TrackNamesConflict):
         return value.model_dump()
     if request.command in {
+        'subscribe_audio',
+        'unsubscribe_audio',
+        'audio_status',
         'add_musician',
         'assign_musician',
         'calibrate',

@@ -58,6 +58,10 @@ class General(BaseModel):
     #
     # General purpose settings
     #
+    forward_audio: Annotated[
+        bool,
+        tyro.conf.arg(help='Allow local clients to subscribe to live input audio'),
+    ] = False
     calibrate: Annotated[
         bool, tyro.conf.arg(help='Detect and print noise levels, do not record')
     ] = False

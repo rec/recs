@@ -196,6 +196,37 @@ class StubbornProcess(FakeProcess):
         self.exitcode = -9
 
 
+@pytest.mark.parametrize('failure', [OSError, MemoryError])
+def test_forwarding_resource_failure_does_not_prevent_capture_start(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: type[Exception],
+) -> None:
+    def pipe(*, duplex: bool = True) -> tuple[FakeConnection, FakeConnection]:
+        return FakeConnection(), FakeConnection()
+
+    def unavailable(*args: object) -> None:
+        raise failure('resource exhausted')
+
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(source_process.mp, 'Pipe', pipe)
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    monkeypatch.setattr(source_process, 'AudioSource', unavailable)
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    owner = SourceProcess(
+        Cfg(forward_audio=True), [Track(source, '1')], Path('session')
+    )
+    owner.start()
+    try:
+        assert owner.running and owner.is_alive
+        assert owner.audio is None
+        assert 'Audio forwarding unavailable' in owner.audio_error
+    finally:
+        owner.stop()
+        owner.join()
+
+
 def test_source_process_can_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
     connections: list[FakeConnection] = []
 

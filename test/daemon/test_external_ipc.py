@@ -1,10 +1,11 @@
+import os
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from reccy.protocol import rpc
+from reccy.protocol import ipc, rpc
 from reccy.reccy import Reccy
 from reccy.services.models import Platform
 
@@ -16,6 +17,29 @@ from recs.base.waveform import (
 )
 from recs.cfg.cfg import Cfg
 from recs.daemon import external_ipc, gui_protocol
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX endpoint permission policy')
+@pytest.mark.parametrize('permissive', ['socket', 'directory'])
+def test_audio_subscription_rejects_control_endpoint_writable_by_other_users(
+    tmp_path: Path, permissive: str
+) -> None:
+    endpoint = tmp_path / 'control.sock'
+    endpoint.touch(mode=0o600)
+    (endpoint if permissive == 'socket' else tmp_path).chmod(0o777)
+    server = external_ipc.ExternalServer(control_path=endpoint)
+    result = server.rpc_response(
+        rpc.Request(
+            command='subscribe_audio',
+            params={
+                'source': 'Mic',
+                'channels': [1],
+            },
+        ),
+        threading.Event(),
+    )
+    assert isinstance(result, ipc.Error)
+    assert 'not writable by other users' in result.message
 
 
 class FakeRpcServer:

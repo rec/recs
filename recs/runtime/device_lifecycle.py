@@ -20,6 +20,7 @@ from recs.cfg.track_names import SourceTrackNames
 from recs.recording.capture_events import capture_clock_id
 from recs.runtime.source_messages import BufferStats, SourceFailure, SourceUpdate
 
+from . import audio_forwarding
 from .device_poller import DevicePoller
 from .full_state import FullState
 from .source_process import SourceProcess
@@ -146,6 +147,8 @@ class DeviceLifecycle:
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         self.cfg = cfg
         for source in self.source_processes.values():
+            if source.source.name == cfg.muted_device_name:
+                source.stop()
             source.set_cfg(self._source_cfg(cfg), revision=revision)
 
     def set_runtime_output_directory(self, output_directory: Path | None) -> None:
@@ -225,9 +228,9 @@ class DeviceLifecycle:
                 (info is None or channels < source.required_channels)
                 and not paused
                 and not expired
-                and self.writing_enabled
+                and (self.writing_enabled or source.audio is not None)
                 and source.source.name != muted_name
-                and self._capture_progressing(source)
+                and self.capture_progressing(source)
             ):
                 compatible.add(name)
                 continue
@@ -291,6 +294,8 @@ class DeviceLifecycle:
             if not source.started or not source.is_alive or not source.running:
                 continue
             if now - self.source_last_updates[name] <= SOURCE_STALL_TIMEOUT:
+                continue
+            if self._forwarding_capture_progressing(source):
                 continue
             self.warning(f'Device {name} stopped sending updates')
             source.stop()
@@ -466,16 +471,28 @@ class DeviceLifecycle:
         for warning in update.buffer_warnings or []:
             self.warning(warning)
 
-    def _capture_progressing(self, source: SourceProcess) -> bool:
+    def capture_progressing(self, source: SourceProcess) -> bool:
         last_progress = self.source_last_progress.get(source.name)
         return (
             source.is_alive
             and bool(source.running)
             and source.name not in self.failed_sources
-            and self.source_frames[source.name]
-            > self.source_frames_at_start[source.name]
-            and last_progress is not None
-            and times.timestamp() - last_progress <= SOURCE_STALL_TIMEOUT
+            and (
+                self._forwarding_capture_progressing(source)
+                or (
+                    self.source_frames[source.name]
+                    > self.source_frames_at_start[source.name]
+                    and last_progress is not None
+                    and times.timestamp() - last_progress <= SOURCE_STALL_TIMEOUT
+                )
+            )
+        )
+
+    def _forwarding_capture_progressing(self, source: SourceProcess) -> bool:
+        return (
+            source.audio is not None
+            and (not self.writing_enabled or source.name in self.writing_suspended)
+            and source.audio.capture_progressing(SOURCE_STALL_TIMEOUT)
         )
 
     def _frame_clock_valid(self, source: SourceProcess, now: float) -> bool:
@@ -485,7 +502,10 @@ class DeviceLifecycle:
         if elapsed < FRAME_CLOCK_GRACE:
             return True
         frames = (
-            self.source_frames[source.name] - self.source_frames_at_start[source.name]
+            source.audio.counters[audio_forwarding.CAPTURE_FRAME]
+            if source.audio is not None
+            else self.source_frames[source.name]
+            - self.source_frames_at_start[source.name]
         )
         recorded = frames / source.source.samplerate
         if recorded >= elapsed * MIN_FRAME_CLOCK_RATIO:

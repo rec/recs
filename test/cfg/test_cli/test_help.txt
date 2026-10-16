@@ -37,6 +37,8 @@ readiness inspects a project or configuration without recording; preflight check
 
  general options
  -------------------------------------------------------------------------------------------
+  --forward-audio, --no-forward-audio
+        Allow local clients to subscribe to live input audio (default: False)
   --calibrate, --no-calibrate
         Detect and print noise levels, do not record (default: False)
   --default-record-directory STR

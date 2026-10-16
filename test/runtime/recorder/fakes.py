@@ -68,6 +68,9 @@ class FakeConnection:
 
 
 class FakeSourceProcess:
+    audio = None
+    audio_error = None
+
     def __init__(
         self,
         cfg: Cfg,
@@ -115,6 +118,8 @@ class FakeSourceProcess:
 
     def stop(self) -> None:
         self.marker_position = None
+        if self.audio is not None:
+            self.audio.close()
         self.stop_count += 1
         self.running = False
         self.alive = False

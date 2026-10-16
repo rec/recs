@@ -1,9 +1,10 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 from reccy.entities import Musician
 from reccy.protocol import ipc
 
+from recs.base.audio_stream import AudioSubscription
 from recs.base.errors import ErrorRecord
 from recs.cfg.track_names import SourceTrackNames
 from recs.musicians import SourceMusician
@@ -46,6 +47,42 @@ class CardReplace(BaseModel):
 
 class Capabilities(BaseModel):
     type: Literal['capabilities']
+
+
+class SubscribeAudio(BaseModel, frozen=True):
+    type: Literal['subscribe_audio']
+    source: str
+    channels: list[Annotated[int, Field(gt=0, strict=True)]] = Field(
+        min_length=1, max_length=2
+    )
+
+
+class UnsubscribeAudio(BaseModel, frozen=True):
+    type: Literal['unsubscribe_audio']
+    source: str
+    subscription_id: str
+
+
+class AudioStatusRequest(BaseModel, frozen=True):
+    type: Literal['audio_status']
+
+
+class AudioSubscribed(BaseModel, frozen=True):
+    type: Literal['audio_subscribed'] = 'audio_subscribed'
+    subscription: AudioSubscription
+    instance: InstanceIdentity
+
+
+class AudioUnsubscribed(BaseModel, frozen=True):
+    type: Literal['audio_unsubscribed'] = 'audio_unsubscribed'
+    stopped: bool
+
+
+class AudioStatusResult(BaseModel, frozen=True):
+    type: Literal['audio_status_result'] = 'audio_status_result'
+    enabled: bool
+    paused: bool
+    sources: list[dict[str, object]]
 
 
 class DiskStatusRequest(BaseModel):
@@ -405,7 +442,10 @@ class Error(ipc.Error):
 
 
 Request = (
-    AddMusician
+    SubscribeAudio
+    | UnsubscribeAudio
+    | AudioStatusRequest
+    | AddMusician
     | AssignMusician
     | Calibrate
     | CardReplace
@@ -440,7 +480,10 @@ Request = (
 )
 
 Response = (
-    Calibrated
+    AudioSubscribed
+    | AudioUnsubscribed
+    | AudioStatusResult
+    | Calibrated
     | CardReplaceStarted
     | CapabilitiesResult
     | CfgSet
@@ -480,6 +523,9 @@ def parse_message(line: str) -> Message:
 
 
 API_COMMANDS = [
+    'subscribe_audio',
+    'unsubscribe_audio',
+    'audio_status',
     'add_musician',
     'assign_musician',
     'calibrate',

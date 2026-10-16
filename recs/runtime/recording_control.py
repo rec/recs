@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from reccy.entities import Musician
 
 from recs.base.errors import ErrorRecord, RecsError
-from recs.cfg import settings
+from recs.cfg import mic_mute, settings
 from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
@@ -17,12 +17,14 @@ from recs.musicians import SourceMusician
 from ..recording import recording_session
 from ..recording.session_record import Record
 from . import (
+    audio_forwarding,
     disk_space,
     disk_space_policy,
     recording_commands,
     recording_control_protocol,
     recording_track_config,
 )
+from .audio_source import MAX_SUBSCRIPTIONS
 from .device_lifecycle import DeviceLifecycle
 from .full_state import FullState
 from .playback_control import PlaybackControl
@@ -182,6 +184,96 @@ class RecordingControl:
 
     def set_waveforms_enabled(self, enabled: bool) -> None:
         self.devices.set_waveforms_enabled(enabled)
+
+    def subscribe_audio(
+        self, request: gui_protocol.SubscribeAudio
+    ) -> gui_protocol.AudioSubscribed:
+        if not self.cfg.general.forward_audio:
+            raise RecsError(
+                'Audio forwarding is disabled; enable --forward-audio at startup'
+            )
+        if self.recording_paused or self.shutdown_started:
+            raise RecsError(
+                'Audio forwarding is unavailable while paused or shutting down'
+            )
+        source = self.devices.hardware.get(request.source)
+        if source is None:
+            raise RecsError(f'Unknown hardware source: {request.source}')
+        saved_mute = mic_mute.load()
+        if source.source.name == self.cfg.muted_device_name or (
+            saved_mute is not None
+            and saved_mute.is_muted
+            and saved_mute.device_name == source.source.name
+        ):
+            raise RecsError('This microphone is muted')
+        if (
+            not source.is_alive
+            or not source.running
+            or source.name in self.devices.failed
+            or not self.devices.capture_progressing(source)
+        ):
+            raise RecsError('The selected source is not delivering audio')
+        if source.audio is None:
+            raise RecsError(
+                source.audio_error or 'Audio forwarding is unavailable for this capture'
+            )
+        if (
+            sum(
+                s.audio is not None and s.audio.active
+                for s in self.devices.hardware.values()
+            )
+            >= MAX_SUBSCRIPTIONS
+        ):
+            raise RecsError('Audio forwarding subscription limit reached')
+        return gui_protocol.AudioSubscribed(
+            subscription=source.audio.subscribe(
+                request.channels, self.instance.start_token
+            ),
+            instance=self.instance,
+        )
+
+    def unsubscribe_audio(
+        self, request: gui_protocol.UnsubscribeAudio
+    ) -> gui_protocol.AudioUnsubscribed:
+        source = self.devices.hardware.get(request.source)
+        return gui_protocol.AudioUnsubscribed(
+            stopped=source is not None
+            and source.audio is not None
+            and source.audio.unsubscribe(request.subscription_id)
+        )
+
+    def audio_status(self) -> gui_protocol.AudioStatusResult:
+        sources: list[dict[str, object]] = []
+        for source in self.devices.hardware.values():
+            status = (
+                source.audio.status()
+                if source.audio is not None
+                else {
+                    'source': source.name,
+                    'state': 'disabled'
+                    if not self.cfg.general.forward_audio
+                    else 'unavailable',
+                    'error': source.audio_error,
+                }
+            )
+            if not source.is_alive or not source.running:
+                status['state'] = 'stopped'
+            status['recording_enabled'] = (
+                self.cfg.general.writes_files
+                and self.devices.writing_enabled
+                and source.name not in self.devices.writing_suspended
+                and bool(source.running)
+            )
+            status['muted'] = source.source.name == self.cfg.muted_device_name or (
+                source.audio is not None
+                and source.audio.counters[audio_forwarding.ERROR] == 4
+            )
+            sources.append(status)
+        return gui_protocol.AudioStatusResult(
+            enabled=self.cfg.general.forward_audio,
+            paused=self.recording_paused,
+            sources=sources,
+        )
 
     def set_key_label(
         self, request: gui_protocol.SetKeyLabel

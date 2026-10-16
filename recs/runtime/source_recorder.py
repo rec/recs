@@ -1,6 +1,7 @@
 import contextlib
+import socket
 import uuid
-from collections.abc import Sequence
+from collections.abc import MutableSequence, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty
@@ -31,6 +32,8 @@ from recs.runtime.input_buffer import BufferedUpdate, InputBuffer
 from recs.runtime.source_calibration import SourceCalibration
 from recs.runtime.source_messages import SourceUpdate
 from recs.runtime.source_transport import SourceControlHandler, SourceUpdateTransport
+
+from .audio_forwarding import ERROR, FAILED, STATE, AudioForwarder
 
 POLL_TIMEOUT = 0.05
 
@@ -230,6 +233,10 @@ class SourceRecorder(Runnables):
         waveforms_enabled: bool = False,
         waveform_generation: int = 0,
         writing_enabled: bool = True,
+        audio_listener: socket.socket | None = None,
+        audio_key: bytes = b'',
+        audio_counters: MutableSequence[int] | None = None,
+        capture_id: str | None = None,
     ) -> None:
         self.cfg = cfg
         self.session_directory = session_directory
@@ -251,7 +258,27 @@ class SourceRecorder(Runnables):
             )
             for t in tracks
         )
-        self.file_events = SourceFileEvents(self.channel_writers, uuid.uuid4().hex)
+        self.file_events = SourceFileEvents(
+            self.channel_writers, capture_id or uuid.uuid4().hex
+        )
+        self.audio_forwarder: AudioForwarder | None = None
+        if audio_listener is not None and audio_counters is not None:
+            try:
+                self.audio_forwarder = AudioForwarder(
+                    audio_listener,
+                    audio_key,
+                    audio_counters,
+                    capture_clock_id(capture_id or self.source.key),
+                    self.source.key,
+                    self.source.samplerate,
+                    self.source.channels,
+                    stop_event,
+                    self.source.name,
+                )
+                self.buffer.forward_audio = self.audio_forwarder.offer
+            except (OSError, MemoryError):
+                audio_counters[ERROR] = 2
+                audio_counters[STATE] = FAILED
         self.pending_active_channels: set[int] = set()
         self.pending_config_revisions: list[int] = []
         self.pending_track_layout: list[str] | None = None
@@ -281,6 +308,7 @@ class SourceRecorder(Runnables):
             raise_keyboard_interrupt_on_signal(),
             contextlib.suppress(KeyboardInterrupt),
             self,
+            self.audio_forwarder or contextlib.nullcontext(),
         ):
             # A finite input may finish before all runnables report running.
             self.running = True

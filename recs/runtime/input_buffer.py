@@ -1,4 +1,5 @@
 import threading
+from collections.abc import Callable
 from queue import Empty, Queue
 from time import monotonic
 from typing import NamedTuple
@@ -27,6 +28,7 @@ class InputBuffer:
         self.reported_dropped_frames = 0
         self.memory_low = False
         self.last_memory_check = float('-inf')
+        self.forward_audio: Callable[[BufferedUpdate], None] | None = None
 
     def put(self, update: Update) -> None:
         frames = len(update.array)
@@ -38,6 +40,9 @@ class InputBuffer:
         if self._memory_low():
             self._drop(update, frames)
             return
+        buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
+        if self.forward_audio is not None:
+            self.forward_audio(buffered)
         if self.queue is None:
             maxsize = max(
                 1,
@@ -50,7 +55,6 @@ class InputBuffer:
         if self.queue.full():
             self._drop(update, frames)
             return
-        buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
         self.queue.put_nowait(buffered)
         self._update_queue_stats()
 

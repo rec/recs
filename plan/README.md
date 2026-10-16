@@ -7,7 +7,11 @@ implementation by themselves.
 
 ## recs work
 
-None. SFZ work now belongs to [safaz](https://github.com/rec/safaz/blob/main/plan/sfz.md).
+- [Audio forwarding](audio-forwarding.md): remaining streamO integration and
+  physical/performance acceptance. The recs implementation is documented in
+  [live audio forwarding](../doc/audio-forwarding.md).
+
+SFZ work belongs to [safaz](https://github.com/rec/safaz/blob/main/plan/sfz.md).
 
 ## Remaining proposals
 

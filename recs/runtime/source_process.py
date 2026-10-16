@@ -1,9 +1,10 @@
 import ctypes
 import multiprocessing as mp
+import socket
 import sys
 import threading
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import MutableSequence, Sequence
 from multiprocessing import connection
 from pathlib import Path
 from typing import Any, cast
@@ -13,12 +14,14 @@ from threa import Runnable
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.recording.session_record import MarkerPosition
 from recs.runtime import source_messages, source_transport
 
 from . import source_recorder
+from .audio_source import AudioSource
 
 STOP_TIMEOUT = 2.0
 LINUX_PROCESS_NAME_LIMIT = 15
@@ -157,6 +160,8 @@ class SourceProcess(Runnable):
         ] = []
         self.expected_stop = False
         self.marker_position: MarkerPosition | None = None
+        self.audio: AudioSource | None = None
+        self.audio_error: str | None = None
 
     @property
     def required_channels(self) -> int:
@@ -175,6 +180,17 @@ class SourceProcess(Runnable):
     def start(self) -> None:
         assert not self.started
         self.marker_position = None
+        self.audio = None
+        self.audio_error = None
+        if self.cfg.general.forward_audio and isinstance(self.source, InputDevice):
+            try:
+                self.audio = AudioSource(
+                    self.name, self.source.samplerate, self.source.channels
+                )
+            except (OSError, MemoryError) as error:
+                self.audio_error = (
+                    f'Audio forwarding unavailable: {type(error).__name__}'
+                )
         if self.waveforms_enabled:
             self.waveform_generation += 1
         self.connection, child_updates = mp.Pipe(duplex=False)
@@ -194,6 +210,13 @@ class SourceProcess(Runnable):
             'writing_enabled': self.writing_enabled,
             'waveform_generation': self.waveform_generation,
         }
+        if self.audio is not None:
+            kwargs.update(
+                audio_listener=self.audio.listener,
+                audio_key=self.audio.key,
+                audio_counters=self.audio.counters,
+                capture_id=self.audio.capture_id,
+            )
         self.process = mp.Process(
             target=_run_source_recorder,
             kwargs=kwargs,
@@ -208,6 +231,8 @@ class SourceProcess(Runnable):
 
     def stop(self) -> None:
         self.marker_position = None
+        if self.audio is not None:
+            self.audio.close()
         if not self.started:
             return
         self.running = False
@@ -303,6 +328,8 @@ class SourceProcess(Runnable):
         self.running = False
         self.started = False
         self.stopped = True
+        if self.audio is not None:
+            self.audio.close()
 
     def _drain_updates(self, finished: threading.Event) -> None:
         while True:
@@ -373,6 +400,10 @@ def _run_source_recorder(
     waveforms_enabled: bool = False,
     waveform_generation: int = 0,
     writing_enabled: bool = True,
+    audio_listener: socket.socket | None = None,
+    audio_key: bytes = b'',
+    audio_counters: MutableSequence[int] | None = None,
+    capture_id: str | None = None,
 ) -> None:
     _set_process_name(process_name)
     transport = source_transport.SourceUpdateTransport(update_connection)
@@ -389,6 +420,10 @@ def _run_source_recorder(
             waveforms_enabled=waveforms_enabled,
             waveform_generation=waveform_generation,
             writing_enabled=writing_enabled,
+            audio_listener=audio_listener,
+            audio_key=audio_key,
+            audio_counters=audio_counters,
+            capture_id=capture_id,
         )
         recorder.run()
     except Exception as e:
