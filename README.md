@@ -193,6 +193,13 @@ recs control --daemon status
 recs control --instance -1 pause
 ```
 
+For remote backup coordination, `recs watch --listening` streams JSON lines with
+the combined `listening` state of all live instances. It subscribes to
+`listening_state` events, detects newly started instances, and reports `null`
+when the state cannot be determined. Silent hardware capture counts as listening;
+file playback inputs do not. Keep stdin open while consuming the stream: stdin
+EOF shuts down the bridge. The stream includes periodic state heartbeats.
+
 The complete local RPC and event interface, including live waveforms and the
 `new_session` command, is documented in [recs Protocol](doc/recs_protocol.md).
 

@@ -808,7 +808,7 @@ def test_control_request_reports_device_and_disk_status(
     assert response.disk == disk.responses[0].model_dump(exclude={'type'})
     assert response.devices == devices.responses[0].devices
     assert response.errors == []
-    assert response.recording == {'paused': False}
+    assert response.recording == {'paused': False, 'listening': False}
 
 
 def test_control_request_sets_and_gets_track_names(

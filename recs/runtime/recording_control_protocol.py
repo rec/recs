@@ -19,6 +19,9 @@ class RecordingControlTarget(Protocol):
     shutdown_started: bool
     track_names: dict[str, dict[str, int]]
 
+    @property
+    def listening(self) -> bool: ...
+
     def subscribe_audio(
         self, request: gui_protocol.SubscribeAudio
     ) -> gui_protocol.AudioSubscribed: ...
@@ -117,6 +120,12 @@ class RecordingControlTarget(Protocol):
 class RecordingControlProtocol:
     def __init__(self, control: RecordingControlTarget) -> None:
         self.control = control
+        self._listening: bool | None = None
+
+    def publish_listening(self, external: external_ipc.ExternalServer | None) -> None:
+        if external is not None and self.control.listening != self._listening:
+            self._listening = self.control.listening
+            external.publish_event('listening_state', listening=self._listening)
 
     def receive(
         self,

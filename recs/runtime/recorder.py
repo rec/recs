@@ -410,6 +410,7 @@ class Recorder(Runnables):
                     self._poll_devices()
                     self._reap_sources()
                     self._stop_stalled_sources()
+                    self._control.protocol.publish_listening(self.external)
                     sources = [
                         source
                         for source in self._devices.sources.values()

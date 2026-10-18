@@ -24,6 +24,8 @@ MAX_PENDING_EVENTS = 1024
 
 class Watch(BaseModel, frozen=True):
     json_output: Annotated[bool, tyro.conf.arg(name='--json')] = False
+    listening: bool = False
+    """Stream the combined listening state of all instances over stdin/stdout."""
 
 
 class EventConnection(Protocol):
@@ -154,6 +156,12 @@ def main(argv: list[str]) -> int:
             prog='recs watch',
             description='Watch a running recs instance.',
         )
+        if command.listening:
+            if selector != instances.Selector() or command.json_output:
+                raise ValueError('--listening cannot be combined with other options')
+            from .listening import watch_listening
+
+            return watch_listening()
         target = instances.resolve(selector)
     except ValueError as error:
         print(error, file=sys.stderr)

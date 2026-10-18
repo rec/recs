@@ -118,7 +118,10 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
         midi=control.midi_status(),
         osc=control.osc_status(),
         playback=control.playback_state().model_dump(exclude={'type'}),
-        recording=recording_state(control).model_dump(exclude={'type', 'was_paused'}),
+        recording={
+            **recording_state(control).model_dump(exclude={'type', 'was_paused'}),
+            'listening': control.listening,
+        },
         rows=control.rows(),
         session_directory=str(record_path.parent),
         instance=control.instance,

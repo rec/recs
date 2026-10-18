@@ -40,6 +40,12 @@ class RecordingRuntimeState(BaseModel):
 
 
 class RecordingControl:
+    @property
+    def listening(self) -> bool:
+        return not self.recording_paused and any(
+            s.is_alive and s.running for s in self.devices.hardware.values()
+        )
+
     def __init__(
         self,
         cfg: Cfg,

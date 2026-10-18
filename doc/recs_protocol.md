@@ -865,11 +865,24 @@ recs publishes these events:
 | Event | Data |
 | --- | --- |
 | `rows` | `rows` live-display records and current `errors` |
+| `listening_state` | `listening: bool`; emitted when hardware capture starts or stops, including device arrival, loss and capture pause/resume |
 | `playback_state` | A `playback_state` object without its `type` field, published when playback starts or returns to waiting |
 | `waveform_layout` | Current track layout and waveform generation for one source |
 | `waveform` | One min/max envelope batch for one source |
 | `shutdown` | empty; recs has begun shutting down |
 | `stopped` | empty; the reccy service lifecycle has stopped |
+
+`status_snapshot.recording.listening` supplies the initial hardware listening
+state. Silence still counts as listening; file-backed sources do not. Subscribe
+before requesting a snapshot, and refresh the snapshot on state events rather
+than applying a potentially older queued event over a newer snapshot.
+
+`recs watch --listening` provides an all-instance bridge suitable for SSH. Each
+line is `{"listening":false}`, `{"listening":true}` or `{"listening":null}`
+(unknown). It detects new instances, subscribes before taking snapshots, and
+invalidates the aggregate state whenever a relevant event arrives. It also
+emits heartbeats and periodically rechecks instance health. Consumers must block
+backup on unknown state or stream loss. Closing stdin ends the bridge.
 
 A `rows` event looks like this:
 

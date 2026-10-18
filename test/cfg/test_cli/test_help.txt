@@ -426,11 +426,14 @@ options:
   --output OUTPUT
 
 $ recs watch --help
-usage: recs watch [-h] [----json | --no---json]
+usage: recs watch [-h] [----json | --no---json] [--listening | --no-listening]
 
 Watch a running recs instance.
 
  options
- --------------------------------------------------------
-  -h, --help             show this help message and exit
-  ----json, --no---json  (default: False)
+ ------------------------------------------------------------------------------------------------------
+  -h, --help  show this help message and exit
+  ----json, --no---json
+              (default: False)
+  --listening, --no-listening
+              Stream the combined listening state of all instances over stdin/stdout. (default: False)
