@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-10-09T16:43:06.325956Z"
+exclude-newer = "2026-10-14T14:10:24.559985Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -205,7 +205,7 @@ wheels = [
 [[package]]
 name = "dvice"
 version = "0.2.0"
-source = { git = "https://github.com/rec/dvice.git?branch=main#e2431754bea0656909da73ba9c00182dd49e9330" }
+source = { git = "https://github.com/rec/dvice.git?branch=main#7d52e14e75df3871e196add04d9ad0787b6c92ad" }
 dependencies = [
     { name = "pydantic" },
     { name = "sounddevice" },
@@ -676,7 +676,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.2.0"
-source = { git = "https://github.com/rec/reccy.git?branch=main#c8ae87d15407900776695fbd351da7c501dffc9d" }
+source = { git = "https://github.com/rec/reccy.git?branch=main#dd24bf880bca44a83903c58ac3780f3939751ecc" }
 dependencies = [
     { name = "pint" },
     { name = "pydantic" },
@@ -963,7 +963,7 @@ wheels = [
 [[package]]
 name = "ufor"
 version = "0.2.0"
-source = { git = "https://github.com/rec/ufor.git?branch=main#2d3378a8ec8a8b09cda18256d306cc9031b82c04" }
+source = { git = "https://github.com/rec/ufor.git?branch=main#22836e808080511d36ab5b3b0518d6b63b36aa23" }
 dependencies = [
     { name = "pydantic" },
     { name = "reccy" },
