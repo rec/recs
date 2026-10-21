@@ -232,6 +232,23 @@ recs session export /path/to/session/recording.toml /path/to/export
 recs session export-midi /path/to/session/recording.toml midi:Launchkey take.mid
 ```
 
+To correct a recorder clock that was wrong, stop recording and add a signed
+offset in seconds to every session recursively under a directory:
+
+```console
+recs offset /path/to/recordings 3600
+recs offset /path/to/recordings -3600
+```
+
+Positive values move times later; negative values move them earlier. This
+updates journal and recording timestamps, wall-clock observations, continuation
+links, session date/time directories, and timestamp-based media names. Paths use
+their written calendar times, independent of this machine's timezone. Media
+bytes, embedded media tags, durations, and native frame/event timing remain
+unchanged. The command checks every session before changing files and refuses
+destination collisions. An I/O failure retains staging files and reports their
+location.
+
 `session export` verifies sealed source documents and their assets, copies into
 a staging directory, then publishes the destination only after verifying all
 copied assets. An interrupted copy retains its staging directory and reports

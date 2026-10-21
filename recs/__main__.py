@@ -62,6 +62,10 @@ def run() -> int:
             )
             stream_devices()
             return 0
+        if len(sys.argv) > 1 and sys.argv[1] == 'offset':
+            from recs.recording.offset import main
+
+            return main(sys.argv[2:])
         if len(sys.argv) > 1 and sys.argv[1] == 'sessions':
             from recs.recording import session_browser
 

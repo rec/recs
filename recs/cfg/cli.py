@@ -17,6 +17,7 @@ LINES = (
     'With no subcommand, recs starts recording. '
     'sessions ROOT lists recordings; session COMMAND manages one recording; '
     'record check PATH validates a recording document and its media.',
+    'offset ROOT SECONDS corrects session wall times and timestamp-based paths.',
     'control pause/resume affect capture; control stop/continue affect playback. '
     'project manages saved recording projects; mute manages a machine-wide '
     'microphone exclusion; --profiles loads per-device JSON defaults.',

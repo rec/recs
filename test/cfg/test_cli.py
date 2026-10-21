@@ -57,6 +57,7 @@ def test_help(cli_help: CliHelp) -> None:
             'project',
             'mute',
             'sessions',
+            'offset',
             'session',
             'test-input',
             'explain',

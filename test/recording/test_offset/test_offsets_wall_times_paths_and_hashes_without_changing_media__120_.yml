@@ -1,0 +1,104 @@
+directory: -default-/2025/12/31/23-57-00
+document_end: '2025-12-31T23:57:01Z'
+document_start: '2025-12-31T23:57:00Z'
+media: mic + 20251231-235700.wav
+record:
+  application: null
+  channel_musicians: null
+  continued_from: null
+  duration_seconds: 1.0
+  ended_at: '2025-12-31T23:57:01Z'
+  errors: []
+  events:
+  - address: null
+    cfg_revision: null
+    channel_count: null
+    clock_id: null
+    continued_at: null
+    current_path: null
+    disk: null
+    disk_kind: null
+    disk_uuid: null
+    dropped_blocks: null
+    dropped_frames: null
+    estimated_seconds_remaining: null
+    frame_count: null
+    free_bytes: null
+    from_free_bytes: null
+    from_path: null
+    key: null
+    label: keep me
+    max_queued_seconds: null
+    max_write_seconds: null
+    metadata: null
+    midi_port: null
+    osc_node: null
+    path: null
+    positions:
+    - clock_id: capture
+      frame: 48000
+      observed_at: '2025-12-31T23:57:00Z'
+      sample_rate: 48000
+      source: mic
+      timing_source: latest_processed_boundary
+    queued_seconds: null
+    reason: null
+    sample_rate: null
+    severity: null
+    source: null
+    start_frame: null
+    threshold: null
+    timestamp: '2025-12-31T23:57:00Z'
+    timing_source: null
+    to_free_bytes: null
+    to_path: null
+    track: null
+    type: marker
+    value: null
+  files:
+  - audio_spans: null
+    bit_depth: null
+    channels: null
+    clock_id: capture
+    format: null
+    frame_count: 0
+    media_type: null
+    path: audio/mic + 20251231-235700.wav
+    quantity_count: null
+    sample_rate: 48000
+    source: null
+    source_channels:
+    - 1
+    stream_id: audio:mic:left
+    timestamp: '2025-12-31T23:57:00Z'
+    track_name: null
+    trigger_frame: null
+    type: file_started
+  - audio_spans: null
+    bit_depth: null
+    channels: null
+    clock_id: capture
+    format: null
+    frame_count: 48000
+    media_type: null
+    path: audio/mic + 20251231-235700.wav
+    quantity_count: 48000
+    sample_rate: 48000
+    source: null
+    source_channels:
+    - 1
+    stream_id: audio:mic:left
+    timestamp: '2025-12-31T23:57:00Z'
+    track_name: null
+    trigger_frame: null
+    type: file_finished
+  metadata:
+    path: user data
+    timestamp: '2025-12-31T23:59:00Z'
+  project_name: null
+  session_id: null
+  started_at: '2025-12-31T23:57:00Z'
+  warnings:
+  - keep warning
+source_tick: 0
+wall_tick: -20000000000

@@ -14,6 +14,8 @@ Full documentation here: https://github.com/rec/recs
 
 With no subcommand, recs starts recording. sessions ROOT lists recordings; session COMMAND manages one recording; record check PATH validates a recording document and its media.
 
+offset ROOT SECONDS corrects session wall times and timestamp-based paths.
+
 control pause/resume affect capture; control stop/continue affect playback. project manages saved recording projects; mute manages a machine-wide microphone exclusion; --profiles loads per-device JSON defaults.
 
 readiness inspects a project or configuration without recording; preflight checks a running daemon.
@@ -283,6 +285,23 @@ usage: recs mute [-h] [--clear | --no-clear]
  ------------------------------------------------------
   -h, --help           show this help message and exit
   --clear, --no-clear  (default: False)
+
+
+$ recs offset --help
+usage: recs offset [-h] PATH FLOAT
+
+Shift stopped sessions recursively, including journals and recording documents.
+
+Seconds are added to recorded wall times. Positive values move recordings later; negative values move them earlier. Media bytes and native timing stay unchanged. Stop recording before using this command.
+
+ positional arguments
+ -----------------------------------------------------------------------------
+  PATH        directory (required)
+  FLOAT       Signed offset in seconds, for example 3600 or -3600. (required)
+
+ options
+ -----------------------------------------------------------------------------
+  -h, --help  show this help message and exit
 
 
 $ recs preflight --help
