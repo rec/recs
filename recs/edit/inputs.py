@@ -52,7 +52,7 @@ def export_source(
 
     from recs.edit.record import resolve_input
     from recs.recording.files import sealed_asset
-    from recs.recording.read import read_recording
+    from recs.recording.read import read_recording, recording_path
 
     if source.memory is not None:
         channels = [f'channel-{i}' for i in source.channels]
@@ -66,7 +66,11 @@ def export_source(
         resolve_input(source, Path('.'))
     origin = source.record or source.file
     assert origin is not None
-    origin = origin.resolve()
+    origin = (
+        recording_path(origin).resolve()
+        if source.record is not None
+        else origin.resolve()
+    )
     if source.record is not None:
         assert source.selector is not None
         document = read_recording(origin)
@@ -104,7 +108,14 @@ def export_source(
         )
         document = document.model_copy(update={'outputs': [port]})
     else:
-        asset = sealed_asset(origin, origin.parent, 'audio', origin.suffix.lstrip('.'))
+        asset = sealed_asset(
+            origin,
+            origin.parent,
+            'audio',
+            origin.suffix.lstrip('.'),
+            hash_files=False,
+            inspect_files=False,
+        )
         import soundfile
 
         info = soundfile.info(origin)

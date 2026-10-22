@@ -69,7 +69,7 @@ def test_mixed_capture_survives_rotation_volume_change_and_portable_export(
     monkeypatch.setattr(recorder, 'MAX_FILE_BYTES', 1)
     original = tmp_path / 'original'
     first, second = original / 'a', original / 'b'
-    session = RecordingSession('capture', 0.0)
+    session = RecordingSession('capture', 0.0, finalize_on_shutdown=True)
     session.start(first / 'session-record.jsonl', enabled=True)
     port = MidiPort()
     midi = MidiRecorder(
@@ -213,7 +213,7 @@ def test_interrupted_journal_preserves_closed_audio_and_reports_partial_file(
 
 
 def test_finalization_retains_session_project_name(tmp_path: Path) -> None:
-    session = RecordingSession('project', 0.0)
+    session = RecordingSession('project', 0.0, finalize_on_shutdown=True)
     session.start(
         tmp_path / 'session-record.jsonl', enabled=True, project_name='x18-show'
     )
@@ -321,7 +321,7 @@ def _audio(
 def test_short_capture_discard_is_sealed_evidence_not_an_interrupted_file(
     tmp_path: Path,
 ) -> None:
-    session = RecordingSession('short', 0.0)
+    session = RecordingSession('short', 0.0, finalize_on_shutdown=True)
     journal = tmp_path / 'session-record.jsonl'
     session.start(journal, enabled=True)
     source = InputDevice(
@@ -361,7 +361,7 @@ def test_short_capture_discard_is_sealed_evidence_not_an_interrupted_file(
 def test_key_capture_uses_common_events_and_preserves_observed_order(
     tmp_path: Path,
 ) -> None:
-    session = RecordingSession('keys', 0.0)
+    session = RecordingSession('keys', 0.0, finalize_on_shutdown=True)
     session.start(tmp_path / 'session-record.jsonl', enabled=True)
     for kind in ('key_pressed', 'key_released'):
         session.write(
@@ -386,7 +386,7 @@ def test_key_capture_uses_common_events_and_preserves_observed_order(
 
 
 def test_reconnected_audio_keeps_independent_clock_evidence(tmp_path: Path) -> None:
-    session = RecordingSession('reconnect', 0.0)
+    session = RecordingSession('reconnect', 0.0, finalize_on_shutdown=True)
     session.start(tmp_path / 'session-record.jsonl', enabled=True)
     _audio(session, tmp_path / 'first', 0, capture_id='first')
     _audio(session, tmp_path / 'second', 0, capture_id='second')
@@ -412,7 +412,7 @@ def test_finalized_session_keeps_more_than_512_file_lifecycle_events(
 ) -> None:
     file_count = 257
     frames_per_file = 48_000
-    session = RecordingSession('many-files', 0.0)
+    session = RecordingSession('many-files', 0.0, finalize_on_shutdown=True)
     session.start(tmp_path / 'session-record.jsonl', enabled=True)
     session.write(
         session_record.EventRecord(
@@ -467,7 +467,7 @@ def test_finalized_session_keeps_more_than_512_file_lifecycle_events(
 
 
 def test_tracks_from_one_capture_share_the_device_clock(tmp_path: Path) -> None:
-    session = RecordingSession('tracks', 0.0)
+    session = RecordingSession('tracks', 0.0, finalize_on_shutdown=True)
     session.start(tmp_path / 'session-record.jsonl', enabled=True)
     for channel in (1, 2):
         _audio(
@@ -492,7 +492,7 @@ def test_tracks_from_one_capture_share_the_device_clock(tmp_path: Path) -> None:
 def test_midi_realtime_capture_is_preserved_and_smf_export_reports_limit(
     tmp_path: Path,
 ) -> None:
-    session = RecordingSession('clock', 0.0)
+    session = RecordingSession('clock', 0.0, finalize_on_shutdown=True)
     session.start(tmp_path / 'session-record.jsonl', enabled=True)
     port = MidiPort()
     midi = MidiRecorder(
@@ -515,3 +515,108 @@ def test_midi_realtime_capture_is_preserved_and_smf_export_reports_limit(
     with pytest.raises(RecsError, match='cannot represent clock messages'):
         export_midi(path, 'midi:keys', destination)
     assert not destination.exists()
+
+
+def test_default_shutdown_only_closes_the_capture_journal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hashlib
+
+    from recs.recording import finalize, recording_session
+
+    session = RecordingSession('no-inspection', 0.0)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    _audio(session, tmp_path, 0)
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError('Finalization inspected a recorded file')
+
+    original_open = Path.open
+
+    def write_only(
+        self: Path, mode: str = 'r', *args: object, **kwargs: object
+    ) -> object:
+        if mode not in {'x', 'w', 'a'}:
+            forbidden()
+        return original_open(self, mode, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'open', write_only)
+        patch.setattr(Path, 'stat', forbidden)
+        patch.setattr(soundfile, 'info', forbidden)
+        patch.setattr(hashlib, 'file_digest', forbidden)
+        patch.setattr(finalize, 'verify_events', forbidden)
+        patch.setattr(finalize, 'read_capture_entries', forbidden)
+        patch.setattr(recording_session, 'finalize_recording', forbidden)
+        assert session.finish(4.0)
+
+    assert session.record_errors == []
+    assert not (tmp_path / 'recording.toml').exists()
+    assert isinstance(
+        session_record.read_entries(journal)[0][-1], session_record.SessionFooter
+    )
+    assert Cfg().recording.finalize_on_shutdown is False
+
+
+def test_finalization_after_shutdown_hashes_and_inspects_media(tmp_path: Path) -> None:
+    from recs.recording.finalize import main
+
+    session = RecordingSession('measured', 0.0)
+    session.start(tmp_path / 'session-record.jsonl', enabled=True)
+    _audio(session, tmp_path, 0)
+    session.finish(4.0)
+
+    assert not session.record_errors
+    assert not (tmp_path / 'recording.toml').exists()
+    assert main([str(tmp_path)]) == 0
+    document = read_recording(tmp_path / 'recording.toml')
+    assert all(
+        a.content is not None and a.content.byte_length is not None
+        for a in document.assets
+    )
+    assert all(
+        a.content is not None and a.content.sha256 is not None for a in document.assets
+    )
+
+
+def test_hashing_an_existing_index_preserves_its_description(tmp_path: Path) -> None:
+    from ufor.codec import score_toml
+
+    from recs.recording.finalize import finalize_recording
+
+    session = RecordingSession('later', 0.0, finalize_on_shutdown=True)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    _audio(session, tmp_path, 0)
+    session.finish(4.0)
+    path = tmp_path / 'recording.toml'
+    document = read_recording(path).model_copy(update={'title': 'My edited title'})
+    path.write_text(score_toml(document))
+
+    assert finalize_recording(journal) == path
+
+    hashed = read_recording(path)
+    assert hashed.title == document.title
+    assert hashed.body == document.body
+    assert all(
+        a.content is not None and a.content.sha256 is not None for a in hashed.assets
+    )
+    assert verify_recording(hashed, tmp_path).audio_frames == 96000
+
+
+def test_shutdown_with_finalization_does_not_overwrite_another_session_index(
+    tmp_path: Path,
+) -> None:
+    first = RecordingSession('first', 0.0, finalize_on_shutdown=True)
+    first.start(tmp_path / 'session-record.jsonl', enabled=True)
+    assert first.finish(1.0)
+    original = (tmp_path / 'recording.toml').read_bytes()
+    second = RecordingSession('second', 2.0, finalize_on_shutdown=True)
+    second.start(tmp_path / 'session-record.jsonl', enabled=True)
+
+    assert not second.finish(3.0)
+
+    assert (tmp_path / 'recording.toml').read_bytes() == original
+    assert any('Cannot finalize recording' in e for e in second.record_errors)

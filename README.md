@@ -6,7 +6,7 @@ proposals, and the boundaries between recs, uFor, and enge.
 recs continuously records audio, MIDI, OSC, and key events into sessions
 grouped by local calendar day. Audio can be recorded continuously or split
 around quiet passages.
-Each completed session has a `recording.toml` indexing its media and native
+Finalizing a session produces a `recording.toml` indexing its media and native
 timelines. Its `session-record.jsonl` preserves capture lifecycle, source,
 configuration, disk, and control events.
 
@@ -204,6 +204,29 @@ The complete local RPC and event interface, including live waveforms and the
 `new_session` command, is documented in [recs Protocol](doc/recs_protocol.md).
 
 ## Sessions And Editing
+
+By default, shutdown finishes the capture journal and closes the files without
+writing `recording.toml`, hashing files, or inspecting their headers and sizes.
+The setting `finalize_on_shutdown` defaults to false. Use
+`--finalize-on-shutdown` to perform full finalization automatically instead.
+Necessary capture writes, flushes, and closes still take place.
+
+Finalize a stopped session whenever convenient:
+
+```console
+recs session finalize /path/to/session
+```
+
+Browsing, playback, and editing work directly from a capture journal without
+finalization. When an index exists, its saved description is used instead.
+Browsing reads metadata; playback and editing read selected audio without a
+whole-file hashing pass. Saving an edit writes an index with unmeasured hashes.
+
+Finalization hashes files, measures sizes, checks audio headers and event
+contents, and writes or updates `recording.toml`. Explicit checking and export
+perform their own verification. A cleanly closed journal without an index is a
+completed recording. Repeating finalization refreshes measured facts in an
+existing index while preserving its stream description.
 
 The bare `recs` command starts capture. `recs sessions ROOT` lists recordings;
 `recs session COMMAND` operates on one session. `recs record check PATH` validates

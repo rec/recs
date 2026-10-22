@@ -109,7 +109,8 @@ def inspect_recovery(location: Path) -> RecoveryPlan:
                 )
             elif finished:
                 candidate, _ = prepare_recording(
-                    journal, [entries[0], *started, *finished]
+                    journal,
+                    [entries[0], *started, *finished],
                 )
                 verify_recording(candidate, journal.parent)
                 asset = next(

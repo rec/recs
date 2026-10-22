@@ -8,6 +8,7 @@ from typing import Annotated
 import soundfile
 import tyro
 from pydantic import BaseModel, ValidationError
+from reccy.configuration.settings import write_text_atomically
 from ufor.assets import Asset
 from ufor.codec import score_toml
 from ufor.recording import (
@@ -30,9 +31,12 @@ from ..base.errors import RecsError
 from ..musicians import SourceMusician
 from . import session_record
 from .files import asset_content, asset_path, sealed_asset, verify_events
+from .read import read_recording
 
 
 class FinalizeSession(BaseModel, frozen=True):
+    """Hash and inspect a stopped recording and write its content index."""
+
     session: Annotated[Path, tyro.conf.Positional]
 
 
@@ -68,9 +72,12 @@ def read_capture_entries(
 
 
 def prepare_recording(
-    journal: Path, entries: list[session_record.Record] | None = None
+    journal: Path,
+    entries: list[session_record.Record] | None = None,
+    *,
+    verify_files: bool = True,
 ) -> tuple[RecordingScore, list[str]]:
-    root = journal.resolve().parent
+    root = journal.absolute().parent
     if entries is None:
         entries, notes = read_capture_entries(journal)
     else:
@@ -119,7 +126,12 @@ def prepare_recording(
         )
         footer = None
     original = sealed_asset(
-        journal, root, 'original-journal', f'recs-session-v{entries[0].version}'
+        journal,
+        root,
+        'original-journal',
+        f'recs-session-v{entries[0].version}',
+        hash_files=verify_files,
+        inspect_files=verify_files,
     )
     assets: list[Asset] = [original]
     streams: list[AudioStream | EventStream] = []
@@ -164,7 +176,7 @@ def prepare_recording(
             started = matches[0]
             if type(started) is not type(finished):
                 raise RecsError(f'File lifecycle metadata disagrees: {finished.path}')
-            path = (root / finished.path).resolve()
+            path = root / finished.path
             asset_id = (
                 'asset-' + hashlib.sha256(finished.path.encode()).hexdigest()[:16]
             )
@@ -173,7 +185,14 @@ def prepare_recording(
                 if isinstance(finished, session_record.AudioFileRecord)
                 else finished.format
             )
-            asset = sealed_asset(path, root, asset_id, format)
+            asset = sealed_asset(
+                path,
+                root,
+                asset_id,
+                format,
+                hash_files=verify_files,
+                inspect_files=verify_files,
+            )
             relative_path = asset_path(asset)
             assets.append(asset)
             if finished.quantity_count is None:
@@ -193,12 +212,26 @@ def prepare_recording(
                     raise RecsError(
                         f'Audio frame interval disagrees with count: {finished.path}'
                     )
-                info = soundfile.info(path)
+                source_channels = finished.source_channels or started.source_channels
+                rate = (
+                    finished.sample_rate
+                    or started.sample_rate
+                    or device_rates.get(finished.clock_id)
+                )
+                channels = (
+                    finished.channels
+                    or started.channels
+                    or (len(source_channels) if source_channels else None)
+                )
+                frames = finished.quantity_count
+                if verify_files or rate is None or channels is None:
+                    info = soundfile.info(path)
+                    rate, channels, frames = info.samplerate, info.channels, info.frames
                 descriptions.append(
                     (
-                        info.samplerate,
-                        info.channels,
-                        finished.source_channels or started.source_channels,
+                        rate,
+                        channels,
+                        source_channels,
                     )
                 )
                 if finished.audio_spans:
@@ -209,7 +242,7 @@ def prepare_recording(
                                 f'Audio spans do not cover the payload: {relative_path}'
                             )
                         offset += span.count
-                    if offset != info.frames or offset != finished.quantity_count:
+                    if offset != frames or offset != finished.quantity_count:
                         raise RecsError(
                             f'Audio span count disagrees with payload: {relative_path}'
                         )
@@ -217,12 +250,12 @@ def prepare_recording(
                         AudioFragment(asset=asset.name, **s.model_dump())
                         for s in finished.audio_spans
                     )
-                elif info.frames == finished.quantity_count:
+                elif frames == finished.quantity_count:
                     audio.append(
                         AudioFragment(
                             asset=asset.name,
                             start=started.frame_count,
-                            count=info.frames,
+                            count=frames,
                         )
                     )
                 else:
@@ -375,7 +408,9 @@ def prepare_recording(
             raise RecsError(f'Conflicting clock score: {clock.name}')
         unique_clocks[clock.name] = clock
     document = RecordingScore(
-        name=header.session_id or asset_content(original).sha256,
+        name=header.session_id
+        or asset_content(original).sha256
+        or hashlib.sha256(header.model_dump_json().encode()).hexdigest(),
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),
@@ -410,13 +445,41 @@ def prepare_recording(
     )
     paths = {a.name: root / asset_path(a) for a in assets}
     for stream in streams:
-        if isinstance(stream, EventStream):
+        if verify_files and isinstance(stream, EventStream):
             verify_events(stream, paths)
     return document, notes
 
 
 def finalize_recording(journal: Path) -> Path:
+    path = journal.parent / 'recording.toml'
+    if path.is_file():
+        document = read_recording(path)
+        original = next(
+            (a for a in document.assets if a.name == document.body.journal), None
+        )
+        if original is None or asset_path(original) != journal.name:
+            raise RecsError('Existing index refers to a different capture journal')
+        prepared, _ = prepare_recording(journal)
+        measured = {asset_path(a): asset_content(a) for a in prepared.assets}
+        assets: list[Asset] = []
+        for asset in document.assets:
+            relative = asset_path(asset)
+            if relative not in measured:
+                measured[relative] = asset_content(
+                    sealed_asset(
+                        path.parent / relative, path.parent, asset.name, asset.encoding
+                    )
+                )
+            assets.append(asset.model_copy(update={'content': measured[relative]}))
+        document = document.model_copy(update={'assets': assets})
+        write_text_atomically(path, score_toml(document))
+        return path
     document, _ = prepare_recording(journal)
+    return write_recording(journal, document)
+
+
+def write_recording(journal: Path, document: RecordingScore) -> Path:
+    """Persist a recording index without measuring or verifying its media."""
     path = journal.parent / 'recording.toml'
     with path.open('x') as target:
         target.write(score_toml(document))

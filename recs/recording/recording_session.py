@@ -18,7 +18,14 @@ MAX_RECORD_ERRORS = 256
 
 
 class RecordingSession:
-    def __init__(self, session_id: str, started_at: float) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        started_at: float,
+        *,
+        finalize_on_shutdown: bool = False,
+    ) -> None:
+        self.finalize_on_shutdown = finalize_on_shutdown
         self.session_id = session_id
         self.started_at = started_at
         self.continued_from: str | None = None
@@ -54,9 +61,9 @@ class RecordingSession:
         self.continued_from = None
         self.write(host_clock_observation())
 
-    def finish(self, timestamp: float) -> None:
+    def finish(self, timestamp: float) -> bool:
         if self.record_writer is None:
-            return
+            return False
         writer = self.record_writer
         completed = False
         try:
@@ -64,8 +71,7 @@ class RecordingSession:
                 self.write(self.key_writer.finish())
                 self.key_writer = None
             for path in sorted(self.files):
-                if path.exists():
-                    self.record_file_finished(path)
+                self.record_file_finished(path)
             self.write(host_clock_observation())
             self.write(
                 session_record.SessionFooter(
@@ -91,14 +97,17 @@ class RecordingSession:
                 completed = False
             self.record_errors.extend(writer.take_errors())
             self.record_writer = None
-        if not completed:
+        if not completed or not self.finalize_on_shutdown:
             self.record_errors = self.record_errors[-MAX_RECORD_ERRORS:]
-            return
+            return completed
+        finalized = False
         try:
             finalize_recording(writer.path)
+            finalized = True
         except (OSError, RecsError, SoundFileError, ValidationError) as error:
             self.record_errors.append(f'Cannot finalize recording: {error}')
         self.record_errors = self.record_errors[-MAX_RECORD_ERRORS:]
+        return finalized
 
     def record_file_finished(self, path: Path) -> None:
         if path in self.finished_files or path not in self.files:
@@ -128,6 +137,7 @@ class RecordingSession:
         if path in self.files and path not in self.finished_files:
             self.write(self.files[path].model_copy(update={'type': 'file_discarded'}))
             self.finished_files.add(path)
+            self.files_written.discard(path)
 
     def reset(
         self,
@@ -173,6 +183,8 @@ class RecordingSession:
             trigger_frame=file.trigger_frame,
             path=file.path.as_posix(),
             source_channels=file.source_channels,
+            channels=file.channels,
+            sample_rate=file.sample_rate,
             bit_depth=file.bit_depth,
         )
         self.files[file.path] = entry
@@ -235,8 +247,8 @@ class RecordingSession:
                 path = Path(entry.path)
                 entry = entry.model_copy(
                     update={
-                        'path': path.resolve()
-                        .relative_to(self.record_writer.path.resolve().parent)
+                        'path': path.absolute()
+                        .relative_to(self.record_writer.path.absolute().parent)
                         .as_posix()
                     }
                 )

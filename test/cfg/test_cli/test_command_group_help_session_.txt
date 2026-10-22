@@ -10,7 +10,7 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
  subcommands
  ----------------------------------------------------------------------------------------------------------------------
   (required)
-    - show          Inspect one finalized recording session.
+    - show          Inspect one recorded session without verifying media.
     - quality       Report one recording document's evidence; audio decoding is opt-in.
 
                     Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
@@ -30,7 +30,7 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
                     Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
                     not aligned tracks. No original files are changed.
     - recover-scan  Discover unfinished session records below ROOT once.
-    - finalize
+    - finalize      Hash and inspect a stopped recording and write its content index.
     - export-midi
     - migrate
     - export
@@ -100,6 +100,8 @@ Use numbers from session markers, not labels. Select one capture clock. Without 
 
 $ recs session finalize --help
 usage: recs session finalize [-h] PATH
+
+Hash and inspect a stopped recording and write its content index.
 
  positional arguments
  ---------------------------------------------
@@ -230,7 +232,7 @@ Discover unfinished session records below ROOT once.
 $ recs session show --help
 usage: recs session show [-h] PATH [--json | --no-json]
 
-Inspect one finalized recording session.
+Inspect one recorded session without verifying media.
 
  positional arguments
  ----------------------------------------------------

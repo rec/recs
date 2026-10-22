@@ -11,7 +11,13 @@ from ufor.events import MidiEvent
 from ufor.recording import EventStream
 
 from recs.base.errors import RecsError
-from recs.recording.files import asset_path, sealed_asset, verify_events
+from recs.recording.files import (
+    asset_content,
+    asset_path,
+    content_matches,
+    sealed_asset,
+    verify_events,
+)
 from recs.recording.read import read_recording_chain
 
 
@@ -40,8 +46,16 @@ def export_midi(recording: Path, source: str, destination: Path) -> Path:
             for fragment in stream.fragments:
                 asset = assets[fragment.asset]
                 payload = path.parent / asset_path(asset)
-                actual = sealed_asset(payload, path.parent, asset.name, asset.encoding)
-                if actual != asset:
+                content = asset_content(asset)
+                actual = sealed_asset(
+                    payload,
+                    path.parent,
+                    asset.name,
+                    asset.encoding,
+                    hash_files=content.sha256 is not None,
+                    inspect_files=content.byte_length is not None,
+                )
+                if not content_matches(asset_content(actual), asset_content(asset)):
                     raise RecsError(f'MIDI asset differs from recording: {payload}')
                 paths[asset.name] = payload
                 assert fragment.start is not None

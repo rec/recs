@@ -20,6 +20,7 @@ from recs.edit.inputs import SourceSpec
 from recs.edit.materialized import MaterializedAudio
 from recs.edit.record import ResolvedSource, resolve_input
 from recs.recording.asset_resolver import FiniteAssetResolver
+from recs.recording.read import read_recording, recording_path
 
 
 def load_composition(
@@ -34,6 +35,8 @@ def load_composition(
 
     def load(path: Path) -> str:
         path = path.resolve()
+        if supplied is None or path not in supplied:
+            path = recording_path(path).resolve()
         if package_root is not None and not path.is_relative_to(package_root.resolve()):
             raise RecsError(f'ScoreReference escapes package root: {path}')
         identity = str(path)
@@ -44,6 +47,9 @@ def load_composition(
         active.add(path)
         if supplied is not None and path in supplied:
             score = supplied[path]
+            data = score_toml(score).encode()
+        elif path.name == 'session-record.jsonl':
+            score = read_recording(path)
             data = score_toml(score).encode()
         else:
             data = path.read_bytes()

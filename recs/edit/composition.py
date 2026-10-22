@@ -25,7 +25,7 @@ from recs.edit.output import validate_outputs
 from recs.edit.record import ResolvedSource, resolve_input
 from recs.edit.render import Renderer
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
-from recs.recording.read import read_recording_chain
+from recs.recording.read import read_recording_chain, recording_path
 
 
 class CompositionStep(EditOptions, frozen=True):
@@ -547,7 +547,7 @@ def _storage_bytes(values: list[MaterializedAudio]) -> int:
 
 
 def _validate_record(path: Path) -> Path:
-    path = path.resolve()
+    path = recording_path(path).resolve()
     if not path.is_file():
         raise RecsError(f'Session record does not exist: {path}')
     read_recording_chain(path)

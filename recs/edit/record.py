@@ -13,8 +13,8 @@ from ufor.recording import AudioStream
 from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec
 from recs.recording.asset_resolver import FiniteAssetResolver
-from recs.recording.files import asset_content, asset_path, sealed_asset
-from recs.recording.read import read_recording_chain
+from recs.recording.files import asset_content, asset_path
+from recs.recording.read import read_recording_chain, recording_path
 
 from .workspace import SCRATCH_DIRECTORY
 
@@ -65,7 +65,7 @@ def resolve_input(
         )
     assert source.record is not None
     assert source.selector is not None
-    record_path = (edit_directory / source.record).resolve()
+    record_path = recording_path(edit_directory / source.record).resolve()
     if document is None and not record_path.is_file():
         raise RecsError(
             f'Source {source.name}: session record does not exist: {record_path}'
@@ -134,7 +134,6 @@ def resolve_input(
                 (fragment.start, fragment.start + fragment.count), []
             ).append((path, assets[fragment.asset], fragment))
     fragments: list[AudioFragment] = []
-    verified: set[Path] = set()
     prepared: dict[tuple[Path, str], Path] = {}
     for (start, end), choices in sorted(variants.items()):
         if source.input_format is not None:
@@ -152,15 +151,15 @@ def resolve_input(
         directory = record_file.parent
         if resolver is None:
             relative_path = asset_path(asset)
-            path = directory / relative_path
-            if path not in verified:
-                actual = sealed_asset(path, directory, asset.name, asset.encoding)
-                if actual.content != asset_content(asset):
-                    raise RecsError(
-                        f'Source {source.name}: asset bytes disagree with recording: '
-                        f'{relative_path}'
-                    )
-                verified.add(path)
+            path = (directory / relative_path).resolve()
+            if not path.is_relative_to(directory.resolve()):
+                raise RecsError(f'Asset escapes the session directory: {relative_path}')
+            byte_length = asset_content(asset).byte_length
+            if byte_length is not None and path.stat().st_size != byte_length:
+                raise RecsError(
+                    f'Source {source.name}: asset size disagrees with recording: '
+                    f'{relative_path}'
+                )
             source_path = None
             display_path = relative_path
         else:

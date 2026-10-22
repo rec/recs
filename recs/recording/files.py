@@ -27,20 +27,33 @@ class Verification(Model):
     notes: list[str] = Field(default_factory=list)
 
 
-def sealed_asset(path: Path, root: Path, identity: str, encoding: str) -> Asset:
-    resolved = path.resolve()
-    if not resolved.is_relative_to(root.resolve()):
+def sealed_asset(
+    path: Path,
+    root: Path,
+    identity: str,
+    encoding: str,
+    *,
+    hash_files: bool = True,
+    inspect_files: bool = True,
+) -> Asset:
+    resolved = path.resolve() if hash_files or inspect_files else path.absolute()
+    root = root.resolve() if hash_files or inspect_files else root.absolute()
+    if not resolved.is_relative_to(root):
         raise RecsError(f'Asset escapes the session directory: {path}')
-    with resolved.open('rb') as source:
-        digest = hashlib.file_digest(source, 'sha256').hexdigest()
+    digest = None
+    byte_length = None
+    if hash_files:
+        with resolved.open('rb') as source:
+            digest = hashlib.file_digest(source, 'sha256').hexdigest()
+            byte_length = source.tell()
+    elif inspect_files:
+        byte_length = resolved.stat().st_size
     return Asset(
         name=identity,
-        location=RelativeFileLocation(
-            path=resolved.relative_to(root.resolve()).as_posix()
-        ),
+        location=RelativeFileLocation(path=resolved.relative_to(root).as_posix()),
         encoding=encoding,
         content=ContentIdentity(
-            byte_length=resolved.stat().st_size,
+            byte_length=byte_length,
             sha256=digest,
         ),
     )
@@ -58,17 +71,31 @@ def asset_content(asset: Asset) -> ContentIdentity:
     return asset.content
 
 
+def content_matches(actual: ContentIdentity, expected: ContentIdentity) -> bool:
+    return (
+        expected.byte_length is None or actual.byte_length == expected.byte_length
+    ) and (expected.sha256 is None or actual.sha256 == expected.sha256)
+
+
 def verify_recording(document: RecordingScore, root: Path) -> Verification:
     """Check hashes, decode every audio frame, and count embedded events."""
     assets = {a.name: a for a in document.assets}
     paths: dict[str, Path] = {}
+    byte_count = 0
     for asset in document.assets:
         relative_path = asset_path(asset)
         content = asset_content(asset)
         path = root / relative_path
-        actual = sealed_asset(path, root, asset.name, asset.encoding)
-        if actual.content != content:
+        actual = sealed_asset(
+            path,
+            root,
+            asset.name,
+            asset.encoding,
+            hash_files=content.sha256 is not None,
+        )
+        if not content_matches(asset_content(actual), content):
             raise RecsError(f'Asset bytes disagree with the recording: {relative_path}')
+        byte_count += asset_content(actual).byte_length or 0
         paths[asset.name] = path
     clocks = {t.name: t for t in document.timebases}
     audio_frames = event_count = gap_frames = 0
@@ -123,7 +150,7 @@ def verify_recording(document: RecordingScore, root: Path) -> Verification:
         event_count += verify_events(stream, paths)
     return Verification(
         asset_count=len(assets),
-        byte_count=sum(asset_content(a).byte_length for a in document.assets),
+        byte_count=byte_count,
         audio_frames=audio_frames,
         event_count=event_count,
         gap_frames=gap_frames,

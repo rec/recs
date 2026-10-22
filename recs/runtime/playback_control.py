@@ -15,7 +15,7 @@ from recs.audio.playback import (
 )
 from recs.base.errors import RecsError
 from recs.daemon import gui_protocol
-from recs.recording.read import read_recording
+from recs.recording.read import find_recordings, read_recording, recording_path
 
 
 class PlaybackControl:
@@ -163,11 +163,7 @@ class PlaybackControl:
 
     def _sessions(self) -> list[Path]:
         root = self.recordings_root()
-        records = (
-            [root / 'recording.toml']
-            if (root / 'recording.toml').is_file()
-            else list(root.glob('**/recording.toml'))
-        )
+        records = find_recordings(recording_path(root))
         sessions: list[tuple[str, Path]] = []
         for path in sorted(records):
             try:
@@ -175,9 +171,10 @@ class PlaybackControl:
             except RecsError as error:
                 self.warning(str(error))
                 continue
-            sessions.append((score.body.started_at or '', path))
+            if score.body.state == 'sealed':
+                sessions.append((score.body.started_at or '', path))
         if not sessions:
-            raise RecsError(f'No finalized sessions under {root}')
+            raise RecsError(f'No completed sessions under {root}')
         return [path for _, path in sorted(sessions)]
 
     def _finished(self) -> None:

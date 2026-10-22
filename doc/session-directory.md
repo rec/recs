@@ -2,8 +2,8 @@
 
 A recording run creates a session directory when recs starts writing capture
 evidence. If file writing is disabled, no session directory is created. The
-directory is the portable unit containing the capture journal, finalized
-recording description, and recorded media.
+directory is the portable unit containing the capture journal and recorded
+media, plus a recording description after finalization.
 
 recs groups sessions by the active project and the local date on which they
 begin. Its default-workspace session path is
@@ -18,11 +18,12 @@ overwriting it. `-default-` is reserved for the default workspace. With no
 explicit output directory, a foreground run creates the session below its
 working directory; a daemon uses its configured recording location.
 
-The `new_session` control command closes and finalizes the current directory,
+The `new_session` control command closes the current directory,
 then creates a newly timestamped directory with a new session ID while capture
 continues. Moving to a replacement recording volume also creates a new
 timestamped directory, but retains the same session ID and links the two
-segments through their records. These continuation links may therefore cross
+segments through their records. Automatic finalization requires
+`finalize_on_shutdown = True`. These continuation links may therefore cross
 volume roots.
 
 ## Directory contents
@@ -32,7 +33,7 @@ A typical captured session looks like this:
 ```text
 session/
   session-record.jsonl
-  recording.toml
+  recording.toml  (after finalization)
   audio/take.wav
   midi/keys-20260907-120000.jsonl
   osc/desk.jsonl
@@ -40,9 +41,11 @@ session/
 ```
 
 `session-record.jsonl` exists while capture is in progress and is the source
-evidence for finalization. A cleanly finalized session also contains
-`recording.toml`, the content index used by browsing, checking, editing, and
-export. Its `body.project_name` records the active project independently of the
+evidence for finalization. Finalization adds `recording.toml`, a saved content
+index. Browsing, playback, and editing use it when present and otherwise build
+their recording model from the journal without hashing media. Successful edits
+also write an index with hashes left unmeasured. Its `body.project_name` records
+the active project independently of the
 directory path. The default workspace is recorded as `-default-`. Media
 subdirectories exist only for enabled media that recs writes:
 
@@ -235,17 +238,21 @@ and keeps original journal bytes unchanged.
 
 ## Finalization and checking
 
-Normal recording shutdown and successful edits finalize automatically. For a
-stopped, interrupted capture without a document:
+Recording shutdown finishes the journal without creating a content index by
+default. `finalize_on_shutdown` defaults to false; `--finalize-on-shutdown`
+enables automatic finalization. Successful offline edits write a metadata index
+without hashing their output.
+For a stopped capture, finalize whenever convenient:
 
 ```sh
 recs session finalize /path/to/session
 recs record check /path/to/session/recording.toml
 ```
 
-Finalization never overwrites an existing document. It hashes finished assets,
+Finalization creates the document or refreshes its measured file facts while
+preserving an existing stream description. It hashes finished assets,
 checks audio counts/layouts and event extents/order/counts, and retains incomplete
 evidence as an open recording. `record check` additionally decodes all audio
-and checks all assets and continuation documents. Recovery scans report a missing
-or open document even when the journal has a footer. Physical capture, device
+and checks all assets and continuation documents. A closed journal does not
+require a document to count as a completed capture. Physical capture, device
 latency, and live playout require hardware validation separately.

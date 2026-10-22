@@ -379,6 +379,13 @@ class Key(BaseModel):
 
 
 class Recording(BaseModel):
+    finalize_on_shutdown: Annotated[
+        bool,
+        tyro.conf.arg(
+            help='Hash and inspect recordings and write recording.toml at shutdown'
+        ),
+    ] = False
+
     #
     # Settings relating to times
     #

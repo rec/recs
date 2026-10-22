@@ -11,7 +11,13 @@ from ..base.errors import RecsError
 
 
 def read_recording(path: Path) -> RecordingScore:
+    path = recording_path(path)
     try:
+        if path.name == 'session-record.jsonl':
+            from .finalize import prepare_recording
+
+            document, _ = prepare_recording(path, verify_files=False)
+            return document
         document = parse_score(path.read_text())
     except (OSError, ValidationError, ParseError) as error:
         raise RecsError(f'Cannot read recording {path}: {error}') from error
@@ -20,8 +26,30 @@ def read_recording(path: Path) -> RecordingScore:
     return document
 
 
+def recording_path(path: Path) -> Path:
+    """Select a session's saved index or its capture journal."""
+    candidate = path / 'recording.toml' if path.is_dir() else path
+    if candidate.name == 'recording.toml' and not candidate.is_file():
+        journal = candidate.with_name('session-record.jsonl')
+        if journal.is_file():
+            return journal
+    return candidate if candidate.is_file() else path
+
+
+def find_recordings(root: Path) -> list[Path]:
+    selected = recording_path(root)
+    if not root.is_dir() and selected.is_file():
+        return [selected]
+    directories = {
+        p.parent
+        for n in ('recording.toml', 'session-record.jsonl')
+        for p in root.rglob(n)
+    }
+    return sorted(recording_path(p) for p in directories)
+
+
 def read_recording_chain(path: Path) -> list[tuple[Path, RecordingScore]]:
-    pending = [path.resolve()]
+    pending = [recording_path(path).resolve()]
     result: list[tuple[Path, RecordingScore]] = []
     seen: set[Path] = set()
     while pending:
@@ -34,5 +62,5 @@ def read_recording_chain(path: Path) -> list[tuple[Path, RecordingScore]]:
         links = document.body.continued_at + (
             [document.body.continued_from] if document.body.continued_from else []
         )
-        pending.extend((current.parent / p).resolve() for p in links)
+        pending.extend(recording_path(current.parent / p).resolve() for p in links)
     return result

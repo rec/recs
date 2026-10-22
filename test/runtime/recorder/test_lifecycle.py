@@ -199,7 +199,8 @@ def test_recorder_summarizes_interrupt(
     rec.run()
 
     assert capsys.readouterr() == (
-        f'Recording time: 1:05.250\nFiles written:\n  {first}\n  {second}\n',
+        f'Recording time: 1:05.250\nFiles written:\n'
+        f'  {tmp_path / "deleted.wav"}\n  {first}\n  {second}\n',
         'Interrupted\n',
     )
 

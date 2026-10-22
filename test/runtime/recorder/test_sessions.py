@@ -210,6 +210,8 @@ def test_live_input_record_names_source(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
         {
             'type': 'file_finished',
@@ -218,6 +220,8 @@ def test_live_input_record_names_source(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
     ]
 
@@ -331,6 +335,8 @@ def test_record_records_source_frame_counts(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
         {
             'type': 'track_started',
@@ -346,6 +352,8 @@ def test_record_records_source_frame_counts(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
             'quantity_count': 512,
         },
     ]
@@ -418,6 +426,7 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
             include=['Mic'],
             output_directory=str(output),
             disk_removable_emergency=['1'],
+            finalize_on_shutdown=True,
             silent=True,
         )
     )
@@ -915,6 +924,7 @@ def test_recovery_tracks_the_journal_path_that_was_opened(
     assert path.name == 'session-record-1.jsonl'
     assert registered == [path]
     assert cleared == [path]
+    assert not (path.parent / 'recording.toml').exists()
 
 
 def test_daemon_default_output_directory_uses_largest_external_disk(

@@ -7,23 +7,41 @@ ordered event sequences. TOML is the score syntax; `format = "recs"`,
 The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
-export, and the editor's session resolver. Recording shutdown and successful
-audio edits finalize this score beside their version 5 capture journal.
+export, and the editor's session resolver. Explicit finalization and successful
+audio edits write this score beside their version 5 capture journal. Edited
+output indexes omit hashes until explicitly finalized. Recording
+shutdown does so only when `finalize_on_shutdown` is true; its default is false.
 The journal remains append-only operational evidence for diagnostics and
-recovery. Content readers require the common score; they do not fall back
-to historical journals. Convert old sessions explicitly before opening them.
+recovery. Readers use a saved index when present, or build the same recording
+model in memory from the current capture journal without hashing media. Browsing
+does not decode media; playback and editing inspect and read selected audio.
+Browsing and playback do not write an index back to the original session.
+Historical version 3
+journals still require explicit migration.
 
-Finalization hashes finished assets and checks audio metadata and native spans.
-It never overwrites an existing score. A failed finalization leaves the
-journal and media available; the recorder reports the error, and the next
-recovery scan reports the missing score even if the journal has a footer.
+Shutdown normally finishes the journal and closes capture files without reading
+them back or writing a content index. Necessary writes and flushes still occur.
+Run `recs session finalize SESSION` after shutdown to build streams and native
+spans, hash all recorded files, measure sizes, inspect audio headers, and check
+event contents. These calculations are always part of finalization.
+
+`content.sha256` and `content.byte_length` are optional measured facts. Omitted
+facts mean unknown, not zero or verified. `sealed` describes completed capture,
+not verified media. Readers check recorded facts when present, and browsing
+reports an unknown total size if any media size is unknown.
+
+Repeating finalization refreshes measured facts in an existing index while
+preserving its stream description. It refuses an index belonging to a different
+capture journal. A failed finalization leaves the journal and media available
+and reports the error. A cleanly closed journal without an index is not an
+interrupted capture. Browsing, playback, and editing do not require finalization.
 `recs record check` performs the fuller payload verification described below.
 
 ## Recording fields
 
 | Field | Meaning |
 | --- | --- |
-| `assets` | Sealed payloads: local ID, structured relative-file location, encoding, and content identity containing byte length and SHA-256 |
+| `assets` | Finite payloads: local ID, relative-file location, encoding, and optional measured byte length and SHA-256 in `content` |
 | `timebases` | Named physical clocks with exact positive rational ticks per second |
 | `body.state` | `sealed` requires an end timestamp and no unfinished files; otherwise `open` |
 | `body.started_at`, `ended_at` | Observed session wall-clock timestamps; not sample alignment |

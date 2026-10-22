@@ -202,15 +202,9 @@ def register_unfinished_session(root: Path, record: Path) -> None:
 
 def clear_finished_session(record: Path) -> None:
     worklist = _load_worklist()
-    key = str(record.resolve())
+    key = str(record.absolute())
     candidate = worklist.candidates.get(key)
     if candidate is None:
-        return
-    try:
-        report = recovery_report(record)
-    except OSError:
-        return
-    if report is not None:
         return
     report_path = record.parent / REPORT_FILE
     if _digest_path(report_path) == candidate.report_digest:
@@ -275,7 +269,8 @@ def _digest_path(path: Path) -> str | None:
 def recovery_report(path: Path) -> RecoveryReport | None:
     records, errors = session_record.read_entries(path)
     finalization_error = None
-    if any(isinstance(record, session_record.SessionFooter) for record in records):
+    closed = any(isinstance(record, session_record.SessionFooter) for record in records)
+    if closed and path.with_name('recording.toml').exists():
         try:
             document = read_recording(path.with_name('recording.toml'))
         except RecsError as error:
@@ -306,6 +301,14 @@ def recovery_report(path: Path) -> RecoveryReport | None:
         if record.type in {'file_finished', 'file_discarded'}
     }
     open_files = sorted(set(started) - finished)
+    if (
+        closed
+        and header is not None
+        and not errors
+        and not open_files
+        and finalization_error is None
+    ):
+        return None
     missing_files = [file for file in open_files if not _file_path(path, file).exists()]
     last = next(
         (

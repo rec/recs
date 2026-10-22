@@ -32,7 +32,8 @@ from recs.edit.materialized import MaterializedAudio, SourceMaterializer
 from recs.edit.output import bit_depth
 from recs.edit.record import ResolvedSource, resolve_input
 from recs.recording import session_record
-from recs.recording.finalize import finalize_recording
+from recs.recording.finalize import write_recording
+from recs.recording.read import read_recording
 
 
 def parse_autocalibrate(text: str) -> AutocalibrateEdit:
@@ -247,7 +248,7 @@ def write_autocalibrate_session(
         sync=True,
     )
     writer.close()
-    return finalize_recording(writer.path)
+    return write_recording(writer.path, read_recording(writer.path))
 
 
 def _autocalibrate_from_options(
