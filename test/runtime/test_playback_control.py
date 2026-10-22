@@ -13,11 +13,15 @@ from recs.daemon import gui_protocol
 from recs.runtime import playback_control
 
 
+@pytest.mark.parametrize('finalized', [False, True])
 def test_play_selects_the_most_recent_session_and_changes_session(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    finalized: bool,
 ) -> None:
-    first = tmp_path / 'first' / 'recording.toml'
-    second = tmp_path / 'second' / 'recording.toml'
+    filename = 'recording.toml' if finalized else 'session-record.jsonl'
+    first = tmp_path / 'first' / filename
+    second = tmp_path / 'second' / filename
     first.parent.mkdir()
     second.parent.mkdir()
     first.touch()
@@ -238,7 +242,7 @@ def test_invalid_recordings_are_reported_without_blocking_healthy_playback(
         assert state.path == str(good)
         assert state.state == 'playing'
     else:
-        with pytest.raises(RecsError, match='No finalized sessions'):
+        with pytest.raises(RecsError, match='No completed sessions'):
             control.play(request)
         assert control.state().state == 'waiting'
 

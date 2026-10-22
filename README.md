@@ -217,11 +217,16 @@ Finalize a stopped session whenever convenient:
 recs session finalize /path/to/session
 ```
 
-Finalization always hashes files, measures sizes, checks audio headers and event
-contents, and writes `recording.toml`. Browsing, playback, editing, and export
-require this index. A cleanly closed journal without an index is awaiting
-finalization, not an interrupted recording. Repeating finalization refreshes
-measured facts in an existing index while preserving its stream description.
+Browsing, playback, and editing work directly from a capture journal without
+finalization. When an index exists, its saved description is used instead.
+Browsing reads metadata; playback and editing read selected audio without a
+whole-file hashing pass. Saving an edit writes an index with unmeasured hashes.
+
+Finalization hashes files, measures sizes, checks audio headers and event
+contents, and writes or updates `recording.toml`. Explicit checking and export
+perform their own verification. A cleanly closed journal without an index is a
+completed recording. Repeating finalization refreshes measured facts in an
+existing index while preserving its stream description.
 
 The bare `recs` command starts capture. `recs sessions ROOT` lists recordings;
 `recs session COMMAND` operates on one session. `recs record check PATH` validates

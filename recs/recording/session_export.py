@@ -19,7 +19,7 @@ from ..base.errors import RecsError
 from .asset_policy import load_asset_policy
 from .asset_resolver import FiniteAssetResolver
 from .files import asset_content, asset_path, content_matches, sealed_asset
-from .read import read_recording_chain
+from .read import read_recording_chain, recording_path
 
 RENAME_EXCL = 0x00000004
 RENAME_NOREPLACE = 1
@@ -53,7 +53,7 @@ def export(
     *,
     resolver: FiniteAssetResolver | None = None,
 ) -> Path:
-    record = record.resolve()
+    record = recording_path(record).resolve()
     destination = destination.absolute()
     destination = destination.parent.resolve() / destination.name
     if destination.exists() or destination.is_symlink():
@@ -198,7 +198,8 @@ def export(
             rewritten = {
                 p: Path(
                     os.path.relpath(
-                        temporary / targets[(path.parent / p).resolve()], output.parent
+                        temporary / targets[recording_path(path.parent / p).resolve()],
+                        output.parent,
                     )
                 ).as_posix()
                 for p in links

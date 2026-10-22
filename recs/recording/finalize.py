@@ -74,6 +74,8 @@ def read_capture_entries(
 def prepare_recording(
     journal: Path,
     entries: list[session_record.Record] | None = None,
+    *,
+    verify_files: bool = True,
 ) -> tuple[RecordingScore, list[str]]:
     root = journal.absolute().parent
     if entries is None:
@@ -128,6 +130,8 @@ def prepare_recording(
         root,
         'original-journal',
         f'recs-session-v{entries[0].version}',
+        hash_files=verify_files,
+        inspect_files=verify_files,
     )
     assets: list[Asset] = [original]
     streams: list[AudioStream | EventStream] = []
@@ -186,6 +190,8 @@ def prepare_recording(
                 root,
                 asset_id,
                 format,
+                hash_files=verify_files,
+                inspect_files=verify_files,
             )
             relative_path = asset_path(asset)
             assets.append(asset)
@@ -206,9 +212,21 @@ def prepare_recording(
                     raise RecsError(
                         f'Audio frame interval disagrees with count: {finished.path}'
                     )
-                info = soundfile.info(path)
-                rate, channels, frames = info.samplerate, info.channels, info.frames
                 source_channels = finished.source_channels or started.source_channels
+                rate = (
+                    finished.sample_rate
+                    or started.sample_rate
+                    or device_rates.get(finished.clock_id)
+                )
+                channels = (
+                    finished.channels
+                    or started.channels
+                    or (len(source_channels) if source_channels else None)
+                )
+                frames = finished.quantity_count
+                if verify_files or rate is None or channels is None:
+                    info = soundfile.info(path)
+                    rate, channels, frames = info.samplerate, info.channels, info.frames
                 descriptions.append(
                     (
                         rate,
@@ -389,10 +407,10 @@ def prepare_recording(
         if clock.name in unique_clocks and unique_clocks[clock.name] != clock:
             raise RecsError(f'Conflicting clock score: {clock.name}')
         unique_clocks[clock.name] = clock
-    journal_hash = asset_content(original).sha256
-    assert journal_hash is not None
     document = RecordingScore(
-        name=header.session_id or journal_hash,
+        name=header.session_id
+        or asset_content(original).sha256
+        or hashlib.sha256(header.model_dump_json().encode()).hexdigest(),
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),
@@ -427,7 +445,7 @@ def prepare_recording(
     )
     paths = {a.name: root / asset_path(a) for a in assets}
     for stream in streams:
-        if isinstance(stream, EventStream):
+        if verify_files and isinstance(stream, EventStream):
             verify_events(stream, paths)
     return document, notes
 
@@ -457,6 +475,12 @@ def finalize_recording(journal: Path) -> Path:
         write_text_atomically(path, score_toml(document))
         return path
     document, _ = prepare_recording(journal)
+    return write_recording(journal, document)
+
+
+def write_recording(journal: Path, document: RecordingScore) -> Path:
+    """Persist a recording index without measuring or verifying its media."""
+    path = journal.parent / 'recording.toml'
     with path.open('x') as target:
         target.write(score_toml(document))
     return path

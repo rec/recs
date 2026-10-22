@@ -11,9 +11,7 @@ from ufor.recording import AudioStream, EventStream
 from ..base.errors import RecsError
 from . import legacy, session_record
 from .files import asset_content, asset_path
-from .read import read_recording
-
-RECORD_GLOB = 'recording.toml'
+from .read import find_recordings, read_recording, recording_path
 
 
 class SessionsCli(BaseModel, frozen=True):
@@ -55,7 +53,7 @@ class SessionsCli(BaseModel, frozen=True):
 
 
 class ShowCli(BaseModel, frozen=True):
-    """Inspect one finalized recording session."""
+    """Inspect one recorded session without verifying media."""
 
     path: Annotated[Path, tyro.conf.Positional]
     json_output: Annotated[bool, tyro.conf.arg(name='json')] = False
@@ -101,12 +99,7 @@ def main(argv: list[str]) -> int:
 
 def scan(cfg: SessionsCli) -> list[SessionSummary]:
     root = cfg.root
-    if root.match(RECORD_GLOB):
-        directories = [root.parent]
-    elif any(root.glob(RECORD_GLOB)):
-        directories = [root]
-    else:
-        directories = sorted({p.parent for p in root.glob(f'**/{RECORD_GLOB}')})
+    directories = [p.parent for p in find_recordings(recording_path(root))]
     summaries: list[SessionSummary] = []
     truncated = False
     for path in directories:
@@ -127,9 +120,8 @@ def scan(cfg: SessionsCli) -> list[SessionSummary]:
 
 
 def summarize(path: Path) -> SessionSummary | None:
-    if path.match(RECORD_GLOB):
-        path = path.parent
-    record_path = path / RECORD_GLOB
+    record_path = recording_path(path)
+    path = record_path.parent
     if not record_path.is_file():
         return None
     try:

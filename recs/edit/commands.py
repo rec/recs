@@ -44,7 +44,7 @@ from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec, export_source
 from recs.edit.options import EditOptions
 from recs.edit.schema import CommandKind, parse_edit, parse_partial_edit
-from recs.recording.read import read_recording_chain
+from recs.recording.read import find_recordings, read_recording_chain, recording_path
 
 
 class SessionRecordRequired(RecsError):
@@ -207,9 +207,9 @@ def select_tracks(tracks: list[InputTrack], selectors: list[str]) -> list[InputT
 
 
 def latest_record(cwd: Path) -> Path:
-    records = list(cwd.rglob('recording.toml'))
+    records = find_recordings(cwd)
     if not records:
-        raise RecsError(f'No recording.toml found below {cwd}')
+        raise RecsError(f'No recording found below {cwd}')
     return max(records, key=lambda p: p.stat().st_mtime)
 
 
@@ -257,10 +257,10 @@ def _dictionary(value: object, message: str) -> dict[str, object]:
 def _expand_input_paths(values: list[Path]) -> list[Path]:
     result: list[Path] = []
     for value in values:
-        path = value.resolve()
+        path = recording_path(value).resolve()
         if path.is_file():
             if (
-                path.name != 'recording.toml'
+                path.name not in {'recording.toml', 'session-record.jsonl'}
                 and path.suffix.lower() not in AUDIO_SUFFIXES
             ):
                 raise RecsError(f'Unsupported edit input file: {path}')
@@ -268,7 +268,7 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
             continue
         if not path.is_dir():
             raise RecsError(f'Edit input does not exist: {path}')
-        if (record := path / 'recording.toml').is_file():
+        if (record := recording_path(path)).is_file():
             result.append(record)
             continue
         media = sorted(
@@ -276,7 +276,7 @@ def _expand_input_paths(values: list[Path]) -> list[Path]:
             for p in path.iterdir()
             if p.is_file() and p.suffix.lower() in AUDIO_SUFFIXES
         )
-        records = sorted(path.rglob('recording.toml'))
+        records = find_recordings(path)
         if media and records:
             raise RecsError(f'Edit input directory mixes media and sessions: {path}')
         if media:
@@ -297,10 +297,11 @@ def _input_tracks(paths: list[Path]) -> list[InputTrack]:
     identifiers: list[str] = []
     qualify = len(paths) > 1
     for path in paths:
-        name = path.parent.name if path.name == 'recording.toml' else path.stem
+        is_recording = path.name in {'recording.toml', 'session-record.jsonl'}
+        name = path.parent.name if is_recording else path.stem
         input_id = _unique_identifier(name, identifiers)
         identifiers.append(input_id)
-        if path.name == 'recording.toml':
+        if is_recording:
             result.extend(_record_tracks(path, input_id, qualify))
         else:
             result.append(_file_track(path, input_id))

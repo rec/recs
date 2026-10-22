@@ -21,7 +21,8 @@ from recs.edit.record import ResolvedSource
 from recs.edit.render import Renderer
 from recs.recording import session_record
 from recs.recording.asset_resolver import FiniteAssetResolver
-from recs.recording.finalize import finalize_recording
+from recs.recording.finalize import write_recording
+from recs.recording.read import read_recording
 
 
 class PreparedEdit(BaseModel, frozen=True):
@@ -184,7 +185,7 @@ def write_session(
         sync=True,
     )
     writer.close()
-    return finalize_recording(writer.path)
+    return write_recording(writer.path, read_recording(writer.path))
 
 
 def canonical_edit(

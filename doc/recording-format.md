@@ -8,11 +8,16 @@ The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
 export, and the editor's session resolver. Explicit finalization and successful
-audio edits write this score beside their version 5 capture journal. Recording
+audio edits write this score beside their version 5 capture journal. Edited
+output indexes omit hashes until explicitly finalized. Recording
 shutdown does so only when `finalize_on_shutdown` is true; its default is false.
 The journal remains append-only operational evidence for diagnostics and
-recovery. Content readers require the common score; they do not fall back
-to historical journals. Convert old sessions explicitly before opening them.
+recovery. Readers use a saved index when present, or build the same recording
+model in memory from the current capture journal without hashing media. Browsing
+does not decode media; playback and editing inspect and read selected audio.
+Browsing and playback do not write an index back to the original session.
+Historical version 3
+journals still require explicit migration.
 
 Shutdown normally finishes the journal and closes capture files without reading
 them back or writing a content index. Necessary writes and flushes still occur.
@@ -29,7 +34,7 @@ Repeating finalization refreshes measured facts in an existing index while
 preserving its stream description. It refuses an index belonging to a different
 capture journal. A failed finalization leaves the journal and media available
 and reports the error. A cleanly closed journal without an index is not an
-interrupted capture. Browsing, playback, editing, and export require finalization.
+interrupted capture. Browsing, playback, and editing do not require finalization.
 `recs record check` performs the fuller payload verification described below.
 
 ## Recording fields

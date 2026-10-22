@@ -41,9 +41,11 @@ session/
 ```
 
 `session-record.jsonl` exists while capture is in progress and is the source
-evidence for finalization. A cleanly finalized session also contains
-`recording.toml`, the content index used by browsing, checking, editing, and
-export. Its `body.project_name` records the active project independently of the
+evidence for finalization. Finalization adds `recording.toml`, a saved content
+index. Browsing, playback, and editing use it when present and otherwise build
+their recording model from the journal without hashing media. Successful edits
+also write an index with hashes left unmeasured. Its `body.project_name` records
+the active project independently of the
 directory path. The default workspace is recorded as `-default-`. Media
 subdirectories exist only for enabled media that recs writes:
 
@@ -238,7 +240,8 @@ and keeps original journal bytes unchanged.
 
 Recording shutdown finishes the journal without creating a content index by
 default. `finalize_on_shutdown` defaults to false; `--finalize-on-shutdown`
-enables automatic finalization. Successful offline edits finalize their output.
+enables automatic finalization. Successful offline edits write a metadata index
+without hashing their output.
 For a stopped capture, finalize whenever convenient:
 
 ```sh

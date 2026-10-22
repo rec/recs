@@ -10,7 +10,7 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
  subcommands
  ----------------------------------------------------------------------------------------------------------------------
   (required)
-    - show          Inspect one finalized recording session.
+    - show          Inspect one recorded session without verifying media.
     - quality       Report one recording document's evidence; audio decoding is opt-in.
 
                     Frame positions are source-local, half-open ranges, not cross-device alignment. Near-full-scale
@@ -232,7 +232,7 @@ Discover unfinished session records below ROOT once.
 $ recs session show --help
 usage: recs session show [-h] PATH [--json | --no-json]
 
-Inspect one finalized recording session.
+Inspect one recorded session without verifying media.
 
  positional arguments
  ----------------------------------------------------
