@@ -200,18 +200,19 @@ def register_unfinished_session(root: Path, record: Path) -> None:
     _save_worklist(worklist.model_copy(update={'candidates': candidates}))
 
 
-def clear_finished_session(record: Path) -> None:
+def clear_finished_session(record: Path, *, inspect_files: bool = True) -> None:
     worklist = _load_worklist()
-    key = str(record.resolve())
+    key = str(record.resolve() if inspect_files else record.absolute())
     candidate = worklist.candidates.get(key)
     if candidate is None:
         return
-    try:
-        report = recovery_report(record)
-    except OSError:
-        return
-    if report is not None:
-        return
+    if inspect_files:
+        try:
+            report = recovery_report(record)
+        except OSError:
+            return
+        if report is not None:
+            return
     report_path = record.parent / REPORT_FILE
     if _digest_path(report_path) == candidate.report_digest:
         report_path.unlink(missing_ok=True)

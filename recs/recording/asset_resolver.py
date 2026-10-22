@@ -67,8 +67,13 @@ class FiniteAssetResolver:
         """Authorize, acquire, and verify one finite asset for this use."""
         if asset.content is None:
             raise AssetCacheError(f'Asset is not a finite byte source: {asset.name}')
-        expected = ObjectIdentity(
-            sha256=asset.content.sha256, length=asset.content.byte_length
+        expected = (
+            ObjectIdentity(
+                sha256=asset.content.sha256, length=asset.content.byte_length
+            )
+            if asset.content.sha256 is not None
+            and asset.content.byte_length is not None
+            else None
         )
         location = asset.location
         context: dict[str, object]
@@ -83,6 +88,10 @@ class FiniteAssetResolver:
             source_kind = SourceKind.volume_file
             context = {'volume_id': location.volume_id}
         elif isinstance(location, DownloadLocation):
+            if expected is None:
+                raise AssetCacheError(
+                    'Remote acquisition requires a measured length and hash'
+                )
             with open_https_asset(
                 self.store,
                 location.url,
@@ -98,6 +107,10 @@ class FiniteAssetResolver:
                 yield file
             return
         elif isinstance(location, GitFileLocation):
+            if expected is None:
+                raise AssetCacheError(
+                    'Remote acquisition requires a measured length and hash'
+                )
             if location.repository not in self.approved_git_urls:
                 raise AssetAcquisitionDenied('Host policy denied the Git repository')
             if urlsplit(location.repository).scheme not in {'git', 'https', 'ssh'}:
@@ -133,6 +146,26 @@ class FiniteAssetResolver:
         source_key = source_fingerprint(
             location.model_dump(mode='json'), context, expected, {}
         )
+        if expected is None:
+            entry = self.store.import_file(
+                root,
+                location.path,
+                maximum_bytes=self.maximum_bytes,
+                source_key=source_key,
+                source_kind=source_kind,
+            )
+            if (
+                asset.content.byte_length is not None
+                and entry.object.length != asset.content.byte_length
+                or asset.content.sha256 is not None
+                and entry.object.sha256 != asset.content.sha256
+            ):
+                raise AssetCacheError(
+                    f'Asset bytes disagree with recording: {asset.name}'
+                )
+            with self.store.open_entry(entry.id) as file:
+                yield file
+            return
         with open_file_asset(
             self.store,
             root,

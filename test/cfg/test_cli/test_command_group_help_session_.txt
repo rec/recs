@@ -99,15 +99,19 @@ Use numbers from session markers, not labels. Select one capture clock. Without 
 
 
 $ recs session finalize --help
-usage: recs session finalize [-h] PATH
+usage: recs session finalize [-h] PATH [--hash-files | --no-hash-files] [--inspect-files | --no-inspect-files]
 
  positional arguments
- ---------------------------------------------
+ ------------------------------------------------------------------------------------------------------
   PATH        session (required)
 
  options
- ---------------------------------------------
+ ------------------------------------------------------------------------------------------------------
   -h, --help  show this help message and exit
+  --hash-files, --no-hash-files
+              Read files to add hashes and byte lengths, including an existing index. (default: False)
+  --inspect-files, --no-inspect-files
+              Read file sizes, audio headers, and events to check capture evidence. (default: False)
 
 
 $ recs session handoff --help

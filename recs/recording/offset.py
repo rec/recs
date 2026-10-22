@@ -157,10 +157,11 @@ def _prepare(
                 if content is None:
                     raise RecsError(f'Missing capture journal: {document_path}')
                 payload = content.encode()
-                asset['content'] = {
-                    'byte_length': len(payload),
-                    'sha256': hashlib.sha256(payload).hexdigest(),
-                }
+                facts = asset['content']
+                if 'byte_length' in facts:
+                    facts['byte_length'] = len(payload)
+                if 'sha256' in facts:
+                    facts['sha256'] = hashlib.sha256(payload).hexdigest()
         document = RecordingScore.model_validate(data)
         contents[Path('recording.toml')] = score_toml(document)
     return SessionChange(

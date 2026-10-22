@@ -17,7 +17,7 @@ def recording(tmp_path: Path) -> Path:
     )
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
-    return finalize_recording(writer.path)
+    return finalize_recording(writer.path, hash_files=True)
 
 
 def test_record_check_accepts_verified_recording(recording: Path) -> None:

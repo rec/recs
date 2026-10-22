@@ -14,19 +14,23 @@ events:
   type: track_started
 files:
 - bit_depth: 32
+  channels: 1
   clock_id: clock:test/testdata/file_inputs/mono.wav
   frame_count: 48000
   path: audio/mono-1.wav
   quantity_count: 48000
+  sample_rate: 48000
   source_channels:
   - 1
   stream_id: audio:test%2Ftestdata%2Ffile_inputs%2Fmono.wav:1
   trigger_frame: 0
 - bit_depth: 32
+  channels: 2
   clock_id: clock:test/testdata/file_inputs/stereo.wav
   frame_count: 48000
   path: audio/stereo-1.wav
   quantity_count: 48000
+  sample_rate: 48000
   source_channels:
   - 1
   - 2

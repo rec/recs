@@ -182,7 +182,7 @@ def test_recorder_summarizes_interrupt(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 100.0)
-    rec = Recorder(Cfg(silent=True))
+    rec = Recorder(Cfg(silent=True, inspect_recordings=True))
     first = tmp_path / 'first.wav'
     second = tmp_path / 'second.wav'
     first.touch()

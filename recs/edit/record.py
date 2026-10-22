@@ -13,7 +13,12 @@ from ufor.recording import AudioStream
 from recs.base.errors import RecsError
 from recs.edit.inputs import SourceSpec
 from recs.recording.asset_resolver import FiniteAssetResolver
-from recs.recording.files import asset_content, asset_path, sealed_asset
+from recs.recording.files import (
+    asset_content,
+    asset_path,
+    content_matches,
+    sealed_asset,
+)
 from recs.recording.read import read_recording_chain
 
 from .workspace import SCRATCH_DIRECTORY
@@ -154,8 +159,16 @@ def resolve_input(
             relative_path = asset_path(asset)
             path = directory / relative_path
             if path not in verified:
-                actual = sealed_asset(path, directory, asset.name, asset.encoding)
-                if actual.content != asset_content(asset):
+                content = asset_content(asset)
+                actual = sealed_asset(
+                    path,
+                    directory,
+                    asset.name,
+                    asset.encoding,
+                    hash_files=content.sha256 is not None,
+                    inspect_files=content.byte_length is not None,
+                )
+                if not content_matches(asset_content(actual), asset_content(asset)):
                     raise RecsError(
                         f'Source {source.name}: asset bytes disagree with recording: '
                         f'{relative_path}'

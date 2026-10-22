@@ -515,3 +515,120 @@ def test_midi_realtime_capture_is_preserved_and_smf_export_reports_limit(
     with pytest.raises(RecsError, match='cannot represent clock messages'):
         export_midi(path, 'midi:keys', destination)
     assert not destination.exists()
+
+
+def test_default_finalization_does_not_read_or_stat_recorded_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hashlib
+
+    from recs.recording import finalize
+
+    session = RecordingSession('no-inspection', 0.0)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    _audio(session, tmp_path, 0)
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError('Finalization inspected a recorded file')
+
+    original_open = Path.open
+
+    def write_only(
+        self: Path, mode: str = 'r', *args: object, **kwargs: object
+    ) -> object:
+        if mode not in {'x', 'w', 'a'}:
+            forbidden()
+        return original_open(self, mode, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'open', write_only)
+        patch.setattr(Path, 'stat', forbidden)
+        patch.setattr(soundfile, 'info', forbidden)
+        patch.setattr(hashlib, 'file_digest', forbidden)
+        patch.setattr(finalize, 'verify_events', forbidden)
+        patch.setattr(finalize, 'read_capture_entries', forbidden)
+        session.finish(4.0)
+
+    assert session.record_errors == []
+    document = read_recording(tmp_path / 'recording.toml')
+    assert document.body.state == 'sealed'
+    assert document.body.streams
+    assert all(
+        a.content is not None
+        and a.content.byte_length is None
+        and a.content.sha256 is None
+        for a in document.assets
+    )
+    assert verify_recording(document, tmp_path).audio_frames == 96000
+    assert Cfg().recording.hash_recordings is False
+    assert Cfg().recording.inspect_recordings is False
+
+
+@pytest.mark.parametrize(
+    ('hash_files', 'inspect_files'), [(True, False), (False, True), (True, True)]
+)
+def test_finalization_can_opt_into_hashing_and_inspection(
+    tmp_path: Path,
+    hash_files: bool,
+    inspect_files: bool,
+) -> None:
+    session = RecordingSession(
+        'measured', 0.0, hash_files=hash_files, inspect_files=inspect_files
+    )
+    session.start(tmp_path / 'session-record.jsonl', enabled=True)
+    _audio(session, tmp_path, 0)
+    session.finish(4.0)
+
+    assert not session.record_errors
+    document = read_recording(tmp_path / 'recording.toml')
+    assert all(
+        a.content is not None and a.content.byte_length is not None
+        for a in document.assets
+    )
+    assert all(
+        a.content is not None and (a.content.sha256 is not None) == hash_files
+        for a in document.assets
+    )
+
+
+def test_hashing_an_existing_index_preserves_its_description(tmp_path: Path) -> None:
+    from ufor.codec import score_toml
+
+    from recs.recording.finalize import finalize_recording
+
+    session = RecordingSession('later', 0.0)
+    journal = tmp_path / 'session-record.jsonl'
+    session.start(journal, enabled=True)
+    _audio(session, tmp_path, 0)
+    session.finish(4.0)
+    path = tmp_path / 'recording.toml'
+    document = read_recording(path).model_copy(update={'title': 'My edited title'})
+    path.write_text(score_toml(document))
+
+    assert finalize_recording(journal, hash_files=True) == path
+
+    hashed = read_recording(path)
+    assert hashed.title == document.title
+    assert hashed.body == document.body
+    assert all(
+        a.content is not None and a.content.sha256 is not None for a in hashed.assets
+    )
+    assert verify_recording(hashed, tmp_path).audio_frames == 96000
+
+
+def test_shutdown_with_hashing_does_not_overwrite_an_existing_index(
+    tmp_path: Path,
+) -> None:
+    first = RecordingSession('first', 0.0)
+    first.start(tmp_path / 'session-record.jsonl', enabled=True)
+    assert first.finish(1.0)
+    original = (tmp_path / 'recording.toml').read_bytes()
+    second = RecordingSession('second', 2.0, hash_files=True)
+    second.start(tmp_path / 'session-record.jsonl', enabled=True)
+
+    assert not second.finish(3.0)
+
+    assert (tmp_path / 'recording.toml').read_bytes() == original
+    assert any('Cannot finalize recording' in e for e in second.record_errors)

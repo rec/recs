@@ -18,7 +18,7 @@ from ufor.codec import score_toml
 from ..base.errors import RecsError
 from .asset_policy import load_asset_policy
 from .asset_resolver import FiniteAssetResolver
-from .files import asset_content, asset_path, sealed_asset
+from .files import asset_content, asset_path, content_matches, sealed_asset
 from .read import read_recording_chain
 
 RENAME_EXCL = 0x00000004
@@ -59,10 +59,13 @@ def export(
     if destination.exists() or destination.is_symlink():
         raise RecsError(f'Export destination already exists: {destination}')
     records = read_recording_chain(record)
-    fingerprints = {
-        str(p): asset_content(sealed_asset(p, p.parent, 'document', 'toml')).sha256
-        for p, _ in records
-    }
+    fingerprints: dict[str, str] = {}
+    for path, _ in records:
+        digest = asset_content(
+            sealed_asset(path, path.parent, 'document', 'toml')
+        ).sha256
+        assert digest is not None
+        fingerprints[str(path)] = digest
     targets = {
         p: Path(
             'recording.toml'
@@ -87,19 +90,27 @@ def export(
         or any(p in paths for q in paths for p in q.parents)
     ):
         raise RecsError('Export paths conflict with another asset or export metadata')
+    measured_records = []
     for path, document in records:
         if document.body.state != 'sealed':
             raise RecsError(f'Cannot export an unfinished recording: {path}')
         if resolver is None:
+            measured = []
             for asset in document.assets:
                 relative_path = asset_path(asset)
                 actual = sealed_asset(
                     path.parent / relative_path, path.parent, asset.name, asset.encoding
                 )
-                if actual.content != asset_content(asset):
+                if not content_matches(asset_content(actual), asset_content(asset)):
                     raise RecsError(
                         f'Asset bytes disagree with recording: {relative_path}'
                     )
+                measured.append(actual)
+                relative = (targets[path].parent / _export_path(asset)).as_posix()
+                assets[relative] = (path.parent, actual)
+            document = document.model_copy(update={'assets': measured})
+        measured_records.append((path, document))
+    records = measured_records
     if resume is not None:
         temporary = resume.resolve()
         try:
@@ -146,7 +157,7 @@ def export(
             _, asset = assets[relative]
             target = temporary / relative
             actual = sealed_asset(target, temporary, asset.name, asset.encoding)
-            if actual.content != asset_content(asset):
+            if not content_matches(asset_content(actual), asset_content(asset)):
                 raise RecsError(f'Completed staged asset differs: {relative}')
             progress.verified.append(relative)
             progress.remaining.remove(relative)
@@ -169,7 +180,7 @@ def export(
                             with target.open('wb') as destination_file:
                                 shutil.copyfileobj(source, destination_file)
                 actual = sealed_asset(target, output.parent, asset.name, asset.encoding)
-                if actual.content != asset_content(asset):
+                if not content_matches(asset_content(actual), asset_content(asset)):
                     raise RecsError(f'Exported asset differs: {relative_path}')
                 if current not in completed:
                     progress.copied.append(current)
@@ -179,7 +190,7 @@ def export(
                         progress.model_dump_json(indent=2),
                     )
                 file_count += 1
-                total_bytes += asset_content(asset).byte_length
+                total_bytes += asset_content(actual).byte_length or 0
             body = document.body
             links = body.continued_at + (
                 [body.continued_from] if body.continued_from else []
@@ -220,7 +231,7 @@ def export(
             actual = sealed_asset(
                 temporary / relative, temporary, asset.name, asset.encoding
             )
-            if actual.content != asset_content(asset):
+            if not content_matches(asset_content(actual), asset_content(asset)):
                 raise RecsError(f'Exported asset differs: {relative}')
         current = ''
         for path, _ in records:

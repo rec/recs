@@ -210,6 +210,8 @@ def test_live_input_record_names_source(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
         {
             'type': 'file_finished',
@@ -218,6 +220,8 @@ def test_live_input_record_names_source(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
     ]
 
@@ -331,6 +335,8 @@ def test_record_records_source_frame_counts(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
         },
         {
             'type': 'track_started',
@@ -346,6 +352,8 @@ def test_record_records_source_frame_counts(
             'path': 'audio/mic.wav',
             'source_channels': [1],
             'bit_depth': 64,
+            'channels': 1,
+            'sample_rate': 48000,
             'quantity_count': 512,
         },
     ]
@@ -903,7 +911,7 @@ def test_recovery_tracks_the_journal_path_that_was_opened(
     monkeypatch.setattr(
         recorder.recovery_report,
         'clear_finished_session',
-        cleared.append,
+        lambda path, *, inspect_files: cleared.append(path),
     )
     rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
 

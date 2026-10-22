@@ -17,7 +17,9 @@ def print_summary(
     if elapsed < 60:
         duration = f'0:{duration:0>6}'
     print(f'Recording time: {duration}')
-    files = sorted(p for p in files_written if p.exists())
+    files = sorted(
+        p for p in files_written if not cfg.recording.inspect_recordings or p.exists()
+    )
     if files:
         print('Files written:')
         for path in files:

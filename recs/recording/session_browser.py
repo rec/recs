@@ -74,7 +74,7 @@ class SessionSummary(BaseModel):
     audio_files: int = 0
     midi_files: int = 0
     midi_messages: int = 0
-    total_bytes: int
+    total_bytes: int | None
     state: str
     unresolved_audio_files: int = 0
     warnings: list[str] = Field(default_factory=list)
@@ -203,7 +203,11 @@ def summarize(path: Path) -> SessionSummary | None:
             if (s.event_kind == 'midi' or s.event_schema == 'midi')
             for f in s.fragments
         ),
-        total_bytes=sum(asset_content(assets[a]).byte_length for a in media),
+        total_bytes=(
+            sum(asset_content(assets[a]).byte_length or 0 for a in media)
+            if all(asset_content(assets[a]).byte_length is not None for a in media)
+            else None
+        ),
         warnings=warnings,
         state=body.state,
         unresolved_audio_files=unresolved,
@@ -266,10 +270,12 @@ def show(argv: list[str]) -> int:
 
 def _print_summaries(summaries: list[SessionSummary]) -> None:
     for value in summaries:
+        total_bytes = value.total_bytes if value.total_bytes is not None else 'unknown'
         print(
             f'{value.started_at}  audio={value.audio_files}  '
             f'midi={value.midi_files}  '
-            f'bytes={value.total_bytes}  {value.path}'
+            f'bytes={total_bytes}  '
+            f'{value.path}'
         )
         for match in value.matched_filters:
             print(f'  matched: {match}')
@@ -326,7 +332,8 @@ def _print_summary(value: SessionSummary) -> None:
     print(f'audio_files: {value.audio_files}')
     print(f'midi_files: {value.midi_files}')
     print(f'midi_messages: {value.midi_messages}')
-    print(f'total_bytes: {value.total_bytes}')
+    total_bytes = value.total_bytes if value.total_bytes is not None else 'unknown'
+    print(f'total_bytes: {total_bytes}')
     print(f'devices: {", ".join(value.devices)}')
     print(f'tracks: {", ".join(value.tracks)}')
     print(f'midi_ports: {", ".join(value.midi_ports)}')

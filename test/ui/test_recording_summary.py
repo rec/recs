@@ -42,7 +42,7 @@ def test_summary_reports_failed_sources(capsys: pytest.CaptureFixture[str]) -> N
 def test_summary_reports_removed_files(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    print_summary(Cfg(), 0, {tmp_path / 'missing.wav'}, [], True)
+    print_summary(Cfg(inspect_recordings=True), 0, {tmp_path / 'missing.wav'}, [], True)
     assert (
         'all candidate files were removed or are no longer present.'
         in capsys.readouterr().out

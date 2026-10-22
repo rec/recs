@@ -266,8 +266,10 @@ def prepare_legacy_recording(
             f'Journal paths were resolved relative to {path_base}; '
             'candidate asset paths are relative to the session.'
         )
+    journal_hash = asset_content(original).sha256
+    assert journal_hash is not None
     return RecordingScore(
-        name=header.session_id or asset_content(original).sha256,
+        name=header.session_id or journal_hash,
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),

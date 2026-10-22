@@ -133,6 +133,10 @@ readiness inspects a project or configuration without recording; preflight check
 
  recording options
  -------------------------------------------------------------------------------------------
+  --hash-recordings, --no-hash-recordings
+        Read and hash recorded files during finalization (default: False)
+  --inspect-recordings, --no-inspect-recordings
+        Inspect file sizes, audio headers, and events during finalization (default: False)
   --audio-buffer-seconds TIME
         Seconds of audio to buffer before dropping delayed callbacks (default: 10.0)
   --memory-reserve-megabytes MB

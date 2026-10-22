@@ -205,6 +205,22 @@ The complete local RPC and event interface, including live waveforms and the
 
 ## Sessions And Editing
 
+Shutdown writes `recording.toml` from capture metadata without rereading recorded
+files by default. `--hash-recordings` enables reading files for SHA-256 hashes;
+`--inspect-recordings` enables file sizes, audio-header checks, and event checks.
+Both default to false. Capture still writes, flushes, and closes its files.
+Unmeasured sizes and hashes are omitted; recordings remain browsable, playable,
+and editable. These settings concern finalization, not normal capture I/O or
+explicit offline checking and export.
+
+To add hashes and inspect a recording later, including an existing index:
+
+```console
+recs session finalize /path/to/session --hash-files --inspect-files
+```
+
+This enriches an existing index without replacing its stream description.
+
 The bare `recs` command starts capture. `recs sessions ROOT` lists recordings;
 `recs session COMMAND` operates on one session. `recs record check PATH` validates
 a recording document and its media; it does not start recording. The old implicit

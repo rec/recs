@@ -109,7 +109,10 @@ def inspect_recovery(location: Path) -> RecoveryPlan:
                 )
             elif finished:
                 candidate, _ = prepare_recording(
-                    journal, [entries[0], *started, *finished]
+                    journal,
+                    [entries[0], *started, *finished],
+                    hash_files=True,
+                    inspect_files=True,
                 )
                 verify_recording(candidate, journal.parent)
                 asset = next(
@@ -177,7 +180,7 @@ def inspect_recovery(location: Path) -> RecoveryPlan:
     selected = _selected_entries(entries, files)
     try:
         # Check cross-file stream/layout/clock consistency before writing anything.
-        prepare_recording(journal, selected)
+        prepare_recording(journal, selected, hash_files=True, inspect_files=True)
     except (OSError, ValueError, RecsError, soundfile.SoundFileError) as error:
         failures.append(str(error))
     if not any(f.asset is not None for f in files):
@@ -288,7 +291,9 @@ def recover(plan: RecoveryPlan, destination: Path) -> Path:
             )
         finally:
             writer.close()
-        document, _ = prepare_recording(writer.path)
+        document, _ = prepare_recording(
+            writer.path, hash_files=True, inspect_files=True
+        )
         document = document.model_copy(
             update={
                 'assets': [
