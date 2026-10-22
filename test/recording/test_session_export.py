@@ -308,4 +308,4 @@ def _record(
         )
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
-    return finalize_recording(writer.path, hash_files=True)
+    return finalize_recording(writer.path)

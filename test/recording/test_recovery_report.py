@@ -119,7 +119,7 @@ def test_ignores_osc_data_file_named_record(tmp_path: Path) -> None:
     assert not (directory / 'recs-recovery-report.toml').exists()
 
 
-def test_reports_closed_journal_without_finalized_document(tmp_path: Path) -> None:
+def test_closed_journal_does_not_require_a_finalized_document(tmp_path: Path) -> None:
     directory = tmp_path / 'session'
     directory.mkdir()
     (directory / 'session-record.jsonl').write_text(
@@ -127,7 +127,20 @@ def test_reports_closed_journal_without_finalized_document(tmp_path: Path) -> No
         '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
     )
     reports = recovery_report.report_unfinished_sessions(tmp_path)
-    assert len(reports) == 1
-    report = tomlkit.parse(reports[0].read_text())
-    assert 'Cannot read recording' in str(report['finalization_error'])
-    assert 'recording.toml' in str(report['finalization_error'])
+    assert reports == []
+    assert not (directory / 'recording.toml').exists()
+
+
+def test_closed_journal_still_reports_unfinished_files(tmp_path: Path) -> None:
+    record = tmp_path / 'session-record.jsonl'
+    record.write_text(
+        '{"type":"header","version":5,"started_at":"start"}\n'
+        '{"type":"file_started","timestamp":"start","stream_id":"audio:mic:1",'
+        '"clock_id":"capture","path":"audio/take.wav"}\n'
+        '{"type":"footer","ended_at":"end","duration_seconds":1}\n'
+    )
+
+    report = recovery_report.recovery_report(record)
+
+    assert report is not None
+    assert report.open_files == ['audio/take.wav']

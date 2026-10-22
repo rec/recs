@@ -7,30 +7,29 @@ ordered event sequences. TOML is the score syntax; `format = "recs"`,
 The [arrangement format](arrangement-format.md) describes audio editing.
 
 `recording.toml` is the content index used by session browsing, checking,
-export, and the editor's session resolver. Recording shutdown and successful
-audio edits finalize this score beside their version 5 capture journal.
+export, and the editor's session resolver. Explicit finalization and successful
+audio edits write this score beside their version 5 capture journal. Recording
+shutdown does so only when `finalize_on_shutdown` is true; its default is false.
 The journal remains append-only operational evidence for diagnostics and
 recovery. Content readers require the common score; they do not fall back
 to historical journals. Convert old sessions explicitly before opening them.
 
-Finalization builds streams and native spans from capture evidence. By default,
-it does not read recorded payloads, inspect their headers, or stat them. The
-recorder retains journal entries in memory for finalization rather than rereading
-the journal at shutdown. `--hash-recordings` enables file hashing;
-`--inspect-recordings` enables sizes, audio-header checks, and event checks.
-Both default to false. Necessary capture and index writes still take place.
+Shutdown normally finishes the journal and closes capture files without reading
+them back or writing a content index. Necessary writes and flushes still occur.
+Run `recs session finalize SESSION` after shutdown to build streams and native
+spans, hash all recorded files, measure sizes, inspect audio headers, and check
+event contents. These calculations are always part of finalization.
 
 `content.sha256` and `content.byte_length` are optional measured facts. Omitted
 facts mean unknown, not zero or verified. `sealed` describes completed capture,
 not verified media. Readers check recorded facts when present, and browsing
 reports an unknown total size if any media size is unknown.
 
-Normal shutdown never overwrites an existing score. Explicitly running
-`recs session finalize SESSION --hash-files --inspect-files` adds measured facts
-to an existing index while preserving its stream description. A failed
-finalization leaves the
-journal and media available; the recorder reports the error, and the next
-recovery scan reports the missing score even if the journal has a footer.
+Repeating finalization refreshes measured facts in an existing index while
+preserving its stream description. It refuses an index belonging to a different
+capture journal. A failed finalization leaves the journal and media available
+and reports the error. A cleanly closed journal without an index is not an
+interrupted capture. Browsing, playback, editing, and export require finalization.
 `recs record check` performs the fuller payload verification described below.
 
 ## Recording fields

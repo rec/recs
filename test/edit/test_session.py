@@ -65,7 +65,7 @@ def test_edit_creates_audio_canonical_edit_and_session_record(tmp_path: Path) ->
     )
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
-    finalize_recording(writer.path, hash_files=True)
+    finalize_recording(writer.path)
     edit = parse_edit(
         """
 format = "recs"

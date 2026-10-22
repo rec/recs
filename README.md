@@ -6,7 +6,7 @@ proposals, and the boundaries between recs, uFor, and enge.
 recs continuously records audio, MIDI, OSC, and key events into sessions
 grouped by local calendar day. Audio can be recorded continuously or split
 around quiet passages.
-Each completed session has a `recording.toml` indexing its media and native
+Finalizing a session produces a `recording.toml` indexing its media and native
 timelines. Its `session-record.jsonl` preserves capture lifecycle, source,
 configuration, disk, and control events.
 
@@ -205,21 +205,23 @@ The complete local RPC and event interface, including live waveforms and the
 
 ## Sessions And Editing
 
-Shutdown writes `recording.toml` from capture metadata without rereading recorded
-files by default. `--hash-recordings` enables reading files for SHA-256 hashes;
-`--inspect-recordings` enables file sizes, audio-header checks, and event checks.
-Both default to false. Capture still writes, flushes, and closes its files.
-Unmeasured sizes and hashes are omitted; recordings remain browsable, playable,
-and editable. These settings concern finalization, not normal capture I/O or
-explicit offline checking and export.
+By default, shutdown finishes the capture journal and closes the files without
+writing `recording.toml`, hashing files, or inspecting their headers and sizes.
+The setting `finalize_on_shutdown` defaults to false. Use
+`--finalize-on-shutdown` to perform full finalization automatically instead.
+Necessary capture writes, flushes, and closes still take place.
 
-To add hashes and inspect a recording later, including an existing index:
+Finalize a stopped session whenever convenient:
 
 ```console
-recs session finalize /path/to/session --hash-files --inspect-files
+recs session finalize /path/to/session
 ```
 
-This enriches an existing index without replacing its stream description.
+Finalization always hashes files, measures sizes, checks audio headers and event
+contents, and writes `recording.toml`. Browsing, playback, editing, and export
+require this index. A cleanly closed journal without an index is awaiting
+finalization, not an interrupted recording. Repeating finalization refreshes
+measured facts in an existing index while preserving its stream description.
 
 The bare `recs` command starts capture. `recs sessions ROOT` lists recordings;
 `recs session COMMAND` operates on one session. `recs record check PATH` validates

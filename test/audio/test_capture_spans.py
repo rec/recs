@@ -206,7 +206,7 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     assert len(samples) == 144000
     spans = writer.file_spans[path]
     data_regression.check([s.model_dump() for s in spans])
-    session = RecordingSession('test', 1700000000.0)
+    session = RecordingSession('test', 1700000000.0, finalize_on_shutdown=True)
     journal = tmp_path / 'session-record.jsonl'
     session.start(journal, enabled=True)
     session.write(

@@ -182,7 +182,7 @@ def test_recorder_summarizes_interrupt(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     monkeypatch.setattr(recorder.times, 'timestamp', lambda: 100.0)
-    rec = Recorder(Cfg(silent=True, inspect_recordings=True))
+    rec = Recorder(Cfg(silent=True))
     first = tmp_path / 'first.wav'
     second = tmp_path / 'second.wav'
     first.touch()
@@ -199,7 +199,8 @@ def test_recorder_summarizes_interrupt(
     rec.run()
 
     assert capsys.readouterr() == (
-        f'Recording time: 1:05.250\nFiles written:\n  {first}\n  {second}\n',
+        f'Recording time: 1:05.250\nFiles written:\n'
+        f'  {tmp_path / "deleted.wav"}\n  {first}\n  {second}\n',
         'Interrupted\n',
     )
 

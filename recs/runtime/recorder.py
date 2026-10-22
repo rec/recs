@@ -134,8 +134,7 @@ class Recorder(Runnables):
         self.session = recording_session.RecordingSession(
             session_id,
             self.session_start_time,
-            hash_files=self.cfg.recording.hash_recordings,
-            inspect_files=self.cfg.recording.inspect_recordings,
+            finalize_on_shutdown=self.cfg.recording.finalize_on_shutdown,
         )
         self._recovery_roots: set[Path] = set()
         self._midi = MidiRecorder(
@@ -832,19 +831,16 @@ class Recorder(Runnables):
         self._osc.close_session()
         self._flush_warning_summaries()
         timestamp = times.timestamp()
-        finalized = self.session.finish(timestamp)
-        if record_path is not None and finalized:
-            recovery_report.clear_finished_session(
-                record_path, inspect_files=self.cfg.recording.inspect_recordings
-            )
+        completed = self.session.finish(timestamp)
+        if record_path is not None and completed:
+            recovery_report.clear_finished_session(record_path)
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (
             cfg.directory.output_directory != self.cfg.directory.output_directory
         )
         self.cfg = cfg
-        self.session.hash_files = cfg.recording.hash_recordings
-        self.session.inspect_files = cfg.recording.inspect_recordings
+        self.session.finalize_on_shutdown = cfg.recording.finalize_on_shutdown
         self._devices.cfg = cfg
         self._disk_space_policy.cfg = cfg
         self._disk_space_controller.cfg = cfg

@@ -23,11 +23,9 @@ class RecordingSession:
         session_id: str,
         started_at: float,
         *,
-        hash_files: bool = False,
-        inspect_files: bool = False,
+        finalize_on_shutdown: bool = False,
     ) -> None:
-        self.hash_files = hash_files
-        self.inspect_files = inspect_files
+        self.finalize_on_shutdown = finalize_on_shutdown
         self.session_id = session_id
         self.started_at = started_at
         self.continued_from: str | None = None
@@ -73,8 +71,7 @@ class RecordingSession:
                 self.write(self.key_writer.finish())
                 self.key_writer = None
             for path in sorted(self.files):
-                if not self.inspect_files or path.exists():
-                    self.record_file_finished(path)
+                self.record_file_finished(path)
             self.write(host_clock_observation())
             self.write(
                 session_record.SessionFooter(
@@ -100,17 +97,12 @@ class RecordingSession:
                 completed = False
             self.record_errors.extend(writer.take_errors())
             self.record_writer = None
-        if not completed:
+        if not completed or not self.finalize_on_shutdown:
             self.record_errors = self.record_errors[-MAX_RECORD_ERRORS:]
-            return False
+            return completed
         finalized = False
         try:
-            finalize_recording(
-                writer.path,
-                entries=writer.entries,
-                hash_files=self.hash_files,
-                inspect_files=self.inspect_files,
-            )
+            finalize_recording(writer.path)
             finalized = True
         except (OSError, RecsError, SoundFileError, ValidationError) as error:
             self.record_errors.append(f'Cannot finalize recording: {error}')

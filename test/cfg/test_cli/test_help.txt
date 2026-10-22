@@ -133,10 +133,8 @@ readiness inspects a project or configuration without recording; preflight check
 
  recording options
  -------------------------------------------------------------------------------------------
-  --hash-recordings, --no-hash-recordings
-        Read and hash recorded files during finalization (default: False)
-  --inspect-recordings, --no-inspect-recordings
-        Inspect file sizes, audio headers, and events during finalization (default: False)
+  --finalize-on-shutdown, --no-finalize-on-shutdown
+        Hash and inspect recordings and write recording.toml at shutdown (default: False)
   --audio-buffer-seconds TIME
         Seconds of audio to buffer before dropping delayed callbacks (default: 10.0)
   --memory-reserve-megabytes MB
@@ -403,7 +401,7 @@ Inspect or manage one session. Use recs sessions ROOT to list sessions.
                     Audio is fully decoded for verification. Unfinished readable audio is retained as unplaced assets,
                     not aligned tracks. No original files are changed.
     - recover-scan  Discover unfinished session records below ROOT once.
-    - finalize
+    - finalize      Hash and inspect a stopped recording and write its content index.
     - export-midi
     - migrate
     - export

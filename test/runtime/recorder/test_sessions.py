@@ -426,6 +426,7 @@ def test_card_replace_uses_new_session_without_changing_output_directory(
             include=['Mic'],
             output_directory=str(output),
             disk_removable_emergency=['1'],
+            finalize_on_shutdown=True,
             silent=True,
         )
     )
@@ -911,7 +912,7 @@ def test_recovery_tracks_the_journal_path_that_was_opened(
     monkeypatch.setattr(
         recorder.recovery_report,
         'clear_finished_session',
-        lambda path, *, inspect_files: cleared.append(path),
+        cleared.append,
     )
     rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
 
@@ -923,6 +924,7 @@ def test_recovery_tracks_the_journal_path_that_was_opened(
     assert path.name == 'session-record-1.jsonl'
     assert registered == [path]
     assert cleared == [path]
+    assert not (path.parent / 'recording.toml').exists()
 
 
 def test_daemon_default_output_directory_uses_largest_external_disk(

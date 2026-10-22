@@ -237,7 +237,6 @@ class SessionRecordWriter:
         self.sync_interval = sync_interval
         self.last_sync = float('-inf')
         self.errors: list[str] = []
-        self.entries: list[Record] = []
         self.write(
             SessionHeader(
                 started_at=started_at,
@@ -259,7 +258,6 @@ class SessionRecordWriter:
     ) -> None:
         self.fp.write(entry.model_dump_json(exclude_none=True) + '\n')
         self.fp.flush()
-        self.entries.append(entry)
         if sync or time.monotonic() - self.last_sync >= self.sync_interval:
             self.sync()
 

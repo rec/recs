@@ -35,22 +35,14 @@ from .read import read_recording
 
 
 class FinalizeSession(BaseModel, frozen=True):
+    """Hash and inspect a stopped recording and write its content index."""
+
     session: Annotated[Path, tyro.conf.Positional]
-    hash_files: bool = False
-    """Read files to add hashes and byte lengths, including an existing index."""
-    inspect_files: bool = False
-    """Read file sizes, audio headers, and events to check capture evidence."""
 
 
 def main(argv: list[str] | None = None) -> int:
     config = tyro.cli(FinalizeSession, args=argv, prog='recs session finalize')
-    print(
-        finalize_recording(
-            config.session / 'session-record.jsonl',
-            hash_files=config.hash_files,
-            inspect_files=config.inspect_files,
-        )
-    )
+    print(finalize_recording(config.session / 'session-record.jsonl'))
     return 0
 
 
@@ -82,9 +74,6 @@ def read_capture_entries(
 def prepare_recording(
     journal: Path,
     entries: list[session_record.Record] | None = None,
-    *,
-    hash_files: bool = False,
-    inspect_files: bool = False,
 ) -> tuple[RecordingScore, list[str]]:
     root = journal.absolute().parent
     if entries is None:
@@ -139,8 +128,6 @@ def prepare_recording(
         root,
         'original-journal',
         f'recs-session-v{entries[0].version}',
-        hash_files=hash_files,
-        inspect_files=inspect_files,
     )
     assets: list[Asset] = [original]
     streams: list[AudioStream | EventStream] = []
@@ -199,8 +186,6 @@ def prepare_recording(
                 root,
                 asset_id,
                 format,
-                hash_files=hash_files,
-                inspect_files=inspect_files,
             )
             relative_path = asset_path(asset)
             assets.append(asset)
@@ -221,24 +206,9 @@ def prepare_recording(
                     raise RecsError(
                         f'Audio frame interval disagrees with count: {finished.path}'
                     )
-                rate = (
-                    finished.sample_rate
-                    or started.sample_rate
-                    or device_rates.get(finished.clock_id)
-                )
-                channels = finished.channels or started.channels
+                info = soundfile.info(path)
+                rate, channels, frames = info.samplerate, info.channels, info.frames
                 source_channels = finished.source_channels or started.source_channels
-                frames = finished.quantity_count
-                if inspect_files:
-                    info = soundfile.info(path)
-                    rate, channels, frames = info.samplerate, info.channels, info.frames
-                elif channels is None and source_channels is not None:
-                    channels = len(source_channels)
-                if rate is None or channels is None:
-                    raise RecsError(
-                        'Audio layout or sample rate missing from capture evidence: '
-                        f'{finished.path}; use --inspect-files'
-                    )
                 descriptions.append(
                     (
                         rate,
@@ -419,10 +389,10 @@ def prepare_recording(
         if clock.name in unique_clocks and unique_clocks[clock.name] != clock:
             raise RecsError(f'Conflicting clock score: {clock.name}')
         unique_clocks[clock.name] = clock
+    journal_hash = asset_content(original).sha256
+    assert journal_hash is not None
     document = RecordingScore(
-        name=header.session_id
-        or asset_content(original).sha256
-        or hashlib.sha256(header.model_dump_json().encode()).hexdigest(),
+        name=header.session_id or journal_hash,
         title=root.name,
         assets=assets,
         outputs=stream_outputs(streams),
@@ -457,46 +427,36 @@ def prepare_recording(
     )
     paths = {a.name: root / asset_path(a) for a in assets}
     for stream in streams:
-        if inspect_files and isinstance(stream, EventStream):
+        if isinstance(stream, EventStream):
             verify_events(stream, paths)
     return document, notes
 
 
-def finalize_recording(
-    journal: Path,
-    entries: list[session_record.Record] | None = None,
-    *,
-    hash_files: bool = False,
-    inspect_files: bool = False,
-) -> Path:
+def finalize_recording(journal: Path) -> Path:
     path = journal.parent / 'recording.toml'
-    if entries is None and (hash_files or inspect_files) and path.is_file():
+    if path.is_file():
         document = read_recording(path)
+        original = next(
+            (a for a in document.assets if a.name == document.body.journal), None
+        )
+        if original is None or asset_path(original) != journal.name:
+            raise RecsError('Existing index refers to a different capture journal')
+        prepared, _ = prepare_recording(journal)
+        measured = {asset_path(a): asset_content(a) for a in prepared.assets}
         assets: list[Asset] = []
         for asset in document.assets:
-            actual = sealed_asset(
-                path.parent / asset_path(asset),
-                path.parent,
-                asset.name,
-                asset.encoding,
-                hash_files=hash_files,
-                inspect_files=inspect_files,
-            )
-            facts = asset_content(actual).model_dump(exclude_none=True)
-            assets.append(
-                asset.model_copy(
-                    update={'content': asset_content(asset).model_copy(update=facts)}
+            relative = asset_path(asset)
+            if relative not in measured:
+                measured[relative] = asset_content(
+                    sealed_asset(
+                        path.parent / relative, path.parent, asset.name, asset.encoding
+                    )
                 )
-            )
+            assets.append(asset.model_copy(update={'content': measured[relative]}))
         document = document.model_copy(update={'assets': assets})
-        if inspect_files:
-            # Header and event checks are explicit offline work as well.
-            prepare_recording(journal, entries, inspect_files=True)
         write_text_atomically(path, score_toml(document))
         return path
-    document, _ = prepare_recording(
-        journal, entries, hash_files=hash_files, inspect_files=inspect_files
-    )
+    document, _ = prepare_recording(journal)
     with path.open('x') as target:
         target.write(score_toml(document))
     return path

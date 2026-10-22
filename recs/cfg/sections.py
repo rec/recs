@@ -379,15 +379,10 @@ class Key(BaseModel):
 
 
 class Recording(BaseModel):
-    hash_recordings: Annotated[
-        bool,
-        tyro.conf.arg(help='Read and hash recorded files during finalization'),
-    ] = False
-
-    inspect_recordings: Annotated[
+    finalize_on_shutdown: Annotated[
         bool,
         tyro.conf.arg(
-            help='Inspect file sizes, audio headers, and events during finalization'
+            help='Hash and inspect recordings and write recording.toml at shutdown'
         ),
     ] = False
 
