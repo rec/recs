@@ -1,5 +1,5 @@
 import itertools
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -51,12 +51,16 @@ class FileOpener(BaseModel):
             cleanup.pop_all()
             return fp
 
-    def create(self, metadata: Mapping[str, str], path: Path) -> soundfile.SoundFile:
+    def create(
+        self, metadata: Mapping[str, str], path: Path, used_paths: Collection[Path] = ()
+    ) -> soundfile.SoundFile:
         path = path.with_suffix('.' + self.format)
         path.parent.mkdir(exist_ok=True, parents=True)
 
         for i in itertools.count():
             f = path.with_stem(path.stem + (f'_{i}' if i else ''))
+            if f in used_paths:
+                continue
             try:
                 return self.open(f, metadata)
             except FileExistsError:

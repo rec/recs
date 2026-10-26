@@ -203,7 +203,7 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     path = writer.files_written[0]
     samples, rate = soundfile.read(path, always_2d=True)
     assert rate == 48000
-    assert len(samples) == 144000
+    assert len(samples) == 240000
     spans = writer.file_spans[path]
     data_regression.check([s.model_dump() for s in spans])
     session = RecordingSession('test', 1700000000.0, finalize_on_shutdown=True)
@@ -235,7 +235,7 @@ def test_silence_trimming_preserves_exact_asset_and_timeline_ranges(
     assert isinstance(stream, AudioStream)
     assert stream.unmapped_fragments == []
     assert sum(f.count for f in stream.fragments) == len(samples)
-    assert [(g.start, g.end) for g in stream.gaps] == [(48000, 144000)]
+    assert stream.gaps == []
     edit = SourceSpec(
         name='take',
         record=tmp_path / 'recording.toml',

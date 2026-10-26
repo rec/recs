@@ -287,7 +287,7 @@ def _audio(
         TimeSettings[int](
             quiet_before_start=0,
             quiet_after_end=0,
-            stop_after_quiet=480000,
+            stop_after_quiet=0,
             shortest_file_time=1,
         ),
         Track(source, str(channel)),
@@ -484,7 +484,7 @@ def test_tracks_from_one_capture_share_the_device_clock(tmp_path: Path) -> None:
         for o in document.body.clock_observations
         if o.timing_source == 'portaudio_callback_wall'
     ]
-    assert len(observations) == 2
+    assert len(observations) == 4
     assert all(o.source.timebase == streams[0].stream.timebase for o in observations)
     assert verify_recording(document, tmp_path).audio_frames == 192000
 

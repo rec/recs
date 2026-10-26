@@ -80,10 +80,7 @@ class SourceFileEvents:
         result: list[Path] = []
         records: list[SourceFile] = []
         for index, writer in enumerate(writers):
-            self.file_counts[index] = min(
-                self.file_counts[index], len(writer.files_written)
-            )
-            new_files = writer.files_written[self.file_counts[index] :]
+            new_files = writer.created_files[self.file_counts[index] :]
             result.extend(new_files)
             records.extend(
                 SourceFile(
@@ -104,7 +101,7 @@ class SourceFileEvents:
                 )
                 for path in new_files
             )
-            self.file_counts[index] = len(writer.files_written)
+            self.file_counts[index] = len(writer.created_files)
         return result, records
 
     def end_frames(self, writers: Sequence['ChannelWriter']) -> dict[Path, int]:

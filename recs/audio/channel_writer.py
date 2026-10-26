@@ -39,8 +39,6 @@ ITEMSIZE = {
     SdType.int32: 4,
 }
 
-BLOCK_FUZZ = 2
-
 
 class TimedBlock(Block):
     start_frame: int
@@ -106,6 +104,7 @@ class ChannelWriter(Runnable):
         sdtype = cfg.audio.sdtype or SDTYPE
 
         self.files_written = file_list.FileList()
+        self.created_files: list[Path] = []
         self.file_end_frames: dict[Path, int] = {}
         self.file_end_timestamps: dict[Path, float] = {}
         self.file_start_frames: dict[Path, int] = {}
@@ -236,7 +235,7 @@ class ChannelWriter(Runnable):
         self, start_frame: int, timestamp: float, trigger_frame: int | None = None
     ) -> Sequence[SoundFile]:
         date = datetime.fromtimestamp(timestamp).isoformat()
-        index = 1 + len(self.files_written)
+        index = 1 + len(self.created_files)
         metadata = {'date': date, 'software': URL, 'tracknumber': str(index)}
         metadata |= self.metadata
 
@@ -254,7 +253,7 @@ class ChannelWriter(Runnable):
         with contextlib.ExitStack() as cleanup:
             sfs = []
             for opener in self.openers:
-                sf = opener.create(metadata, path)
+                sf = opener.create(metadata, path, self.file_start_frames)
                 cleanup.callback(Path(sf.name).unlink, missing_ok=True)
                 cleanup.callback(sf.close)
                 sfs.append(sf)
@@ -268,6 +267,7 @@ class ChannelWriter(Runnable):
         self.file_end_timestamps.update(dict.fromkeys(paths, timestamp))
         self.file_spans.update({p: [] for p in paths})
         self.files_written.extend(paths)
+        self.created_files.extend(paths)
         self._last_flush_time = None
         self._frames_since_flush = 0
         return sfs
@@ -276,9 +276,6 @@ class ChannelWriter(Runnable):
         self.discarded_files.add(path)
         self.discarded_spans.extend(self.file_spans.get(path, []))
         self.files_written.remove_path(path)
-        self.file_start_frames.pop(path, None)
-        self.file_start_timestamps.pop(path, None)
-        self.file_trigger_frames.pop(path, None)
         self.file_end_frames.pop(path, None)
         self.file_end_timestamps.pop(path, None)
         self.file_spans.pop(path, None)
@@ -295,8 +292,6 @@ class ChannelWriter(Runnable):
             min_amp=min(block.min) / block.scale,
         )
 
-        previous_timestamp = self.timestamp
-        dt = timestamp - previous_timestamp
         self.timestamp = timestamp
         self.timeline_frame = timeline_frame or self.timeline_frame + len(block)
         self._volume.accumulate(block)
@@ -311,15 +306,6 @@ class ChannelWriter(Runnable):
                 self.observed_ranges.append(
                     TickRange(start=begin, end=self.timeline_frame)
                 )
-            expected_dt = len(block) / self.track.source.samplerate
-
-            if (
-                previous_timestamp
-                and not self.times.record_everything
-                and dt > expected_dt * BLOCK_FUZZ
-            ):
-                self._write_and_close()
-
             self._blocks.append(
                 TimedBlock(
                     block=block.block,
@@ -345,15 +331,15 @@ class ChannelWriter(Runnable):
                 self.quiet_frames = 0
             else:
                 self.quiet_frames += len(block)
-                self._blocks.clip(
-                    self.times.quiet_after_end
-                    if self._sfs
-                    else self.times.quiet_before_start,
-                    from_start=True,
-                )
+                if not self._sfs:
+                    self._blocks.clip(self.times.quiet_before_start, from_start=True)
                 self._flush_if_due()
 
-            if self.stopped or self.quiet_frames > self.times.stop_after_quiet:
+            quiet_limit = max(
+                self.times.stop_after_quiet,
+                self.times.quiet_before_start + self.times.quiet_after_end,
+            )
+            if self.stopped or self.quiet_frames > quiet_limit:
                 self._write_and_close()
 
         return self._state() - saved_state
@@ -371,13 +357,16 @@ class ChannelWriter(Runnable):
         )
 
     def _write_and_close(self) -> None:
-        # Record some quiet after the last block
-        self._blocks.clip(self.times.quiet_after_end, from_start=False)
-
         if self._sfs:
-            if self._blocks.blocks:
-                self._write_blocks(self._blocks.blocks)
-            self._blocks.clear()
+            # Write the quiet immediately following sound, retaining the latest
+            # quiet separately for the next file's preroll.
+            trailing = Blocks[TimedBlock](
+                blocks=list(self._blocks.blocks), duration=self._blocks.duration
+            )
+            trailing.clip(self.times.quiet_after_end, from_start=False)
+            if trailing.blocks:
+                self._write_blocks(trailing.blocks)
+            self._blocks.clip(self.times.quiet_before_start, from_start=True)
 
         self._close()
 

@@ -74,6 +74,18 @@ records exact spans through silence trimming. Several fragments may reference
 different offsets in the same file, so the renderer seeks to `asset_start`
 before placing each fragment on the native timeline.
 
+Callback wall-clock jumps do not split audio files. Capture-frame gaps remain
+explicit spans within the file rather than forcing short fragments that could
+be discarded. Duration and size limits can still rotate files.
+
+During silence detection, all pending quiet is retained until sound resumes or
+the quiet exceeds both `stop_after_quiet` and the sum of `quiet_after_end` and
+`quiet_before_start`. Activity whose padding touches or overlaps stays in one
+continuous file. On a quiet close, the file receives the quiet immediately
+after the sound, and the latest quiet remains available as the next file's
+preroll. Discarded short files retain their lifecycle evidence, and their paths
+are not reused by that writer.
+
 When a historical file's actual frame count differs from its journal span,
 `unmapped_fragments` preserves its asset, decoded `count`, original
 `journal_range`, and reason `frame_count_mismatch`. That journal range is

@@ -1,4 +1,5 @@
 import signal
+from collections.abc import Collection
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -127,11 +128,14 @@ def test_failed_second_format_closes_and_removes_first_output(
     opened: list[soundfile.SoundFile] = []
 
     def create(
-        self: FileOpener, metadata: dict[str, str], path: Path
+        self: FileOpener,
+        metadata: dict[str, str],
+        path: Path,
+        used_paths: Collection[Path] = (),
     ) -> soundfile.SoundFile:
         if self.format == Format.flac:
             raise OSError('disk full')
-        result = original_create(self, metadata, path)
+        result = original_create(self, metadata, path, used_paths)
         opened.append(result)
         return result
 
@@ -189,7 +193,7 @@ def test_channel_writer_record_everything_ignores_longest_file_time(
 
 
 @tdir
-def test_channel_writer_closes_on_forward_timestamp_gap(
+def test_channel_writer_keeps_forward_timestamp_jump_in_same_file(
     mock_devices: None,
 ) -> None:
     cfg = Cfg(formats=[Format.wav])
@@ -206,7 +210,7 @@ def test_channel_writer_closes_on_forward_timestamp_gap(
         writer.receive_update(block, conftest.TIMESTAMP)
         writer.receive_update(block, conftest.TIMESTAMP + 1)
 
-    assert len(writer.files_written) == 2
+    assert len(writer.files_written) == 1
 
 
 @tdir
@@ -548,7 +552,7 @@ def test_recovery_replays_last_attempted_frames_at_original_position(
 
 
 @tdir
-def test_channel_writer_trims_stored_quiet_without_delaying_close(
+def test_channel_writer_retains_pending_quiet_without_delaying_close(
     mock_devices: None,
 ) -> None:
     cfg = Cfg(formats=[Format.wav])
@@ -567,7 +571,7 @@ def test_channel_writer_trims_stored_quiet_without_delaying_close(
 
     writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
     writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
-    assert writer._blocks.duration == 4
+    assert writer._blocks.duration == 8
     assert writer.quiet_frames == 8
     assert writer._state().is_active
 

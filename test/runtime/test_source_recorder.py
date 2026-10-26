@@ -683,6 +683,7 @@ class EventWriter:
         self.track = track
         self.track_names: dict[str, dict[str, int]] = {}
         self.files_written: list[Path] = []
+        self.created_files: list[Path] = []
         self.file_start_frames: dict[Path, int] = {}
         self.file_start_timestamps: dict[Path, float] = {}
         self.file_trigger_frames: dict[Path, int] = {}
@@ -691,6 +692,7 @@ class EventWriter:
 
     def add_file(self, path: Path) -> None:
         self.files_written.append(path)
+        self.created_files.append(path)
         self.file_start_frames[path] = len(self.files_written)
         self.file_start_timestamps[path] = float(len(self.files_written))
 
