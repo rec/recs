@@ -179,7 +179,7 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
   -R, --record-everything, --no-record-everything
         Start immediately, record everything until end (default: False)
   --shortest-file-time TIME
-        Files shorter than this duration get deleted (default: 1.0)
+        Discard short quiet-only files; keep active or uncertain audio (default: 1.0)
   -c TIME, --quiet-after-end TIME
         How much quiet after the end (default: 10.0)
   -b TIME, --quiet-before-start TIME

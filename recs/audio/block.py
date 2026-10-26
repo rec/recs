@@ -3,6 +3,7 @@
 import numbers
 from collections.abc import Sequence
 from functools import cached_property
+from typing import Self
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -27,8 +28,8 @@ class Block(BaseModel):
     def __len__(self) -> int:
         return self.block.shape[0]
 
-    def __getitem__(self, index: int | slice) -> 'Block':
-        return Block(block=self.block[index])
+    def __getitem__(self, index: int | slice) -> Self:
+        return type(self)(block=self.block[index])
 
     @cached_property
     def is_float(self) -> bool:
@@ -94,8 +95,16 @@ class Blocks[T: Block](BaseModel):
         clipped = []
         assert sample_length >= 0
         while self.duration > sample_length:
-            clipped.append(self.blocks.pop(0 if from_start else -1))
-            self.duration -= len(clipped[-1])
+            index = 0 if from_start else -1
+            block = self.blocks[index]
+            excess = self.duration - sample_length
+            if len(block) <= excess:
+                clipped.append(self.blocks.pop(index))
+                self.duration -= len(block)
+            else:
+                clipped.append(block[:excess] if from_start else block[-excess:])
+                self.blocks[index] = block[excess:] if from_start else block[:-excess]
+                self.duration = sample_length
         return clipped
 
     def __getitem__(self, i: int) -> T:

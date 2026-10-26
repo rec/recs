@@ -32,7 +32,6 @@ from recs.recording.files import asset_path, verify_recording
 from recs.recording.finalize import prepare_recording
 from recs.recording.read import read_recording, read_recording_chain
 from recs.recording.recording_session import RecordingSession
-from recs.recording.session_explain import explain
 from recs.recording.session_export import export
 
 
@@ -318,7 +317,7 @@ def _audio(
         session.write(timeline)
 
 
-def test_short_capture_discard_is_sealed_evidence_not_an_interrupted_file(
+def test_short_active_capture_remains_playable_after_finalization(
     tmp_path: Path,
 ) -> None:
     session = RecordingSession('short', 0.0, finalize_on_shutdown=True)
@@ -344,8 +343,14 @@ def test_short_capture_discard_is_sealed_evidence_not_an_interrupted_file(
         session.record_file_started(entry, None)
     writer.stop()
     events.remember_finished_files([writer])
-    for path in events.discarded([writer]):
-        session.record_file_discarded(path)
+    session.record_files(
+        files,
+        events.end_frames([writer]),
+        events.end_timestamps([writer]),
+        events.spans([writer]),
+    )
+    for path in events.finished([writer]):
+        session.record_file_finished(path)
     for timeline in events.timelines():
         session.write(timeline)
     session.finish(1.0)
@@ -353,9 +358,9 @@ def test_short_capture_discard_is_sealed_evidence_not_an_interrupted_file(
     document = read_recording(tmp_path / 'recording.toml')
     assert document.body.state == 'sealed'
     assert document.body.unfinished_files == []
-    assert document.body.streams[0].gaps[0].reason == GapReason.short_capture
-    assert len(document.assets) == 1
-    assert explain(journal).explanations[0].reason == 'no files were recorded'
+    assert document.body.streams[0].gaps == []
+    assert verify_recording(document, tmp_path).audio_frames == 48000
+    assert len(document.assets) == 2
 
 
 def test_key_capture_uses_common_events_and_preserves_observed_order(

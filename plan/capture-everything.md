@@ -14,7 +14,30 @@ not recording hours of silence for later analysis.
 
 This document proposes the next capture design. The explicit block-size
 override and restoration of driver-selected blocks are already implemented.
-The architectural changes below require separate implementation.
+Implementation progress is recorded below; the remaining architectural work
+and hardware qualification are still pending.
+
+## Implementation progress
+
+Implemented in the first follow-up:
+
+- Sample-exact preroll and tail trimming, including partial driver blocks and
+  the corresponding source-frame/timestamp adjustments.
+- Retention of files containing activity, explicit recording requests, or
+  uncertain material even when shorter than `shortest_file_time`.
+- Conservative retention of delivered audio after known frame gaps or backend
+  input-status warnings, followed by normal suppression once quiet is observed.
+- Queue capacity and queue-duration reports based on actual queued frames,
+  independent of driver block sizes. System-memory probes are performed at
+  setup and by the consumer rather than inside the callback.
+- Regression cases for exact padding with irregular blocks, frame-based queue
+  limits and loss accounting, and 10-of-18 / 20-of-28 silent-channel layouts.
+
+These changes do not yet make detection independent of callback partitioning.
+The existing peak-to-peak detector still operates per callback; a one-frame
+block has zero peak-to-peak range. Detector windows, downstream coalescing,
+timing diagnostics, and Pi throughput qualification remain necessary. Do not
+treat the current passing tests as completion of those acceptance criteria.
 
 ## Evidence and current behavior
 
@@ -28,7 +51,7 @@ The recent continuity fix removes timestamp-based splitting, retains pending
 quiet until a split decision, merges activity with touching padding, preserves
 preroll after closing, and reports creations independently of surviving files.
 It does not fix buffer overruns. Silence suppression remains part of capture;
-short-file deletion still needs review so it cannot erase uncertain material.
+short-file deletion now excludes active or uncertain material.
 
 The old hard-coded 20 ms capture request is removed. Driver-selected blocks
 are the default. `audio.capture_block_frames` / `--capture-block-frames` is a
@@ -84,7 +107,7 @@ confidently silent track active or disable silence suppression indefinitely.
 After uncertainty, resume suppression when a fresh, fully observed quiet
 decision window establishes silence.
 
-Review `shortest_file_time`: duration alone cannot establish that a fragment
+For `shortest_file_time`, duration alone cannot establish that a fragment
 contains no useful audio. A short fragment with detected activity or timing/loss
 uncertainty must be retained. Any automatic discard needs affirmative evidence
 that the candidate is confidently suppressible, with lifecycle evidence kept.

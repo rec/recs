@@ -435,7 +435,10 @@ class SourceRecorder(Runnables):
                 msgs[writer.track.name] = writer.receive_update(
                     block,
                     end_timestamp,
-                    should_record[writer] or band_should_record or forced,
+                    should_record[writer]
+                    or band_should_record
+                    or forced
+                    or bool(update.status),
                     u.end_frame,
                 )
         except OSError as error:

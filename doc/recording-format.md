@@ -83,8 +83,22 @@ the quiet exceeds both `stop_after_quiet` and the sum of `quiet_after_end` and
 `quiet_before_start`. Activity whose padding touches or overlaps stays in one
 continuous file. On a quiet close, the file receives the quiet immediately
 after the sound, and the latest quiet remains available as the next file's
-preroll. Discarded short files retain their lifecycle evidence, and their paths
-are not reused by that writer.
+preroll. Trimming is sample-exact even when driver blocks cross a padding
+boundary. Files containing detected activity, explicitly requested recording,
+or uncertain material are retained regardless of `shortest_file_time`. That
+limit applies only to quiet-only files. Discarded files retain their lifecycle
+evidence, and their paths are not reused by that writer.
+
+A known capture-frame discontinuity or a backend input-status warning retains
+the affected delivered block and available preroll conservatively. Subsequent
+observed quiet still closes the file normally. Timestamp variation alone does
+not activate silent tracks. Unknown backend losses remain warning evidence;
+they are not assigned an invented exact frame count.
+
+The input queue enforces `audio_buffer_seconds` using the actual sum of queued
+frames rather than a block count estimated from the first callback. Queue
+duration reports use that same sum. System-memory checks run during setup and
+on the consumer side, outside the device callback.
 
 When a historical file's actual frame count differs from its journal span,
 `unmapped_fragments` preserves its asset, decoded `count`, original

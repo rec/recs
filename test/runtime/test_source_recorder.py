@@ -56,8 +56,9 @@ def test_input_buffer_queue_uses_audio_seconds_limit(
     )
     buffer.put(Update(np.zeros((100, 1)), 10.0))
 
-    assert buffer.queue is not None
-    assert buffer.queue.maxsize == 10
+    assert buffer.stats.queued_seconds == 0.1
+    assert buffer.get(block=False).end_frame == 100
+    assert buffer.stats.queued_seconds == 0
 
 
 def test_input_buffer_drops_updates_when_queue_is_full(
@@ -94,7 +95,7 @@ def test_input_buffer_timeline_includes_dropped_updates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     values = iter([400_000_000, 0, 400_000_000])
-    timestamps = iter([1.0, 2.0, 3.0])
+    timestamps = iter([1.0, 2.0, 3.0, 3.0])
     monkeypatch.setattr(memory, 'available_bytes', lambda: next(values))
     monkeypatch.setattr(input_buffer, 'monotonic', lambda: next(timestamps))
     buffer = InputBuffer(
@@ -105,6 +106,7 @@ def test_input_buffer_timeline_includes_dropped_updates(
     third = Update(np.zeros((128, 1)), 12.0)
 
     buffer.put(first)
+    buffer.check_memory()
     buffer.put(dropped)
     assert buffer.get(block=False).end_frame == 512
     buffer.put(third)
@@ -241,9 +243,11 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
 
 
 @pytest.mark.parametrize('capture_block_frames', [None, 257])
+@pytest.mark.parametrize('record_everything', [True, False])
 def test_source_recorder_records_input_that_finishes_during_startup(
     tmp_path: Path,
     capture_block_frames: int | None,
+    record_everything: bool,
 ) -> None:
     source = InputDevice(
         {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
@@ -260,7 +264,9 @@ def test_source_recorder_records_input_that_finishes_during_startup(
         class ImmediateInputStream(Runnable):
             def start(self) -> None:
                 super().start()
-                update_callback(Update(audio, 1.0))
+                update_callback(
+                    Update(audio, 1.0, '' if record_everything else 'input overflow')
+                )
                 self.stop()
 
         return ImmediateInputStream()
@@ -268,7 +274,7 @@ def test_source_recorder_records_input_that_finishes_during_startup(
     source.input_stream = input_stream
     recorder = SourceRecorder(
         Cfg(
-            record_everything=True,
+            record_everything=record_everything,
             formats=['wav'],
             output_directory=str(tmp_path),
             capture_block_frames=capture_block_frames,

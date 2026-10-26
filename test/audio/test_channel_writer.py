@@ -44,7 +44,7 @@ class Case(BaseModel):
 BASE = Case(
     name='base',
     arrays=(17 * OO) + (4 * II) + (40 * OO) + II + (51 * OO) + (19 * II),
-    result=[[28, 16, 40], [28, 4, 40], [28, 76]],
+    result=[[30, 16, 40], [30, 4, 40], [30, 76]],
 )
 LONGEST_FILE_TIME = Case(
     name='longest_file_time',
@@ -62,7 +62,7 @@ TEST_CASES = (
     Case(
         name='not sure',
         arrays=(4 * II) + (3 * OO) + II + (2000 * OO) + (3 * II),
-        result=[[0, 16, 12, 4, 40], [28, 12]],
+        result=[[0, 16, 12, 4, 40], [30, 12]],
     ),
     LONGEST_FILE_TIME,
     LONGEST_FILE_TIME.model_copy(update={'format': Format.flac}),
@@ -285,7 +285,7 @@ def test_channel_writer_record_everything_keeps_short_file(
 
 
 @tdir
-def test_channel_writer_removes_discarded_short_file_from_state(
+def test_channel_writer_keeps_short_active_file_in_state(
     mock_devices: None,
 ) -> None:
     cfg = Cfg(formats=[Format.wav])
@@ -304,9 +304,9 @@ def test_channel_writer_removes_discarded_short_file_from_state(
         state = writer.receive_update(block, conftest.TIMESTAMP, should_record=False)
 
     assert len(files) == 1
-    assert not files[0].exists()
-    assert writer.files_written == []
-    assert state.file_count == -1
+    assert files[0].exists()
+    assert writer.files_written == files
+    assert state.file_count == 0
 
 
 def test_channel_writer_uses_precomputed_recording_decision(

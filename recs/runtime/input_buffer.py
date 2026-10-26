@@ -1,6 +1,7 @@
 import threading
+from collections import deque
 from collections.abc import Callable
-from queue import Empty, Queue
+from queue import Empty
 from time import monotonic
 from typing import NamedTuple
 
@@ -20,56 +21,55 @@ class InputBuffer:
     def __init__(self, cfg: Cfg, samplerate: int) -> None:
         self.cfg = cfg
         self.samplerate = samplerate
-        self.block_frames = 0
-        self.queue: Queue[BufferedUpdate] | None = None
-        self.queue_ready = threading.Event()
+        self.queue: deque[BufferedUpdate] = deque()
+        self.queued_frames = 0
+        self.capacity_frames = max(
+            1, round(cfg.recording.audio_buffer_seconds * samplerate)
+        )
+        self.available = threading.Condition()
         self.stats = BufferStats()
         self.timeline_frames = 0
         self.reported_dropped_frames = 0
         self.memory_low = False
         self.last_memory_check = float('-inf')
         self.forward_audio: Callable[[BufferedUpdate], None] | None = None
+        self.check_memory()
 
     def put(self, update: Update) -> None:
         frames = len(update.array)
         if not frames:
             return
-        self.block_frames = frames
         start_frame = self.timeline_frames
         self.timeline_frames += frames
-        if self._memory_low():
+        if self.memory_low:
             self._drop(update, frames)
             return
         buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
         if self.forward_audio is not None:
             self.forward_audio(buffered)
-        if self.queue is None:
-            maxsize = max(
-                1,
-                round(
-                    self.cfg.recording.audio_buffer_seconds * self.samplerate / frames
-                ),
-            )
-            self.queue = Queue(maxsize=maxsize)
-            self.queue_ready.set()
-        if self.queue.full():
-            self._drop(update, frames)
-            return
-        self.queue.put_nowait(buffered)
-        self._update_queue_stats()
+        with self.available:
+            if self.queued_frames + frames > self.capacity_frames:
+                self._drop(update, frames)
+                return
+            self.queue.append(buffered)
+            self.queued_frames += frames
+            self._update_queue_stats()
+            self.available.notify()
 
     def get(
         self, timeout: float | None = None, *, block: bool = True
     ) -> BufferedUpdate:
-        if self.queue is None:
-            if block:
-                self.queue_ready.wait(timeout)
-        if self.queue is None:
-            raise Empty
-        buffered = self.queue.get(block=block, timeout=timeout)
-        self.block_frames = max(1, len(buffered.update.array))
-        self._update_queue_stats()
-        return buffered
+        self.check_memory()
+        with self.available:
+            if not self.queue and (
+                not block
+                or not self.available.wait_for(lambda: bool(self.queue), timeout)
+            ):
+                raise Empty
+            buffered = self.queue.popleft()
+            self.queued_frames -= len(buffered.update.array)
+            self._update_queue_stats()
+            return buffered
 
     def warnings(self, source_name: str, timestamp: float) -> list[str]:
         warnings: list[str] = []
@@ -80,17 +80,11 @@ class InputBuffer:
             )
             self.reported_dropped_frames = self.stats.dropped_frames
 
-        if self.queue is None:
-            return warnings
         return warnings
 
     def _update_queue_stats(self) -> None:
-        if self.queue is None:
-            return
-        self.stats.queued_blocks = self.queue.qsize()
-        self.stats.queued_seconds = (
-            self.stats.queued_blocks * self.block_frames / self.samplerate
-        )
+        self.stats.queued_blocks = len(self.queue)
+        self.stats.queued_seconds = self.queued_frames / self.samplerate
         self.stats.max_queued_seconds = max(
             self.stats.max_queued_seconds,
             self.stats.queued_seconds,
@@ -101,11 +95,10 @@ class InputBuffer:
         self.stats.dropped_frames += frames
         self.stats.last_drop_timestamp = update.timestamp
 
-    def _memory_low(self) -> bool:
+    def check_memory(self) -> None:
         now = monotonic()
         if now - self.last_memory_check >= self.cfg.recording.memory_check_period:
             self.last_memory_check = now
             available = memory.available_bytes()
             reserve = self.cfg.recording.memory_reserve_megabytes * 1_000_000
             self.memory_low = available is not None and available < reserve
-        return self.memory_low

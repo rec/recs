@@ -552,7 +552,9 @@ class Recording(BaseModel):
         units.Seconds,
         Mutable,
         cli_metadata.TIME_SPEC,
-        tyro.conf.arg(help='Files shorter than this duration get deleted'),
+        tyro.conf.arg(
+            help='Discard short quiet-only files; keep active or uncertain audio'
+        ),
     ] = 1.0
 
     quiet_after_end: Annotated[

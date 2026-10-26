@@ -99,7 +99,7 @@ def test_tiny_blocks_and_timestamp_jumps_preserve_audio_and_capture_gaps(
 
 
 @pytest.mark.parametrize('publish_before_discard', [False, True])
-def test_discard_and_reopen_report_distinct_file_lifecycles(
+def test_short_capture_and_reopen_report_distinct_file_lifecycles(
     tmp_path: Path, publish_before_discard: bool
 ) -> None:
     writer = make_writer(tmp_path, TimeSettings[int](shortest_file_time=96_000))
@@ -111,7 +111,7 @@ def test_discard_and_reopen_report_distinct_file_lifecycles(
     if publish_before_discard:
         assert events.new_files([writer], 32)[0] == [first]
     writer.receive_update(quiet, 2.0, should_record=False, timeline_frame=96_000)
-    assert not first.exists()
+    assert first.exists()
     # Reuse the wall-clock second deliberately, as a clock jump can do.
     writer.receive_update(loud, 1.0, should_record=True, timeline_frame=144_000)
     second = writer.active_files[0]
@@ -123,9 +123,120 @@ def test_discard_and_reopen_report_distinct_file_lifecycles(
         [96_000] if publish_before_discard else [0, 96_000]
     )
     assert first != second
-    assert events.discarded([writer]) == [first]
-    assert events.finished([writer]) == [second]
+    assert events.discarded([writer]) == []
+    assert events.finished([writer]) == [first, second]
     assert events.new_files([writer], 32) == ([], [])
     actual, rate = soundfile.read(second, dtype='float32')
     assert rate == 48_000
     np.testing.assert_array_equal(actual, np.full(96_000, 0.25, dtype=np.float32))
+
+
+@pytest.mark.parametrize('sizes', [[48_000], [1, 383, 257, 959]])
+def test_padding_has_exact_sample_boundaries_for_irregular_blocks(
+    tmp_path: Path, sizes: list[int]
+) -> None:
+    writer = make_writer(
+        tmp_path,
+        TimeSettings[int](
+            quiet_before_start=18_000, quiet_after_end=18_000, stop_after_quiet=36_000
+        ),
+    )
+    # Supply the same activity decisions while varying only transport partitioning.
+    regions = [
+        (81_600, False),
+        (48_000, True),
+        (72_000, False),
+        (48_000, True),
+        (38_400, False),
+    ]
+    source = np.linspace(-0.25, 0.25, sum(x[0] for x in regions), dtype=np.float32)
+    cursor = 0
+    index = 0
+    try:
+        for frames, active in regions:
+            end = cursor + frames
+            while cursor < end:
+                count = min(sizes[index % len(sizes)], end - cursor)
+                writer.receive_update(
+                    Block(block=source[cursor : cursor + count]),
+                    1000 + (cursor + count) / 48_000 + (10 if index % 2 else -10),
+                    should_record=active,
+                    timeline_frame=cursor + count,
+                )
+                cursor += count
+                index += 1
+    finally:
+        writer.stop()
+    assert len(writer.files_written) == 2
+    for path, start, end in zip(
+        writer.files_written, [63_600, 183_600], [147_600, 267_600], strict=True
+    ):
+        actual, rate = soundfile.read(path, dtype='float32')
+        assert rate == 48_000
+        assert writer.file_start_frames[path] == start
+        assert writer.file_end_frames[path] == end
+        assert [(s.start, s.count) for s in writer.file_spans[path]] == [
+            (start, end - start)
+        ]
+        np.testing.assert_array_equal(actual, source[start:end])
+
+
+@pytest.mark.parametrize('silent_channels', [10, 20])
+def test_silent_tracks_stay_suppressed_while_other_tracks_record(
+    tmp_path: Path, silent_channels: int
+) -> None:
+    writers = [
+        make_writer(
+            tmp_path / str(i),
+            TimeSettings[int](quiet_before_start=48_000, stop_after_quiet=96_000),
+        )
+        for i in range(silent_channels + 8)
+    ]
+    tone = np.tile(np.array([-0.25, 0.25], dtype=np.float32), 24_000)
+    quiet = np.zeros(48_000, dtype=np.float32)
+    try:
+        for second in range(3):
+            for i, writer in enumerate(writers):
+                writer.receive_update(
+                    Block(block=quiet if i < silent_channels else tone),
+                    float(second + 1),
+                    timeline_frame=(second + 1) * 48_000,
+                )
+    finally:
+        for writer in writers:
+            writer.stop()
+    assert len(list(tmp_path.glob('*/audio/*.wav'))) == 8
+    for i, writer in enumerate(writers):
+        if i < silent_channels:
+            assert writer.created_files == []
+        else:
+            assert len(writer.files_written) == 1
+            actual, rate = soundfile.read(writer.files_written[0], dtype='float32')
+            assert rate == 48_000
+            np.testing.assert_array_equal(actual, np.tile(tone, 3))
+
+
+def test_known_capture_gap_retains_uncertain_quiet_then_resumes_suppression(
+    tmp_path: Path,
+) -> None:
+    writer = make_writer(
+        tmp_path,
+        TimeSettings[int](
+            quiet_after_end=48_000, stop_after_quiet=48_000, shortest_file_time=96_000
+        ),
+    )
+    quiet = Block(block=np.zeros(48_000, dtype=np.float32))
+    writer.receive_update(quiet, 1.0, should_record=False, timeline_frame=48_000)
+    assert writer.created_files == []
+    writer.receive_update(quiet, 3.0, should_record=False, timeline_frame=144_000)
+    writer.receive_update(quiet, 4.0, should_record=False, timeline_frame=192_000)
+    writer.receive_update(quiet, 5.0, should_record=False, timeline_frame=240_000)
+    writer.receive_update(quiet, 6.0, should_record=False, timeline_frame=288_000)
+    writer.stop()
+    assert len(writer.files_written) == 1
+    path = writer.files_written[0]
+    assert writer.file_start_frames[path] == 96_000
+    assert writer.file_end_frames[path] == 192_000
+    actual, rate = soundfile.read(path, dtype='float32')
+    assert rate == 48_000
+    np.testing.assert_array_equal(actual, np.zeros(96_000, dtype=np.float32))

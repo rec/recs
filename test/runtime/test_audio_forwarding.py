@@ -143,6 +143,7 @@ def test_oversize_block_and_memory_reserve_drop_forwarding_without_blocking_reco
         assert forwarder.mailbox.dropped == 48_000
         monkeypatch.setattr(input_buffer.memory, 'available_bytes', lambda: 0)
         buffer.last_memory_check = float('-inf')
+        buffer.check_memory()
         buffer.put(Update(audio, 2))
         assert buffer.stats.dropped_frames == 48_000
         assert forwarder.mailbox.dropped == 48_000

@@ -43,6 +43,17 @@ ITEMSIZE = {
 class TimedBlock(Block):
     start_frame: int
     timestamp: float
+    sample_rate: int
+
+    @override
+    def __getitem__(self, index: int | slice) -> 'TimedBlock':
+        start = index if isinstance(index, int) else index.indices(len(self))[0]
+        return TimedBlock(
+            block=self.block[index],
+            start_frame=self.start_frame + start,
+            timestamp=self.timestamp + start / self.sample_rate,
+            sample_rate=self.sample_rate,
+        )
 
 
 class ChannelWriter(Runnable):
@@ -113,7 +124,7 @@ class ChannelWriter(Runnable):
         self.file_spans: dict[Path, list[AudioSpan]] = {}
         self.observed_ranges: list[TickRange] = []
         self.finished_files: set[Path] = set()
-        self._recovery_files: set[Path] = set()
+        self._retained_files: set[Path] = set()
         self.discarded_files: set[Path] = set()
         self.discarded_spans: list[AudioSpan] = []
         self.frame_size = ITEMSIZE[sdtype] * len(track.channels)
@@ -219,7 +230,7 @@ class ChannelWriter(Runnable):
         for sf in sfs:
             if (
                 self.times.record_everything
-                or Path(sf.name) in self._recovery_files
+                or Path(sf.name) in self._retained_files
                 or (sf.frames and sf.frames >= self.times.shortest_file_time)
             ):
                 sf.close()
@@ -292,8 +303,11 @@ class ChannelWriter(Runnable):
             min_amp=min(block.min) / block.scale,
         )
 
+        previous_frame = self.timeline_frame
         self.timestamp = timestamp
         self.timeline_frame = timeline_frame or self.timeline_frame + len(block)
+        if previous_frame and self.timeline_frame - len(block) != previous_frame:
+            should_record = True
         self._volume.accumulate(block)
 
         if self.write_audio and (self._sfs or not self.stopped):
@@ -311,6 +325,7 @@ class ChannelWriter(Runnable):
                     block=block.block,
                     start_frame=self.timeline_frame - len(block),
                     timestamp=timestamp - len(block) / self.track.source.samplerate,
+                    sample_rate=self.track.source.samplerate,
                 )
             )
 
@@ -326,7 +341,9 @@ class ChannelWriter(Runnable):
                     ):
                         trigger_frame = self.timeline_frame - len(block)
 
-                self._write_blocks(self._blocks.blocks, trigger_frame)
+                self._write_blocks(
+                    self._blocks.blocks, trigger_frame, retain_short=True
+                )
                 self._blocks.clear()
                 self.quiet_frames = 0
             else:
@@ -393,9 +410,9 @@ class ChannelWriter(Runnable):
 
             if not self._sfs:
                 self._sfs = self._open(b.start_frame, b.timestamp, trigger_frame)
-                if retain_short:
-                    self._recovery_files.update(Path(sf.name) for sf in self._sfs)
                 trigger_frame = None
+            if retain_short:
+                self._retained_files.update(Path(sf.name) for sf in self._sfs)
             for sf in self._sfs:
                 start = time.monotonic()
                 sf.write(b.block)
@@ -442,6 +459,7 @@ class ChannelWriter(Runnable):
                 block=block.block.copy(),
                 start_frame=block.start_frame,
                 timestamp=block.timestamp,
+                sample_rate=block.sample_rate,
             )
         self._recovery_blocks.append(block)
         self._recovery_frames += len(block)
@@ -456,6 +474,7 @@ class ChannelWriter(Runnable):
                     block=first.block[excess:],
                     start_frame=first.start_frame + excess,
                     timestamp=first.timestamp + excess / self.track.source.samplerate,
+                    sample_rate=first.sample_rate,
                 )
                 self._recovery_frames = limit
 
