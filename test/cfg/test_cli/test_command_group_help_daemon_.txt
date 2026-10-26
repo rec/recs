@@ -130,6 +130,10 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
 
  recording options
  -------------------------------------------------------------------------------------------
+  --silence-window-seconds TIME
+        Seconds per silence detection window, independent of driver blocks (default: 0.05)
+  --processing-batch-seconds TIME
+        Seconds per processing batch and maximum incomplete-window wait (default: 0.1)
   --finalize-on-shutdown, --no-finalize-on-shutdown
         Hash and inspect recordings and write recording.toml at shutdown (default: False)
   --audio-buffer-seconds TIME

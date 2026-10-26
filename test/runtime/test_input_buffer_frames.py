@@ -1,7 +1,9 @@
+from pathlib import Path
 from queue import Empty
 
 import numpy as np
 import pytest
+import soundfile
 
 from recs.base import memory
 from recs.cfg.cfg import Cfg
@@ -67,3 +69,26 @@ def test_empty_buffer_read_times_out() -> None:
     buffer = InputBuffer(Cfg(), samplerate=48_000)
     with pytest.raises(Empty):
         buffer.get(timeout=0)
+
+
+def test_processing_batches_preserve_samples_frames_and_status_positions(
+    tmp_path: Path,
+) -> None:
+    buffer = InputBuffer(Cfg(), samplerate=48_000)
+    samples = np.linspace(-0.25, 0.25, 48_000, dtype=np.float32).reshape(-1, 1)
+    buffer.put(Update(samples, 1000.0, 'input overflow'))
+    output: list[np.ndarray] = []
+    cursor = 0
+    while buffer.stats.queued_seconds:
+        batch = buffer.get_batch(7001, block=False)
+        assert sum(len(u.update.array) for u in batch) <= 7001
+        for update in batch:
+            assert update.start_frame == cursor
+            assert update.update.timestamp == pytest.approx(1000 + cursor / 48_000)
+            assert update.update.status == ('input overflow' if cursor == 0 else '')
+            output.append(update.update.array)
+            cursor = update.end_frame
+        assert buffer.stats.queued_seconds == (len(samples) - cursor) / 48_000
+    actual = np.concatenate(output)
+    np.testing.assert_array_equal(actual, samples)
+    soundfile.write(tmp_path / 'batched.wav', actual, 48_000, subtype='FLOAT')

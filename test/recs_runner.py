@@ -267,10 +267,14 @@ class RecsRunner(BaseModel):
         assert [p.name for p in relative_actual] == [p.name for p in expected]
 
         actual_expected = list(zip(actual, expected, strict=False))
-        named_audio = [
-            (a.name, soundfile.read(a)[0], soundfile.read(e)[0])
-            for a, e in actual_expected
-        ]
+        named_audio = []
+        for actual_path, expected_path in actual_expected:
+            actual_audio, sample_rate = soundfile.read(actual_path)
+            expected_audio, _ = soundfile.read(expected_path)
+            if duration := self.cfg.recording.total_run_time:
+                # Legacy fixtures include the callback crossing the run limit.
+                expected_audio = expected_audio[: round(duration * sample_rate)]
+            named_audio.append((actual_path.name, actual_audio, expected_audio))
         shapes = [
             (n, a.shape, e.shape) for n, a, e in named_audio if a.shape != e.shape
         ]

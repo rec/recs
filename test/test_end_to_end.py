@@ -330,6 +330,8 @@ def _dynamic_cfg(root: str, include: list[str]) -> dict[str, object]:
         'devices': DEVICES_FILE,
         'include': include,
         'moving_average_time': BLOCK_TIME,
+        'silence_window_seconds': BLOCK_TIME,
+        'processing_batch_seconds': BLOCK_TIME * 2,
         'noise_floor': 20.0,
         'output_directory': f'{root}/{{device}}/{{channel}}/{{index}}',
         'quiet_after_end': 0,

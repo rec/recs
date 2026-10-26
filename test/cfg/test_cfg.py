@@ -20,6 +20,20 @@ def test_capture_block_frames_is_opt_in(mock_devices: None) -> None:
         Cfg(capture_block_frames=0)
 
 
+def test_silence_windows_and_processing_bounds_are_validated(
+    mock_devices: None,
+) -> None:
+    assert Cfg().recording.silence_window_seconds == 0.05
+    assert Cfg().recording.processing_batch_seconds == 0.1
+    for values in (
+        {'silence_window_seconds': 0},
+        {'processing_batch_seconds': float('inf')},
+        {'silence_window_seconds': 0.2, 'processing_batch_seconds': 0.1},
+    ):
+        with pytest.raises(ValidationError):
+            Cfg(**values)
+
+
 def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
     assert not Cfg().recording.band_mode
 

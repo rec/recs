@@ -8,7 +8,10 @@ TERMINATION_SIGNAL_NAMES = ('SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM')
 
 
 @contextlib.contextmanager
-def raise_keyboard_interrupt_on_signal() -> Iterator[None]:
+def handle_termination_signals(
+    on_signal: Callable[[], None] | None = None,
+) -> Iterator[None]:
+    """Run the supplied action on termination, or raise KeyboardInterrupt."""
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -19,6 +22,9 @@ def raise_keyboard_interrupt_on_signal() -> Iterator[None]:
     ] = {}
 
     def interrupt(signum: int, frame: types.FrameType | None) -> None:
+        if on_signal is not None:
+            on_signal()
+            return
         raise KeyboardInterrupt
 
     for name in TERMINATION_SIGNAL_NAMES:

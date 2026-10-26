@@ -51,7 +51,9 @@ class Block(BaseModel):
 
     @cached_property
     def amplitude(self) -> np.ndarray:
-        return (self.max - self.min) / (2 * self.scale)
+        return (self.max.astype(np.float64) - self.min.astype(np.float64)) / (
+            2 * self.scale
+        )
 
     @cached_property
     def max(self) -> np.ndarray:

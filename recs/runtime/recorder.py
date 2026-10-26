@@ -15,7 +15,7 @@ from threa import HasThread, Runnable, Runnables
 
 from recs.base import times
 from recs.base.errors import ErrorRecord, RecsError
-from recs.base.signals import raise_keyboard_interrupt_on_signal
+from recs.base.signals import handle_termination_signals
 from recs.base.waveform import WaveformBatchData, WaveformLayoutData
 from recs.cfg import settings
 from recs.cfg.cfg import Cfg
@@ -363,7 +363,7 @@ class Recorder(Runnables):
                 self._report_no_channels()
 
     def run(self) -> None:
-        with raise_keyboard_interrupt_on_signal():
+        with handle_termination_signals():
             try:
                 self._start_record()
                 self._run()

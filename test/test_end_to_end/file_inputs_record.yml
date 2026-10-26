@@ -2,12 +2,12 @@ channel_musicians: {}
 duration_seconds: <duration>
 ended_at: <timestamp>
 events:
-- frame_count: 4096
+- frame_count: 2400
   source: test/testdata/file_inputs/mono.wav
   timestamp: <timestamp>
   track: '1'
   type: track_started
-- frame_count: 4096
+- frame_count: 2400
   source: test/testdata/file_inputs/stereo.wav
   timestamp: <timestamp>
   track: 1-2

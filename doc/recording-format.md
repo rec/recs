@@ -100,6 +100,26 @@ frames rather than a block count estimated from the first callback. Queue
 duration reports use that same sum. System-memory checks run during setup and
 on the consumer side, outside the device callback.
 
+Silence detection uses `silence_window_seconds` (default 0.05 seconds), rounded
+to source frames with a minimum of two samples. Windows follow a fixed capture
+frame grid and use the existing per-track peak-to-peak metric. Driver callback
+sizes and `processing_batch_seconds` do not determine detector boundaries.
+The processing batch bound defaults to 0.1 seconds and must be at least the
+silence-window duration. Both settings are startup-only and leave the hardware
+callback size under driver control unless `capture_block_frames` is set.
+
+An incomplete window waits at most the processing batch duration, subject to
+thread scheduling. Gaps, backend status boundaries, configuration or layout
+changes, and shutdown flush pending windows. Short nonzero windows whose peak
+reaches the track threshold are retained conservatively even when their
+peak-to-peak range is inconclusive; exact-zero silent windows remain suppressed.
+While writing is enabled, changing a threshold first evaluates pending audio
+under the previous settings. On shutdown, callbacks stop and accepted audio
+drains before writers close. Capture-child termination signals request this
+drain without raising in the middle of sample copying or writing. An explicit
+`total_run_time` remains a source-frame limit; queued samples past that requested
+limit are excluded.
+
 When a historical file's actual frame count differs from its journal span,
 `unmapped_fragments` preserves its asset, decoded `count`, original
 `journal_range`, and reason `frame_count_mismatch`. That journal range is

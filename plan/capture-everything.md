@@ -33,11 +33,36 @@ Implemented in the first follow-up:
 - Regression cases for exact padding with irregular blocks, frame-based queue
   limits and loss accounting, and 10-of-18 / 20-of-28 silent-channel layouts.
 
-These changes do not yet make detection independent of callback partitioning.
-The existing peak-to-peak detector still operates per callback; a one-frame
-block has zero peak-to-peak range. Detector windows, downstream coalescing,
-timing diagnostics, and Pi throughput qualification remain necessary. Do not
-treat the current passing tests as completion of those acceptance criteria.
+Implemented in the detector/batching follow-up:
+
+- Consumer-owned windows on a fixed source-frame grid. The existing per-track
+  peak-to-peak metric now sees complete sample windows, not individual driver
+  callbacks. This avoids one-frame callbacks always measuring zero range.
+- `silence_window_seconds`, initially 0.05 seconds: 50 ms covers one cycle at
+  20 Hz. Window lengths are rounded to source frames with a two-sample minimum.
+- `processing_batch_seconds`, initially 0.1 seconds: bounds each consumer drain
+  and the wait for an incomplete window. It must be at least the detector
+  window duration. Neither setting requests a hardware callback size.
+- Partial-window flushes on stalled input, known gaps, backend warnings,
+  configuration/layout/session transitions, and shutdown. Incomplete nonzero
+  material above the track's threshold is retained conservatively; exact-zero
+  silent tracks do not become recordings merely because a window is short.
+- Exact sample/frame/status positions when processing batches split a larger
+  driver block. Unprocessed windows survive a temporary write failure for
+  existing recovery/failover handling.
+- Callback shutdown and queue draining before writer closure, including an
+  interrupted main loop. Capture-child termination signals request a stop
+  without interrupting copying/writing. The final partial window is evaluated
+  before closing; an explicit run-duration limit is enforced in source frames.
+- Widened arithmetic before integer peak subtraction, preventing loud int16 or
+  int32 samples from overflowing into a negative measured amplitude.
+- Full-path regressions comparing retained samples across callback partitions
+  and batch bounds, plus stop, interruption, setting changes, and write recovery.
+
+These duration defaults are explicit initial algorithm/latency choices, not
+Pi-tuned throughput results. Timing diagnostics and Pi qualification remain
+necessary before declaring show readiness. Native buffering or stronger
+isolation remains conditional on measured need.
 
 ## Evidence and current behavior
 
@@ -134,11 +159,13 @@ UI publication, RPC, or journal serialization. The current `InputBuffer.put`
 path includes work such as memory checks and forwarding; move that work out
 of the capture callback when implementing this design.
 
-Accumulate arbitrary driver blocks into processing batches downstream. Define
-the batching target with a named duration setting in seconds and a documented
-maximum wait; derive frame counts from the device rate. Select its default
-using Pi measurements, not an unexplained constant. It controls downstream
-work frequency and does not change the hardware callback request.
+Accumulate arbitrary driver blocks into processing batches downstream.
+`processing_batch_seconds` bounds each drain in source frames and the wait for
+an incomplete detector window. A drain takes available data without waiting
+for the batch to fill. `silence_window_seconds` independently defines the
+detector grid, so changing the batch bound does not change ordinary detection
+decisions. Qualify the stated initial defaults on the Pi before deployment;
+do not mistake them for measured optima or hardware callback requests.
 
 Emit a partially filled batch on stop, disconnection, or the maximum wait.
 Deliver every available frame to the silence decision in order across tiny
@@ -218,10 +245,12 @@ repeat the entire file history on every callback.
    override. This step is already implemented.
 2. Specify and test silence, activity, and uncertainty decisions per track,
    including bounded preroll, pending quiet, padding, and short-file retention.
+   Implemented for the existing peak-to-peak metric with fixed sample windows.
 3. Measure the Pi's callback, detector, and writing throughput. Implement
    frame-based buffering and downstream batching with explicit partial-batch
    draining and loss accounting; keep detector behavior independent of batch
-   sizes. Isolate optional analysis and presentation from essential capture.
+   sizes. The frame buffering, batching, partial-window handling, and recovery
+   regressions are implemented; Pi measurements and further isolation are open.
 4. Update capture, lifecycle evidence, readers, and documentation together to
    preserve uncertain material while suppressing established silence. Keep
    `record_everything` opt-in and avoid parallel capture implementations.

@@ -385,6 +385,24 @@ class Key(BaseModel):
 
 
 class Recording(BaseModel):
+    silence_window_seconds: Annotated[
+        units.Seconds,
+        cli_metadata.TIME_SPEC,
+        Field(gt=0, allow_inf_nan=False),
+        tyro.conf.arg(
+            help='Seconds per silence detection window, independent of driver blocks'
+        ),
+    ] = 0.05
+
+    processing_batch_seconds: Annotated[
+        units.Seconds,
+        cli_metadata.TIME_SPEC,
+        Field(gt=0, allow_inf_nan=False),
+        tyro.conf.arg(
+            help='Seconds per processing batch and maximum incomplete-window wait'
+        ),
+    ] = 0.1
+
     finalize_on_shutdown: Annotated[
         bool,
         tyro.conf.arg(
@@ -619,3 +637,11 @@ class Recording(BaseModel):
         if not values:
             raise ValueError('must not be empty')
         return [disk_threshold.normalize(v) for v in values]
+
+    @model_validator(mode='after')
+    def validate_processing_window(self) -> Self:
+        if self.processing_batch_seconds < self.silence_window_seconds:
+            raise ValueError(
+                'processing_batch_seconds must be at least silence_window_seconds'
+            )
+        return self

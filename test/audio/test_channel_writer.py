@@ -13,7 +13,7 @@ from ufor.encoding import Format, Subtype
 from recs.audio.block import Block
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.file_opener import FileOpener
-from recs.base.signals import raise_keyboard_interrupt_on_signal
+from recs.base.signals import handle_termination_signals
 from recs.base.types import SDTYPE, SdType
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
@@ -597,7 +597,7 @@ def test_channel_writer_closes_active_file_on_signal(mock_devices: None) -> None
 
     with pytest.raises(KeyboardInterrupt):
         with (
-            raise_keyboard_interrupt_on_signal(),
+            handle_termination_signals(),
             ChannelWriter(cfg, times=times, track=track) as writer,
         ):
             writer._receive_block(block, conftest.TIMESTAMP, True)

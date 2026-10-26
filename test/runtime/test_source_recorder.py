@@ -1,5 +1,6 @@
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from multiprocessing import Pipe
 from pathlib import Path
@@ -26,6 +27,7 @@ from recs.runtime import (
     source_recorder,
     source_transport,
 )
+from recs.runtime.capture_windows import CaptureWindows
 from recs.runtime.input_buffer import InputBuffer
 from recs.runtime.source_calibration import SourceCalibration
 from recs.runtime.source_messages import SourceUpdate
@@ -618,6 +620,9 @@ def test_source_track_change_closes_writers_before_next_buffer(
     )
     recorder = object.__new__(SourceRecorder)
     recorder.cfg = Cfg()
+    recorder.windows = CaptureWindows(source.samplerate, 0.05, 0.1)
+    recorder.ready_audio = deque()
+    recorder.writing_enabled = True
     recorder.session_directory = Path('session')
     recorder.times = recorder.cfg.times.scale(source.samplerate)
     recorder.input_stream = object()
@@ -786,7 +791,7 @@ class IdleInputBuffer:
         self.cfg = cfg
         self.samplerate = samplerate
 
-    def get(self, *args: object, **kwargs: object) -> object:
+    def get_batch(self, *args: object, **kwargs: object) -> object:
         raise source_recorder.Empty
 
     def put(self, update: object) -> None:

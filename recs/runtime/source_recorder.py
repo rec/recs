@@ -1,6 +1,7 @@
 import contextlib
 import socket
 import uuid
+from collections import deque
 from collections.abc import MutableSequence, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
@@ -14,7 +15,7 @@ from ufor.encoding import Format
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.live_waveform import LiveWaveform
-from recs.base.signals import raise_keyboard_interrupt_on_signal
+from recs.base.signals import handle_termination_signals
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, SdType
 from recs.base.waveform import (
@@ -25,6 +26,7 @@ from recs.base.waveform import (
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
+from recs.cfg.time_settings import db_to_amplitude
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
 from recs.recording.capture_events import SourceFileEvents, capture_clock_id
@@ -35,6 +37,7 @@ from recs.runtime.source_messages import SourceUpdate
 from recs.runtime.source_transport import SourceControlHandler, SourceUpdateTransport
 
 from .audio_forwarding import ERROR, FAILED, STATE, AudioForwarder
+from .capture_windows import CaptureWindows
 
 POLL_TIMEOUT = 0.05
 
@@ -64,12 +67,14 @@ class SourceControlApplier:
 
     def set_session_directory(self, session_directory: Path) -> None:
         recorder = self.recorder
+        recorder.flush_pending_audio()
         recorder.session_directory = session_directory
         for writer in recorder.channel_writers:
             writer.set_session_directory(session_directory)
 
     def set_cfg(self, cfg: Cfg, revision: int | None = None) -> None:
         recorder = self.recorder
+        recorder.flush_pending_audio()
         recorder.cfg = cfg
         recorder.buffer.cfg = cfg
         recorder.times = cfg.times.scale(recorder.source.samplerate)
@@ -80,6 +85,7 @@ class SourceControlApplier:
 
     def set_tracks(self, tracks: list[Track], track_names: SourceTrackNames) -> None:
         recorder = self.recorder
+        recorder.flush_pending_audio()
         for writer in recorder.channel_writers:
             if writer.active == Active.active:
                 recorder.pending_active_channels.update(writer.track.channels)
@@ -106,6 +112,7 @@ class SourceControlApplier:
         if enabled == recorder.writing_enabled:
             return
         if not enabled:
+            recorder.flush_pending_audio()
             recorder.suspended_directory = recorder.session_directory
             for writer in recorder.channel_writers:
                 try:
@@ -249,6 +256,15 @@ class SourceRecorder(Runnables):
 
         self.name = self.cfg.aliases.display_name(self.source)
         self.buffer = InputBuffer(self.cfg, self.source.samplerate)
+        self.windows = CaptureWindows(
+            self.source.samplerate,
+            cfg.recording.silence_window_seconds,
+            cfg.recording.processing_batch_seconds,
+        )
+        self.ready_audio: deque[BufferedUpdate] = deque()
+        self.batch_frames = max(
+            1, round(self.source.samplerate * cfg.recording.processing_batch_seconds)
+        )
         self.times = self.cfg.times.scale(self.source.samplerate)
         self.channel_writers = tuple(
             ChannelWriter(
@@ -315,38 +331,58 @@ class SourceRecorder(Runnables):
         )
 
     def run(self) -> None:
+        stop_requested = False
+
+        def request_stop() -> None:
+            nonlocal stop_requested
+            stop_requested = True
+
         with (
-            raise_keyboard_interrupt_on_signal(),
+            handle_termination_signals(request_stop),
             contextlib.suppress(KeyboardInterrupt),
             self,
             self.audio_forwarder or contextlib.nullcontext(),
         ):
             # A finite input may finish before all runnables report running.
             self.running = True
-            pending: BufferedUpdate | None = None
-            while self.running and not self.stop_event.is_set():
-                self.control.receive()
-                if not self.writing_enabled:
-                    sleep(POLL_TIMEOUT)
-                    continue
-                try:
-                    update = pending or self.buffer.get(timeout=POLL_TIMEOUT)
-                    pending = None
-                except Empty:
-                    if self.input_stream.stopped:
-                        break
-                else:
+            pending: list[BufferedUpdate] = []
+            try:
+                while (
+                    self.running and not stop_requested and not self.stop_event.is_set()
+                ):
                     self.control.receive()
-                    if self.writing_enabled:
-                        self._receive_update(update)
+                    if not self.writing_enabled:
+                        sleep(POLL_TIMEOUT)
+                        continue
+                    self._write_ready_audio()
+                    if not self.writing_enabled:
+                        continue
+                    try:
+                        pending = pending or self.buffer.get_batch(
+                            self.batch_frames,
+                            timeout=min(POLL_TIMEOUT, self.windows.wait_seconds),
+                        )
+                    except Empty:
+                        if self.windows.expired:
+                            self.flush_pending_audio()
+                        if self.input_stream.stopped:
+                            break
                     else:
-                        pending = update
-
-        with contextlib.suppress(Empty):
-            while True:
-                update = self.buffer.get(block=False)
-                self.control.receive()
-                self._receive_update(update)
+                        self.control.receive()
+                        if self.writing_enabled:
+                            self.consume_audio(pending)
+                            pending = []
+            finally:
+                # Stop callbacks, then drain accepted audio before closing writers.
+                self.input_stream.stop()
+                if self.writing_enabled:
+                    self.consume_audio(pending)
+                    with contextlib.suppress(Empty):
+                        while self.writing_enabled:
+                            self.consume_audio(
+                                self.buffer.get_batch(self.batch_frames, block=False)
+                            )
+                    self.flush_pending_audio()
         self.file_events.remember_finished_files(self.channel_writers)
         files, records = self.file_events.new_files(
             self.channel_writers, self.sample_bit_depth
@@ -369,6 +405,32 @@ class SourceRecorder(Runnables):
                 frame_count=self.buffer.timeline_frames,
             )
         )
+
+    def consume_audio(self, updates: list[BufferedUpdate]) -> None:
+        for update in updates:
+            if limit := self.times.total_run_time:
+                if update.start_frame >= limit:
+                    self.running = False
+                    break
+                if update.end_frame >= limit:
+                    self.running = False
+                    update = update._replace(
+                        update=Update(
+                            update.update.array[: limit - update.start_frame],
+                            update.update.timestamp,
+                            update.update.status,
+                        ),
+                        end_frame=limit,
+                    )
+            self.ready_audio.extend(self.windows.receive(update))
+        self._write_ready_audio()
+
+    def flush_pending_audio(self) -> None:
+        if not self.writing_enabled:
+            return
+        if (pending := self.windows.flush()) is not None:
+            self.ready_audio.append(pending)
+        self._write_ready_audio()
 
     def set_waveforms_enabled(self, enabled: bool) -> None:
         if enabled == self.waveforms_enabled:
@@ -401,12 +463,16 @@ class SourceRecorder(Runnables):
         )
         self.pending_waveform_layout = self.waveform.layout
 
+    def _write_ready_audio(self) -> None:
+        while self.ready_audio and self.writing_enabled:
+            self._receive_update(self.ready_audio.popleft())
+
     def _receive_update(self, u: BufferedUpdate) -> None:
         update = u.update
         if Format.mp3 in self.cfg.audio.formats and update.array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
             update = Update(update.array.astype(np.float64), update.timestamp)
-            u = BufferedUpdate(update, u.start_frame, u.end_frame)
+            u = u._replace(update=update)
 
         end_timestamp = update.timestamp + len(update.array) / self.source.samplerate
         cb = {c: c.to_block(update.array) for c in self.channel_writers}
@@ -424,7 +490,15 @@ class SourceRecorder(Runnables):
                 waveform_warning = (
                     f'Device {self.source.name}: Live waveforms disabled: {e}'
                 )
-        should_record = {c: c.should_record(b) for c, b in cb.items()}
+        should_record = {
+            c: c.should_record(b)
+            or (
+                u.uncertain
+                and max(abs(float(min(b.min))), abs(float(max(b.max)))) / b.scale
+                >= db_to_amplitude(c.noise_floor)
+            )
+            for c, b in cb.items()
+        }
         band_should_record = self.cfg.recording.band_mode and any(
             should_record.values()
         )
@@ -460,7 +534,8 @@ class SourceRecorder(Runnables):
         if update.status:
             if update.status == 'input overflow':
                 buffer_warnings.append(
-                    f'Device {self.source.name}: Dropped frame in PortAudio'
+                    f'Device {self.source.name}: PortAudio input overflow; '
+                    'lost frame count unknown'
                 )
             else:
                 buffer_warnings.append(

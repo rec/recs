@@ -15,6 +15,7 @@ class BufferedUpdate(NamedTuple):
     update: Update
     start_frame: int
     end_frame: int
+    uncertain: bool = False
 
 
 class InputBuffer:
@@ -81,6 +82,48 @@ class InputBuffer:
             self.reported_dropped_frames = self.stats.dropped_frames
 
         return warnings
+
+    def get_batch(
+        self, frames: int, timeout: float | None = None, *, block: bool = True
+    ) -> list[BufferedUpdate]:
+        self.check_memory()
+        result: list[BufferedUpdate] = []
+        count = 0
+        with self.available:
+            if not self.queue and (
+                not block
+                or not self.available.wait_for(lambda: bool(self.queue), timeout)
+            ):
+                raise Empty
+            while self.queue and count < frames:
+                buffered = self.queue.popleft()
+                update = buffered.update
+                take = min(len(update.array), frames - count)
+                if take < len(update.array):
+                    end = buffered.start_frame + take
+                    result.append(
+                        buffered._replace(
+                            update=Update(
+                                update.array[:take], update.timestamp, update.status
+                            ),
+                            end_frame=end,
+                        )
+                    )
+                    self.queue.appendleft(
+                        buffered._replace(
+                            update=Update(
+                                update.array[take:],
+                                update.timestamp + take / self.samplerate,
+                            ),
+                            start_frame=end,
+                        )
+                    )
+                else:
+                    result.append(buffered)
+                count += take
+                self.queued_frames -= take
+            self._update_queue_stats()
+        return result
 
     def _update_queue_stats(self) -> None:
         self.stats.queued_blocks = len(self.queue)
