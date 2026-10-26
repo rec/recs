@@ -1,6 +1,7 @@
 from collections.abc import Callable, Mapping, Sequence
 from multiprocessing import connection
 from pathlib import Path
+from time import monotonic
 from typing import cast
 
 from dvice.device import DeviceDict, device_key
@@ -100,6 +101,7 @@ class DeviceLifecycle:
         }
         self.source_frames = dict.fromkeys(self.source_processes, 0)
         self.buffer_stats: dict[str, BufferStats] = {}
+        self.buffer_report_times: dict[str, float] = {}
         self.buffer_drops_reported = dict.fromkeys(self.source_processes, 0)
         self.buffer_pressure_reported = dict.fromkeys(self.source_processes, 0.0)
         self.source_frames_at_start = dict.fromkeys(self.source_processes, 0)
@@ -451,22 +453,25 @@ class DeviceLifecycle:
 
     def _record_buffer_status(self, update: SourceUpdate) -> None:
         if update.buffer_stats is not None:
-            self.buffer_stats[update.source_name] = update.buffer_stats
-            reported = self.buffer_drops_reported[update.source_name]
-            if update.buffer_stats.dropped_frames > reported:
-                self.buffer_update(update.source_name, update.buffer_stats)
-                self.buffer_drops_reported[update.source_name] = (
-                    update.buffer_stats.dropped_frames
-                )
-            pressure = self.buffer_pressure_reported[update.source_name]
+            stats = update.buffer_stats
+            self.buffer_stats[update.source_name] = stats
+            now = monotonic()
+            last = self.buffer_report_times.get(update.source_name)
+            reported = self.buffer_drops_reported.get(update.source_name, 0)
+            pressure = self.buffer_pressure_reported.get(update.source_name, 0.0)
             threshold = self.cfg.recording.audio_buffer_seconds * 0.8
             if (
-                update.buffer_stats.max_queued_seconds > pressure
-                and update.buffer_stats.max_queued_seconds >= threshold
+                last is None
+                or now - last >= self.cfg.recording.diagnostics_interval_seconds
+                or update.capture_complete
+                or (stats.dropped_frames and not reported)
+                or (pressure < threshold <= stats.max_queued_seconds)
             ):
-                self.buffer_update(update.source_name, update.buffer_stats)
+                self.buffer_update(update.source_name, stats)
+                self.buffer_report_times[update.source_name] = now
+                self.buffer_drops_reported[update.source_name] = stats.dropped_frames
                 self.buffer_pressure_reported[update.source_name] = (
-                    update.buffer_stats.max_queued_seconds
+                    stats.max_queued_seconds
                 )
         for warning in update.buffer_warnings or []:
             self.warning(warning)

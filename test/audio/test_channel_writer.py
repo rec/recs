@@ -641,3 +641,50 @@ def _on_and_off_segments(it):
                 pb = b
                 pi = i
         yield i + 1 - pi
+
+
+def test_recovery_preserves_unattempted_quiet_and_active_tail(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    cfg = Cfg(
+        output_directory=str(tmp_path),
+        formats=[Format.wav],
+        sdtype=SdType.int16,
+        flush_time=0,
+        flush_overlap_time=1,
+    )
+    track = Track(source, '1')
+    writer = ChannelWriter(cfg, cfg.times.scale(48_000), track, tmp_path / 'old')
+    active = Block(block=np.full((48_000, 1), 100, dtype=np.int16))
+    quiet = Block(block=np.zeros((48_000, 1), dtype=np.int16))
+    writer.receive_update(active, 1.0, should_record=True, timeline_frame=48_000)
+    writer.receive_update(quiet, 2.0, should_record=False, timeline_frame=96_000)
+    writer.receive_update(quiet, 3.0, should_record=False, timeline_frame=144_000)
+    original_write = soundfile.SoundFile.write
+    failed = False
+
+    def fail_once(file: soundfile.SoundFile, data: np.ndarray) -> None:
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise OSError('storage disconnected')
+        original_write(file, data)
+
+    monkeypatch.setattr(soundfile.SoundFile, 'write', fail_once)
+    with pytest.raises(OSError, match='storage disconnected'):
+        writer.receive_update(active, 4.0, should_record=True, timeline_frame=192_000)
+    writer.stop_after_write_error()
+    replacement = ChannelWriter(cfg, cfg.times.scale(48_000), track, tmp_path / 'new')
+    writer.replay_to(replacement)
+    replacement.stop()
+    actual, rate = soundfile.read(replacement.files_written[0], dtype='int16')
+    assert rate == 48_000
+    assert np.array_equal(
+        actual[-144_000:],
+        np.concatenate(
+            (np.zeros(96_000, dtype=np.int16), np.full(48_000, 100, dtype=np.int16))
+        ),
+    )

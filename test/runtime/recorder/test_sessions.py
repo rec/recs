@@ -86,6 +86,9 @@ def test_recorder_records_buffer_overflow_event(
     )
 
     records = read_jsonl(record_path(rec))
+    capture = records[1].pop('metadata')
+    assert capture['cumulative']
+    assert capture['capture']['dropped_frames'] == 512
     assert records[1] == {
         'type': 'buffer_overflow',
         'timestamp': '1970-01-01T00:00:00.000Z',

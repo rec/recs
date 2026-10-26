@@ -18,6 +18,7 @@ class Update(NamedTuple):
     array: np.ndarray
     timestamp: float
     status: str = ''
+    copy_seconds: float = 0.0
 
 
 class Source(hash_cmp.HashCmp, abc.ABC):

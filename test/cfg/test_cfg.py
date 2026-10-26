@@ -84,6 +84,7 @@ def test_cfg_reports_mutable_attributes(mock_devices: None) -> None:
         'recording.card_replace_timeout_seconds',
         'recording.channel_noise_floors',
         'recording.disk_alert_thresholds',
+        'recording.diagnostics_interval_seconds',
         'recording.disk_auto_switch',
         'recording.disk_poll_seconds',
         'recording.disk_removable_emergency',

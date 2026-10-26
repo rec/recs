@@ -136,6 +136,17 @@ def inspect(
         )
         prefix = f'body.streams[{stream.name}]'
         gaps: dict[str, int] = {}
+        for boundary in stream.discontinuities:
+            findings.append(
+                Finding(
+                    severity=Severity.warning,
+                    kind='unknown_duration_loss',
+                    evidence=f'{prefix}.discontinuities: '
+                    'lost frame count and elapsed timing are unknown',
+                    start_frame=boundary.frame,
+                    **context,
+                )
+            )
         for index, gap in enumerate(stream.gaps):
             gaps[gap.reason] = gaps.get(gap.reason, 0) + gap.end - gap.start
             findings.append(
@@ -183,7 +194,10 @@ def inspect(
                         fragment.asset_start
                         if isinstance(fragment, AudioFragment)
                         else 0,
-                        fragment.start if isinstance(fragment, AudioFragment) else None,
+                        fragment.start
+                        if isinstance(fragment, AudioFragment)
+                        and not stream.discontinuities
+                        else None,
                         fragment.count,
                         stream.stream.channels,
                         clocks[stream.stream.timebase],

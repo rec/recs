@@ -20,12 +20,12 @@ from recs.base.audio_stream import (
 )
 from recs.base.errors import RecsError
 from recs.cfg import mic_mute
+from recs.cfg.source import Update
 
 from .input_buffer import BufferedUpdate
 
 BUFFER_SECONDS = 0.1
 MAX_BUFFER_BYTES = 1_048_576
-MAX_BLOCKS = 128
 POLL_SECONDS = 0.005
 HANDSHAKE_SECONDS = 0.2
 # Parent writes DESIRED; callback writes capture/block observations; worker writes
@@ -43,6 +43,7 @@ class StopEvent(Protocol):
 class AudioMailbox:
     def __init__(self, sample_rate: int) -> None:
         self.max_frames = max(1, int(sample_rate * BUFFER_SECONDS))
+        self.send_frames = max(1, round(sample_rate * POLL_SECONDS))
         self.lock = threading.Lock()
         self.blocks: deque[tuple[BufferedUpdate, float]] = deque()
         self.frames = 0
@@ -65,7 +66,6 @@ class AudioMailbox:
             while self.blocks and (
                 self.frames + frames > self.max_frames
                 or self.bytes + size > MAX_BUFFER_BYTES
-                or len(self.blocks) >= MAX_BLOCKS
             ):
                 old, _ = self.blocks.popleft()
                 self.frames -= len(old.update.array)
@@ -84,7 +84,30 @@ class AudioMailbox:
             block, offered = self.blocks.popleft()
             self.frames -= len(block.update.array)
             self.bytes -= block.update.array.nbytes
+            blocks = [block]
+            frames = len(block.update.array)
+            while self.blocks and frames < self.send_frames:
+                following, _ = self.blocks[0]
+                if (
+                    following.start_frame != blocks[-1].end_frame
+                    or following.update.status
+                ):
+                    break
+                self.blocks.popleft()
+                blocks.append(following)
+                frames += len(following.update.array)
+                self.frames -= len(following.update.array)
+                self.bytes -= following.update.array.nbytes
+        if len(blocks) == 1:
             return block, offered
+        return block._replace(
+            update=Update(
+                np.concatenate([b.update.array for b in blocks]),
+                block.update.timestamp,
+                block.update.status,
+            ),
+            end_frame=blocks[-1].end_frame,
+        ), offered
 
     def clear(self, generation: int = 0) -> None:
         with self.lock:

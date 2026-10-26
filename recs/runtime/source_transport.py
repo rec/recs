@@ -223,6 +223,9 @@ def _merge_updates(first: SourceUpdate, second: SourceUpdate) -> SourceUpdate:
             second.timestamp,
         ),
         buffer_stats=second.buffer_stats,
+        capture_events=[*(first.capture_events or []), *(second.capture_events or [])]
+        or None,
+        capture_complete=first.capture_complete or second.capture_complete,
         buffer_warnings=_merge_warnings(first.buffer_warnings, second.buffer_warnings),
         file_records=[r for r in file_records.values() if r.path in file_paths],
         file_end_frames=_merge_file_map(first.file_end_frames, second.file_end_frames),
@@ -327,6 +330,8 @@ def _merge_file_map[N](
 def _has_durable_events(message: SourceUpdate) -> bool:
     return bool(
         message.files
+        or message.capture_events
+        or message.capture_complete
         or message.file_records
         or message.timelines
         or message.finished_files

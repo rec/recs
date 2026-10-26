@@ -6,7 +6,7 @@ from collections.abc import MutableSequence, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
 from queue import Empty
-from time import sleep
+from time import perf_counter, sleep
 from typing import Any, cast
 
 import numpy as np
@@ -30,10 +30,10 @@ from recs.cfg.time_settings import db_to_amplitude
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
 from recs.recording.capture_events import SourceFileEvents, capture_clock_id
-from recs.recording.session_record import MarkerPosition, timestamp_to_json
+from recs.recording.session_record import EventRecord, MarkerPosition, timestamp_to_json
 from recs.runtime.input_buffer import BufferedUpdate, InputBuffer
 from recs.runtime.source_calibration import SourceCalibration
-from recs.runtime.source_messages import SourceUpdate
+from recs.runtime.source_messages import BufferStats, SourceUpdate
 from recs.runtime.source_transport import SourceControlHandler, SourceUpdateTransport
 
 from .audio_forwarding import ERROR, FAILED, STATE, AudioForwarder
@@ -91,6 +91,7 @@ class SourceControlApplier:
                 recorder.pending_active_channels.update(writer.track.channels)
             writer.stop()
         recorder.file_events.remember_finished_files(recorder.channel_writers)
+        recorder.remember_writer_stats()
         recorder.channel_writers = tuple(
             ChannelWriter(
                 cfg=recorder.cfg,
@@ -150,6 +151,7 @@ class SourceControlApplier:
             )
             return
         previous_writers = recorder.channel_writers
+        recorder.remember_writer_stats()
         replay = (
             recovery_failover
             and recorder.suspended_directory is not None
@@ -262,6 +264,14 @@ class SourceRecorder(Runnables):
             cfg.recording.processing_batch_seconds,
         )
         self.ready_audio: deque[BufferedUpdate] = deque()
+        self.coalesce_seconds = 0.0
+        self.detection_seconds = 0.0
+        self.writing_seconds = 0.0
+        self.max_window_seconds = 0.0
+        self.previous_written_frames = 0
+        self.previous_suppressed_frames = 0
+        self.previous_max_flush_seconds = 0.0
+        self.waveform_skipped = False
         self.batch_frames = max(
             1, round(self.source.samplerate * cfg.recording.processing_batch_seconds)
         )
@@ -403,10 +413,60 @@ class SourceRecorder(Runnables):
                 finished_files=self.file_events.finished(self.channel_writers),
                 discarded_files=self.file_events.discarded(self.channel_writers),
                 frame_count=self.buffer.timeline_frames,
+                capture_events=self.input_loss_events(),
+                capture_complete=True,
+                buffer_stats=self.capture_stats(),
+            )
+        )
+
+    def input_loss_events(self) -> list[EventRecord]:
+        return [
+            EventRecord(
+                type='input_overflow_unknown',
+                timestamp=timestamp_to_json(t),
+                source=self.source.key,
+                clock_id=capture_clock_id(
+                    self.file_events.capture_id or self.source.key
+                ),
+                frame_count=f,
+                reason='unknown_lost_frame_count',
+            )
+            for f, t in self.buffer.take_unknown_losses()
+        ]
+
+    def remember_writer_stats(self) -> None:
+        self.previous_written_frames += sum(
+            w.frames_written for w in self.channel_writers
+        )
+        self.previous_suppressed_frames += sum(
+            w.suppressed_frames for w in self.channel_writers
+        )
+        self.previous_max_flush_seconds = max(
+            self.previous_max_flush_seconds,
+            *(w.max_flush_seconds for w in self.channel_writers),
+        )
+
+    def capture_stats(self) -> BufferStats:
+        return self.buffer.stats.model_copy(
+            update=dict(
+                processed_frames=self.sample_count,
+                written_track_frames=self.previous_written_frames
+                + sum(w.frames_written for w in self.channel_writers),
+                suppressed_track_frames=self.previous_suppressed_frames
+                + sum(w.suppressed_frames for w in self.channel_writers),
+                coalesce_seconds=self.coalesce_seconds,
+                detection_seconds=self.detection_seconds,
+                writing_seconds=self.writing_seconds,
+                max_window_seconds=self.max_window_seconds,
+                max_flush_seconds=max(
+                    self.previous_max_flush_seconds,
+                    *(w.max_flush_seconds for w in self.channel_writers),
+                ),
             )
         )
 
     def consume_audio(self, updates: list[BufferedUpdate]) -> None:
+        started = perf_counter()
         for update in updates:
             if limit := self.times.total_run_time:
                 if update.start_frame >= limit:
@@ -423,6 +483,7 @@ class SourceRecorder(Runnables):
                         end_frame=limit,
                     )
             self.ready_audio.extend(self.windows.receive(update))
+        self.coalesce_seconds += perf_counter() - started
         self._write_ready_audio()
 
     def flush_pending_audio(self) -> None:
@@ -462,12 +523,14 @@ class SourceRecorder(Runnables):
             batch_milliseconds=self.cfg.console.waveform_batch_milliseconds,
         )
         self.pending_waveform_layout = self.waveform.layout
+        self.waveform_skipped = False
 
     def _write_ready_audio(self) -> None:
         while self.ready_audio and self.writing_enabled:
             self._receive_update(self.ready_audio.popleft())
 
     def _receive_update(self, u: BufferedUpdate) -> None:
+        window_started = perf_counter()
         update = u.update
         if Format.mp3 in self.cfg.audio.formats and update.array.dtype == np.float32:
             # mp3 and float32 crashes every time on my machine
@@ -476,9 +539,18 @@ class SourceRecorder(Runnables):
 
         end_timestamp = update.timestamp + len(update.array) / self.source.samplerate
         cb = {c: c.to_block(update.array) for c in self.channel_writers}
+        self.detection_seconds += perf_counter() - window_started
         waveform_batches: list[WaveformBatchData] = []
         waveform_warning: str | None = None
-        if self.waveform is not None:
+        if (
+            self.waveform is not None
+            and self.buffer.stats.oldest_buffer_seconds
+            >= self.cfg.recording.processing_batch_seconds
+        ):
+            self.waveform_skipped = True
+        elif self.waveform is not None:
+            if self.waveform_skipped:
+                self.reset_waveform()
             try:
                 waveform_batches = self.waveform.receive(
                     list(cb.values()), u.start_frame, update.timestamp
@@ -490,6 +562,7 @@ class SourceRecorder(Runnables):
                 waveform_warning = (
                     f'Device {self.source.name}: Live waveforms disabled: {e}'
                 )
+        detection_started = perf_counter()
         should_record = {
             c: c.should_record(b)
             or (
@@ -502,7 +575,9 @@ class SourceRecorder(Runnables):
         band_should_record = self.cfg.recording.band_mode and any(
             should_record.values()
         )
+        self.detection_seconds += perf_counter() - detection_started
         msgs: dict[str, ChannelState] = {}
+        write_started = perf_counter()
         try:
             for writer, block in cb.items():
                 forced = bool(set(writer.track.channels) & self.pending_active_channels)
@@ -518,12 +593,17 @@ class SourceRecorder(Runnables):
         except OSError as error:
             self.control.suspend_after_write_error(error)
             return
+        self.writing_seconds += perf_counter() - write_started
+        self.max_window_seconds = max(
+            self.max_window_seconds, perf_counter() - window_started
+        )
         self.pending_active_channels = set()
         calibration = self.calibration.update(cb)
         files, file_records = self.file_events.new_files(
             self.channel_writers, update.array.dtype.itemsize * 8
         )
-        stats = self.buffer.stats.model_copy()
+        self.sample_count += len(update.array)
+        stats = self.capture_stats()
         stats.max_write_seconds = max(
             stats.max_write_seconds,
             *(state.max_write_seconds for state in msgs.values()),
@@ -581,6 +661,7 @@ class SourceRecorder(Runnables):
                 track_state_frames=dict.fromkeys(msgs, u.end_frame),
                 track_state_timestamps=dict.fromkeys(msgs, end_timestamp),
                 calibration=calibration,
+                capture_events=self.input_loss_events(),
                 track_layout=track_layout,
                 config_revisions_applied=config_revisions or None,
                 waveform_layout=waveform_layout,
@@ -588,6 +669,5 @@ class SourceRecorder(Runnables):
             )
         )
 
-        self.sample_count += len(update.array)
         if (total := self.times.total_run_time) and self.sample_count >= total:
             self.running = False

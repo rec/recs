@@ -518,3 +518,68 @@ def test_client_close_wakes_a_blocked_reader(
     finally:
         client.close()
         thread.join(5)
+
+
+def test_tiny_forwarded_blocks_are_batched_without_crossing_loss_boundaries(
+    audio: np.ndarray, tmp_path: Path
+) -> None:
+    mailbox = AudioMailbox(48_000)
+    for frame in range(481):
+        mailbox.offer(
+            BufferedUpdate(
+                Update(
+                    audio[frame : frame + 1],
+                    frame / 48_000,
+                    'input overflow' if frame == 300 else '',
+                ),
+                frame,
+                frame + 1,
+            )
+        )
+    batches = []
+    while (batch := mailbox.take()) is not None:
+        batches.append(batch[0])
+    assert [(b.start_frame, b.end_frame) for b in batches] == [
+        (0, 240),
+        (240, 300),
+        (300, 481),
+    ]
+    assert [b.update.status for b in batches] == ['', '', 'input overflow']
+    for frame in range(481, len(audio), mailbox.max_frames):
+        end = min(frame + mailbox.max_frames, len(audio))
+        mailbox.offer(
+            BufferedUpdate(Update(audio[frame:end], frame / 48_000), frame, end)
+        )
+        batch = mailbox.take()
+        assert batch is not None
+        batches.append(batch[0])
+    actual = np.concatenate([b.update.array for b in batches])
+    np.testing.assert_array_equal(actual, audio)
+    soundfile.write(tmp_path / 'forwarded.wav', actual, 48_000, subtype='FLOAT')
+
+
+def test_stalled_optional_mailbox_does_not_block_capture(
+    audio: np.ndarray, tmp_path: Path
+) -> None:
+    buffer = InputBuffer(Cfg(), 48_000)
+    mailbox = AudioMailbox(48_000)
+    buffer.forward_audio = mailbox.offer
+    finished = threading.Event()
+
+    def capture() -> None:
+        buffer.put(Update(audio, 0.0))
+        finished.set()
+
+    with mailbox.lock:
+        callback = threading.Thread(target=capture)
+        callback.start()
+        assert finished.wait(1)
+    callback.join()
+    retained = buffer.get(block=False)
+    assert retained.end_frame == 48_000
+    np.testing.assert_array_equal(retained.update.array, audio)
+    soundfile.write(
+        tmp_path / 'captured.wav', retained.update.array, 48_000, subtype='FLOAT'
+    )
+    assert mailbox.dropped == 48_000
+    assert buffer.stats.dropped_frames == 0

@@ -156,6 +156,10 @@ def summarize(path: Path) -> SessionSummary | None:
     else:
         warnings = journal.warnings + journal.errors if journal else []
     unresolved = sum(len(s.unmapped_fragments) for s in audio)
+    if losses := sum(len(s.discontinuities) for s in audio):
+        warnings.append(
+            f'{losses} unknown-duration audio discontinuities require alignment'
+        )
     if unresolved:
         warnings.append(f'{unresolved} audio files have unresolved timeline placement')
     if body.unfinished_files:

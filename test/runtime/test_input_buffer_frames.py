@@ -92,3 +92,31 @@ def test_processing_batches_preserve_samples_frames_and_status_positions(
     actual = np.concatenate(output)
     np.testing.assert_array_equal(actual, samples)
     soundfile.write(tmp_path / 'batched.wav', actual, 48_000, subtype='FLOAT')
+
+
+def test_memory_budget_counts_shared_backing_storage_once() -> None:
+    buffer = InputBuffer(Cfg(audio_buffer_seconds=10, audio_buffer_megabytes=1), 48_000)
+    samples = np.zeros((96_000, 1), dtype=np.float32)
+    buffer.put(Update(samples[:48_000], 0.0))
+    first_size = buffer.stats.queued_memory_bytes
+    assert first_size >= samples.nbytes
+    buffer.put(Update(samples[48_000:], 1.0))
+    assert first_size < buffer.stats.queued_memory_bytes < first_size * 1.1
+    buffer.get_batch(24_000, block=False)
+    assert buffer.stats.queued_memory_bytes >= samples.nbytes
+    while buffer.stats.queued_seconds:
+        buffer.get_batch(24_000, block=False)
+    assert buffer.stats.queued_memory_bytes == 0
+    assert buffer.stats.queued_bytes == 0
+
+
+def test_byte_budget_drops_audio_but_retains_unknown_loss_boundary() -> None:
+    buffer = InputBuffer(Cfg(audio_buffer_seconds=10, audio_buffer_megabytes=1), 48_000)
+    buffer.put(Update(np.zeros((48_000, 8), dtype=np.float32), 12.0, 'input overflow'))
+    assert buffer.stats.dropped_byte_limit_frames == 48_000
+    assert buffer.stats.queued_seconds == 0
+    assert buffer.take_unknown_losses() == [(0, 12.0)]
+    assert buffer.take_unknown_losses() == []
+    assert buffer.stats.callback_count == 1
+    assert buffer.stats.received_frames == 48_000
+    assert buffer.stats.callback_frame_histogram == {'32768-65535': 1}

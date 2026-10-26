@@ -195,3 +195,48 @@ def test_continuation_links_work_without_indexes(
     assert [(f.start, f.end) for f in source.fragments] == [(0, 48000), (48000, 96000)]
     assert not first.with_name('recording.toml').exists()
     assert not second.with_name('recording.toml').exists()
+
+
+@pytest.mark.parametrize('finalized', [False, True])
+@pytest.mark.parametrize('located', [False, True])
+def test_unknown_capture_loss_survives_journal_and_index_reads(
+    tmp_path: Path, finalized: bool, located: bool
+) -> None:
+    journal = make_session(tmp_path / 'session')
+    if finalized:
+        finalize_recording(journal)
+    event = (
+        session_record.EventRecord(
+            type='input_overflow_unknown',
+            timestamp='2026-10-22T12:00:00Z',
+            source='Mic',
+            clock_id='capture',
+            frame_count=24000,
+            reason='unknown_lost_frame_count',
+        )
+        if located
+        else session_record.WarningRecord(
+            message='Device Mic: Dropped frame in PortAudio',
+            timestamp='2026-10-22T12:00:00Z',
+        )
+    )
+    # An old saved index may predate preservation of its journal's overflow evidence.
+    with journal.open('a') as output:
+        output.write(event.model_dump_json() + '\n')
+    document = read_recording(journal.parent)
+    stream = document.body.streams[0]
+    assert isinstance(stream, AudioStream)
+    assert [d.frame for d in stream.discontinuities] == [24000 if located else None]
+    from recs.base.errors import RecsError
+
+    with pytest.raises(RecsError, match='unknown-duration'):
+        PlaybackTimeline(journal.parent, document, stream)
+    with pytest.raises(RecsError, match='unknown-duration'):
+        resolve_input(
+            SourceSpec(
+                name='voice',
+                record=journal.parent,
+                selector=RecordSelector(source='Mic', track='voice'),
+            ),
+            tmp_path,
+        )

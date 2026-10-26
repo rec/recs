@@ -886,3 +886,41 @@ def test_source_process_reports_forced_termination(
             stop_kind='forced_termination',
         )
     ]
+
+
+@pytest.mark.parametrize('progress', [False, True])
+def test_shutdown_waits_for_progress_but_bounds_a_stalled_child(
+    monkeypatch: pytest.MonkeyPatch, progress: bool
+) -> None:
+    clock = [0.0]
+    monkeypatch.setattr(source_process, 'monotonic', lambda: clock[0])
+    monkeypatch.setattr(source_process.mp, 'Event', FakeEvent)
+    monkeypatch.setattr(
+        source_process.mp,
+        'Pipe',
+        lambda duplex=False: (FakeConnection(), FakeConnection()),
+    )
+    monkeypatch.setattr(source_process.mp, 'Process', FakeProcess)
+    source = InputDevice(
+        {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
+    )
+    owner = SourceProcess(
+        Cfg(shutdown_stall_seconds=1), [Track(source, '1')], Path('session')
+    )
+    owner.start()
+    owner.stop()
+    calls = [0]
+
+    def drain(timeout: float | None = None) -> None:
+        clock[0] += timeout or 0
+        calls[0] += 1
+        if progress:
+            owner.drain_progress_at = clock[0]
+            if calls[0] >= 60:
+                owner.process.alive = False
+
+    monkeypatch.setattr(owner.process, 'join', drain)
+    owner.join()
+    assert owner.process.terminated == (not progress)
+    assert clock[0] >= (2.9 if progress else 1)
+    assert calls[0] < 100

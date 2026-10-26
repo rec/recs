@@ -275,6 +275,8 @@ class Recorder(Runnables):
                 self.session.record_file_discarded(path)
             for timeline in update.timelines or []:
                 self.session.write(timeline)
+            for event in update.capture_events or []:
+                self.session.write(event)
         if update.track_layout is not None:
             self.state.replace_source(source.source, source.tracks, self.cfg.aliases)
             self.state.set_track_names(self._control.track_names)
@@ -285,14 +287,22 @@ class Recorder(Runnables):
     def _record_device_buffer_update(self, source: str, stats: BufferStats) -> None:
         self._write_record_entry(
             session_record.EventRecord(
-                type='buffer_overflow' if stats.dropped_frames else 'buffer_pressure',
-                timestamp=session_record.timestamp_to_json(stats.last_drop_timestamp),
+                type='buffer_overflow'
+                if stats.dropped_frames
+                else (
+                    'buffer_pressure'
+                    if stats.max_queued_seconds
+                    >= self.cfg.recording.audio_buffer_seconds * 0.8
+                    else 'capture_diagnostics'
+                ),
+                timestamp=session_record.timestamp_to_json(times.timestamp()),
                 source=source,
                 dropped_blocks=stats.dropped_blocks,
                 dropped_frames=stats.dropped_frames,
                 max_queued_seconds=stats.max_queued_seconds,
                 max_write_seconds=stats.max_write_seconds or None,
                 queued_seconds=stats.queued_seconds,
+                metadata={'cumulative': True, 'capture': stats.model_dump()},
             )
         )
 

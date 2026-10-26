@@ -1,4 +1,5 @@
 from collections.abc import Callable, Sequence
+from time import perf_counter
 from typing import Any, cast, override
 
 import numpy as np
@@ -40,9 +41,16 @@ class InputDevice(Source):
             time: Any,
             status: int,
         ) -> None:
+            started = perf_counter()
             timestamp = times.timestamp() - (time.currentTime - time.inputBufferAdcTime)
+            array = indata.copy()
             update_callback(
-                Update(indata.copy(), timestamp, str(status) if status else '')
+                Update(
+                    array,
+                    timestamp,
+                    str(status) if status else '',
+                    perf_counter() - started,
+                )
             )
 
         stream = sounddevice.InputStream(

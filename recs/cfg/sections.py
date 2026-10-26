@@ -385,6 +385,31 @@ class Key(BaseModel):
 
 
 class Recording(BaseModel):
+    diagnostics_interval_seconds: Annotated[
+        units.Seconds,
+        Mutable,
+        cli_metadata.TIME_SPEC,
+        Field(gt=0, allow_inf_nan=False),
+        tyro.conf.arg(help='Seconds between aggregated capture diagnostics'),
+    ] = 5.0
+
+    audio_buffer_megabytes: Annotated[
+        units.Megabytes,
+        cli_metadata.MEGABYTES_SPEC,
+        Field(gt=0),
+        tyro.conf.arg(
+            help='Maximum accounted queue memory, including NumPy owners and entries'
+        ),
+    ] = 128
+
+    shutdown_stall_seconds: Annotated[
+        units.Seconds,
+        cli_metadata.TIME_SPEC,
+        Field(gt=0, allow_inf_nan=False),
+        tyro.conf.arg(
+            help='Seconds without capture-drain progress before forced shutdown'
+        ),
+    ] = 10.0
     silence_window_seconds: Annotated[
         units.Seconds,
         cli_metadata.TIME_SPEC,
@@ -431,7 +456,7 @@ class Recording(BaseModel):
         units.Seconds,
         cli_metadata.TIME_SPEC,
         tyro.conf.arg(help='How often to check available system memory'),
-    ] = 2.0
+    ] = 1.0
 
     band_mode: Annotated[
         bool,

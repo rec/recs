@@ -78,7 +78,7 @@ def plan_extraction(
     ]
     if not streams or set(command.tracks) - {s.name for s in streams}:
         raise RecsError('Selected tracks must all belong to the chosen audio clock')
-    if any(s.unmapped_fragments for s in streams):
+    if any(s.unmapped_fragments or s.discontinuities for s in streams):
         raise RecsError('Selected audio has unresolved timeline placement')
     extent = min(s.end for s in streams)
     if positions[1].frame < positions[0].frame:

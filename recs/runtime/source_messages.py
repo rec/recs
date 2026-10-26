@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ufor.recording import AudioSpan
 
 from recs.base.state import ChannelState
@@ -13,10 +13,35 @@ from recs.cfg.cfg import Cfg
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames
 from recs.recording.capture_events import SourceFile
-from recs.recording.session_record import AudioTimelineRecord, MarkerPosition
+from recs.recording.session_record import (
+    AudioTimelineRecord,
+    EventRecord,
+    MarkerPosition,
+)
 
 
 class BufferStats(BaseModel):
+    callback_count: int = 0
+    callback_frames_min: int = 0
+    callback_frames_max: int = 0
+    callback_frame_histogram: dict[str, int] = Field(default_factory=dict)
+    received_frames: int = 0
+    callback_seconds: float = 0.0
+    max_callback_seconds: float = 0.0
+    queued_bytes: int = 0
+    queued_memory_bytes: int = 0
+    max_queued_memory_bytes: int = 0
+    oldest_buffer_seconds: float = 0.0
+    dropped_byte_limit_frames: int = 0
+    dropped_memory_frames: int = 0
+    processed_frames: int = 0
+    written_track_frames: int = 0
+    suppressed_track_frames: int = 0
+    coalesce_seconds: float = 0.0
+    detection_seconds: float = 0.0
+    writing_seconds: float = 0.0
+    max_window_seconds: float = 0.0
+    max_flush_seconds: float = 0.0
     queued_blocks: int = 0
     queued_seconds: float = 0.0
     max_queued_seconds: float = 0.0
@@ -55,6 +80,8 @@ class SourceUpdate(NamedTuple):
     finished_files: list[Path] | None = None
     discarded_files: list[Path] | None = None
     marker_position: MarkerPosition | None = None
+    capture_events: list[EventRecord] | None = None
+    capture_complete: bool = False
 
 
 class SourceFailure(NamedTuple):

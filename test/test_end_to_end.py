@@ -275,6 +275,9 @@ def _stable_record(record: session_record.SessionRecord) -> dict[str, object]:
         source = Path(source).relative_to(REPO_ROOT).as_posix()
         file['clock_id'] = f'clock:{source}'
         file['stream_id'] = session_record.audio_stream_id(source, track_name)
+    result['events'] = [
+        e for e in result.get('events', []) if e['type'] != 'capture_diagnostics'
+    ]
     for event in result.get('events', []):
         assert isinstance(event, dict)
         event.pop('dropped_blocks', None)

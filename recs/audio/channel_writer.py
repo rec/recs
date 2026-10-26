@@ -105,6 +105,8 @@ class ChannelWriter(Runnable):
         self._last_flush_time: float | None = None
         self._frames_since_flush = 0
         self._lock = Lock()
+        self.suppressed_frames = 0
+        self.max_flush_seconds = 0.0
 
         if track.source.format is None or 'formats' in cfg.model_fields_set:
             self.formats = cfg.audio.formats
@@ -190,7 +192,7 @@ class ChannelWriter(Runnable):
     def stop(self) -> None:
         with self._lock:
             self.running = False
-            self._write_and_close()
+            self._write_and_close(stopping=True)
             self.stopped = True
 
     def stop_after_write_error(self) -> None:
@@ -203,9 +205,14 @@ class ChannelWriter(Runnable):
             self.stopped = True
 
     def replay_to(self, replacement: 'ChannelWriter') -> None:
-        if not self._recovery_blocks:
+        blocks = list(self._recovery_blocks)
+        end = blocks[-1].start_frame + len(blocks[-1]) if blocks else 0
+        for block in self._blocks.blocks:
+            if block.start_frame + len(block) > end:
+                blocks.append(block[max(0, end - block.start_frame) :])
+        if not blocks:
             return
-        for block in self._recovery_blocks:
+        for block in blocks:
             begin = block.start_frame
             end = begin + len(block)
             if (
@@ -221,7 +228,7 @@ class ChannelWriter(Runnable):
             replacement.timestamp = (
                 block.timestamp + len(block) / self.track.source.samplerate
             )
-        replacement._write_blocks(self._recovery_blocks, retain_short=True)
+        replacement._write_blocks(blocks, retain_short=True)
 
     def _close(self) -> None:
         sfs, self._sfs = self._sfs, ()
@@ -286,6 +293,7 @@ class ChannelWriter(Runnable):
     def _discard_file(self, path: Path) -> None:
         self.discarded_files.add(path)
         self.discarded_spans.extend(self.file_spans.get(path, []))
+        self.suppressed_frames += sum(s.count for s in self.file_spans.get(path, []))
         self.files_written.remove_path(path)
         self.file_end_frames.pop(path, None)
         self.file_end_timestamps.pop(path, None)
@@ -333,7 +341,9 @@ class ChannelWriter(Runnable):
                 trigger_frame = None
                 if not self._sfs:  # Record some quiet before the first block
                     length = self.times.quiet_before_start + len(self._blocks[-1])
-                    self._blocks.clip(length, from_start=True)
+                    self.suppressed_frames += sum(
+                        len(b) for b in self._blocks.clip(length, from_start=True)
+                    )
                     if (
                         not self.times.record_everything
                         and block.volume
@@ -349,7 +359,12 @@ class ChannelWriter(Runnable):
             else:
                 self.quiet_frames += len(block)
                 if not self._sfs:
-                    self._blocks.clip(self.times.quiet_before_start, from_start=True)
+                    self.suppressed_frames += sum(
+                        len(b)
+                        for b in self._blocks.clip(
+                            self.times.quiet_before_start, from_start=True
+                        )
+                    )
                 self._flush_if_due()
 
             quiet_limit = max(
@@ -373,7 +388,9 @@ class ChannelWriter(Runnable):
             **kwargs,
         )
 
-    def _write_and_close(self) -> None:
+    def _write_and_close(self, stopping: bool = False) -> None:
+        quiet = self._blocks.duration
+        written = 0
         if self._sfs:
             # Write the quiet immediately following sound, retaining the latest
             # quiet separately for the next file's preroll.
@@ -383,8 +400,15 @@ class ChannelWriter(Runnable):
             trailing.clip(self.times.quiet_after_end, from_start=False)
             if trailing.blocks:
                 self._write_blocks(trailing.blocks)
+            written = trailing.duration
             self._blocks.clip(self.times.quiet_before_start, from_start=True)
-
+            if not stopping:
+                self.suppressed_frames += max(
+                    0, quiet - written - self._blocks.duration
+                )
+        if stopping:
+            self.suppressed_frames += quiet - written
+            self._blocks.clear()
         self._close()
 
     def _write_blocks(
@@ -492,7 +516,11 @@ class ChannelWriter(Runnable):
         ):
             return
         for sf in self._sfs:
+            started = time.monotonic()
             sf.flush()
+            self.max_flush_seconds = max(
+                self.max_flush_seconds, time.monotonic() - started
+            )
         self._frames_since_flush = 0
         self._last_flush_time = time.monotonic()
 

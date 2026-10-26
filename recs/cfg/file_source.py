@@ -12,7 +12,6 @@ from recs.base.types import SdType
 from .source import Source, Update, to_matrix
 
 BLOCKSIZE = 0x1000
-BLOCKCOUNT = 0x1000
 
 
 class FileSource(Source):
@@ -46,14 +45,12 @@ class FileSource(Source):
                 with self._stream() as fp:
                     timestamp = 0
                     dtype = cast(Literal['float32', 'int32', 'int16'], sdtype)
-                    for block in fp.blocks(BLOCKSIZE * BLOCKCOUNT, dtype=dtype):
+                    # Own bounded read chunks, rather than views retaining a
+                    # potentially gigabyte-sized decoded batch in the queue.
+                    for block in fp.blocks(BLOCKSIZE, dtype=dtype):
                         block = to_matrix(block)
-                        for i in range(BLOCKCOUNT):
-                            array = block[i * BLOCKSIZE : (i + 1) * BLOCKSIZE]
-                            if not array.size:
-                                break
-                            update_callback(Update(array, timestamp / self.samplerate))
-                            timestamp += BLOCKSIZE
+                        update_callback(Update(block, timestamp / self.samplerate))
+                        timestamp += len(block)
             finally:
                 result.stop()
 

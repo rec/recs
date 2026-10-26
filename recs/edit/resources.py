@@ -139,7 +139,8 @@ def plan_edit(
                 and (s.track_name or s.name) == (stream.track_name or stream.name)
             ]
             if any(
-                d.body.state != 'sealed' or s.unmapped_fragments for d, s in selected
+                d.body.state != 'sealed' or s.unmapped_fragments or s.discontinuities
+                for d, s in selected
             ):
                 raise RecsError(
                     'Planning requires sealed audio with resolved placement'

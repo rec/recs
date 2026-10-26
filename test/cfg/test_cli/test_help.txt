@@ -135,6 +135,12 @@ readiness inspects a project or configuration without recording; preflight check
 
  recording options
  -------------------------------------------------------------------------------------------
+  --diagnostics-interval-seconds TIME
+        Seconds between aggregated capture diagnostics (default: 5.0)
+  --audio-buffer-megabytes MB
+        Maximum accounted queue memory, including NumPy owners and entries (default: 128)
+  --shutdown-stall-seconds TIME
+        Seconds without capture-drain progress before forced shutdown (default: 10.0)
   --silence-window-seconds TIME
         Seconds per silence detection window, independent of driver blocks (default: 0.05)
   --processing-batch-seconds TIME
@@ -146,7 +152,7 @@ readiness inspects a project or configuration without recording; preflight check
   --memory-reserve-megabytes MB
         Free system memory to reserve while buffering audio (default: 200)
   --memory-check-period TIME
-        How often to check available system memory (default: 2.0)
+        How often to check available system memory (default: 1.0)
   -B, --band-mode, --no-band-mode
         Band mode: any track starting starts them all (default: False)
   --channel-noise-floors [STR [STR {None}|FLOAT [STR {None}|FLOAT ...]] [...]]

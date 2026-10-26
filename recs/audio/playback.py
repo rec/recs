@@ -278,6 +278,11 @@ def _rate(score: RecordingScore, stream: AudioStream) -> int:
 
 
 def _fragments(stream: AudioStream) -> list[AudioFragment]:
+    if stream.discontinuities:
+        raise RecsError(
+            'Recorded stream has unknown-duration loss; '
+            f'explicit alignment is required: {stream.name}'
+        )
     if stream.unmapped_fragments:
         raise RecsError(
             f'Recorded stream has unresolved audio placement: {stream.name}'

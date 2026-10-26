@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import MutableSequence, Sequence
 from multiprocessing import connection
 from pathlib import Path
+from time import monotonic
 from typing import Any, cast
 
 from dvice.supervision import join_process
@@ -159,6 +160,8 @@ class SourceProcess(Runnable):
             source_messages.SourceUpdate | source_messages.SourceFailure
         ] = []
         self.expected_stop = False
+        self.drain_progress_frame = 0
+        self.drain_progress_at = 0.0
         self.marker_position: MarkerPosition | None = None
         self.audio: AudioSource | None = None
         self.audio_error: str | None = None
@@ -316,6 +319,14 @@ class SourceProcess(Runnable):
             name='SourceFinalUpdates',
         )
         reader.start()
+        if timeout is None and self.expected_stop:
+            stall = self.recorder_cfg.recording.shutdown_stall_seconds
+            self.drain_progress_at = monotonic()
+            while (
+                self.process.is_alive() and monotonic() - self.drain_progress_at < stall
+            ):
+                self.process.join(min(0.05, stall))
+            timeout = 0.0
         forced = join_process(
             self.process, STOP_TIMEOUT if timeout is None else timeout, STOP_TIMEOUT
         )
@@ -348,6 +359,14 @@ class SourceProcess(Runnable):
                     update,
                 )
             )
+            if isinstance(update, source_messages.SourceUpdate) and (
+                (update.frame_count or 0) > self.drain_progress_frame
+                or update.capture_complete
+            ):
+                self.drain_progress_frame = max(
+                    self.drain_progress_frame, update.frame_count or 0
+                )
+                self.drain_progress_at = monotonic()
 
     def _record_exit_failure(self, forced: bool) -> None:
         if any(

@@ -296,6 +296,11 @@ def test_source_recorder_records_input_that_finishes_during_startup(
     recorded, sample_rate = soundfile.read(files[0], always_2d=True)
     assert sample_rate == 48_000
     np.testing.assert_array_equal(recorded, audio)
+    stats = recorder.capture_stats()
+    assert stats.received_frames == stats.processed_frames == 48_000
+    assert stats.written_track_frames == 48_000
+    assert stats.suppressed_track_frames == stats.queued_memory_bytes == 0
+    assert stats.callback_count == 1
 
 
 def test_source_recorder_runs_control_updates_without_audio(
@@ -623,6 +628,9 @@ def test_source_track_change_closes_writers_before_next_buffer(
     recorder.windows = CaptureWindows(source.samplerate, 0.05, 0.1)
     recorder.ready_audio = deque()
     recorder.writing_enabled = True
+    recorder.previous_written_frames = 0
+    recorder.previous_suppressed_frames = 0
+    recorder.previous_max_flush_seconds = 0.0
     recorder.session_directory = Path('session')
     recorder.times = recorder.cfg.times.scale(source.samplerate)
     recorder.input_stream = object()
@@ -720,6 +728,10 @@ class EventWriter:
 
 
 class ReconfiguredWriter:
+    frames_written = 0
+    suppressed_frames = 0
+    max_flush_seconds = 0.0
+
     def __init__(
         self,
         cfg: Cfg,
@@ -786,6 +798,7 @@ class OneMessageControlConnection:
 
 class IdleInputBuffer:
     timeline_frames = 0
+    stats = source_messages.BufferStats()
 
     def __init__(self, cfg: Cfg, samplerate: float) -> None:
         self.cfg = cfg
@@ -796,6 +809,9 @@ class IdleInputBuffer:
 
     def put(self, update: object) -> None:
         pass
+
+    def take_unknown_losses(self) -> list[tuple[int, float]]:
+        return []
 
 
 class IdleInputStream(Runnable):

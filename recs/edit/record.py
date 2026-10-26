@@ -89,6 +89,11 @@ def resolve_input(
             f'Source {source.name}: selector {source.selector!r} '
             'matches no audio stream'
         )
+    if any(s.discontinuities for _, _, s in selected):
+        raise RecsError(
+            f'Source {source.name}: unknown-duration audio loss '
+            'requires explicit alignment'
+        )
     if any(s.unmapped_fragments for _, _, s in selected):
         raise RecsError(
             f'Source {source.name}: timeline placement is unresolved; '

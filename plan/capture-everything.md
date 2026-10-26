@@ -12,10 +12,9 @@ Discard confidently identified silence and preserve uncertain material. This
 requires a bounded decision buffer and reliable segmentation during capture,
 not recording hours of silence for later analysis.
 
-This document proposes the next capture design. The explicit block-size
-override and restoration of driver-selected blocks are already implemented.
-Implementation progress is recorded below; the remaining architectural work
-and hardware qualification are still pending.
+This document describes the implemented capture changes and their acceptance
+criteria. The software work below is implemented. The four-hour qualification
+on the actual Pi/show setup remains excluded from this change.
 
 ## Implementation progress
 
@@ -59,10 +58,41 @@ Implemented in the detector/batching follow-up:
 - Full-path regressions comparing retained samples across callback partitions
   and batch bounds, plus stop, interruption, setting changes, and write recovery.
 
-These duration defaults are explicit initial algorithm/latency choices, not
-Pi-tuned throughput results. Timing diagnostics and Pi qualification remain
-necessary before declaring show readiness. Native buffering or stronger
-isolation remains conditional on measured need.
+Implemented in the diagnostics/overload/shutdown follow-up:
+
+- Aggregate callback counts, power-of-two frame-size histogram bins, copy/enqueue
+  costs, consumer coalescing/detection/writing costs, maximum flush latency,
+  queue age, logical PCM bytes, accounted queue memory, and drop causes.
+  Snapshot construction and journal serialization run outside the callback.
+- Journal cumulative diagnostic snapshots every five seconds, on the first
+  application drop, on crossing 80% of the frame capacity, and at completion.
+  `written_track_frames` counts writer I/O, including recovery and encoding
+  variants; it is not a unique retained-frame count. `suppressed_track_frames`
+  counts per-track suppression, including discarded quiet-only files. Use native
+  spans and gaps for unique retained/lost ranges, rather than subtracting these
+  I/O counters from device input frames.
+- Bound the input queue by frames and accounted memory. Account shared NumPy
+  backing allocations once and retain their charge while any queued view exists.
+  Entry/view overhead is included. This budget is not a process RSS limit:
+  consumer windows, preroll, recovery buffers, and optional consumers are separate.
+  Offline input reads bounded chunks rather than retaining huge decoded parents.
+- Keep optional forwarding offers bounded and nonblocking. Batch tiny callbacks
+  in the forwarding worker without crossing frame gaps or backend status
+  boundaries. Skip live waveform calculation while queue age exceeds one
+  processing batch, then restart the waveform generation on recovery.
+- Preserve typed unknown-duration PortAudio overflow evidence even if the
+  application queue also drops that callback. uFor audio discontinuities carry
+  an observed delivered-frame boundary when known, or no boundary for historic
+  plain warnings. Never estimate the missing duration. Journal and saved-index
+  readers recover this evidence; browsing/quality report it, and automatic
+  playback/rendering requires explicit alignment. No media hashes are needed.
+- Let shutdown continue while processed-frame progress arrives. Force termination
+  only after the configurable stall period, retaining the existing explicit
+  timeout override and forced-termination evidence. Replay after a storage error
+  includes pending quiet and the unattempted active tail, not just attempted I/O.
+
+These defaults are algorithm/latency choices, not Pi-tuned throughput results.
+Native buffering or stronger isolation remains conditional on measured need.
 
 ## Evidence and current behavior
 
@@ -155,9 +185,10 @@ storage-file boundary.
 Keep the callback limited to copying delivered samples into capture-owned
 storage and recording compact timing/status observations. It must not perform
 per-track level analysis, compression, filesystem operations, memory probes,
-UI publication, RPC, or journal serialization. The current `InputBuffer.put`
-path includes work such as memory checks and forwarding; move that work out
-of the capture callback when implementing this design.
+UI publication, RPC, or journal serialization. System-memory probes now run on
+the consumer. The optional forwarding mailbox offer remains in the callback:
+it takes no waiting lock, performs no socket I/O, and can discard optional audio
+without blocking essential recording. Its worker handles concatenation/sending.
 
 Accumulate arbitrary driver blocks into processing batches downstream.
 `processing_batch_seconds` bounds each drain in source frames and the wait for
@@ -175,10 +206,8 @@ which audio is retained. Preserve activity and uncertainty boundaries within
 batches. Routine meter and UI reports can be coalesced independently; capture
 lifecycle events cannot be discarded.
 
-Capacity must be measured in frames and bytes, not a queue length inferred
-from the first callback size. The current queue chooses its object count from
-that first size, so variable blocks do not provide a stable audio-duration
-capacity. A frame-capacity buffer must have explicit producer/consumer
+Capacity is measured in frames and accounted bytes, rather than a queue length
+inferred from the first callback size. The frame-capacity buffer has explicit producer/consumer
 ownership: do not overwrite unread frames, wait for free capacity in the
 callback, or use an unreviewed Python lock-free ring.
 
@@ -253,8 +282,51 @@ repeat the entire file history on every callback.
    regressions are implemented; Pi measurements and further isolation are open.
 4. Update capture, lifecycle evidence, readers, and documentation together to
    preserve uncertain material while suppressing established silence. Keep
-   `record_everything` opt-in and avoid parallel capture implementations.
+   `record_everything` opt-in and avoid parallel capture implementations. The
+   software changes and regressions are implemented.
 5. Qualify the complete system on the actual show setup before deployment.
+   Outstanding and explicitly excluded from this implementation.
+
+## Timing and buffer configuration review
+
+All values below are seconds unless marked otherwise. These are defaults;
+existing user configuration overrides them. Only the memory-probe interval
+changes an existing default in this follow-up. No hardware block size is set.
+
+| Setting | Default | Decision and purpose |
+| --- | ---: | --- |
+| `audio.capture_block_frames` | unset | Keep driver selection; explicit override is frames, not time. |
+| `recording.silence_window_seconds` | 0.05 | Keep 50 ms native-frame detector windows, covering a 20 Hz cycle. |
+| `recording.processing_batch_seconds` | 0.1 | Keep bounded consumer drain and maximum incomplete-window wait; at least the detector window. |
+| `recording.audio_buffer_seconds` | 10 | Keep burst allowance; cannot solve sustained overload. |
+| `recording.audio_buffer_megabytes` | 128 MB | New accounted queue-memory ceiling, applied alongside the frame bound. At 48 kHz, 28 float32 channels use 53.76 MB for ten seconds of PCM before overhead. Tiny callbacks can reach the memory ceiling first. |
+| `recording.memory_reserve_megabytes` | 200 MB | Keep free-system-memory reserve; independent of queue ceiling. |
+| `recording.memory_check_period` | 1, previously 2 | Check cached reserve state more promptly; probe only outside the callback. |
+| `recording.quiet_before_start` | 10 | Keep preroll. Silent channels retain only this bounded history. |
+| `recording.quiet_after_end` | 10 | Keep performance tail. |
+| `recording.stop_after_quiet` | 20 | Keep; splitting also requires quiet beyond combined preroll/tail. Touching or overlapping padding remains one segment. |
+| `recording.shortest_file_time` | 1 | Keep; only confidently quiet files may be discarded, never active or uncertain material. |
+| `recording.longest_file_time` | 0 | Keep unlimited; optional storage rotation does not declare a performance boundary. |
+| `recording.total_run_time` | 0 | Keep unlimited; a positive limit clips at the exact source frame. |
+| `recording.flush_time` | 1 | Keep sync cadence; zero explicitly disables periodic sync. Measure its latency before changing crash exposure. |
+| `recording.flush_overlap_time` | 1 | Keep failover replay history; distinct from silence padding. |
+| `recording.shutdown_stall_seconds` | 10 | New no-progress allowance; progressing drains may exceed ten seconds. A blocked disk call eventually forces termination and records failure. |
+| `recording.diagnostics_interval_seconds` | 5 | New cumulative journal cadence plus first loss/pressure and final reports. |
+| `recording.moving_average_time` | 1 | Keep display smoothing; not the silence detector window. |
+| `console.sleep_time_device` | 0.1 | Keep parent/device polling separate from capture. |
+| `console.ui_refresh_rate` | 10 Hz | Keep presentation frequency separate from audio throughput. |
+| `console.waveform_bucket_milliseconds` | 20 ms | Keep optional visual detail; skipped under capture pressure. |
+| `console.waveform_batch_milliseconds` | 100 ms | Keep optional publication cadence. |
+| `recording.disk_poll_seconds` | 1 | Keep disk-policy response. |
+| `recording.card_replace_poll_seconds` | 1 | Keep replacement-card discovery cadence. |
+| `recording.card_replace_timeout_seconds` | 300 | Keep deliberate replacement grace period; not a shutdown drain timeout. |
+
+The local optional audio mailbox remains capped at 100 ms and 1 MiB, with a
+5 ms worker poll/batching target and 200 ms handshake deadline. Source control
+polling uses 50 ms. Process termination and final transport cleanup retain their
+two-second escalation bounds. These are separate operational deadlines; none
+requests a hardware callback size. `finalize_on_shutdown` remains false, so
+hashes, media inspection, and index generation stay out of normal shutdown.
 
 ## Verification and acceptance
 
@@ -298,5 +370,5 @@ not equivalent evidence.
 
 ## Additional work beyond the prompt
 
-None. The architecture and qualification work above are proposals for later
-implementation; this task does not run hardware capture or change deployment.
+None. This task does not run hardware capture or change deployment. The
+four-hour Pi qualification remains outstanding as requested.

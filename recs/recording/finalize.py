@@ -31,6 +31,7 @@ from ..base.errors import RecsError
 from ..musicians import SourceMusician
 from . import session_record
 from .files import asset_content, asset_path, sealed_asset, verify_events
+from .losses import preserve_audio_losses
 from .read import read_recording
 
 
@@ -159,6 +160,7 @@ def prepare_recording(
             ):
                 raise RecsError(f'Device clock changes sample rate: {entry.clock_id}')
             device_rates[entry.clock_id] = entry.sample_rate
+
     for source_id in dict.fromkeys(f.stream_id for f in finishes):
         identity = 'stream-' + hashlib.sha256(source_id.encode()).hexdigest()[:16]
         files = [f for f in finishes if f.stream_id == source_id]
@@ -447,7 +449,7 @@ def prepare_recording(
     for stream in streams:
         if verify_files and isinstance(stream, EventStream):
             verify_events(stream, paths)
-    return document, notes
+    return preserve_audio_losses(document, entries), notes
 
 
 def finalize_recording(journal: Path) -> Path:

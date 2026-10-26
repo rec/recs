@@ -79,7 +79,7 @@ def plan_handoff(command: HandoffCli) -> tuple[HandoffPlan, ArrangementScore]:
     )
     if not streams or set(command.tracks) - {s.name for s in streams}:
         raise RecsError('Selected tracks must all belong to the chosen audio clock')
-    if any(s.unmapped_fragments for s in streams):
+    if any(s.unmapped_fragments or s.discontinuities for s in streams):
         raise RecsError('Selected audio has unresolved timeline placement')
     if command.start_frame >= command.end_frame or any(
         command.end_frame > s.end for s in streams
