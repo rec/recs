@@ -50,7 +50,8 @@ body:
   started_at: '2026-09-04T12:00:00Z'
   state: sealed
   streams:
-  - end: 96000
+  - discontinuities: []
+    end: 96000
     fragments:
     - asset: asset-2f97f5e90dbceaad
       asset_start: 0
