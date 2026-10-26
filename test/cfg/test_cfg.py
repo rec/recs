@@ -13,6 +13,13 @@ def test_sdtype(mock_devices):
     Cfg(formats=['wav'], subtype='pcm_16', sdtype='int32')
 
 
+def test_capture_block_frames_is_opt_in(mock_devices: None) -> None:
+    assert Cfg().audio.capture_block_frames is None
+    assert Cfg(capture_block_frames=257).audio.capture_block_frames == 257
+    with pytest.raises(ValidationError):
+        Cfg(capture_block_frames=0)
+
+
 def test_band_mode_is_disabled_by_default(mock_devices: None) -> None:
     assert not Cfg().recording.band_mode
 

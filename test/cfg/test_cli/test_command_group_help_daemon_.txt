@@ -71,6 +71,8 @@ usage: recs daemon install [-h] [OPTIONS] [[PATH [PATH ...]]]
 
  audio options
  -------------------------------------------------------------------------------------------
+  --capture-block-frames {None}|INT
+        Frames per capture callback; unset lets the driver choose (default: None)
   -f AUDIO FORMAT, --format AUDIO FORMAT
         Audio file formats (repeatable, appends to: flac)
   -m STR, --metadata STR

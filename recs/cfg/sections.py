@@ -158,6 +158,12 @@ class Audio(BaseModel):
     #
     # Audio file format and subtype
     #
+    capture_block_frames: Annotated[
+        int | None,
+        Field(gt=0),
+        tyro.conf.arg(help='Frames per capture callback; unset lets the driver choose'),
+    ] = None
+
     formats: Annotated[
         tyro.conf.UseAppendAction[list[Annotated[Format, cli_metadata.FORMAT_SPEC]]],
         tyro.conf.arg(name='format', aliases=('-f',), help='Audio file formats'),

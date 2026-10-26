@@ -25,7 +25,10 @@ class InputDevice(Source):
 
     @override
     def input_stream(
-        self, sdtype: SdType, update_callback: Callable[[Update], None]
+        self,
+        sdtype: SdType,
+        update_callback: Callable[[Update], None],
+        blocksize: int | None = None,
     ) -> Runnable:
         import sounddevice
 
@@ -48,8 +51,7 @@ class InputDevice(Source):
             device=self.name,
             dtype=sdtype,
             samplerate=self.samplerate,
-            # Avoid repeating per-track work for driver-dependent tiny fragments.
-            blocksize=self.samplerate // 50,
+            **({'blocksize': blocksize} if blocksize is not None else {}),
         )
         return Wrapper(stream)
 

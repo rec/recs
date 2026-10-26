@@ -23,6 +23,7 @@ from recs.base.waveform import (
     WaveformTrackLayout,
 )
 from recs.cfg.cfg import Cfg
+from recs.cfg.device import InputDevice
 from recs.cfg.source import Update
 from recs.cfg.track import Track
 from recs.cfg.track_names import SourceTrackNames, track_name
@@ -294,10 +295,20 @@ class SourceRecorder(Runnables):
         self.control.set_track_names(track_names or {})
         self.set_waveforms_enabled(waveforms_enabled)
 
-        self.input_stream = self.source.input_stream(
-            sdtype=cast(SdType, self.cfg.audio.sdtype),
-            update_callback=self.buffer.put,
-        )
+        if (
+            isinstance(self.source, InputDevice)
+            and self.cfg.audio.capture_block_frames is not None
+        ):
+            self.input_stream = self.source.input_stream(
+                sdtype=cast(SdType, self.cfg.audio.sdtype),
+                update_callback=self.buffer.put,
+                blocksize=self.cfg.audio.capture_block_frames,
+            )
+        else:
+            self.input_stream = self.source.input_stream(
+                sdtype=cast(SdType, self.cfg.audio.sdtype),
+                update_callback=self.buffer.put,
+            )
         super().__init__(self.input_stream, *self.channel_writers)
         self.sample_bit_depth = (
             np.dtype((self.cfg.audio.sdtype or SDTYPE).value).itemsize * 8

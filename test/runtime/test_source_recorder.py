@@ -240,8 +240,10 @@ def test_source_update_transport_reports_blocked_send_time() -> None:
     transport.stop()
 
 
+@pytest.mark.parametrize('capture_block_frames', [None, 257])
 def test_source_recorder_records_input_that_finishes_during_startup(
     tmp_path: Path,
+    capture_block_frames: int | None,
 ) -> None:
     source = InputDevice(
         {'default_samplerate': 48_000, 'max_input_channels': 1, 'name': 'Mic'}
@@ -249,8 +251,12 @@ def test_source_recorder_records_input_that_finishes_during_startup(
     audio = np.full((48_000, 1), 0.5, dtype=np.float32)
 
     def input_stream(
-        sdtype: object, update_callback: Callable[[Update], None]
+        sdtype: object,
+        update_callback: Callable[[Update], None],
+        blocksize: int | None = None,
     ) -> Runnable:
+        assert blocksize == capture_block_frames
+
         class ImmediateInputStream(Runnable):
             def start(self) -> None:
                 super().start()
@@ -261,7 +267,12 @@ def test_source_recorder_records_input_that_finishes_during_startup(
 
     source.input_stream = input_stream
     recorder = SourceRecorder(
-        Cfg(record_everything=True, formats=['wav'], output_directory=str(tmp_path)),
+        Cfg(
+            record_everything=True,
+            formats=['wav'],
+            output_directory=str(tmp_path),
+            capture_block_frames=capture_block_frames,
+        ),
         OneMessageControlConnection(source_messages.SourceControl(), threading.Event()),
         tmp_path,
         threading.Event(),
