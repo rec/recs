@@ -7,8 +7,9 @@ from pathlib import Path
 
 import tyro
 from pydantic import BaseModel, ConfigDict, ValidationError
-from reccy.configuration.settings import write_json_model
+from reccy.configuration import settings
 from reccy.device import DeviceDict
+from reccy.errors import ReccyError
 
 from recs.base.errors import RecsError
 
@@ -75,8 +76,8 @@ def load() -> MicMute | None:
 def save(mute: MicMute) -> None:
     path = mic_mute_path()
     try:
-        write_json_model(path, mute, indent=2)
-    except OSError as error:
+        settings.save(path, mute)
+    except ReccyError as error:
         raise RecsError(f'Could not save mic mute to {path}: {error}') from None
 
 

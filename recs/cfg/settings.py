@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from reccy.configuration import settings
 from reccy.entities import Musician
+from reccy.errors import ReccyError
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
@@ -134,8 +135,8 @@ def save(
     )
     path = _mutable_settings_path(project_name, daemon)
     try:
-        settings.write_json_model(path, saved_settings, indent=2)
-    except OSError as e:
+        settings.save(path, saved_settings)
+    except ReccyError as e:
         raise RecsError(f'Could not save settings to {path}: {e}') from None
 
 

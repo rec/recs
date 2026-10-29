@@ -1,4 +1,3 @@
-import json
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -6,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from reccy.errors import ReccyError
 from reccy.services.models import DaemonMetadata, Platform
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -267,10 +267,11 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
     server.update()
 
     content = server.paths.status.read_text()
-    json.loads(content)
-    assert '"rows":[{"device":"Mic"}]' in content
-    assert '"timestamp":"2026-08-13T12:34:56.789Z"' in content
-    assert '"message":"Device Mic failed"' in content
+    status = DaemonStatus.model_validate_json(content)
+    assert status.rows == [{'device': 'Mic'}]
+    assert status.errors == [
+        ErrorRecord(timestamp='2026-08-13T12:34:56.789Z', message='Device Mic failed')
+    ]
     assert not server.paths.status.with_name('.status.json.tmp').exists()
     assert published == [
         (
@@ -307,19 +308,12 @@ def test_daemon_publisher_limits_status_file_writes(
     assert len(writes) == 2
 
 
-def test_status_write_is_not_synchronized(monkeypatch: pytest.MonkeyPatch) -> None:
-    synchronizations: list[bool] = []
-
-    def write_json_model(
-        path: Path, status: DaemonStatus, *, sync: bool = True
-    ) -> None:
-        synchronizations.append(sync)
-
-    monkeypatch.setattr(gui_ipc.settings, 'write_json_model', write_json_model)
-
-    gui_ipc._write_status(Path.home() / 'status.json', DaemonStatus())
-
-    assert synchronizations == [False]
+def test_status_publisher_reports_save_failure(tmp_path: Path) -> None:
+    blocked = tmp_path / 'not-a-directory'
+    blocked.write_text('blocked')
+    publisher = gui_ipc.DaemonStatusPublisher(blocked / 'status.json', DaemonStatus)
+    with pytest.raises(ReccyError, match='Could not save settings'):
+        publisher.start()
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:

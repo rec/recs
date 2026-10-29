@@ -9,6 +9,7 @@ import tyro
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from reccy.configuration import settings as configuration_settings
 from reccy.entities import Project
+from reccy.errors import ReccyError
 
 from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
@@ -74,8 +75,8 @@ def save(project: RecordingProject, *, replace: bool = False) -> Path:
     if path.exists() and not replace:
         raise RecsError(f'Recording project already exists: {project.name}')
     try:
-        configuration_settings.write_json_model(path, project, indent=2)
-    except OSError as e:
+        configuration_settings.save(path, project)
+    except ReccyError as e:
         raise RecsError(
             f'Could not save recording project {project.name}: {e}'
         ) from None

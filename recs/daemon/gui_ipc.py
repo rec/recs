@@ -590,4 +590,4 @@ def daemon_mode_enabled() -> bool:
 
 
 def _write_status(path: Path, status: DaemonStatus) -> None:
-    settings.write_json_model(path, status, sync=False)
+    settings.save(path, status)

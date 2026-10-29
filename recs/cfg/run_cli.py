@@ -3,7 +3,8 @@ import sys
 import time
 
 import soundfile
-from reccy.configuration.settings import write_json_model
+from reccy.configuration.settings import save
+from reccy.errors import ReccyError
 from ufor.encoding import Format
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -60,10 +61,8 @@ def _write_failed_status(error: Exception) -> None:
         updated_at=time.time(),
     )
     try:
-        write_json_model(
-            paths.service_paths(paths.current_platform()).status, status, sync=True
-        )
-    except OSError:
+        save(paths.service_paths(paths.current_platform()).status, status)
+    except ReccyError:
         return
 
 

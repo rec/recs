@@ -4,6 +4,7 @@ from multiprocessing.connection import Connection
 from pathlib import Path
 
 import pytest
+from reccy.errors import ReccyError
 from reccy.services import models
 
 from recs.daemon import instances
@@ -231,6 +232,25 @@ def test_settings_claim_excludes_another_live_instance(
     )
     assert second_claim.path == first_claim.path
     instances.release_settings(second_claim)
+
+
+def test_failed_owner_save_releases_settings_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = instances.InstanceIdentity(
+        pid=100, start_token='first', started_at=1, role='local'
+    )
+    settings_path = str(tmp_path / 'settings.json')
+
+    def fail_save(path: Path, value: object) -> None:
+        raise ReccyError('Could not save settings')
+
+    with monkeypatch.context() as patch:
+        patch.setattr(instances.settings, 'save', fail_save)
+        with pytest.raises(ReccyError, match='Could not save settings'):
+            instances.claim_settings(settings_path, identity, tmp_path)
+    claim = instances.claim_settings(settings_path, identity, tmp_path)
+    instances.release_settings(claim)
 
 
 def test_settings_claim_blocks_legacy_claims_until_coordinated_cleanup(

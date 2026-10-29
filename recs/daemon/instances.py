@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from reccy.configuration import settings
+from reccy.errors import ReccyError
 from reccy.protocol import rpc
 from reccy.runtime.claims import ResourceClaim, ResourceClaimConflict
 from reccy.services import models
@@ -118,7 +119,7 @@ def publish(
     platform: models.Platform | None = None,
 ) -> Path:
     path = descriptor_path(descriptor.identity, home, platform)
-    settings.write_json_model(path, descriptor, indent=2)
+    settings.save(path, descriptor)
     return path
 
 
@@ -292,11 +293,11 @@ def claim_settings(
         ) from None
     try:
         path.with_suffix('.owner').unlink(missing_ok=True)
-        settings.write_json_model(
+        settings.save(
             path.with_suffix('.owner'),
             SettingsClaim(identity=identity, settings_path=settings_path),
         )
-    except OSError:
+    except (OSError, ReccyError):
         claim.release()
         raise
     return claim
