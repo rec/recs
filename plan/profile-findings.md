@@ -216,6 +216,82 @@ workload.
 5. Consider reducing fake-discovery process churn and fake-signal generation
    overhead to improve the profiling workload itself.
 
+## Follow-up full-recorder profile, 2026-11-02
+
+Reprofiled commit `8f0a8af` using the same 60-second `18:10` fake-device
+workload, Python 3.15.2, all-thread wall-clock sampling, and real FLAC output.
+An isolated Python environment preserved the project's Python 3.13 environment.
+Recording output was explicitly directed to
+`/private/tmp/recs-profile-comparison.Re1mqh/recordings` so it did not enter the
+normal recording area. Tachyon required execution outside the sandbox to read
+child-process memory. No sudo was needed.
+
+Reports: `recs-profile-hf9pj9f6/`, with recording workers
+`profile_9412.html` (18 channels) and `profile_9413.html` (10 channels).
+The complete log is `/private/tmp/recs-profile-comparison.Re1mqh/run.log`.
+
+### Measured improvement
+
+The most reliable detection comparison comes from the cumulative
+`capture_diagnostics` entries in the two session records. These measure elapsed
+time around the recorder's actual work, independently of whether Tachyon
+captures a particular Python frame.
+
+| Metric | Original | New |
+| --- | ---: | ---: |
+| Detection, 18-channel source | 0.8678 s | 0.2620 s |
+| Detection, 10-channel source | 0.5229 s | 0.1470 s |
+| Combined detection | 1.3906 s | 0.4091 s |
+| Writing, 18-channel source | 2.5228 s | 2.2719 s |
+| Writing, 10-channel source | 1.5869 s | 1.3289 s |
+| Maximum queued audio, each source | 60 ms | 40 ms |
+| Dropped frames, each source | 0 | 0 |
+| Parent profile duration | 73.247 s | 61.611 s |
+| Parent sampling error rate | 7.70% | 1.79% |
+
+Combined detection time fell by approximately 70.6%, or a 3.40x speedup in the
+actual recorder. This includes track-block construction and detection overhead,
+so the gain is smaller than the isolated level-calculation benchmark.
+
+Parent profile duration fell by 11.636 seconds. The old inspection branch,
+previously approximately 7.19 sampled seconds, is absent. The total duration
+change also includes startup, shutdown, scheduling, and profiler effects;
+it should not all be attributed to inspection removal. The new recorder
+reported `Recording time: 1:00.722`.
+
+The old disk-monitor/mount-discovery cost was approximately 0.42/0.375 sampled
+seconds. The new profile contains no attributed samples in the corresponding
+controller, refresh, or mount-discovery functions. This is consistent with
+removing repeated scans but does not prove zero cost. Exact disk savings cannot
+be resolved from this one sampled run.
+
+Writing time also decreased, but the write path was not changed. Treat that
+as run-to-run variation and possible indirect effects rather than a measured
+write-optimization gain. Native SoundFile I/O remains the largest sampled
+recording hotspot: approximately 1.688 seconds combined, versus 2.071 seconds
+originally. Waiting for incoming audio still dominates the worker profiles.
+
+### Capture integrity and limits
+
+Both sources received and processed exactly 2,880,000 frames in 3,000 callbacks
+of 960 frames, matching the original run. All 14 FLAC headers report 2,880,000
+frames at 48 kHz in stereo. This was a header check, not a full media decode or
+hash. The session record contains its normal footer, and the log contains no
+recording errors or Pint redefinition warnings. The remaining terminal warning
+is that `TERM=dumb` cannot display the live interface.
+
+Tail latency did not improve uniformly: maximum processing-window time increased
+from 24.8 to 34.1 ms for 18 channels and from 22.8 to 32.3 ms for 10 channels.
+The 10-channel source also had a 13.2 ms maximum callback time, versus 1.7 ms
+originally. Neither run dropped frames. Lower cumulative costs and lower peak
+queue occupancy do not establish better worst-case scheduling from one run.
+
+The comparison uses the same machine and audio workload, but a different output
+location and a later system state. It is not a controlled Pi storage benchmark.
+The next remaining targets are discovery subprocess churn and synthetic signal
+generation overhead; repeated profiles and silence-transition workloads are
+needed to assess latency reliably.
+
 Future profiling should include silence and sound transitions. This
 continuous-tone run does not exercise segment opening, closing, and preroll
 behavior well. Fake recordings should use an explicitly isolated output
