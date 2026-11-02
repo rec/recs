@@ -9,7 +9,12 @@ from recs.base.errors import ErrorRecord
 from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.daemon import gui_protocol
-from recs.recording import recording_paths, session_browser, session_record
+from recs.recording import (
+    recording_paths,
+    recovery_report,
+    session_browser,
+    session_record,
+)
 from recs.recording.capture_events import SourceFile
 from recs.runtime import (
     disk_space,
@@ -40,6 +45,7 @@ def test_slow_device_clock_reports_once_per_session(
     monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
     rec = Recorder(Cfg(devices=Path(DEVICES_FILE), include=['Mic'], silent=True))
+    caplog.clear()
     mic_info = next(info for info in DEVICES if info['name'] == 'Mic')
     mic = rec._devices.hardware['Mic']
     rec._devices.poller.snapshots = [[mic_info]]
@@ -100,22 +106,23 @@ def test_recorder_records_buffer_overflow_event(
     }
 
 
-def test_recorder_checks_for_unfinished_sessions_before_starting_record(
+def test_recording_does_not_inspect_other_sessions_or_update_recovery_worklist(
     monkeypatch: pytest.MonkeyPatch,
-    mock_devices: None,
     tmp_path: Path,
 ) -> None:
-    roots: list[Path] = []
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
     monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(
-        recorder.recovery_report, 'report_unfinished_sessions', roots.append
-    )
-    rec = Recorder(Cfg(include=['Mic'], output_directory=str(tmp_path), silent=True))
 
-    rec._start_record()
-    rec._report_unfinished_sessions()
+    def unexpected(*args: object, **kwargs: object) -> None:
+        pytest.fail('Recording invoked recovery inspection or bookkeeping')
 
-    assert roots == [tmp_path]
+    monkeypatch.setattr(recovery_report, 'report_unfinished_sessions', unexpected)
+    monkeypatch.setattr(recovery_report, '_save_worklist', unexpected)
+    rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
+    monkeypatch.setattr(rec, '_poll_devices', rec.stop)
+    rec.run()
+    assert (rec.session_directory / 'session-record.jsonl').is_file()
+    assert not list(tmp_path.rglob('recs-recovery-report.toml'))
 
 
 def test_recorder_records_buffer_pressure_before_drops(
@@ -893,41 +900,6 @@ def test_session_directory_is_claimed_if_created_after_recorder_initialization(
 
     assert rec.session_directory == original.with_name(f'{original.name}_1')
     assert (rec.session_directory / 'session-record.jsonl').exists()
-
-
-def test_recovery_tracks_the_journal_path_that_was_opened(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
-    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
-    monkeypatch.setattr(
-        session_record,
-        '_available_path',
-        lambda path: path.with_stem('session-record-1'),
-    )
-    registered: list[Path] = []
-    cleared: list[Path] = []
-    monkeypatch.setattr(
-        recorder.recovery_report,
-        'register_unfinished_session',
-        lambda root, path: registered.append(path),
-    )
-    monkeypatch.setattr(
-        recorder.recovery_report,
-        'clear_finished_session',
-        cleared.append,
-    )
-    rec = Recorder(Cfg(output_directory=str(tmp_path), silent=True))
-
-    rec._start_record()
-    assert rec.session.record_writer is not None
-    path = rec.session.record_writer.path
-    rec._finish_record()
-
-    assert path.name == 'session-record-1.jsonl'
-    assert registered == [path]
-    assert cleared == [path]
-    assert not (path.parent / 'recording.toml').exists()
 
 
 def test_daemon_default_output_directory_uses_largest_external_disk(

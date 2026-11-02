@@ -466,13 +466,11 @@ Older sessions require explicit conversion with `recs session migrate` before
 editing or export. See [Recording and Sequence Scores](doc/recording-format.md)
 for conversion, verification, and historical timing limitations.
 
-After its live status publisher starts, recs checks its target-local recovery
-worklist for unfinished sessions. A recording root is recursively discovered once per
-filesystem, and each new or changed unresolved session receives a
-`recs-recovery-report.toml` beside its session record and one logged summary.
-Unchanged historical sessions are not rewritten or reported again. Use
-`recs session recover-scan ROOT` to deliberately discover sessions copied into
-an already-known recording root.
+Recovery inspection is explicit. Run `recs session recover-scan ROOT` to
+recursively inspect session journals under a selected root and write
+`recs-recovery-report.toml` beside unfinished sessions. Recording and profiling
+do not automatically inspect historical sessions or update recovery reports.
+Use `recs session recover` to inspect and salvage a stopped recording.
 
 Sample instrument definitions belong to [uFor](https://github.com/rec/ufor).
 SFZ import/export and sample inspection belong to

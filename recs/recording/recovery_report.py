@@ -185,35 +185,6 @@ def report_unfinished_sessions(
     return reports
 
 
-def register_unfinished_session(root: Path, record: Path) -> None:
-    worklist = _load_worklist()
-    key = str(record.resolve())
-    candidates = dict(worklist.candidates)
-    candidates.setdefault(
-        key,
-        RecoveryCandidate(
-            record=key,
-            root=str(root.resolve()),
-            journal=_fingerprint(record),
-        ),
-    )
-    _save_worklist(worklist.model_copy(update={'candidates': candidates}))
-
-
-def clear_finished_session(record: Path) -> None:
-    worklist = _load_worklist()
-    key = str(record.absolute())
-    candidate = worklist.candidates.get(key)
-    if candidate is None:
-        return
-    report_path = record.parent / REPORT_FILE
-    if _digest_path(report_path) == candidate.report_digest:
-        report_path.unlink(missing_ok=True)
-    candidates = dict(worklist.candidates)
-    del candidates[key]
-    _save_worklist(worklist.model_copy(update={'candidates': candidates}))
-
-
 def worklist_path() -> Path:
     if sys.platform == 'win32':
         appdata = Path(os.environ.get('APPDATA', Path.home() / 'AppData/Roaming'))

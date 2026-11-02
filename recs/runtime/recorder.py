@@ -31,7 +31,6 @@ from recs.runtime.source_recorder import POLL_TIMEOUT
 from ..recording import (
     recording_paths,
     recording_session,
-    recovery_report,
     session_record,
 )
 from ..ui import gui_process, live, recording_summary
@@ -136,7 +135,6 @@ class Recorder(Runnables):
             self.session_start_time,
             finalize_on_shutdown=self.cfg.recording.finalize_on_shutdown,
         )
-        self._recovery_roots: set[Path] = set()
         self._midi = MidiRecorder(
             self.cfg,
             recording_paths.media_session_directory(self.session_directory, 'midi'),
@@ -406,10 +404,8 @@ class Recorder(Runnables):
         if self.cfg.console.gui:
             self._poll_devices()
         with self:
-            self._report_unfinished_sessions()
             try:
                 while self.running:
-                    self._report_unfinished_sessions()
                     if self._display_closed():
                         break
                     if not self._monitor_card_replacement():
@@ -803,8 +799,6 @@ class Recorder(Runnables):
                     break
             if directory != self.session_directory:
                 self._set_session_directory(directory)
-            root = recording_paths.recovery_root(self.cfg.directory.output_directory)
-            self._recovery_roots.add(root)
         self.session.start(
             self.session_directory / 'session-record.jsonl',
             enabled=self.cfg.general.writes_files,
@@ -813,10 +807,6 @@ class Recorder(Runnables):
             ),
             channel_musicians=self._control.channel_musicians,
         )
-        if self.cfg.general.writes_files and self.session.record_writer is not None:
-            recovery_report.register_unfinished_session(
-                root, self.session.record_writer.path
-            )
         if self.cfg.general.writes_files and self.cfg.midi.record_midi:
             self._midi.open_session(
                 recording_paths.media_session_directory(self.session_directory, 'midi')
@@ -826,24 +816,12 @@ class Recorder(Runnables):
                 recording_paths.media_session_directory(self.session_directory, 'osc')
             )
 
-    def _report_unfinished_sessions(self) -> None:
-        roots, self._recovery_roots = self._recovery_roots, set()
-        for root in roots:
-            recovery_report.report_unfinished_sessions(root)
-
     def _finish_record(self) -> None:
-        record_path = (
-            self.session.record_writer.path
-            if self.session.record_writer is not None
-            else None
-        )
         self._midi.close_session()
         self._osc.close_session()
         self._flush_warning_summaries()
         timestamp = times.timestamp()
-        completed = self.session.finish(timestamp)
-        if record_path is not None and completed:
-            recovery_report.clear_finished_session(record_path)
+        self.session.finish(timestamp)
 
     def _replace_cfg(self, cfg: Cfg) -> None:
         output_directory_changed = (
