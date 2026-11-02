@@ -122,6 +122,49 @@ reduction calls and duplicate work when tracks share channels. It must preserve
 the existing detection semantics. Replacing the calculation with RMS or absolute
 peak would change recording behavior.
 
+#### Implemented level reduction optimization, 2026-11-02
+
+Benchmarking found a smaller change than device-wide extrema sharing: reducing
+contiguous channel rows is much faster than reducing interleaved stereo frames.
+`Block.extrema` now temporarily copies transposed samples into contiguous channel
+rows and calculates both extrema there. `Block.min` and `Block.max` share the
+cached result. Only two values per channel are retained; the temporary audio
+copy is released. Mono data that is already contiguous does not need a copy.
+
+This preserves the existing per-track peak-to-peak amplitude, volume, scaling,
+and silence decisions. It also avoids computing levels for unused device
+channels. No device-wide level cache or detection-mode change was introduced.
+
+Regression coverage uses one-second, 48 kHz mono and stereo WAV recordings in
+float32, int16, and int32. The tests verify exact channel extrema, amplitude,
+volume, and preservation of the samples when tracks are views into interleaved
+device data. The complete suite passes with 1,258 tests.
+
+The local benchmark compares the previous `Block.min`/`Block.max` implementation
+with the new implementation, including block construction and `volume`
+calculation for 50 ms windows. Each measurement uses the fastest of three runs
+of 1,000 device windows. Devices have 2, 10, 18, or 28 channels, grouped into
+stereo tracks, with deterministic noise in float32, int16, or int32. Old and new
+volumes are checked for equality before timing. These are isolated level
+calculation measurements on arm64 macOS with Python 3.13.12, not full-recorder
+speedups or Pi measurements.
+
+Measured speedups ranged from 3.73 to 5.79 times. For the original fake-device
+channel counts, elapsed seconds per 1,000 windows were:
+
+| Dtype | Device channels | Previous | Optimized | Speedup |
+| --- | ---: | ---: | ---: | ---: |
+| float32 | 10 | 0.2689 | 0.0484 | 5.56x |
+| float32 | 18 | 0.4826 | 0.0974 | 4.96x |
+| int16 | 10 | 0.2075 | 0.0439 | 4.72x |
+| int16 | 18 | 0.3781 | 0.0805 | 4.70x |
+| int32 | 10 | 0.2091 | 0.0474 | 4.41x |
+| int32 | 18 | 0.3792 | 0.0969 | 3.91x |
+
+The exploratory script and raw results are at
+`/private/tmp/recs-block-level-benchmark.py` and
+`/private/tmp/recs-block-level-benchmark-results.txt`.
+
 ### 4. Disk monitoring does unnecessary work before its interval check
 
 The parent spent approximately 0.42 sampled seconds in disk monitoring. About
@@ -168,7 +211,8 @@ workload.
 2. Address disk-monitor scheduling.
 3. Larger file writes have been benchmarked locally; defer implementation
    pending stronger evidence from a representative workload.
-4. Evaluate level-detection changes after measuring those improvements.
+4. Level reduction has been optimized and benchmarked locally; measure its
+   full-recorder effect in the next profile.
 5. Consider reducing fake-discovery process churn and fake-signal generation
    overhead to improve the profiling workload itself.
 
@@ -177,6 +221,7 @@ continuous-tone run does not exercise segment opening, closing, and preroll
 behavior well. Fake recordings should use an explicitly isolated output
 directory so they do not enter normal backup/upload workflows.
 
-Finding 4 has been implemented. The other optimization ideas remain proposed
-experiments; finding 1 was already resolved before this document was written.
-No additional recording was run during the analysis.
+Findings 3 and 4 have been implemented. Write batching was benchmarked and
+deferred. The other optimization ideas remain proposed experiments; finding 1
+was already resolved before this document was written. No recs capture process
+was launched during these analyses or benchmarks.

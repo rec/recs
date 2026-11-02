@@ -58,11 +58,18 @@ class Block(BaseModel):
 
     @cached_property
     def max(self) -> np.ndarray:
-        return self.block.max(0)
+        return self.extrema[1]
 
     @cached_property
     def min(self) -> np.ndarray:
-        return self.block.min(0)
+        return self.extrema[0]
+
+    @cached_property
+    def extrema(self) -> np.ndarray:
+        # Contiguous channel rows make reductions much faster than reducing
+        # interleaved mono/stereo frames. Retain only the extrema, not the copy.
+        channels = np.ascontiguousarray(self.block.T)
+        return np.array([channels.min(axis=1), channels.max(axis=1)])
 
     @cached_property
     def asfloat(self) -> 'Block':

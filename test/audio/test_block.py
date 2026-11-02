@@ -7,6 +7,52 @@ import soundfile
 from recs.audio.block import Block
 
 
+@pytest.mark.parametrize('dtype', ['float32', 'int16', 'int32'])
+@pytest.mark.parametrize('channels', [1, 2])
+def test_levels_preserve_channel_extrema_and_samples(
+    tmp_path: Path, dtype: str, channels: int
+) -> None:
+    positions = np.arange(48000) / 48000
+    samples = np.column_stack(
+        [
+            0.4 * np.sin(2 * np.pi * (220 + i) * positions) + 0.1 * i
+            for i in range(channels)
+        ]
+    )
+    if dtype != 'float32':
+        samples *= 1 << (np.dtype(dtype).itemsize * 8 - 1)
+    samples = samples.astype(dtype)
+    path = tmp_path / 'levels.wav'
+    soundfile.write(
+        path,
+        samples,
+        48000,
+        subtype={'float32': 'FLOAT', 'int16': 'PCM_16', 'int32': 'PCM_32'}[dtype],
+    )
+    samples, rate = soundfile.read(path, dtype=dtype, always_2d=True)
+    # Use a view into interleaved device data, as track writers do.
+    device = np.zeros((48000, channels + 2), dtype=dtype)
+    device[:, 1 : channels + 1] = samples
+    block = Block(block=device[:, 1 : channels + 1])
+    np.testing.assert_array_equal(block.min, samples.min(axis=0))
+    np.testing.assert_array_equal(block.max, samples.max(axis=0))
+    scale = 1 if dtype == 'float32' else 1 << (np.dtype(dtype).itemsize * 8 - 1)
+    amplitude = (
+        samples.max(axis=0).astype('float64') - samples.min(axis=0).astype('float64')
+    ) / (2 * scale)
+    np.testing.assert_array_equal(block.amplitude, amplitude)
+    assert block.volume == sum(amplitude) / channels
+    np.testing.assert_array_equal(block.block, samples)
+    soundfile.write(
+        tmp_path / 'after.wav',
+        block.block,
+        rate,
+        subtype='FLOAT'
+        if dtype == 'float32'
+        else {'int16': 'PCM_16', 'int32': 'PCM_32'}[dtype],
+    )
+
+
 def test_block1():
     b = Block(block=np.array(range(3)))
     assert len(b) == 3
