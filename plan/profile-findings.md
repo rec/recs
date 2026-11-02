@@ -91,6 +91,12 @@ Moving that work under an appropriate monitoring interval is a small, concrete
 optimization candidate. Immediate checks on write failures and card replacement
 must remain available.
 
+Implemented: mount discovery now runs after the disk policy's existing poll
+interval check. Startup and card-replacement mount discovery remain immediate,
+and write failures still check whether the known recording disk is mounted.
+A regression test verifies that repeated monitoring between polls does not
+repeat mount discovery and that discovery resumes at the next poll.
+
 ### 5. Discovery subprocesses are deliberately replaced every five seconds
 
 The many short-lived profiles are explained by
@@ -126,5 +132,6 @@ continuous-tone run does not exercise segment opening, closing, and preroll
 behavior well. Fake recordings should use an explicitly isolated output
 directory so they do not enter normal backup/upload workflows.
 
-These are findings and proposed experiments, not implemented optimizations.
+Finding 4 has been implemented. The other optimization ideas remain proposed
+experiments; finding 1 was already resolved before this document was written.
 No additional recording was run during the analysis.

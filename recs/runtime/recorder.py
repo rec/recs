@@ -226,6 +226,7 @@ class Recorder(Runnables):
             self._finish_record,
             self._record_path,
             lambda: self.session_start_time,
+            self._refresh_recording_disk,
         )
         if isinstance(self.live, gui_ipc.DaemonGuiServer):
             self.live.external_rows = self._publish_external_rows
@@ -409,7 +410,7 @@ class Recorder(Runnables):
                     if self._display_closed():
                         break
                     if not self._monitor_card_replacement():
-                        self._monitor_disk_space()
+                        self._disk_space_controller.monitor_disk_space()
                     self._receive_key_events()
                     self._receive_control_requests()
                     self._playback.poll()
@@ -456,10 +457,9 @@ class Recorder(Runnables):
     def _display_closed(self) -> bool:
         return bool(self.live and self.live.closed)
 
-    def _monitor_disk_space(self) -> None:
+    def _refresh_recording_disk(self) -> None:
         if disk := recording_paths.mounted_disk(self.session_directory):
             self._recording_disk = disk
-        self._disk_space_controller.monitor_disk_space()
 
     def _record_write_error(self, source: str, error: str) -> None:
         if self._card_replacement.active:

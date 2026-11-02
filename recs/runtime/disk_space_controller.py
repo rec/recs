@@ -28,6 +28,7 @@ class DiskSpaceController:
         finish_record: Callable[[], None],
         record_path: Callable[[], Path],
         session_start_time: Callable[[], float],
+        refresh_recording_disk: Callable[[], None],
     ) -> None:
         self.cfg = cfg
         self.session = session
@@ -42,11 +43,13 @@ class DiskSpaceController:
         self.finish_record = finish_record
         self.record_path = record_path
         self.session_start_time = session_start_time
+        self.refresh_recording_disk = refresh_recording_disk
 
     def monitor_disk_space(self) -> None:
         now = times.timestamp()
         if not self.monitor.ready(now):
             return
+        self.refresh_recording_disk()
         if self.monitor.paused:
             for candidate in self.monitor.removable_disks():
                 if candidate.free_bytes >= self.monitor.emergency_threshold(candidate):

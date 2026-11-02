@@ -12,6 +12,32 @@ from recs.runtime.source_messages import SourceUpdate
 from test.runtime.recorder.fakes import DiskUsage, FakePoller, FakeSourceProcess
 
 
+def test_disk_monitor_checks_mounts_only_when_poll_is_due(
+    monkeypatch: pytest.MonkeyPatch, mock_devices: None, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    now = [10.0]
+    monkeypatch.setattr(recorder.times, 'timestamp', lambda: now[0])
+    rec = Recorder(
+        Cfg(output_directory=str(tmp_path), disk_poll_seconds=5, silent=True)
+    )
+    checks: list[Path] = []
+
+    def mounted_disk(path: Path) -> None:
+        checks.append(path)
+
+    monkeypatch.setattr(recording_paths, 'mounted_disk', mounted_disk)
+    rec._disk_space_controller.monitor_disk_space()
+    now[0] = 11.0
+    rec._disk_space_controller.monitor_disk_space()
+    assert checks == [rec.session_directory]
+
+    now[0] = 15.0
+    rec._disk_space_controller.monitor_disk_space()
+    assert checks == [rec.session_directory, rec.session_directory]
+
+
 def test_minimum_free_space_is_an_emergency_reserve(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
