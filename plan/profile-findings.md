@@ -63,6 +63,50 @@ measurement before adoption. There is no evidence here that the device's
 callback block size should change. Continue letting the device and driver choose
 it unless the user explicitly specifies it.
 
+#### Write-size experiment, 2026-11-02
+
+A standalone SoundFile benchmark on this arm64 macOS machine, using Python
+3.13.12, wrote 14 stereo tracks at 48 kHz and PCM_24. Each track contained ten
+seconds of either sine waves or deterministic uniform noise. Results are median
+elapsed seconds from three repetitions, including file opening, writing, and
+closing. Writes larger than 50 ms included per-track concatenation of 50 ms
+pieces, representing the existing detection windows. Signal generation was
+outside the timing. The files were written in a temporary directory under
+`/private/tmp`, outside the normal recording area.
+
+| Signal | Format | 20 ms writes | 50 ms writes | 100 ms writes | 250 ms writes |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Sine | FLAC | 0.2847 s | 0.2647 s | 0.2636 s | 0.2557 s |
+| Noise | FLAC | 0.3207 s | 0.3083 s | 0.3001 s | 0.3002 s |
+| Sine | WAV | 0.1686 s | 0.1349 s | 0.1117 s | 0.1058 s |
+| Noise | WAV | 0.1316 s | 0.1110 s | 0.1080 s | 0.0988 s |
+
+The current default detection window is 50 ms. Going from 50 ms to 100 ms
+writes improved FLAC elapsed time by approximately 0.4% for sine waves and
+2.6% for noise. Increasing to 250 ms improved it by approximately 3.4% and
+2.6%, respectively. WAV showed larger but variable improvements.
+
+For every format, signal, and write-size combination, the final output file
+was decoded and checked for the correct sample rate, shape, and PCM_24 sample
+accuracy. No recs capture process was launched.
+
+Limitations: this isolates SoundFile writes and concatenation, excludes recs
+metadata and recovery bookkeeping, uses the same stereo signal in each track,
+and does not simulate real-time scheduling, SD-card latency, or explicit fsync.
+It is a local filesystem benchmark with caching, not a durability measurement.
+It also uses Python 3.13 rather than the original profile's Python 3.15.
+
+Decision: defer write batching. The measured FLAC gain is small and does not yet
+justify pending-write state across detection windows, with its effects on file
+splitting, flushes, shutdown, and recovery. This does not rule out improvements
+on the Pi or savings in recs bookkeeping; those require a representative
+benchmark. The next optimization candidate is level detection.
+
+The exploratory script and raw results are available locally at
+`/private/tmp/recs-write-benchmark.py` and
+`/private/tmp/recs-write-benchmark-results.txt`; these temporary artifacts are
+not permanent repository dependencies.
+
 ### 3. Level detection is the next meaningful audio cost
 
 Approximately 1.04 sampled seconds were spent deciding whether to record. Most
@@ -122,7 +166,8 @@ workload.
 
 1. Obtain a fresh baseline with automatic inspection removed.
 2. Address disk-monitor scheduling.
-3. Benchmark larger file writes, preserving detection resolution.
+3. Larger file writes have been benchmarked locally; defer implementation
+   pending stronger evidence from a representative workload.
 4. Evaluate level-detection changes after measuring those improvements.
 5. Consider reducing fake-discovery process churn and fake-signal generation
    overhead to improve the profiling workload itself.
