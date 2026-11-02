@@ -31,6 +31,12 @@ class InputDevice(Source):
         update_callback: Callable[[Update], None],
         blocksize: int | None = None,
     ) -> Runnable:
+        from .profile_devices import FakeInputStream, inventory
+
+        if (devices := inventory()) is not None:
+            if not any(d['name'] == self.name for d in devices):
+                raise ValueError(f'Unknown profiling device: {self.name}')
+            return FakeInputStream(self.channels, sdtype, update_callback, blocksize)
         import sounddevice
 
         stream: sounddevice.InputStream

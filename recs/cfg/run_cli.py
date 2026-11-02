@@ -20,6 +20,9 @@ from . import settings
 
 
 def run_cli(cfg: Cfg, loaded_settings: settings.LoadedSettings | None = None) -> None:
+    from .profiling import launch
+
+    launch(cfg)
     daemon_mode = gui_ipc.daemon_mode_enabled()
     try:
         if daemon_mode:

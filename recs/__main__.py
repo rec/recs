@@ -55,13 +55,28 @@ def run() -> int:
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices':
             tyro.cli(DeviceQueryCli, args=sys.argv[2:], prog='recs query-devices')
-            print(devices_json())
+            import json
+
+            from recs.cfg.profile_devices import inventory
+
+            devices = inventory()
+            print(devices_json() if devices is None else json.dumps(devices))
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'query-devices-stream':
             tyro.cli(
                 DeviceQueryCli, args=sys.argv[2:], prog='recs query-devices-stream'
             )
-            stream_devices()
+            import json
+            import time
+
+            from recs.cfg.profile_devices import inventory
+
+            if (devices := inventory()) is None:
+                stream_devices()
+            else:
+                while True:
+                    print(json.dumps(devices), flush=True)
+                    time.sleep(1)
             return 0
         if len(sys.argv) > 1 and sys.argv[1] == 'offset':
             from recs.recording.offset import main

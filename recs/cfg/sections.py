@@ -55,6 +55,11 @@ class Directory(BaseModel):
 
 
 class General(BaseModel):
+    profile: bool = False
+    """Profile recording and its child processes using Python 3.15 Tachyon."""
+    profile_fake: str | None = None
+    """Profile synthetic devices, e.g. 18:10 for 18 and 10 channels."""
+
     #
     # General purpose settings
     #
@@ -101,6 +106,15 @@ class General(BaseModel):
     @property
     def writes_files(self) -> bool:
         return not (self.dry_run or self.calibrate or self.silence_preview)
+
+    @field_validator('profile_fake')
+    @classmethod
+    def validate_profile_fake(cls, value: str | None) -> str | None:
+        from .profile_devices import device_channels
+
+        if value is not None:
+            device_channels(value)
+        return value
 
 
 class Device(BaseModel):

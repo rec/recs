@@ -113,3 +113,6 @@ venv.bak/
 # /*.m4a
 # /*.mp3
 # /*.wav
+
+# Tachyon profiling reports
+/recs-profile-*/

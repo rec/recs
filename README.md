@@ -491,3 +491,6 @@ SFZ import/export and sample inspection belong to
 
 Current unfinished design work is kept under `plan/`. Historical reviews and
 completed plans are deliberately not retained as product documentation.
+
+Profile real or synthetic audio devices with Python 3.15 using `--profile` or
+`--profile-fake=18:10`. See [command-line profiling](doc/profiling.md).

@@ -21,24 +21,28 @@ control pause/resume affect capture; control stop/continue affect playback. proj
 readiness inspects a project or configuration without recording; preflight checks a running daemon.
 
  positional arguments
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   [[PATH [PATH ...]]]
         One or more files to split for silence (default: )
 
  options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   -h, --help
         show this help message and exit
 
  directory options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   -o STR, --output-directory STR
         Path or output_directory pattern for recorded file locations (default: '')
   --short-file-names, --no-short-file-names
         Omit the device from generated names when there is only one (default: True)
 
  general options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
+  --profile, --no-profile
+        Profile recording and its child processes using Python 3.15 Tachyon. (default: False)
+  --profile-fake {None}|STR
+        Profile synthetic devices, e.g. 18:10 for 18 and 10 channels. (default: None)
   --forward-audio, --no-forward-audio
         Allow local clients to subscribe to live input audio (default: False)
   --calibrate, --no-calibrate
@@ -59,7 +63,7 @@ readiness inspects a project or configuration without recording; preflight check
         Save mutable API settings for the next recording run (default: None)
 
  device options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   -a STR, --alias STR
         Set aliases for devices or channels (repeatable)
   --devices PATH
@@ -68,14 +72,14 @@ readiness inspects a project or configuration without recording; preflight check
         Per-device JSON defaults, not a recording project (default: .)
 
  selection options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   -e STR, --exclude STR
         Exclude devices or channels (repeatable)
   -i STR, --include STR
         Only include these devices or channels (repeatable)
 
  audio options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   --capture-block-frames {None}|INT
         Frames per capture callback; unset lets the driver choose (default: None)
   -f AUDIO FORMAT, --format AUDIO FORMAT
@@ -88,7 +92,7 @@ readiness inspects a project or configuration without recording; preflight check
         Audio file subtype (default: None)
 
  midi options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   --midi, --no-midi, --record-midi, --no-record-midi
         Record MIDI inputs (default: True)
   --midi-include STR
@@ -99,12 +103,12 @@ readiness inspects a project or configuration without recording; preflight check
         MIDI timing: system callback clock, or mido source deltas (default: system)
 
  osc options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   --osc-nodes PATH
         TOML file describing OSC nodes to record (default: .)
 
  console options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   -r, --clear-terminal, --no-clear-terminal
         Clear display on shutdown (default: True)
   --gui, --no-gui
@@ -125,7 +129,7 @@ readiness inspects a project or configuration without recording; preflight check
         Milliseconds represented by each live waveform batch (default: 100)
 
  keys options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   --key-label STR
         Add a record label for a key, for example g=guitar too soft (repeatable)
   --record-keys {None}|{KEY RECORDING MODE}
@@ -134,7 +138,7 @@ readiness inspects a project or configuration without recording; preflight check
         Record key events from all applications; must be explicitly enabled (default: None)
 
  recording options
- -------------------------------------------------------------------------------------------
+ ---------------------------------------------------------------------------------------------
   --diagnostics-interval-seconds TIME
         Seconds between aggregated capture diagnostics (default: 5.0)
   --audio-buffer-megabytes MB
