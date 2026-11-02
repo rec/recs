@@ -15,6 +15,7 @@ from ufor.encoding import Format
 
 from recs.audio.channel_writer import ChannelWriter
 from recs.audio.live_waveform import LiveWaveform
+from recs.base.memory import array_owners_bytes
 from recs.base.signals import handle_termination_signals
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, SdType
@@ -25,6 +26,7 @@ from recs.base.waveform import (
 )
 from recs.cfg.cfg import Cfg
 from recs.cfg.device import InputDevice
+from recs.cfg.file_source import BLOCKSIZE, FileInputStream, FileSource
 from recs.cfg.source import Update
 from recs.cfg.time_settings import db_to_amplitude
 from recs.cfg.track import Track
@@ -264,6 +266,8 @@ class SourceRecorder(Runnables):
             cfg.recording.processing_batch_seconds,
         )
         self.ready_audio: deque[BufferedUpdate] = deque()
+        self.retained_audio_bytes: dict[str, int] = {}
+        self.next_memory_report = 0.0
         self.coalesce_seconds = 0.0
         self.detection_seconds = 0.0
         self.writing_seconds = 0.0
@@ -330,6 +334,17 @@ class SourceRecorder(Runnables):
                 update_callback=self.buffer.put,
                 blocksize=self.cfg.audio.capture_block_frames,
             )
+        elif isinstance(self.source, FileSource):
+            self.input_stream = self.source.input_stream(
+                blocksize=min(BLOCKSIZE, self.buffer.capacity_frames),
+                sdtype=cast(SdType, self.cfg.audio.sdtype),
+                update_callback=lambda update: self.buffer.put(
+                    update,
+                    cancelled=lambda: (
+                        self.stop_event.is_set() or not self.input_stream.running
+                    ),
+                ),
+            )
         else:
             self.input_stream = self.source.input_stream(
                 sdtype=cast(SdType, self.cfg.audio.sdtype),
@@ -384,7 +399,10 @@ class SourceRecorder(Runnables):
                             pending = []
             finally:
                 # Stop callbacks, then drain accepted audio before closing writers.
+                self.control.handler.close()
                 self.input_stream.stop()
+                if isinstance(self.input_stream, FileInputStream):
+                    self.input_stream.join()
                 if self.writing_enabled:
                     self.consume_audio(pending)
                     with contextlib.suppress(Empty):
@@ -418,6 +436,11 @@ class SourceRecorder(Runnables):
                 buffer_stats=self.capture_stats(),
             )
         )
+        if (
+            isinstance(self.input_stream, FileInputStream)
+            and self.input_stream.error is not None
+        ):
+            raise self.input_stream.error
 
     def input_loss_events(self) -> list[EventRecord]:
         return [
@@ -447,8 +470,29 @@ class SourceRecorder(Runnables):
         )
 
     def capture_stats(self) -> BufferStats:
+        if (now := perf_counter()) >= self.next_memory_report:
+            retained = {
+                'consumer_windows': array_owners_bytes(
+                    [u.update.array for u in self.ready_audio]
+                    + ([self.windows.array] if self.windows.array is not None else [])
+                ),
+            }
+            for writer in self.channel_writers:
+                for name, size in writer.retained_audio_bytes().items():
+                    retained[f'{writer.track.name}:{name}'] = size
+            if self.audio_forwarder is not None:
+                mailbox = self.audio_forwarder.mailbox
+                with mailbox.lock:
+                    retained['forwarding'] = array_owners_bytes(
+                        b.update.array for b, _ in mailbox.blocks
+                    )
+            self.retained_audio_bytes = retained
+            self.next_memory_report = (
+                now + self.cfg.recording.diagnostics_interval_seconds
+            )
         return self.buffer.stats.model_copy(
             update=dict(
+                retained_audio_bytes=self.retained_audio_bytes,
                 processed_frames=self.sample_count,
                 written_track_frames=self.previous_written_frames
                 + sum(w.frames_written for w in self.channel_writers),

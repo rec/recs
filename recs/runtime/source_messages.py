@@ -21,6 +21,9 @@ from recs.recording.session_record import (
 
 
 class BufferStats(BaseModel):
+    retained_audio_bytes: dict[str, int] = Field(default_factory=dict)
+    pending_loss_records: int = 0
+    pending_transport_events: int = 0
     callback_count: int = 0
     callback_frames_min: int = 0
     callback_frames_max: int = 0

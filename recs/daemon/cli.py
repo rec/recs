@@ -106,7 +106,13 @@ def _status_payload(
             paths.external_control_endpoint(platform=platform),
             role='status',
         ).call('status_snapshot')
-    except (BrokenPipeError, ConnectionError, OSError, TimeoutError) as e:
+    except (
+        rpc.RemoteError,
+        BrokenPipeError,
+        ConnectionError,
+        OSError,
+        TimeoutError,
+    ) as e:
         status['recorder_error'] = str(e)
     return status
 

@@ -332,3 +332,48 @@ not automatically exported as timed composition sources.
 A sealed recording describing imported media may omit `journal`, `started_at`
 and `ended_at`. Captured sessions retain their journal and capture timestamps.
 This avoids inventing capture history when wrapping a WAV file for composition.
+
+## Capture memory and optional publication
+
+`recording.audio_buffer_seconds` now defaults to **100 seconds**. This is a
+lazy maximum, not a preallocation. The independent default 128 MB input-queue
+budget still applies, including NumPy backing owners and queue overhead. At
+48 kHz with 18 float32 input channels, that byte budget is reached after roughly
+18 seconds, before the duration ceiling. File inputs wait for capacity instead
+of dropping audio; live callbacks retain their nonblocking admission policy.
+
+Capture diagnostics report input queue memory, consumer-window backing arrays,
+per-track preroll/pending quiet and recovery history, and optional forwarding
+separately, sampling retained arrays at the configured diagnostics interval
+(default five seconds). `retained_audio_bytes` counts backing NumPy allocations within each
+category, including owners retained by narrow slices. Categories may share an
+owner, so summing them overcounts; these figures are not a process RSS ceiling.
+Unknown-loss observations are capped at 1,024 records, with an unlocated marker
+when observations must be coalesced. Source control handoff is capped at 64
+complete messages and durable update transport at 1,024 events. Replaceable UI
+and status publishers retain one waiting snapshot; status writes are atomic but
+not fsynced. User settings keep fsync enabled.
+
+A truncated physical final journal record is reported prominently and complete
+preceding records remain browsable. The resulting recording is open, including
+when opened through a previously saved index. Editing/playback that requires
+resolved timing and a sealed recording must wait for explicit recovery.
+Malformed interior records and complete-but-invalid records remain errors.
+
+## Resuming a clock correction
+
+`recs offset ROOT SECONDS` plans the entire correction and rejects filesystem
+boundaries before moving sessions. It saves `recs-offset-*/offset.json` with the
+ordered moves, replacement metadata, and progress. If interrupted, follow the
+reported command:
+
+```sh
+recs offset /path/to/recs-offset-XXXX/offset.json --resume
+```
+
+Do not manually move or edit the transaction's files before resuming. Repeating
+resume on a completed manifest is harmless. The completed manifest is retained
+for inspection. This is a resumable multi-directory operation, not an atomic
+transaction or a rollback mechanism. File fsync does not guarantee directory
+entry durability across power loss; recovery assumes the filesystem preserved
+the manifest and completed renames.

@@ -240,3 +240,38 @@ def test_unknown_capture_loss_survives_journal_and_index_reads(
             ),
             tmp_path,
         )
+
+
+@pytest.mark.parametrize('finalized', [False, True])
+def test_truncated_journal_is_browsable_but_not_sealed(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, finalized: bool
+) -> None:
+    journal = make_session(tmp_path / 'session')
+    if finalized:
+        finalize_recording(journal)
+    with journal.open('a') as file:
+        file.write('{"type":')
+    document = read_recording(journal.parent)
+    assert document.body.state == 'open'
+    assert document.body.streams
+    assert 'capture is incomplete' in caplog.text
+
+
+def test_saved_index_wraps_journal_read_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from recs.base.errors import RecsError
+
+    journal = make_session(tmp_path / 'session')
+    index = finalize_recording(journal)
+    read_entries = session_record.read_entries
+
+    def inaccessible(path: Path) -> object:
+        if path == journal.resolve():
+            raise PermissionError('journal is unavailable')
+        return read_entries(path)
+
+    monkeypatch.setattr(session_record, 'read_entries', inaccessible)
+    with pytest.raises(RecsError, match='Cannot read recording') as failure:
+        read_recording(index)
+    assert isinstance(failure.value.__cause__, PermissionError)

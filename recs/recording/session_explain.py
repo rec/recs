@@ -71,7 +71,13 @@ def explain_daemon() -> ExplanationReport:
         status = rpc.Client(paths.external_control_endpoint(), role='explain').call(
             'status_snapshot'
         )
-    except (BrokenPipeError, ConnectionError, OSError, TimeoutError) as e:
+    except (
+        rpc.RemoteError,
+        BrokenPipeError,
+        ConnectionError,
+        OSError,
+        TimeoutError,
+    ) as e:
         return ExplanationReport(
             target='daemon',
             explanations=[

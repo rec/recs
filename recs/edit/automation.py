@@ -13,7 +13,7 @@ def gain_values(
     frames: int,
 ) -> np.ndarray:
     if automation is None:
-        return np.full(frames, declared, dtype=np.float32)
+        return np.broadcast_to(np.float32(declared), (frames,))
     clip, score = automation
     values = np.full(frames, declared, dtype=np.float32)
     first = max(start, clip.timeline_start)

@@ -8,10 +8,12 @@ from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Annotated
+from typing import Annotated, Literal
 
 import tyro
 from pydantic import BaseModel, Field
+from reccy.configuration import settings
+from reccy.errors import ReccyError
 from ufor.codec import score_toml
 from ufor.recording import RecordingScore
 
@@ -29,8 +31,13 @@ class OffsetCli(BaseModel, frozen=True):
     """
 
     directory: Annotated[Path, tyro.conf.Positional]
-    seconds: Annotated[float, tyro.conf.Positional] = Field(allow_inf_nan=False)
+    seconds: Annotated[float | None, tyro.conf.Positional] = Field(
+        default=None, allow_inf_nan=False
+    )
     """Signed offset in seconds, for example 3600 or -3600."""
+
+    resume: bool = False
+    """Resume the manifest given as directory; omit seconds."""
 
 
 class SessionChange(BaseModel, frozen=True):
@@ -40,9 +47,30 @@ class SessionChange(BaseModel, frozen=True):
     contents: dict[Path, str]
 
 
+class OffsetOperation(BaseModel, frozen=True):
+    kind: Literal['write', 'move', 'replace', 'mkdir', 'rmdir']
+    destination: Path
+    source: Path | None = None
+    content: str | None = None
+
+
+class OffsetManifest(BaseModel, frozen=True):
+    changes: dict[Path, Path]
+    operations: list[OffsetOperation]
+    completed: int = 0
+
+
 def main(argv: list[str]) -> int:
     cfg = tyro.cli(OffsetCli, args=argv, prog='recs offset')
-    for source, destination in offset_sessions(cfg.directory, cfg.seconds):
+    if cfg.resume:
+        if cfg.seconds is not None:
+            raise RecsError('Do not supply seconds when resuming an offset')
+        changes = resume_offset(cfg.directory)
+    else:
+        if cfg.seconds is None:
+            raise RecsError('An offset in seconds is required')
+        changes = offset_sessions(cfg.directory, cfg.seconds)
+    for source, destination in changes:
         print(f'{source} -> {destination}')
     return 0
 
@@ -53,7 +81,7 @@ def offset_sessions(directory: Path, seconds: float) -> list[tuple[Path, Path]]:
     root = cfg.directory.resolve()
     if not root.is_dir():
         raise RecsError(f'Not a directory: {root}')
-    delta = timedelta(seconds=cfg.seconds)
+    delta = timedelta(seconds=seconds)
     sessions = sorted(
         {
             p.parent
@@ -78,43 +106,129 @@ def offset_sessions(directory: Path, seconds: float) -> list[tuple[Path, Path]]:
     if len(set(destinations.values())) != len(sessions):
         raise RecsError('Multiple sessions have the same destination')
     changes = [_prepare(p, destinations, delta) for p in sessions]
-    # Keep staging on failure so an I/O error cannot delete original media.
-    staging = Path(
-        mkdtemp(prefix='recs-offset-', dir=root.parent if root in sessions else root)
+    staging_parent = root.parent if root in sessions else root
+    device = staging_parent.stat().st_dev
+    for change in changes:
+        for path in [change.source, *(change.source / p for p in change.paths)]:
+            if path.stat().st_dev != device:
+                raise RecsError(f'Offset cannot cross filesystems: {path}')
+        parent = change.destination.parent
+        while not parent.exists():
+            parent = parent.parent
+        if parent.stat().st_dev != device:
+            raise RecsError(f'Offset destination is on another filesystem: {parent}')
+    staging = Path(mkdtemp(prefix='recs-offset-', dir=staging_parent))
+    operations: list[OffsetOperation] = []
+    for i, change in enumerate(changes):
+        for j, content in enumerate(change.contents.values()):
+            operations.append(
+                OffsetOperation(
+                    kind='write',
+                    destination=staging / f'{i}-{j}.replacement',
+                    content=content,
+                )
+            )
+    for i, change in enumerate(changes):
+        operations.append(
+            OffsetOperation(
+                kind='move', source=change.source, destination=staging / str(i)
+            )
+        )
+    for i, change in enumerate(changes):
+        staged, renamed = staging / str(i), staging / f'{i}-renamed'
+        operations.append(OffsetOperation(kind='mkdir', destination=renamed))
+        for old, new in change.paths.items():
+            if (change.source / old).is_dir():
+                operations.append(
+                    OffsetOperation(kind='mkdir', destination=renamed / new)
+                )
+            else:
+                operations.append(
+                    OffsetOperation(kind='mkdir', destination=(renamed / new).parent)
+                )
+                operations.append(
+                    OffsetOperation(
+                        kind='move', source=staged / old, destination=renamed / new
+                    )
+                )
+        for old in sorted(change.paths, key=lambda p: len(p.parts), reverse=True):
+            if (change.source / old).is_dir():
+                operations.append(
+                    OffsetOperation(kind='rmdir', destination=staged / old)
+                )
+        operations.append(OffsetOperation(kind='rmdir', destination=staged))
+        for j, relative in enumerate(change.contents):
+            operations.append(
+                OffsetOperation(
+                    kind='replace',
+                    source=staging / f'{i}-{j}.replacement',
+                    destination=renamed / relative,
+                )
+            )
+    for i, change in enumerate(changes):
+        operations.append(
+            OffsetOperation(kind='mkdir', destination=change.destination.parent)
+        )
+        operations.append(
+            OffsetOperation(
+                kind='move',
+                source=staging / f'{i}-renamed',
+                destination=change.destination,
+            )
+        )
+    manifest = staging / 'offset.json'
+    settings.save(
+        manifest,
+        OffsetManifest(
+            changes={c.source: c.destination for c in changes}, operations=operations
+        ),
     )
+    return resume_offset(manifest)
+
+
+def resume_offset(path: Path) -> list[tuple[Path, Path]]:
+    """Continue an offset using its persisted operation order, without rollback.
+
+    A completed rename may precede its progress checkpoint after a crash. Its
+    absent source and present destination identify that already completed step.
+    Do not move or edit the transaction's files manually before resuming.
+    """
+    manifest = settings.load(path, OffsetManifest)
     try:
-        for i, change in enumerate(changes):
-            for j, content in enumerate(change.contents.values()):
-                (staging / f'{i}-{j}.replacement').write_text(content)
-        for i, change in enumerate(changes):
-            change.source.rename(staging / str(i))
-        for i, change in enumerate(changes):
-            staged = staging / str(i)
-            renamed = staging / f'{i}-renamed'
-            renamed.mkdir()
-            for relative in change.paths.values():
-                (renamed / relative).parent.mkdir(parents=True, exist_ok=True)
-            for old, new in change.paths.items():
-                path = staged / old
-                if path.is_dir():
-                    (renamed / new).mkdir(parents=True, exist_ok=True)
-                else:
-                    path.rename(renamed / new)
-            for old in sorted(change.paths, key=lambda p: len(p.parts), reverse=True):
-                if (staged / old).is_dir():
-                    (staged / old).rmdir()
-            staged.rmdir()
-            for j, relative in enumerate(change.contents):
-                (staging / f'{i}-{j}.replacement').replace(renamed / relative)
-        for i, change in enumerate(changes):
-            change.destination.parent.mkdir(parents=True, exist_ok=True)
-            (staging / f'{i}-renamed').rename(change.destination)
-        staging.rmdir()
-    except OSError as error:
+        for i in range(manifest.completed, len(manifest.operations)):
+            operation = manifest.operations[i]
+            destination, source = operation.destination, operation.source
+            if operation.kind == 'write':
+                assert operation.content is not None
+                settings.write_text_atomically(destination, operation.content)
+            elif operation.kind == 'mkdir':
+                destination.mkdir(parents=True, exist_ok=True)
+            elif operation.kind == 'rmdir':
+                if destination.exists():
+                    destination.rmdir()
+            else:
+                assert source is not None
+                if source.exists():
+                    if operation.kind == 'replace':
+                        source.replace(destination)
+                    else:
+                        if destination.exists():
+                            raise RecsError(
+                                f'Offset destination unexpectedly exists: {destination}'
+                            )
+                        source.rename(destination)
+                elif not destination.exists():
+                    raise RecsError(
+                        'Offset source and destination are both missing: '
+                        f'{source}, {destination}'
+                    )
+            manifest = manifest.model_copy(update={'completed': i + 1})
+            settings.save(path, manifest)
+    except (OSError, ReccyError, RecsError) as error:
         raise RecsError(
-            f'Offset interrupted; retained files in {staging}: {error}'
+            f'Offset interrupted; resume with recs offset {path} --resume: {error}'
         ) from error
-    return [(c.source, c.destination) for c in changes]
+    return list(manifest.changes.items())
 
 
 def _prepare(

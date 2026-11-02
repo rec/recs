@@ -572,7 +572,7 @@ def test_control_request_reports_capabilities(
 
     response = request.responses[0]
     assert isinstance(response, gui_protocol.CapabilitiesResult)
-    assert response.version == 11
+    assert response.version == 12
     assert response.instance == rec.instance
     assert 'status_snapshot' in response.commands
     assert 'subscribe_waveforms' in response.commands

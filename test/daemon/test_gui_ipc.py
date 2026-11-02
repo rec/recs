@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from reccy.errors import ReccyError
+from reccy.protocol import ipc
 from reccy.services.models import DaemonMetadata, Platform
 
 from recs.base.errors import ErrorRecord, RecsError
@@ -25,7 +26,7 @@ def test_protocol_parses_valid_messages() -> None:
 
 def test_protocol_parses_daemon_hello() -> None:
     message = gui_protocol.parse_message(
-        '{"type":"hello","role":"daemon","version":11}'
+        '{"type":"hello","role":"daemon","version":12}'
     )
 
     assert isinstance(message, gui_protocol.Hello)
@@ -207,7 +208,10 @@ def test_control_request_wait_times_out() -> None:
     request = gui_ipc.ControlRequest(gui_protocol.Calibrate(type='calibrate'))
 
     assert request.wait_for_response(timeout=0) == gui_protocol.Error(
-        type='error', message='recs control timed out before execution'
+        type='error',
+        message='recs control timed out before execution',
+        code=ipc.ErrorCode.deadline_exceeded,
+        outcome=ipc.Outcome.not_started,
     )
     assert not request.start()
 
@@ -217,7 +221,10 @@ def test_active_gui_control_timeout_reports_unknown_outcome() -> None:
     assert request.start()
 
     assert request.wait_for_response(timeout=0) == gui_protocol.Error(
-        type='error', message='recs control timed out; outcome unknown'
+        type='error',
+        message='recs control timed out; outcome unknown',
+        code=ipc.ErrorCode.deadline_exceeded,
+        outcome=ipc.Outcome.unknown,
     )
 
 
@@ -232,7 +239,11 @@ def test_daemon_publisher_rejects_second_gui_client() -> None:
     server._accept()
 
     assert rejected.sent == [
-        '{"type":"error","message":"recs already has an active GUI client"}\n'
+        (
+            '{"type":"error","message":"recs already has an active GUI cl'
+            'ient","code":"rejected","outcome":"unknown","details":{},"co'
+            'rrelation_id":null}\n'
+        )
     ]
     assert rejected.closed
     assert server.clients == [existing]
@@ -246,6 +257,7 @@ def test_daemon_publisher_writes_gui_ipc_error_status(tmp_path: Path) -> None:
 
     server.start()
 
+    assert server.status.publisher.close(1)
     assert 'address in use' in server.paths.status.read_text()
 
 
@@ -266,6 +278,7 @@ def test_daemon_publisher_writes_health_rows(tmp_path: Path) -> None:
 
     server.update()
 
+    assert server.status.publisher.close(1)
     content = server.paths.status.read_text()
     status = DaemonStatus.model_validate_json(content)
     assert status.rows == [{'device': 'Mic'}]
@@ -295,9 +308,7 @@ def test_daemon_publisher_limits_status_file_writes(
     writes: list[DaemonStatus] = []
 
     monkeypatch.setattr(gui_ipc.time, 'monotonic', lambda: now)
-    monkeypatch.setattr(
-        gui_ipc, '_write_status', lambda path, status: writes.append(status)
-    )
+    monkeypatch.setattr(server.status.publisher, 'publish', writes.append)
 
     server.update()
     now = 0.5
@@ -312,24 +323,25 @@ def test_status_publisher_reports_save_failure(tmp_path: Path) -> None:
     blocked = tmp_path / 'not-a-directory'
     blocked.write_text('blocked')
     publisher = gui_ipc.DaemonStatusPublisher(blocked / 'status.json', DaemonStatus)
-    with pytest.raises(ReccyError, match='Could not save settings'):
-        publisher.start()
+    publisher.start()
+    assert publisher.publisher.close(1)
+    assert isinstance(publisher.publisher.error, ReccyError)
 
 
 def test_gui_listener_replies_to_supported_hello() -> None:
-    connection = FakeConnection(['{"type":"hello","role":"gui","version":11}\n'])
+    connection = FakeConnection(['{"type":"hello","role":"gui","version":12}\n'])
     listener = gui_ipc.GuiListener(connection, lambda event: None)
 
     listener._read()
 
-    assert connection.sent == ['{"type":"hello","role":"daemon","version":11}\n']
+    assert connection.sent == ['{"type":"hello","role":"daemon","version":12}\n']
 
 
 def test_gui_listener_accepts_key_events_after_hello() -> None:
     events: list[KeyEvent] = []
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":11}\n',
+            '{"type":"hello","role":"gui","version":12}\n',
             '{"type":"key_pressed","key":"g"}\n',
         ]
     )
@@ -352,7 +364,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
 
     connection = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":11}\n',
+            '{"type":"hello","role":"gui","version":12}\n',
             '{"type":"calibrate"}\n',
         ]
     )
@@ -361,7 +373,7 @@ def test_gui_listener_returns_direct_response_after_hello() -> None:
     listener._read()
 
     assert connection.sent == [
-        '{"type":"hello","role":"daemon","version":11}\n',
+        '{"type":"hello","role":"daemon","version":12}\n',
         ('{"type":"calibrated","measurements":{},"noise_floors":{"Mic":{"1":15.0}}}\n'),
     ]
 
@@ -386,7 +398,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
     server = gui_ipc.DaemonGuiServer(lambda: iter([]), Cfg())
     first = FakeConnection(
         [
-            '{"type":"hello","role":"gui","version":11}\n',
+            '{"type":"hello","role":"gui","version":12}\n',
             '{"type":"shutdown"}\n',
             '{"type":"shutdown"}\n',
         ]
@@ -403,7 +415,7 @@ def test_client_shutdown_propagates_to_all_listeners() -> None:
 
     assert server.closed
     assert first.sent == [
-        '{"type":"hello","role":"daemon","version":11}\n',
+        '{"type":"hello","role":"daemon","version":12}\n',
         '{"type":"shutdown"}\n',
     ]
     assert first.closed
@@ -419,7 +431,11 @@ def test_gui_listener_rejects_key_events_before_hello() -> None:
     listener._read()
 
     assert connection.sent == [
-        '{"type":"error","message":"GUI hello required before other messages"}\n'
+        (
+            '{"type":"error","message":"GUI hello required before other m'
+            'essages","code":"rejected","outcome":"unknown","details":{},'
+            '"correlation_id":null}\n'
+        )
     ]
     assert connection.closed
     assert events == []
@@ -433,8 +449,9 @@ def test_gui_listener_rejects_unsupported_hello() -> None:
 
     assert connection.sent == [
         (
-            '{"type":"error","message":"GUI protocol version 1 is not supported; '
-            'daemon requires 11"}\n'
+            '{"type":"error","message":"GUI protocol version 1 is not sup'
+            'ported; daemon requires 12","code":"rejected","outcome":"unk'
+            'nown","details":{},"correlation_id":null}\n'
         )
     ]
     assert connection.closed
@@ -474,7 +491,13 @@ def test_remote_row_provider_closes_on_protocol_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     connection = FakeConnection(
-        ['{"type":"error","message":"GUI protocol version 3 is not supported"}\n']
+        [
+            (
+                '{"type":"error","message":"GUI protocol version 3 is not sup'
+                'ported","code":"rejected","outcome":"unknown","details":{},"'
+                'correlation_id":null}\n'
+            )
+        ]
     )
     monkeypatch.setattr(gui_backend, 'client_connection', lambda endpoint: connection)
     client = gui_ipc.RemoteGuiClient(Path.home() / 'recs.sock')

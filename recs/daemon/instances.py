@@ -148,7 +148,7 @@ def discover(
             if not isinstance(response, dict):
                 continue
             identity = InstanceIdentity.model_validate(response.get('instance'))
-        except (OSError, TimeoutError, ValueError):
+        except (rpc.RemoteError, OSError, TimeoutError, ValueError):
             continue
         if identity == descriptor.identity:
             descriptors.append(descriptor)
@@ -284,7 +284,7 @@ def claim_settings(
     except ResourceClaimConflict:
         try:
             existing = SettingsClaim.model_validate_json(
-                path.with_suffix('.owner').read_text()
+                path.with_suffix('.owner.json').read_text()
             )
         except (OSError, ValueError):
             raise ValueError(f'Recs is already saving {settings_path}') from None
@@ -292,9 +292,9 @@ def claim_settings(
             f'Recs PID {existing.identity.pid} is already saving {settings_path}'
         ) from None
     try:
-        path.with_suffix('.owner').unlink(missing_ok=True)
+        path.with_suffix('.owner.json').unlink(missing_ok=True)
         settings.save(
-            path.with_suffix('.owner'),
+            path.with_suffix('.owner.json'),
             SettingsClaim(identity=identity, settings_path=settings_path),
         )
     except (OSError, ReccyError):
@@ -305,7 +305,7 @@ def claim_settings(
 
 def release_settings(claim: ResourceClaim) -> None:
     try:
-        claim.path.with_suffix('.owner').unlink(missing_ok=True)
+        claim.path.with_suffix('.owner.json').unlink(missing_ok=True)
     finally:
         claim.release()
 

@@ -10,14 +10,17 @@ def preserve_audio_losses(
 ) -> RecordingScore:
     located: dict[str, set[int]] = {}
     unlocated: set[str] = set()
+    unlocated_clocks: set[str] = set()
     for entry in entries:
         if (
             isinstance(entry, session_record.EventRecord)
             and entry.type == 'input_overflow_unknown'
             and entry.clock_id is not None
-            and entry.frame_count is not None
         ):
-            located.setdefault(entry.clock_id, set()).add(entry.frame_count)
+            if entry.frame_count is None:
+                unlocated_clocks.add(entry.clock_id)
+            else:
+                located.setdefault(entry.clock_id, set()).add(entry.frame_count)
         if isinstance(entry, session_record.WarningRecord) and entry.message.startswith(
             'Device '
         ):
@@ -41,7 +44,9 @@ def preserve_audio_losses(
             source = stream.source_name or stream.source_id
             if source.startswith('audio:'):
                 source = session_record.audio_stream_parts(source)[0]
-            if source in unlocated and stream.stream.timebase not in located:
+            if stream.stream.timebase in unlocated_clocks or (
+                source in unlocated and stream.stream.timebase not in located
+            ):
                 frames.add(None)
             stream = stream.model_copy(
                 update={

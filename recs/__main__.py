@@ -4,6 +4,7 @@ import sys
 import tyro
 from dvice.discovery import devices_json, stream_devices
 from pydantic import BaseModel, ValidationError
+from reccy.errors import ReccyError
 from reccy.runtime import logging
 
 from recs.base.errors import RecsError
@@ -187,7 +188,7 @@ def run() -> int:
     except ValidationError as e:
         LOGGER.error('%s', e)
 
-    except RecsError as e:
+    except (RecsError, ReccyError, OSError) as e:
         LOGGER.error('%s', e)
 
     return -1

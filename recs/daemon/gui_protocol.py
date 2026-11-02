@@ -11,7 +11,7 @@ from recs.musicians import SourceMusician
 
 from .instances import InstanceIdentity
 
-VERSION = 11
+VERSION = 12
 
 
 class Hello(ipc.Hello):

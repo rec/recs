@@ -1,12 +1,13 @@
 # mypy: disable-error-code="no-any-return, type-arg"
 
 import numbers
-from collections.abc import Sequence
+from collections import deque
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from typing import Self
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from recs.cfg.source import to_matrix
 
@@ -74,16 +75,13 @@ class Block(BaseModel):
     @cached_property
     def rms(self) -> np.ndarray:
         b = self.asfloat.block
-        if b is self.block:
-            b = b * b
-        else:
-            b *= b
-        return np.sqrt(b.mean(0))
+        return np.sqrt(np.mean(np.square(b), axis=0))
 
 
-class Blocks[T: Block](BaseModel):
-    blocks: list[T] = Field(default_factory=list)
-    duration: int = 0
+class Blocks[T: Block]:
+    def __init__(self, *, blocks: Iterable[T] = (), duration: int = 0) -> None:
+        self.blocks = deque(blocks)
+        self.duration = duration
 
     def append(self, block: T) -> None:
         self.blocks.append(block)
@@ -101,7 +99,9 @@ class Blocks[T: Block](BaseModel):
             block = self.blocks[index]
             excess = self.duration - sample_length
             if len(block) <= excess:
-                clipped.append(self.blocks.pop(index))
+                clipped.append(
+                    self.blocks.popleft() if from_start else self.blocks.pop()
+                )
                 self.duration -= len(block)
             else:
                 clipped.append(block[:excess] if from_start else block[-excess:])

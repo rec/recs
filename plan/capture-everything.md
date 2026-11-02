@@ -298,7 +298,7 @@ changes an existing default in this follow-up. No hardware block size is set.
 | `audio.capture_block_frames` | unset | Keep driver selection; explicit override is frames, not time. |
 | `recording.silence_window_seconds` | 0.05 | Keep 50 ms native-frame detector windows, covering a 20 Hz cycle. |
 | `recording.processing_batch_seconds` | 0.1 | Keep bounded consumer drain and maximum incomplete-window wait; at least the detector window. |
-| `recording.audio_buffer_seconds` | 10 | Keep burst allowance; cannot solve sustained overload. |
+| `recording.audio_buffer_seconds` | 100 | Lazy burst allowance, also bounded by the byte budget; cannot solve sustained overload. |
 | `recording.audio_buffer_megabytes` | 128 MB | New accounted queue-memory ceiling, applied alongside the frame bound. At 48 kHz, 28 float32 channels use 53.76 MB for ten seconds of PCM before overhead. Tiny callbacks can reach the memory ceiling first. |
 | `recording.memory_reserve_megabytes` | 200 MB | Keep free-system-memory reserve; independent of queue ceiling. |
 | `recording.memory_check_period` | 1, previously 2 | Check cached reserve state more promptly; probe only outside the callback. |

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from reccy.configuration import settings
 from reccy.protocol import ipc
 from reccy.runtime import logging
+from reccy.runtime.publication import LatestPublisher
 from reccy.services import models
 from threa import Runnable
 
@@ -44,9 +45,13 @@ class ControlRequest:
             self.response = response
             self.ready.set()
 
-    def wait_for_response(
-        self, timeout: float = CONTROL_RESPONSE_TIMEOUT
-    ) -> gui_protocol.Response:
+    def wait_for_response(self, timeout: float | None = None) -> gui_protocol.Response:
+        if timeout is None:
+            timeout = (
+                20.0
+                if isinstance(self.request, gui_protocol.Calibrate)
+                else CONTROL_RESPONSE_TIMEOUT
+            )
         if not self.ready.wait(timeout):
             with self.lock:
                 if self.response is None:
@@ -56,7 +61,14 @@ class ControlRequest:
                         if self.started
                         else 'recs control timed out before execution'
                     )
-                    return gui_protocol.Error(type='error', message=message)
+                    return gui_protocol.Error(
+                        type='error',
+                        message=message,
+                        code=ipc.ErrorCode.deadline_exceeded,
+                        outcome=ipc.Outcome.unknown
+                        if self.started
+                        else ipc.Outcome.not_started,
+                    )
         assert self.response is not None
         return self.response
 
@@ -98,9 +110,12 @@ class DaemonStatusPublisher:
         self.status = status
         self.period = period
         self.last_update: float | None = None
+        self.publisher = LatestPublisher[DaemonStatus](
+            lambda s: _write_status(self.status_path, s), name='DaemonStatus'
+        )
 
     def start(self) -> None:
-        _write_status(self.status_path, self.status())
+        self.publisher.publish(self.status())
         self.last_update = time.monotonic()
 
     def publish(
@@ -111,11 +126,11 @@ class DaemonStatusPublisher:
         now = time.monotonic()
         if self.last_update is not None and now - self.last_update < self.period:
             return
-        _write_status(self.status_path, self.status(rows=rows, errors=errors))
+        self.publisher.publish(self.status(rows=rows, errors=errors))
         self.last_update = now
 
     def publish_error(self, error: str) -> None:
-        _write_status(self.status_path, self.status(gui_ipc_error=error))
+        self.publisher.publish(self.status(gui_ipc_error=error))
 
 
 class DaemonRowPublisher:
@@ -289,6 +304,8 @@ class DaemonGuiServer(Runnable):
             listener.write(message)
             listener.close()
         self.backend.close()
+        if not self.status.publisher.close():
+            LOGGER.warning('Status publication did not finish before shutdown deadline')
         super().stop()
 
     def _accept(self) -> None:
@@ -590,4 +607,4 @@ def daemon_mode_enabled() -> bool:
 
 
 def _write_status(path: Path, status: DaemonStatus) -> None:
-    settings.save(path, status)
+    settings.save(path, status, sync=False)

@@ -2,17 +2,59 @@
 
 Reviewed 2026-11-02. recs revision `6994aae`; sibling reccy revision `9b5f1d4`.
 
-This is a static review, not hardware qualification or proof that every execution
-path is safe. The package inventory and cross-cutting searches covered capture,
+The original review was static, not hardware qualification or proof that every
+execution path is safe. The package inventory and cross-cutting searches covered capture,
 audio, configuration, daemon/API, UI, MIDI/OSC, recording persistence/recovery,
 and offline editing. Detailed inspection concentrated on ownership, blocking,
-persistence, and public error boundaries. No application or tests were run and
+persistence, and public error boundaries. During that review no application or tests were run and
 no implementation was changed. Proposed regressions below are acceptance criteria.
 Sibling reccy is not necessarily the revision installed by recs's lockfile.
 
 Priority: P1 can lose material, hang shutdown, or corrupt results; P2 affects
 reliability, API usability, or substantial efficiency; P3 is maintainability.
 “Confirmed” means visible in the current source, not reproduced on hardware.
+
+## Implementation status
+
+Issues 1–16 have been implemented with the approved policies. Additional work
+beyond the prompt: None. RPC callers in showCo, streamO, lyte, and baccy are part
+of the approved coordinated contract change. The original findings below remain
+as the review record, rather than describing the updated implementation.
+
+| Issues | Resolution |
+| --- | --- |
+| 1 | RMS no longer mutates cached samples; signed 48 kHz WAV regression. |
+| 2 | Cancellable offline backpressure, read-error propagation, stop checks, duration default 100 seconds. The byte limit remains independent. |
+| 3 | Coalesced GUI writer; bounded terminate/kill/reap; no buffered close behind a blocked writer. |
+| 4 | Complete-message receiver isolated from the capture consumer; bounded handoff and terminal errors. |
+| 5 | Each MIDI poll drains only its initial packet budget. |
+| 6 | Expected reccy/filesystem errors handled at CLI and control boundaries; snapshot failures logged independently. |
+| 7 | Journal reads share a contextual error boundary; truncated final records warn and leave recordings open. |
+| 8 | Bounded loss observations with an explicit unlocated coalescing marker. |
+| 9 | Calibration deadlines 20/21 seconds, other commands 5/6; queued cancellation and explicit unknown outcomes for started mutations. |
+| 10 | Shared structured errors, typed exceptions, correlation IDs, conflict errors, coordinated wire version change and error-handling example. |
+| 11 | Waveform worker retained and joined; restart rejected while the prior worker survives. |
+| 12 | Persistent ordered offset manifest, explicit resume, filesystem preflight, interrupted rename/replacement regressions. |
+| 13 | Preroll and recovery deques avoid shifting retained histories. |
+| 14 | Renderer bus/route lookups cached; constant gains use a broadcast scalar owner. Small-channel Python reductions retained after measurement. |
+| 15 | Ownership-aware retained-audio categories, pending-loss/control/transport bounds, independent input queue budget. No process RSS cutoff. |
+| 16 | `settings.save(sync=False)` for atomic health snapshots, published through a bounded optional worker. Default user-settings durability unchanged. |
+
+### Measured efficiency
+
+Local macOS microbenchmarks (not Pi qualification): draining 10,000 retained
+entries took 6.06 ms with list head removal and 0.33 ms with deque. A 48,000-frame
+constant gain owner fell from 192,112 bytes to 100 bytes. Python mean reductions
+on one/two channels took 0.40/0.44 microseconds versus 1.13/1.14 for NumPy;
+Python extrema were also marginally faster there, so those common per-track
+reductions retain their existing integer widening and NaN behavior.
+
+A synthetic 28-channel float32 workload retaining 200 blocks of 4,800 frames
+through two-channel views exposed only 7.68 MB of samples while retaining
+107.55 MB of backing allocations; observed process peak RSS was 151.49 MB.
+This demonstrates why visible slice bytes and input queue limits are not process
+memory limits. The workload wrote a one-second 48 kHz WAV; it did not capture
+hardware or simulate venue storage latency.
 
 ## P1: correctness and liveness
 
@@ -314,4 +356,24 @@ No performance improvement or absence of races is established by this static rev
 
 ## Additional work beyond the prompt
 
-None. This document proposes future fixes; it does not implement them.
+None. Issues 1–16 are implemented; the remaining review suggestions are not part
+of this change.
+
+## Verification of the fixes
+
+- recs: 1,235 tests passed against the updated locked reccy revision; Ruff
+  B/E/F/I, formatting, type checking, pyupgrade, and diff checks passed.
+- reccy: 578 passed, one skipped; formatting, Ruff, and type checks passed.
+- showCo: 946 passed and 84 subtests passed; type check passed.
+- streamO: 395 passed; type check passed.
+- lyte: 568 passed, one skipped, and five subtests passed. The modified panel
+  passes type checking; the full package has an unrelated existing type error
+  at `lyte/rendering.py:121` involving `Composition`'s argument type.
+- baccy: 221 tests passed in an isolated copy of committed code plus these RPC
+  changes. Its existing uncommitted `discovery.py` uses exception syntax that
+  its configured Python 3.13 cannot parse; that user change was preserved.
+  The modified service module passes type checking.
+
+No live recording, GUI application, service deployment, audio device, or
+four-hour venue qualification was run. The tests use fixtures and simulated
+failures. The remaining audit suggestions after issue 16 are unchanged in scope.

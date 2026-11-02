@@ -66,7 +66,13 @@ def preflight() -> list[PreflightCheck]:
                 paths.external_control_endpoint(platform=platform),
                 role='preflight',
             ).call('status_snapshot')
-        except (BrokenPipeError, ConnectionError, OSError, TimeoutError) as error:
+        except (
+            rpc.RemoteError,
+            BrokenPipeError,
+            ConnectionError,
+            OSError,
+            TimeoutError,
+        ) as error:
             ownership = PreflightCheck(
                 name='ownership',
                 passed=False,

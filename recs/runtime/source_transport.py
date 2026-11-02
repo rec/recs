@@ -3,8 +3,10 @@ from collections import deque
 from collections.abc import Callable
 from multiprocessing.connection import Connection
 from pathlib import Path
+from queue import Empty, Full, Queue
 from time import monotonic
 
+from recs.base.errors import RecsError
 from recs.base.waveform import (
     WaveformBatchData,
 )
@@ -48,15 +50,21 @@ class SourceControlHandler:
         self.set_tracks = set_tracks
         self.set_waveforms_enabled = set_waveforms_enabled
         self.set_writing_enabled = set_writing_enabled
+        self.pending: Queue[SourceControl] = Queue(maxsize=64)
+        self.stopped = threading.Event()
+        self.error: OSError | EOFError | ValueError | None = None
+        self.thread = threading.Thread(
+            target=self._read, daemon=True, name='SourceControls'
+        )
 
     def receive(self) -> None:
-        while self.connection.poll():
+        if self.thread.ident is None and not self.stopped.is_set():
+            self.thread.start()
+        for _ in range(self.pending.qsize()):
             try:
-                message = self.connection.recv()
-            except (EOFError, OSError):
-                return
-            if not isinstance(message, SourceControl):
-                continue
+                message = self.pending.get_nowait()
+            except Empty:
+                break
             if message.cfg is not None:
                 self.set_cfg(message.cfg, message.cfg_revision)
             if message.session_directory is not None:
@@ -73,6 +81,37 @@ class SourceControlHandler:
                 self.set_writing_enabled(
                     message.writing_enabled, message.recovery_failover
                 )
+
+        if self.error is not None:
+            raise RecsError(
+                f'Source control connection failed ({type(self.error).__name__}): '
+                f'{self.error}'
+            ) from self.error
+
+    def close(self) -> None:
+        self.stopped.set()
+        # A partial recv may remain blocked until the peer closes. It must not
+        # delay capture cleanup; this daemon thread dies with the source process.
+        if self.thread.ident is not None:
+            self.thread.join(0.1)
+
+    def _read(self) -> None:
+        try:
+            while not self.stopped.is_set():
+                if not self.connection.poll():
+                    self.stopped.wait(0.01)
+                    continue
+                message = self.connection.recv()
+                if not isinstance(message, SourceControl):
+                    raise ValueError('Expected a source control message')
+                while not self.stopped.is_set():
+                    try:
+                        self.pending.put(message, timeout=0.05)
+                        break
+                    except Full:
+                        continue
+        except (OSError, EOFError, ValueError) as error:
+            self.error = error
 
 
 class SourceUpdateTransport:
@@ -182,6 +221,7 @@ class SourceUpdateTransport:
         return message._replace(
             buffer_stats=stats.model_copy(
                 update={
+                    'pending_transport_events': len(self.events),
                     'source_update_age_seconds': age,
                     'max_source_update_age_seconds': self.max_message_age_seconds,
                     'max_source_update_send_seconds': self.max_send_seconds,

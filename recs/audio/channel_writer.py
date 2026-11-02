@@ -1,6 +1,7 @@
 import contextlib
 import math
 import time
+from collections import deque
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from functools import partial
@@ -15,6 +16,7 @@ from ufor.encoding import Format
 from ufor.recording import AudioSpan
 from ufor.time import TickRange
 
+from recs.base.memory import array_owners_bytes
 from recs.base.state import ChannelState
 from recs.base.types import SDTYPE, Active, SdType
 from recs.cfg import path_pattern, time_settings, track_names
@@ -100,7 +102,7 @@ class ChannelWriter(Runnable):
         self.track_names: SourceTrackNames = {}
 
         self._blocks = Blocks[TimedBlock]()
-        self._recovery_blocks: list[TimedBlock] = []
+        self._recovery_blocks: deque[TimedBlock] = deque()
         self._recovery_frames = 0
         self._last_flush_time: float | None = None
         self._frames_since_flush = 0
@@ -471,6 +473,14 @@ class ChannelWriter(Runnable):
             self._frames_since_flush += len(b)
             self._flush_if_due()
 
+    def retained_audio_bytes(self) -> dict[str, int]:
+        return {
+            'preroll_and_quiet': array_owners_bytes(
+                b.block for b in self._blocks.blocks
+            ),
+            'recovery': array_owners_bytes(b.block for b in self._recovery_blocks),
+        }
+
     def _remember_recovery_block(self, block: TimedBlock) -> None:
         limit = math.ceil(
             (self.cfg.recording.flush_time + self.cfg.recording.flush_overlap_time)
@@ -491,7 +501,7 @@ class ChannelWriter(Runnable):
             first = self._recovery_blocks[0]
             excess = self._recovery_frames - limit
             if excess >= len(first):
-                self._recovery_blocks.pop(0)
+                self._recovery_blocks.popleft()
                 self._recovery_frames -= len(first)
             else:
                 self._recovery_blocks[0] = TimedBlock(

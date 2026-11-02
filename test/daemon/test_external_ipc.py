@@ -184,7 +184,10 @@ def test_external_response_preserves_track_names_conflict() -> None:
         ),
     )
 
-    assert result == {
+    assert isinstance(result, ipc.Error)
+    assert result.code == ipc.ErrorCode.conflict
+    assert result.outcome == ipc.Outcome.not_started
+    assert result.details == {
         'type': 'track_names_conflict',
         'message': 'Track names changed since they were read',
     }
@@ -562,3 +565,54 @@ def _waveform_batch(sequence: int) -> WaveformBatchData:
             )
         ],
     )
+
+
+@pytest.mark.parametrize('started', [False, True])
+def test_cancelled_request_reports_whether_execution_may_have_started(
+    started: bool,
+) -> None:
+    disconnected = threading.Event()
+    control = external_ipc.ControlRequest(
+        rpc.Request(command='new_session'), disconnected
+    )
+    if started:
+        assert control.start()
+    disconnected.set()
+    result = control.wait(0)
+    assert isinstance(result, ipc.Error)
+    assert result.code == ipc.ErrorCode.cancelled
+    assert result.outcome == (
+        ipc.Outcome.unknown if started else ipc.Outcome.not_started
+    )
+    if not started:
+        assert not control.start()
+
+
+def test_restart_refuses_to_reuse_events_while_old_waveform_worker_survives(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from recs.base.errors import RecsError
+
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+
+    def blocked(server: external_ipc.ExternalServer) -> None:
+        entered.set()
+        release.wait(3)
+        finished.set()
+
+    monkeypatch.setattr(external_ipc.rpc, 'Server', FakeRpcServer)
+    monkeypatch.setattr(
+        external_ipc.ExternalServer, '_publish_waveform_events', blocked
+    )
+    server = external_ipc.ExternalServer(home=Path.home())
+    try:
+        server.start()
+        assert entered.wait(1)
+        server.close()
+        with pytest.raises(RecsError, match='Previous waveform worker'):
+            server.start()
+    finally:
+        release.set()
+    assert finished.wait(1)
+    server.start()
+    server.close()

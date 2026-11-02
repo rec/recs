@@ -120,3 +120,19 @@ def test_byte_budget_drops_audio_but_retains_unknown_loss_boundary() -> None:
     assert buffer.stats.callback_count == 1
     assert buffer.stats.received_frames == 48_000
     assert buffer.stats.callback_frame_histogram == {'32768-65535': 1}
+
+
+def test_repeated_overflow_has_bounded_honest_loss_evidence(tmp_path: Path) -> None:
+    from recs.runtime.input_buffer import MAX_PENDING_LOSSES
+
+    path = tmp_path / 'overflow.wav'
+    soundfile.write(path, np.zeros(48_000), 48_000)
+    samples, _ = soundfile.read(path, dtype='float32', always_2d=True)
+    buffer = InputBuffer(Cfg(audio_buffer_seconds=0.1), 48_000)
+    for tick in range(MAX_PENDING_LOSSES * 3):
+        buffer.put(Update(samples[:1], tick / 48_000, 'input overflow'))
+    losses = buffer.take_unknown_losses()
+    assert len(losses) == MAX_PENDING_LOSSES
+    assert losses[0] == (0, 0)
+    assert losses[-1][0] is None
+    assert buffer.take_unknown_losses() == []

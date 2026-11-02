@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
+import soundfile
 
 from recs.audio.block import Block
 
@@ -67,3 +70,21 @@ def test_rms2():
     print(b, b.asfloat)
     level = 1 / 6**0.5
     assert np.allclose(b.rms, [level, level])
+
+
+@pytest.mark.parametrize('first', [True, False])
+def test_rms_preserves_cached_integer_conversion(tmp_path: Path, first: bool) -> None:
+    samples = np.tile(np.array([-16384, 0, 16384], dtype=np.int16), 16000)
+    path = tmp_path / 'integer.wav'
+    soundfile.write(path, samples, 48000, subtype='PCM_16')
+    samples, rate = soundfile.read(path, dtype='int16', always_2d=True)
+    block = Block(block=samples)
+    if first:
+        assert np.allclose(block.rms, np.sqrt(1 / 6))
+    expected = samples.astype(np.float32) / 32768
+    np.testing.assert_array_equal(block.asfloat.block, expected)
+    assert np.allclose(block.rms, np.sqrt(1 / 6))
+    np.testing.assert_array_equal(block.asfloat.block, expected)
+    soundfile.write(
+        tmp_path / 'converted.wav', block.asfloat.block, rate, subtype='FLOAT'
+    )

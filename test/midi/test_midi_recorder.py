@@ -426,3 +426,27 @@ def test_session_close_saves_queued_midi(tmp_path: Path, stop: bool) -> None:
     assert event.data == [128, 60, 64]
     if not stop:
         capture.stop()
+
+
+def test_midi_poll_returns_when_producer_continuously_replenishes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(mido, 'open_input', lambda name, callback: FakePort())
+    port = recorder.CallbackPort('keys')
+    message = mido.Message('note_on', note=60)
+    port.capture(message)
+    get = port.packets.get_nowait
+    count = 0
+
+    def replenished() -> MidiPacket:
+        nonlocal count
+        count += 1
+        assert count < 100, 'poll did not yield to the owner'
+        packet = get()
+        port.capture(message)
+        return packet
+
+    monkeypatch.setattr(port.packets, 'get_nowait', replenished)
+    assert len(port.iter_pending()) == 1
+    assert len(port.iter_pending()) == 1
+    port.close()

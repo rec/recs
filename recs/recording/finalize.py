@@ -9,6 +9,7 @@ import soundfile
 import tyro
 from pydantic import BaseModel, ValidationError
 from reccy.configuration.settings import write_text_atomically
+from reccy.runtime import logging
 from ufor.assets import Asset
 from ufor.codec import score_toml
 from ufor.recording import (
@@ -33,6 +34,8 @@ from . import session_record
 from .files import asset_content, asset_path, sealed_asset, verify_events
 from .losses import preserve_audio_losses
 from .read import read_recording
+
+LOGGER = logging.get_logger(__name__)
 
 
 class FinalizeSession(BaseModel, frozen=True):
@@ -69,6 +72,8 @@ def read_capture_entries(
         )
     if not entries or not isinstance(entries[0], session_record.SessionHeader):
         raise RecsError('Recording finalization requires a session header')
+    for note in notes:
+        LOGGER.warning('%s: %s', journal, note)
     return entries, notes
 
 

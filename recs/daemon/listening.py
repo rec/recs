@@ -88,7 +88,7 @@ class ListeningWatcher:
                     self.state = listening
                     self.last_snapshot = time.monotonic()
                     self.emit(listening)
-        except (OSError, ValueError) as error:
+        except (rpc.RemoteError, OSError, ValueError) as error:
             with self.lock:
                 self.dirty = True
                 self.emit(None)

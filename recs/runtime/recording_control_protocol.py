@@ -1,7 +1,8 @@
 from collections.abc import Callable
 from typing import Protocol
 
-from pydantic import ValidationError
+from reccy.errors import ReccyError
+from reccy.protocol import rpc
 
 from recs.base.errors import ErrorRecord, RecsError
 from recs.cfg.cfg import Cfg
@@ -147,7 +148,7 @@ class RecordingControlProtocol:
                         'Audio subscriptions require the external control endpoint'
                     )
                 response = self.handle(request.request)
-            except RecsError as error:
+            except (RecsError, ReccyError, OSError) as error:
                 response = gui_protocol.Error(type='error', message=str(error))
             request.respond(response)
         if external is None:
@@ -172,9 +173,26 @@ class RecordingControlProtocol:
                     self.control.set_waveforms_enabled(active)
                 else:
                     response = self.handle(parsed)
-            except (RecsError, ValidationError) as error:
+            except (
+                RecsError,
+                ReccyError,
+                OSError,
+                AssertionError,
+                ImportError,
+                AttributeError,
+                LookupError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                ArithmeticError,
+            ) as error:
                 warning(f'External Recs protocol error: {error}')
-                response = gui_protocol.Error(type='error', message=str(error))
+                if isinstance(error, RecsError):
+                    result = rpc.error_response(ReccyError(str(error)))
+                else:
+                    result = rpc.error_response(error)
+                external.respond(request, result)
+                continue
             external.respond(request, external_ipc.response(request.request, response))
 
     def publish(

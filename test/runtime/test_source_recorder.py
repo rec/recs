@@ -336,7 +336,13 @@ def test_source_recorder_runs_control_updates_without_audio(
     )
 
     assert recorder.cfg.recording.record_everything is False
+    set_cfg = recorder.control.handler.set_cfg
 
+    def apply_cfg(cfg: Cfg, revision: int | None) -> None:
+        set_cfg(cfg, revision)
+        stop_event.set()
+
+    recorder.control.handler.set_cfg = apply_cfg
     recorder.run()
 
     assert recorder.cfg.recording.record_everything is True
@@ -792,7 +798,6 @@ class OneMessageControlConnection:
     def recv(self) -> object:
         message = self.message
         self.message = None
-        self.stop_event.set()
         return message
 
 

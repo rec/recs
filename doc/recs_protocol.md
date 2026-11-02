@@ -37,8 +37,8 @@ Every control connection carries exactly one request and one response. Create
 a new connection, or call `Client.call()` again, for the next request.
 
 Successful commands return either a JSON object or the string `"ok"`.
-`rpc.Client.call()` returns the decoded value. It raises `ConnectionError` when
-recs returns an error.
+`rpc.Client.call()` returns the decoded value. It raises `rpc.RemoteError` when
+recs returns an error; the exception retains its code, outcome, and details.
 
 ## Command-line client
 
@@ -168,10 +168,10 @@ or network transport.
 
 There are two independent versions:
 
-- `reccy.protocol.rpc.VERSION` is the transport version. It is currently `1` and is
+- `reccy.protocol.rpc.VERSION` is the transport version. It is currently `2` and is
   exchanged during every connection handshake.
 - `recs.daemon.gui_protocol.VERSION` is the recs payload version. It is
-  currently `11` and is returned by `capabilities`.
+  currently `12` and is returned by `capabilities`.
 
 A client normally does not need to import either constant because
 `reccy.protocol.rpc.Client` handles the transport handshake and `capabilities` reports
@@ -193,7 +193,7 @@ response return the JSON string `"ok"`.
 | `get_cfg` | `address: str` | `cfg_value` |
 | `set_cfg` | `address: str`, `value` | `"ok"` |
 | `get_track_names` | none | `track_names` |
-| `set_track_names` | `track_names: object`, optional `expected_track_names: object` | `"ok"` or `track_names_conflict` |
+| `set_track_names` | `track_names: object`, optional `expected_track_names: object` | `"ok"` or a `conflict` error |
 | `set_tracks` | `source: str`, `tracks: list` | `"ok"` |
 | `set_noise_floor` | `source: str`, `channel: int`, `noise_floor: float | null` | `"ok"` |
 | `set_key_label` | `key: str`, `label: str` | `"ok"` |
@@ -229,7 +229,7 @@ Call this first when a client needs to adapt to different recs versions:
 {
   "type": "capabilities_result",
   "commands": ["calibrate", "capabilities", "disk_status"],
-  "version": 11
+  "version": 12
 }
 ```
 
@@ -423,7 +423,8 @@ is the track's first channel. `get_track_names` returns this object inside a
 `track_names` response. `set_track_names` replaces the complete mapping.
 When `expected_track_names` is supplied, recs compares it with the current
 complete mapping before changing anything. A mismatch returns
-`{"type":"track_names_conflict","message":"Track names changed since they were read"}`.
+`rpc.RemoteError` with code `conflict`, outcome `not_started`, and the
+track-name conflict object in `error.details`.
 Omitting the field retains the unconditional update behavior. A caller that
 edits one source must still send the complete map in both fields.
 
@@ -932,25 +933,52 @@ then the reccy lifecycle publishes one `stopped` event.
 Errors use this wire shape:
 
 ```json
-{"type":"error","message":"explanation"}
+{"type":"error","message":"explanation","code":"conflict","outcome":"not_started","details":{},"correlation_id":null}
 ```
 
-`reccy.protocol.rpc.Client` converts this to `ConnectionError(message)`. Raw clients
-must decode it themselves.
+`rpc.RemoteError.error` retains this model. Codes include `invalid_request`,
+`rejected`, `not_found`, `conflict`, `busy`, `cancelled`, `deadline_exceeded`, and
+`internal_error`. Track-name revision conflicts are errors with conflict details,
+not successful results. Unexpected defects are logged with a correlation ID;
+the response does not expose their traceback or internal message.
 
-Only one control request may be awaiting the recs recorder at a time. A second
-request receives `recs already has an active control client`.
+Only one control request may be awaiting the recorder at a time. An executing
+request retains that slot after a timeout until execution actually finishes.
+Other requests receive `busy` with outcome `not_started`.
 
-recs waits at most five seconds for the recorder loop to answer an external
-request. The reccy client has its own timeout, which defaults to one second;
-choose a timeout appropriate for the command. A client timeout closes only the
-client connection and does not cancel a command that the recorder has already
-received.
+Ordinary commands have a five-second recorder deadline and the CLI waits six
+seconds. Calibration can wait fifteen seconds internally; its recorder deadline
+is twenty seconds and its CLI deadline is twenty-one seconds. Generic reccy
+clients default to thirty-one seconds. Queued requests are cancelled on deadline
+or client disconnection before execution. Executing requests are not forcibly
+interrupted: their timeout outcome is `unknown`. Never automatically retry a
+mutation after an unknown outcome; inspect state and decide explicitly.
 
-The current calibration implementation can wait up to 15 seconds internally,
-which is longer than the external five-second response limit. A slow
-calibration can therefore return a timeout even though processing continues in
-the recorder. This is a current protocol limitation.
+```python
+from reccy.protocol import ipc, rpc
+from recs.daemon import paths
+
+client = rpc.Client(paths.external_control_endpoint(), timeout=21)
+try:
+    result = client.call('calibrate')
+except rpc.RemoteError as error:
+    failure = error.error
+    print(failure.code, failure.outcome, failure.message)
+    if failure.code == ipc.ErrorCode.conflict:
+        print(failure.details)
+except (rpc.RequestTimeout, rpc.TransportError) as error:
+    print(error.outcome, str(error))
+    # unknown: reconnect to inspect state, never blindly repeat this mutation.
+else:
+    print(result)
+```
+
+`not_started` means this request did not execute. `unknown` conservatively means
+its effects are not established, including failures during execution. Connection
+failure before sending a request is `not_started`. Malformed/closed responses
+after sending are `unknown`. These exception branches cover expected RPC failures;
+programming errors remain visible. Upgrade all local clients and servers together
+for RPC version 2 and recs payload version 12.
 
 The reccy transport allows at most 64 KiB in one request and requires the
 version handshake to complete within one second.
@@ -961,8 +989,8 @@ The transport is newline-delimited JSON. A raw control client performs this
 exchange:
 
 1. Connect to the control endpoint.
-2. Send `{"type":"hello","role":"my-client","version":1}`.
-3. Receive `{"type":"hello","role":"recs","version":1}`.
+2. Send `{"type":"hello","role":"my-client","version":2}`.
+3. Receive `{"type":"hello","role":"recs","version":2}`.
 4. Send one request.
 5. Receive one result or error.
 6. Observe the server closing the connection.

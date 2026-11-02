@@ -1,6 +1,7 @@
 import json
 import subprocess as sp
 from io import StringIO
+from threading import Event
 from typing import Any
 
 from recs.cfg.cfg import Cfg
@@ -35,6 +36,7 @@ def test_gui_process_writes_rows_to_subprocess_stdin(
     assert processes[0].kwargs['stdout'] == sp.PIPE
     assert processes[0].kwargs['text'] is True
     assert processes[0].kwargs['env']['RECS_GUI_REFRESH_RATE'] == '12.0'
+    assert processes[0].stdin.flushed.wait(1)
     assert json.loads(processes[0].stdin.text) == {
         'rows': [
             {'time': 1},
@@ -63,6 +65,7 @@ def test_gui_process_writes_errors_to_subprocess_stdin(
     )
     display.start()
 
+    assert processes[0].stdin.flushed.wait(1)
     assert json.loads(processes[0].stdin.text) == {
         'rows': [],
         'errors': ['Device Mic failed'],
@@ -105,6 +108,7 @@ def test_gui_process_closes_stdin_on_stop(
     display = gui_process.GuiProcess(lambda: iter([{'time': 1}]), Cfg(gui=True))
     display.start()
     display.stop()
+    display.join()
 
     assert processes[0].stdin.closed
 
@@ -172,6 +176,7 @@ class FakeStdin:
         self.text = ''
         self.closed = False
         self.close_on_write = False
+        self.flushed = Event()
 
     def write(self, text: str) -> int:
         if self.close_on_write:
@@ -183,7 +188,7 @@ class FakeStdin:
         return len(text)
 
     def flush(self) -> None:
-        pass
+        self.flushed.set()
 
     def close(self) -> None:
         self.closed = True
@@ -208,3 +213,51 @@ class FakeProcess:
     def terminate(self) -> None:
         self.terminated = True
         self.returncode = -15
+
+
+def test_wedged_gui_cannot_block_updates_or_shutdown(monkeypatch: Any) -> None:
+    from time import monotonic
+
+    entered, released = Event(), Event()
+
+    class BlockedStdin(FakeStdin):
+        def write(self, text: str) -> int:
+            entered.set()
+            assert released.wait(2)
+            return super().write(text)
+
+    class WedgedProcess(FakeProcess):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stdin = BlockedStdin()
+            self.killed = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def wait(self, timeout: float | None = None) -> int:
+            if not self.killed:
+                raise sp.TimeoutExpired('wedged-gui', timeout)
+            return 0
+
+        def kill(self) -> None:
+            self.killed = True
+            self.returncode = -9
+            released.set()
+
+    process = WedgedProcess()
+    monkeypatch.setattr(gui_process.sp, 'Popen', lambda *a, **k: process)
+    display = gui_process.GuiProcess(lambda: iter([{'time': 1}]), Cfg(gui=True))
+    try:
+        display.start()
+        assert entered.wait(1)
+        started = monotonic()
+        for _ in range(100):
+            display.update()
+        display.stop()
+        display.join(0.05)
+        assert monotonic() - started < 0.5
+        assert process.killed
+        assert process.stdin.closed
+    finally:
+        released.set()

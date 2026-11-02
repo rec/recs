@@ -135,7 +135,7 @@ def save(
     )
     path = _mutable_settings_path(project_name, daemon)
     try:
-        settings.save(path, saved_settings)
+        settings.save(path, saved_settings, write_empty_dicts=True)
     except ReccyError as e:
         raise RecsError(f'Could not save settings to {path}: {e}') from None
 

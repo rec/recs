@@ -391,11 +391,12 @@ class CallbackPort:
 
     def iter_pending(self) -> list[MidiPacket]:
         packets: list[MidiPacket] = []
-        while True:
+        for _ in range(self.packets.qsize()):
             try:
                 packets.append(self.packets.get_nowait())
             except Empty:
-                return packets
+                break
+        return packets
 
     def close(self) -> None:
         self.port.close()

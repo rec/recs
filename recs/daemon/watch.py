@@ -133,6 +133,7 @@ def watch(
         if not watcher.done.is_set():
             raise ConnectionError(f'Recs event stream closed: {events.terminal_reason}')
     except (
+        rpc.RemoteError,
         BrokenPipeError,
         ConnectionError,
         OSError,

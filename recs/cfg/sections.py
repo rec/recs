@@ -444,7 +444,7 @@ class Recording(BaseModel):
         tyro.conf.arg(
             help='Seconds of audio to buffer before dropping delayed callbacks'
         ),
-    ] = 10.0
+    ] = 100.0
 
     memory_reserve_megabytes: Annotated[
         units.Megabytes,

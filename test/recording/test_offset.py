@@ -249,7 +249,7 @@ def test_io_failure_retains_original_media_and_journal(
         return rename(self, target)
 
     monkeypatch.setattr(Path, 'rename', fail_media_move)
-    with pytest.raises(RecsError, match='retained files in'):
+    with pytest.raises(RecsError, match='resume with recs offset'):
         offset_sessions(tmp_path, 60)
 
     staging = next(tmp_path.glob('recs-offset-*'))
@@ -270,3 +270,62 @@ def test_named_session_and_native_event_payload_are_preserved(tmp_path: Path) ->
 
     assert (payload.parent / 'keyboard-20260101-000000.jsonl').read_bytes() == original
     verify_recording(read_recording(named / 'recording.toml'), named)
+
+
+@pytest.mark.parametrize('move_number', range(1, 5))
+def test_resume_after_move_before_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, move_number: int
+) -> None:
+    from recs.recording.offset import resume_offset
+
+    session = make_session(tmp_path, '2025-12-31T23:59:00Z')
+    media = next(session.rglob('*.wav')).read_bytes()
+    rename = Path.rename
+    moves = 0
+
+    def interrupted(source: Path, target: Path) -> Path:
+        nonlocal moves
+        result = rename(source, target)
+        moves += 1
+        if moves == move_number:
+            raise OSError('lost checkpoint after successful rename')
+        return result
+
+    monkeypatch.setattr(Path, 'rename', interrupted)
+    with pytest.raises(RecsError, match='resume with recs offset'):
+        offset_sessions(tmp_path, 60)
+    monkeypatch.setattr(Path, 'rename', rename)
+    manifest = next(tmp_path.glob('recs-offset-*/offset.json'))
+    changes = resume_offset(manifest)
+    assert resume_offset(manifest) == changes
+    destination = changes[0][1]
+    assert next(destination.rglob('*.wav')).read_bytes() == media
+    assert not read_entries(destination / 'session-record.jsonl')[1]
+
+
+def test_resume_after_metadata_replace_before_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from recs.recording.offset import resume_offset
+
+    session = make_session(tmp_path, '2025-12-31T23:59:00Z')
+    media = next(session.rglob('*.wav')).read_bytes()
+    replace = Path.replace
+    failed = False
+
+    def interrupted(source: Path, target: Path) -> Path:
+        nonlocal failed
+        result = replace(source, target)
+        if source.suffix == '.replacement' and not failed:
+            failed = True
+            raise OSError('lost checkpoint after replacing metadata')
+        return result
+
+    monkeypatch.setattr(Path, 'replace', interrupted)
+    with pytest.raises(RecsError, match='resume with recs offset'):
+        offset_sessions(tmp_path, 60)
+    monkeypatch.setattr(Path, 'replace', replace)
+    manifest = next(tmp_path.glob('recs-offset-*/offset.json'))
+    destination = resume_offset(manifest)[0][1]
+    assert next(destination.rglob('*.wav')).read_bytes() == media
+    assert read_recording(destination).body.state == 'sealed'

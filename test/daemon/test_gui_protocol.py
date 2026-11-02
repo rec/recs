@@ -71,6 +71,10 @@ class RecsProtocolTests(unittest.TestCase):
             [
                 {
                     'type': 'error',
+                    'code': 'rejected',
+                    'outcome': 'unknown',
+                    'details': {},
+                    'correlation_id': None,
                     'message': 'GUI hello required before other messages',
                 }
             ],
@@ -88,6 +92,10 @@ class RecsProtocolTests(unittest.TestCase):
             [
                 {
                     'type': 'error',
+                    'code': 'rejected',
+                    'outcome': 'unknown',
+                    'details': {},
+                    'correlation_id': None,
                     'message': (
                         'GUI protocol version 1 is not supported; daemon requires '
                         f'{gui_protocol.VERSION}'

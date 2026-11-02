@@ -29,6 +29,11 @@ class Renderer:
             for k, v in sources.items()
         }
         self.graph = graph
+        self.buses = {b.name: b for b in edit.body.buses}
+        self.routes = {
+            b.name: [r for r in edit.body.routes if r.destination == b.name]
+            for b in edit.body.buses
+        }
         source_width = max(
             (s.storage.channels for s in self.sources.values()), default=0
         )
@@ -139,15 +144,12 @@ class Renderer:
             parts[clip.track][left - start : right - start] += (
                 samples * gains[:, np.newaxis]
             )
-        buses = {b.name: b for b in self.edit.body.buses}
         for bus_id in self.graph.bus_order:
-            bus = buses[bus_id]
+            bus = self.buses[bus_id]
             block = materialized.allocate_audio(
                 frames, len(bus.stream.channels), f'bus {bus.name}'
             )
-            for route in self.edit.body.routes:
-                if route.destination != bus_id:
-                    continue
+            for route in self.routes[bus_id]:
                 gains = gain_values(
                     automation.get(
                         ArrangementGainTarget(

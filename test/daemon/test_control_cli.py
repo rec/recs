@@ -135,7 +135,7 @@ def test_control_commands_send_one_rpc_request(
     client = FakeClient.clients[0]
     assert client.endpoint == str(Path.home() / 'recs.sock')
     assert client.role == 'recs-control'
-    assert client.timeout == 6
+    assert client.timeout == (21 if rpc_command == 'calibrate' else 6)
     assert client.calls == [(rpc_command, params)]
     assert capsys.readouterr().out == '"ok"\n'
 

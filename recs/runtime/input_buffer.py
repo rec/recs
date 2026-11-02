@@ -9,9 +9,12 @@ from typing import NamedTuple
 import numpy as np
 
 from recs.base import memory
+from recs.base.errors import RecsError
 from recs.cfg.cfg import Cfg
 from recs.cfg.source import Update
 from recs.runtime.source_messages import BufferStats
+
+MAX_PENDING_LOSSES = 1024
 
 
 class BufferedUpdate(NamedTuple):
@@ -50,7 +53,7 @@ class InputBuffer:
         self.dropped_byte_limit_frames = 0
         self.dropped_memory_frames = 0
         self.last_drop_timestamp = 0.0
-        self.unknown_losses: list[tuple[int, float]] = []
+        self.unknown_losses: list[tuple[int | None, float]] = []
         self.queued_frames = 0
         self.capacity_frames = max(
             1, round(cfg.recording.audio_buffer_seconds * samplerate)
@@ -67,6 +70,7 @@ class InputBuffer:
     def stats(self) -> BufferStats:
         with self.available:
             values = dict(
+                pending_loss_records=len(self.unknown_losses),
                 callback_count=self.callback_count,
                 callback_frames_min=self.callback_frames_min,
                 callback_frames_max=self.callback_frames_max,
@@ -96,30 +100,20 @@ class InputBuffer:
             )
         return BufferStats.model_validate(values)
 
-    def take_unknown_losses(self) -> list[tuple[int, float]]:
+    def take_unknown_losses(self) -> list[tuple[int | None, float]]:
         with self.available:
             result, self.unknown_losses = self.unknown_losses, []
         return result
 
-    def put(self, update: Update) -> None:
+    def put(
+        self, update: Update, *, cancelled: Callable[[], bool] | None = None
+    ) -> None:
         started = perf_counter()
         frames = len(update.array)
         if not frames:
             return
         start_frame = self.timeline_frames
-        self.timeline_frames += frames
-        if 'input overflow' in update.status:
-            with self.available:
-                self.unknown_losses.append((start_frame, update.timestamp))
-        if self.memory_low:
-            with self.available:
-                self.dropped_memory_frames += frames
-                self._drop(update, frames)
-                self._record_callback(frames, started, update.copy_seconds)
-            return
-        buffered = BufferedUpdate(update, start_frame, self.timeline_frames)
-        if self.forward_audio is not None:
-            self.forward_audio(buffered)
+        buffered = BufferedUpdate(update, start_frame, start_frame + frames)
         array = update.array
         owner = array
         while isinstance(owner.base, np.ndarray):
@@ -141,6 +135,39 @@ class InputBuffer:
         )
         with self.available:
             added = overhead + (0 if owner_id in self.owners else owner_size)
+            if cancelled is not None:
+                if (
+                    frames > self.capacity_frames
+                    or overhead + owner_size > self.capacity_bytes
+                ):
+                    raise RecsError(
+                        'File input block exceeds the configured buffer capacity'
+                    )
+                while True:
+                    if cancelled():
+                        return
+                    self.check_memory()
+                    added = overhead + (0 if owner_id in self.owners else owner_size)
+                    if (
+                        not self.memory_low
+                        and self.queued_frames + frames <= self.capacity_frames
+                        and self.queued_memory_bytes + added <= self.capacity_bytes
+                    ):
+                        break
+                    self.available.wait(0.05)
+            self.timeline_frames += frames
+            if 'input overflow' in update.status:
+                if len(self.unknown_losses) < MAX_PENDING_LOSSES:
+                    self.unknown_losses.append((start_frame, update.timestamp))
+                else:
+                    self.unknown_losses[-1] = (None, update.timestamp)
+            if self.memory_low:
+                self.dropped_memory_frames += frames
+                self._drop(update, frames)
+                self._record_callback(frames, started, update.copy_seconds)
+                return
+            if self.forward_audio is not None:
+                self.forward_audio(buffered)
             byte_limit = self.queued_memory_bytes + added > self.capacity_bytes
             if self.queued_frames + frames > self.capacity_frames or byte_limit:
                 if byte_limit:
@@ -236,6 +263,7 @@ class InputBuffer:
         return result
 
     def _release(self, entry: QueuedUpdate) -> None:
+        self.available.notify_all()
         count, size = self.owners[entry.owner]
         self.queued_memory_bytes -= entry.overhead
         if count == 1:

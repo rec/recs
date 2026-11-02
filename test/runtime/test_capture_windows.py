@@ -110,12 +110,18 @@ def record_partitioned(
             processing_batch_seconds=batch_seconds,
             total_run_time=total_run_time,
         ),
-        QuietControl(interrupt=shutdown == 'interrupt'),
+        QuietControl(),
         directory,
         stop,
         [Track(source, '1'), Track(source, '2')],
         SourceUpdateTransport(QuietControl()),
     )
+    if shutdown == 'interrupt':
+
+        def interrupt() -> None:
+            raise KeyboardInterrupt
+
+        recorder.control.receive = interrupt
     recorder.run()
     return recorder, samples
 

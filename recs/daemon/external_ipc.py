@@ -4,6 +4,7 @@ import os
 import threading
 from collections import deque
 from pathlib import Path
+from time import monotonic
 
 from pydantic import PrivateAttr, TypeAdapter
 from reccy.protocol import ipc, rpc
@@ -24,17 +25,20 @@ PUBLIC_REQUEST = TypeAdapter(
 
 
 class ControlRequest:
-    def __init__(self, request: rpc.Request) -> None:
+    def __init__(
+        self, request: rpc.Request, disconnected: threading.Event | None = None
+    ) -> None:
         self.request = request
         self.response: rpc.Result | None = None
         self.ready = threading.Event()
         self.lock = threading.Lock()
         self.started = False
         self.cancelled = False
+        self.disconnected = disconnected or threading.Event()
 
     def start(self) -> bool:
         with self.lock:
-            if self.cancelled:
+            if self.cancelled or self.disconnected.is_set():
                 return False
             self.started = True
             return True
@@ -45,16 +49,25 @@ class ControlRequest:
             self.ready.set()
 
     def wait(self, timeout: float = EXTERNAL_RESPONSE_TIMEOUT) -> rpc.Result:
-        if not self.ready.wait(timeout):
-            with self.lock:
-                if self.response is None:
-                    self.cancelled = not self.started
-                    message = (
-                        'recs control timed out; outcome unknown'
-                        if self.started
-                        else 'recs control timed out before execution'
-                    )
-                    return ipc.Error(type='error', message=message)
+        deadline = monotonic() + timeout
+        while not self.ready.is_set():
+            if self.disconnected.is_set() or monotonic() >= deadline:
+                with self.lock:
+                    if self.response is None:
+                        self.cancelled = not self.started
+                        return ipc.Error(
+                            type='error',
+                            code=ipc.ErrorCode.cancelled
+                            if self.disconnected.is_set()
+                            else ipc.ErrorCode.deadline_exceeded,
+                            outcome=ipc.Outcome.unknown
+                            if self.started
+                            else ipc.Outcome.not_started,
+                            message='recs control timed out; outcome unknown'
+                            if self.started
+                            else 'recs control timed out before execution',
+                        )
+            self.ready.wait(min(0.05, max(0, deadline - monotonic())))
         assert self.response is not None
         return self.response
 
@@ -79,6 +92,8 @@ class ExternalServer(Reccy):
     _waveform_available: threading.Event = PrivateAttr(default_factory=threading.Event)
     _waveform_stopped: threading.Event = PrivateAttr(default_factory=threading.Event)
 
+    _waveform_thread: threading.Thread | None = PrivateAttr(default=None)
+
     @property
     def control_endpoint(self) -> Path | str:
         if self.control_path is not None:
@@ -92,6 +107,9 @@ class ExternalServer(Reccy):
         return paths.external_event_endpoint(self.home, self.platform)
 
     def start(self) -> None:
+        if self._waveform_thread is not None and self._waveform_thread.is_alive():
+            raise RecsError('Previous waveform worker is still running')
+        self._shutdown_events.clear()
         try:
             super().start()
         except OSError:
@@ -100,11 +118,12 @@ class ExternalServer(Reccy):
                 object.__setattr__(self, '_rpc_server', None)
             raise
         self._waveform_stopped.clear()
-        threading.Thread(
+        self._waveform_thread = threading.Thread(
             target=self._publish_waveform_events,
             daemon=True,
             name='RecsWaveforms',
-        ).start()
+        )
+        self._waveform_thread.start()
 
     def take_requests(self) -> list[ControlRequest]:
         with self._lock:
@@ -188,8 +207,13 @@ class ExternalServer(Reccy):
                     type='error', message='Audio control endpoint is unavailable'
                 )
         if cancelled.is_set():
-            return ipc.Error(type='error', message='recs control request was cancelled')
-        control = ControlRequest(request)
+            return ipc.Error(
+                type='error',
+                message='recs control request was cancelled',
+                code=ipc.ErrorCode.cancelled,
+                outcome=ipc.Outcome.not_started,
+            )
+        control = ControlRequest(request, cancelled)
         with self._lock:
             if not self._started:
                 return ipc.Error(type='error', message='recs is shutting down')
@@ -197,11 +221,15 @@ class ExternalServer(Reccy):
                 return ipc.Error(
                     type='error',
                     message='recs already has an active control client',
+                    code=ipc.ErrorCode.busy,
+                    outcome=ipc.Outcome.not_started,
                 )
             self._requests.append(control)
             self._pending.append(control)
-        response = control.wait()
-        if isinstance(response, ipc.Error):
+        response = control.wait(
+            20.0 if request.command == 'calibrate' else EXTERNAL_RESPONSE_TIMEOUT
+        )
+        if isinstance(response, ipc.Error) and control.cancelled:
             with self._lock:
                 if control in self._pending:
                     self._pending.remove(control)
@@ -216,6 +244,8 @@ class ExternalServer(Reccy):
             self._waveforms_active.clear()
             self._waveform_layouts.clear()
             self._waveform_batches.clear()
+        if self._waveform_thread is not None:
+            self._waveform_thread.join(1.0)
         self._publish_shutdown()
         with self._lock:
             requests = self._pending.copy()
@@ -273,9 +303,15 @@ def response(
     value: gui_protocol.Response | gui_protocol.WaveformSubscription,
 ) -> rpc.Result:
     if isinstance(value, gui_protocol.Error):
-        return ipc.Error(type='error', message=value.message)
+        return ipc.Error.model_validate(value.model_dump())
     if isinstance(value, gui_protocol.TrackNamesConflict):
-        return value.model_dump()
+        return ipc.Error(
+            type='error',
+            message='Track names revision conflict',
+            code=ipc.ErrorCode.conflict,
+            outcome=ipc.Outcome.not_started,
+            details=value.model_dump(),
+        )
     if request.command in {
         'subscribe_audio',
         'unsubscribe_audio',

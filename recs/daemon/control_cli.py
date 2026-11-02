@@ -234,9 +234,15 @@ def main(argv: list[str]) -> int:
         result = rpc.Client(
             target.control_endpoint,
             role='recs-control',
-            timeout=6,
+            timeout=21 if command.rpc_command == 'calibrate' else 6,
         ).call(command.rpc_command, **params)
-    except (OSError, TimeoutError, ValidationError, ValueError) as error:
+    except (
+        rpc.RemoteError,
+        OSError,
+        TimeoutError,
+        ValidationError,
+        ValueError,
+    ) as error:
         print(str(error) or type(error).__name__, file=sys.stderr)
         return 1
     if isinstance(command, MusicianList):

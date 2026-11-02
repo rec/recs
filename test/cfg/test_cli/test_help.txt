@@ -148,7 +148,7 @@ readiness inspects a project or configuration without recording; preflight check
   --finalize-on-shutdown, --no-finalize-on-shutdown
         Hash and inspect recordings and write recording.toml at shutdown (default: False)
   --audio-buffer-seconds TIME
-        Seconds of audio to buffer before dropping delayed callbacks (default: 10.0)
+        Seconds of audio to buffer before dropping delayed callbacks (default: 100.0)
   --memory-reserve-megabytes MB
         Free system memory to reserve while buffering audio (default: 200)
   --memory-check-period TIME
@@ -302,20 +302,21 @@ usage: recs mute [-h] [--clear | --no-clear]
 
 
 $ recs offset --help
-usage: recs offset [-h] PATH FLOAT
+usage: recs offset [-h] PATH [{None}|FLOAT] [--resume | --no-resume]
 
 Shift stopped sessions recursively, including journals and recording documents.
 
 Seconds are added to recorded wall times. Positive values move recordings later; negative values move them earlier. Media bytes and native timing stay unchanged. Stop recording before using this command.
 
  positional arguments
- -----------------------------------------------------------------------------
-  PATH        directory (required)
-  FLOAT       Signed offset in seconds, for example 3600 or -3600. (required)
+ -----------------------------------------------------------------------------------------------
+  PATH                   directory (required)
+  [{None}|FLOAT]         Signed offset in seconds, for example 3600 or -3600. (default: None)
 
  options
- -----------------------------------------------------------------------------
-  -h, --help  show this help message and exit
+ -----------------------------------------------------------------------------------------------
+  -h, --help             show this help message and exit
+  --resume, --no-resume  Resume the manifest given as directory; omit seconds. (default: False)
 
 
 $ recs preflight --help

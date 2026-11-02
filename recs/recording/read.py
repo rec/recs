@@ -9,42 +9,47 @@ from ufor.codec import parse_score
 from ufor.recording import AudioStream, RecordingScore
 
 from ..base.errors import RecsError
-from . import session_record
 from .losses import preserve_audio_losses
 
 
 def read_recording(path: Path) -> RecordingScore:
-    path = recording_path(path)
     try:
+        path = recording_path(path)
         if path.name == 'session-record.jsonl':
             from .finalize import prepare_recording
 
             document, _ = prepare_recording(path, verify_files=False)
             return document
         document = parse_score(path.read_text())
+        if not isinstance(document, RecordingScore):
+            raise RecsError(f'Expected a recording document: {path}')
+        journal = next(
+            (a for a in document.assets if a.name == document.body.journal), None
+        )
+        if (
+            journal is not None
+            and journal.encoding in ('recs-session-v4', 'recs-session-v5')
+            and isinstance(journal.location, RelativeFileLocation)
+            and any(isinstance(s, AudioStream) for s in document.body.streams)
+        ):
+            root = path.parent.resolve()
+            original = (root / journal.location.path).resolve()
+            if not original.is_relative_to(root):
+                raise RecsError(f'Journal escapes the session directory: {original}')
+            if original.is_file():
+                from .finalize import read_capture_entries
+
+                entries, notes = read_capture_entries(original)
+                if notes:
+                    document = document.model_copy(
+                        update={
+                            'body': document.body.model_copy(update={'state': 'open'})
+                        }
+                    )
+                document = preserve_audio_losses(document, entries)
+        return document
     except (OSError, ValidationError, ParseError) as error:
         raise RecsError(f'Cannot read recording {path}: {error}') from error
-    if not isinstance(document, RecordingScore):
-        raise RecsError(f'Expected a recording document: {path}')
-    journal = next(
-        (a for a in document.assets if a.name == document.body.journal), None
-    )
-    if (
-        journal is not None
-        and journal.encoding in ('recs-session-v4', 'recs-session-v5')
-        and isinstance(journal.location, RelativeFileLocation)
-        and any(isinstance(s, AudioStream) for s in document.body.streams)
-    ):
-        root = path.parent.resolve()
-        original = (root / journal.location.path).resolve()
-        if not original.is_relative_to(root):
-            raise RecsError(f'Journal escapes the session directory: {original}')
-        if original.is_file():
-            entries, errors = session_record.read_entries(original)
-            if errors:
-                raise RecsError(f'Cannot read capture journal {original}: {errors}')
-            document = preserve_audio_losses(document, entries)
-    return document
 
 
 def recording_path(path: Path) -> Path:
