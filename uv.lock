@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-10-19T14:34:02.104332Z"
+exclude-newer = "2026-10-28T14:01:56.356772Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -676,7 +676,7 @@ wheels = [
 [[package]]
 name = "reccy"
 version = "0.2.0"
-source = { git = "https://github.com/rec/reccy.git?branch=main#8af4308f45417083a91b1c5982fa764a879dbaa7" }
+source = { git = "https://github.com/rec/reccy.git?branch=main#b44b643832ce02ed16154c6e728bdfd0f0277c9d" }
 dependencies = [
     { name = "pint" },
     { name = "pydantic" },
