@@ -139,7 +139,7 @@ def test_export_does_not_replace_destination_created_during_publication(
 ) -> None:
     record = _record(tmp_path / 'a', 0, None, None)
     destination = tmp_path / 'export'
-    publish = session_export._publish_directory
+    publish = session_export.publish_directory
 
     def create_destination_before_publish(temporary: Path, target: Path) -> None:
         target.mkdir()
@@ -147,7 +147,7 @@ def test_export_does_not_replace_destination_created_during_publication(
         publish(temporary, target)
 
     monkeypatch.setattr(
-        session_export, '_publish_directory', create_destination_before_publish
+        session_export, 'publish_directory', create_destination_before_publish
     )
 
     with pytest.raises(RecsError, match='Export not published; staging retained'):
@@ -309,3 +309,40 @@ def _record(
     writer.write(session_record.SessionFooter(ended_at='end', duration_seconds=1))
     writer.close()
     return finalize_recording(writer.path)
+
+
+def test_export_writes_verifiable_asset_manifest(tmp_path: Path) -> None:
+    from reccy.runtime.asset_sets import PackageManifest, verify_package
+
+    record = _record(tmp_path / 'source', 0, None, None)
+    destination = session_export.export(record, tmp_path / 'export')
+    manifest = PackageManifest.model_validate(
+        tomlkit.loads((destination / 'asset-manifest.toml').read_text())
+    )
+    assert 'take.wav' in manifest.files
+    verify_package(destination, manifest)
+
+
+def test_export_preflight_reports_all_missing_cached_assets(tmp_path: Path) -> None:
+    from reccy.runtime.asset_sets import AssetPreparationError
+    from reccy.runtime.assets import AssetStore
+
+    from recs.recording.asset_resolver import FiniteAssetResolver
+
+    record = _record(tmp_path / 'source', 0, None, None)
+    resolver = FiniteAssetResolver(
+        AssetStore(tmp_path / 'cache', credential_scope='test'),
+        mounts=[],
+        approved_https_urls=[],
+        https_headers=None,
+        approved_git_urls=[],
+        git_transport_repository=None,
+        fingerprint_key=b'x' * 32,
+        maximum_bytes=1_000_000,
+        timeout=1,
+        offline=True,
+    )
+    with pytest.raises(AssetPreparationError) as failure:
+        session_export.export(record, tmp_path / 'export', resolver=resolver)
+    assert len(failure.value.failures) == len(read_recording(record).assets)
+    assert not (tmp_path / 'export').exists()

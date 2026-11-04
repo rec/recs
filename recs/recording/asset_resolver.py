@@ -47,6 +47,7 @@ class FiniteAssetResolver:
         fingerprint_key: bytes,
         maximum_bytes: int,
         timeout: float,
+        offline: bool = False,
     ) -> None:
         if len(fingerprint_key) < 32:
             raise ValueError('fingerprint_key must contain at least 32 bytes')
@@ -59,6 +60,7 @@ class FiniteAssetResolver:
         self.fingerprint_key = fingerprint_key
         self.maximum_bytes = maximum_bytes
         self.timeout = timeout
+        self.offline = offline
 
     @contextmanager
     def open(
@@ -76,6 +78,37 @@ class FiniteAssetResolver:
             else None
         )
         location = asset.location
+        if self.offline:
+            if expected is None:
+                raise AssetCacheError(
+                    'Offline preparation requires a measured length and hash'
+                )
+            if expected.length > self.maximum_bytes:
+                raise AssetCacheError('Asset exceeds the host byte limit')
+            if isinstance(location, DownloadLocation):
+                if (
+                    location.url not in self.approved_https_urls
+                    or urlsplit(location.url).scheme != 'https'
+                ):
+                    raise AssetAcquisitionDenied('Host policy denied the HTTPS URL')
+            elif isinstance(location, GitFileLocation):
+                if location.repository not in self.approved_git_urls or urlsplit(
+                    location.repository
+                ).scheme not in {'git', 'https', 'ssh'}:
+                    raise AssetAcquisitionDenied(
+                        'Host policy denied the Git repository'
+                    )
+            elif isinstance(location, VolumeFileLocation):
+                resolve_volume_root(
+                    location.volume_id, location.volume_name, self.mounts
+                )
+            elif not isinstance(location, RelativeFileLocation):
+                raise AssetCacheError(
+                    f'Asset is not a finite byte source: {asset.name}'
+                )
+            with self.store.open_expected(expected) as file:
+                yield file
+            return
         context: dict[str, object]
         if isinstance(location, RelativeFileLocation):
             root = package_root

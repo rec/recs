@@ -492,3 +492,13 @@ completed plans are deliberately not retained as product documentation.
 
 Profile real or synthetic audio devices with Python 3.15 using `--profile` or
 `--profile-fake=18:10`. See [command-line profiling](doc/profiling.md).
+
+Finite-asset policy files may set `offline = true` to require already verified
+cached bytes for every selected asset. This mode never fetches a missing URL or
+Git object and still checks host authority. Identities must include both hash
+and byte length; an explicitly configured volume ID can be used while its disk
+is disconnected. With a resolver policy, session export preflights the complete
+asset set and holds its verified streams until publication. Every export also
+writes `asset-manifest.toml` and verifies its members before publishing the new
+directory. Existing destinations and the interrupted-export resume protocol
+retain their previous behavior.

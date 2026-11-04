@@ -146,3 +146,29 @@ def _resolver(
         maximum_bytes=1024,
         timeout=1,
     )
+
+
+def test_offline_download_never_fetches_and_still_checks_authority(
+    tmp_path: Path,
+) -> None:
+    from reccy.runtime.assets import AssetCacheMiss
+
+    url = 'https://example.test/offline.bin'
+    resolver = _resolver(tmp_path, approved_https_urls=[url])
+    resolver.offline = True
+    asset = _asset(DownloadLocation(url=url), b'cached')
+    with pytest.raises(AssetCacheMiss):
+        with resolver.open(asset, tmp_path):
+            pytest.fail('Missing offline bytes must not fetch')
+    resolver.store.import_bytes(
+        b'cached',
+        source_key='v1:' + 'a' * 64,
+        category=AssetCategory.acquired,
+        source_kind=SourceKind.download,
+    )
+    with resolver.open(asset, tmp_path) as stream:
+        assert stream.read() == b'cached'
+    resolver.approved_https_urls = []
+    with pytest.raises(AssetAcquisitionDenied):
+        with resolver.open(asset, tmp_path):
+            pytest.fail('Cached bytes are not authorization')

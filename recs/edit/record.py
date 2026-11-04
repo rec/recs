@@ -2,9 +2,11 @@ import shutil
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import BinaryIO
 
 import soundfile
 from pydantic import BaseModel, ConfigDict
+from reccy.runtime.asset_sets import prepare_assets
 from ufor import recording
 from ufor.assets import Asset
 from ufor.encoding import Format
@@ -140,6 +142,7 @@ def resolve_input(
             ).append((path, assets[fragment.asset], fragment))
     fragments: list[AudioFragment] = []
     prepared: dict[tuple[Path, str], Path] = {}
+    selected_fragments: list[tuple[int, int, Path, Asset, recording.AudioFragment]] = []
     for (start, end), choices in sorted(variants.items()):
         if source.input_format is not None:
             choices = [c for c in choices if c[1].encoding == source.input_format]
@@ -152,7 +155,19 @@ def resolve_input(
             raise RecsError(
                 f'Source {source.name}: ambiguous variants for frames {start}:{end}'
             )
-        record_file, asset, span = choices[0]
+        selected_fragments.append((start, end, *choices[0]))
+    acquired = None
+    if resolver is not None:
+        assert resources is not None
+        acquired = resources.enter_context(
+            prepare_assets(
+                {
+                    f'{p}:{a.name}': resolver.open(a, p.parent)
+                    for _, _, p, a, _ in selected_fragments
+                }
+            )
+        )
+    for start, end, record_file, asset, span in selected_fragments:
         directory = record_file.parent
         if resolver is None:
             relative_path = asset_path(asset)
@@ -171,8 +186,9 @@ def resolve_input(
             assert resources is not None
             key = record_file, asset.name
             if key not in prepared:
+                assert acquired is not None
                 prepared[key] = _prepare_asset_path(
-                    asset, directory, resolver, resources
+                    acquired.streams[f'{record_file}:{asset.name}'], resources
                 )
             path = prepared[key]
             source_path = f'{record_file}:{asset.name}'
@@ -216,12 +232,9 @@ def resolve_input(
 
 
 def _prepare_asset_path(
-    asset: Asset,
-    directory: Path,
-    resolver: FiniteAssetResolver,
+    file: BinaryIO,
     resources: ExitStack,
 ) -> Path:
-    file = resources.enter_context(resolver.open(asset, directory))
     name = getattr(file, 'name', None)
     if isinstance(name, str | Path):
         return Path(name)

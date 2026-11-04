@@ -1,8 +1,7 @@
-import ctypes
 import os
 import shutil
-import sys
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Annotated
 
@@ -11,7 +10,14 @@ import tyro
 from pydantic import BaseModel, Field
 from reccy.configuration.settings import write_text_atomically
 from reccy.paths import legal_filename
-from reccy.runtime.assets import AssetCacheError
+from reccy.runtime.asset_sets import (
+    PackageManifest,
+    prepare_assets,
+    publish_directory,
+    stream_identity,
+    verify_package,
+)
+from reccy.runtime.assets import AssetCacheError, ObjectIdentity
 from ufor.assets import Asset, RelativeFileLocation
 from ufor.codec import score_toml
 
@@ -20,10 +26,6 @@ from .asset_policy import load_asset_policy
 from .asset_resolver import FiniteAssetResolver
 from .files import asset_content, asset_path, content_matches, sealed_asset
 from .read import read_recording_chain, recording_path
-
-RENAME_EXCL = 0x00000004
-RENAME_NOREPLACE = 1
-AT_FDCWD = -100
 
 
 class ExportCli(BaseModel, frozen=True):
@@ -52,6 +54,17 @@ def export(
     resume: Path | None = None,
     *,
     resolver: FiniteAssetResolver | None = None,
+) -> Path:
+    with ExitStack() as resources:
+        return _export(record, destination, resume, resolver, resources)
+
+
+def _export(
+    record: Path,
+    destination: Path,
+    resume: Path | None,
+    resolver: FiniteAssetResolver | None,
+    resources: ExitStack,
 ) -> Path:
     record = recording_path(record).resolve()
     destination = destination.absolute()
@@ -82,6 +95,7 @@ def export(
     reserved = {p.as_posix() for p in targets.values()} | {
         'export-progress.json',
         'export-summary.toml',
+        'asset-manifest.toml',
     }
     paths = {Path(p) for p in [*assets, *reserved]}
     if (
@@ -111,6 +125,13 @@ def export(
             document = document.model_copy(update={'assets': measured})
         measured_records.append((path, document))
     records = measured_records
+    prepared = (
+        resources.enter_context(
+            prepare_assets({n: resolver.open(a, p) for n, (p, a) in assets.items()})
+        )
+        if resolver is not None
+        else None
+    )
     if resume is not None:
         temporary = resume.resolve()
         try:
@@ -176,9 +197,11 @@ def export(
                     if resolver is None:
                         shutil.copy2(path.parent / relative_path, target)
                     else:
-                        with resolver.open(asset, path.parent) as source:
-                            with target.open('wb') as destination_file:
-                                shutil.copyfileobj(source, destination_file)
+                        assert prepared is not None
+                        source = prepared.streams[current]
+                        source.seek(0)
+                        with target.open('wb') as destination_file:
+                            shutil.copyfileobj(source, destination_file)
                 actual = sealed_asset(target, output.parent, asset.name, asset.encoding)
                 if not content_matches(asset_content(actual), asset_content(asset)):
                     raise RecsError(f'Exported asset differs: {relative_path}')
@@ -261,7 +284,30 @@ def export(
             raise RecsError(
                 f'Export destination appeared during copying: {destination}'
             )
-        _publish_directory(temporary, destination)
+        manifest = PackageManifest(
+            files=prepared.identities
+            if prepared is not None
+            else {
+                n: ObjectIdentity.model_validate(
+                    {
+                        'sha256': asset_content(a).sha256,
+                        'length': asset_content(a).byte_length,
+                    }
+                )
+                for n, (_, a) in assets.items()
+            }
+        )
+        for relative in [
+            *targets.values(),
+            Path('export-summary.toml'),
+        ]:
+            with (temporary / relative).open('rb') as source:
+                manifest.files[relative.as_posix()] = stream_identity(source)
+        verify_package(temporary, manifest)
+        (temporary / 'asset-manifest.toml').write_text(
+            tomlkit.dumps(manifest.model_dump())
+        )
+        publish_directory(temporary, destination)
     except (OSError, RecsError, AssetCacheError, KeyboardInterrupt) as error:
         if current:
             progress.failed.append(current)
@@ -288,46 +334,6 @@ def _export_path(asset: Asset) -> str:
     if isinstance(asset.location, RelativeFileLocation):
         return asset.location.path
     return f'assets/{asset.name}'
-
-
-def _publish_directory(temporary: Path, destination: Path) -> None:
-    if sys.platform == 'win32':
-        temporary.rename(destination)
-        return
-
-    libc = ctypes.CDLL(None, use_errno=True)
-    if sys.platform == 'darwin':
-        try:
-            rename = libc.renamex_np
-        except AttributeError:
-            raise RecsError('Exclusive directory rename is unavailable') from None
-        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
-        arguments = (os.fsencode(temporary), os.fsencode(destination), RENAME_EXCL)
-    elif sys.platform.startswith('linux'):
-        try:
-            rename = libc.renameat2
-        except AttributeError:
-            raise RecsError('Exclusive directory rename is unavailable') from None
-        rename.argtypes = [
-            ctypes.c_int,
-            ctypes.c_char_p,
-            ctypes.c_int,
-            ctypes.c_char_p,
-            ctypes.c_uint,
-        ]
-        arguments = (
-            AT_FDCWD,
-            os.fsencode(temporary),
-            AT_FDCWD,
-            os.fsencode(destination),
-            RENAME_NOREPLACE,
-        )
-    else:
-        raise RecsError('Exclusive directory rename is unavailable')
-    rename.restype = ctypes.c_int
-    if rename(*arguments) != 0:
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error), str(destination))
 
 
 def main(argv: list[str] | None = None) -> int:

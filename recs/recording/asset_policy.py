@@ -19,6 +19,7 @@ class FiniteAssetPolicy(BaseModel, frozen=True):
     credential_scope: str = Field(min_length=1)
     maximum_bytes: int = Field(gt=0, strict=True)
     timeout: float = Field(gt=0, allow_inf_nan=False)
+    offline: bool = False
     capacity: AssetCapacity
     volumes: list[VolumeMount] = Field(default_factory=list)
     approved_https_urls: list[str] = Field(default_factory=list)
@@ -41,6 +42,10 @@ def load_asset_policy(path: Path) -> FiniteAssetResolver:
     ):
         raise RecsError('Git transport repository must be an absolute path')
     for mount in policy.volumes:
+        if policy.offline:
+            if not mount.root.is_absolute():
+                raise RecsError('Volume root must be absolute')
+            continue
         if not mount.root.is_absolute() or not mount.root.is_mount():
             raise RecsError(f'Volume root is not an absolute mount: {mount.root}')
         try:
@@ -66,4 +71,5 @@ def load_asset_policy(path: Path) -> FiniteAssetResolver:
         fingerprint_key=secrets.token_bytes(32),
         maximum_bytes=policy.maximum_bytes,
         timeout=policy.timeout,
+        offline=policy.offline,
     )
