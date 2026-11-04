@@ -203,7 +203,7 @@ through the same event model.
 
 Semantic `trigger`, `release`, and `control_change` records use that same
 envelope. Their payload and addressing rules are defined in the
-[instrument contract](../../ufor/doc/instrument-format.md#performance-input). A
+[instrument contract](https://github.com/rec/ufor/blob/main/doc/instrument-format.md#performance-input). A
 [portable performance sequence](../../ufor/conformance/performance.json) demonstrates
 preroll controls and overlapping triggers with distinct identities.
 

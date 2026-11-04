@@ -142,5 +142,5 @@ cross-device clock synchronization. Subscription termination is EOF; query
   detectable, including while disk writing is suspended.
 
 streamO integration and its agreed silence/reconnect/outage policy are not yet
-implemented here. See [remaining work](../plan/audio-forwarding.md). No service
+implemented here. See [remaining work](https://github.com/rec/recs/blob/main/plan/audio-forwarding.md). No service
 deployment or hardware validation is implied by the automated tests.

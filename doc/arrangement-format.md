@@ -77,7 +77,7 @@ Each part either names a definition with `{ path, sha256? }` or contains a
 complete inline score. Each clip selects its public output with `{ part, output }`.
 Definitions resolve relative to the containing score; public `inputs`, `outputs`
 bind internal tracks, buses or child outputs. See the [composition
-design](../../ufor/doc/composition-design.md) for connections and parameters.
+design](https://github.com/rec/ufor/blob/main/doc/composition-design.md) for connections and parameters.
 
 Recording exports use stable stream IDs and optional zero-based consecutive
 `channels`. recs' CLI retains human-facing session selectors while authoring:
