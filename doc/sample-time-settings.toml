@@ -1,0 +1,26 @@
+# : Longest amount of time per file: 0 means infinite
+longest_file_time = 0.0
+
+# : Shortest amount of time per file
+shortest_file_time = 0.0
+
+# : Amount of quiet at the start
+quiet_before_start = 0.0
+
+# : Amount of quiet at the end
+quiet_after_end = 0.0
+
+# : Amount of quiet before stopping a recording
+stop_after_quiet = 0.0
+
+# Time for moving averages for the meters
+moving_average_time = 0.0
+
+# : The noise floor in decibels
+noise_floor = 70.0
+
+# : Ignore noise_floor, record everything immediately until the end
+record_everything = false
+
+# : Amount of total time to run.  0 or less means "run forever"
+total_run_time = 0.0
