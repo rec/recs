@@ -1,10 +1,11 @@
 import copy
 import json
 import sys
+from collections.abc import Iterator
 from datetime import datetime, timedelta
-from hashlib import sha256
 from multiprocessing import connection, dummy
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from dvice import poller
@@ -80,13 +81,17 @@ def mock_midi_devices(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def instance_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # Unix sockets need short paths; Windows uses named pipes instead.
     directory = tmp_path if sys.platform == 'win32' else Path('/tmp')
-    home = directory / f'recs-{sha256(str(tmp_path).encode()).hexdigest()[:12]}'
-    home.mkdir(exist_ok=True)
-    monkeypatch.setenv('HOME', str(home))
-    monkeypatch.setenv('USERPROFILE', str(home))
+    with TemporaryDirectory(prefix='recs-', dir=directory) as home:
+        monkeypatch.setenv('HOME', home)
+        monkeypatch.setenv('USERPROFILE', home)
+        try:
+            yield
+        finally:
+            # Restore mocked filesystem functions before temporary-home cleanup.
+            monkeypatch.undo()
 
 
 @pytest.fixture
