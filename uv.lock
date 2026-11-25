@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.13"
 
 [options]
-exclude-newer = "2026-11-18T18:25:26.42945Z"
+exclude-newer = "2026-11-18T18:32:35.824988Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -205,7 +205,7 @@ wheels = [
 [[package]]
 name = "dvice"
 version = "0.2.0"
-source = { git = "https://github.com/rec/dvice.git?branch=main#286c4cdd20cc891a4cf302ac69ae0f0d5f45a05e" }
+source = { git = "https://github.com/rec/dvice.git?branch=main#661155cf35cd15276e05f9979945c297a2cd400d" }
 dependencies = [
     { name = "pydantic" },
     { name = "sounddevice" },
