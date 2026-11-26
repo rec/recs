@@ -376,7 +376,7 @@ class ChannelWriter(Runnable):
             if self.stopped or self.quiet_frames > quiet_limit:
                 self._write_and_close()
 
-        return self._state() - saved_state
+        return self._state(write_requested=should_record) - saved_state
 
     def _state(self, **kwargs: Any) -> ChannelState:
         return ChannelState(

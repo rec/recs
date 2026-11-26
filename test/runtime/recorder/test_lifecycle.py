@@ -6,6 +6,7 @@ from reccy.protocol import rpc
 from threa import Runnable
 
 from recs.base.errors import ErrorRecord
+from recs.base.state import ChannelState
 from recs.cfg.cfg import Cfg
 from recs.daemon import external_ipc
 from recs.recording import recording_paths
@@ -240,3 +241,26 @@ def test_status_snapshot_includes_error_timestamps(
             message='Device Mic failed',
         )
     ]
+
+
+def test_snapshot_reports_quiet_writer_and_configured_input_never_seen(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_devices: None,
+) -> None:
+    monkeypatch.setattr(recorder, 'DevicePoller', FakePoller)
+    monkeypatch.setattr(recorder, 'SourceProcess', FakeSourceProcess)
+    rec = Recorder(Cfg(include=['Mic', 'Unplugged'], silent=True))
+    rec._poll_devices()
+    key, tracks = next(iter(rec.state.state.items()))
+    track = next(iter(tracks))
+    rec.state.update({key: {track: ChannelState(write_requested=False)}})
+
+    snapshot = rec._control.status_snapshot()
+    device = next(row for row in snapshot.rows if row.get('source_key') == key)
+    channel = next(row for row in snapshot.rows if 'channel' in row)
+
+    assert snapshot.missing_audio_inputs == ['Unplugged']
+    assert device['writing_enabled'] is True
+    assert channel['write_requested'] is False
+    assert channel['capture_age_seconds'] is not None
+    assert channel['recorded'] == 0

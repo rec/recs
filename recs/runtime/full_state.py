@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from time import monotonic
 from typing import Any
 
 from recs.base import state, times
@@ -17,6 +18,7 @@ class FullState:
         self.state: dict[str, dict[str, state.ChannelState]] = {}
         self.source_names: dict[str, str] = {}
         self.track_names: dict[tuple[str, str], str] = {}
+        self.capture_observed: dict[str, dict[str, float]] = {}
         self.online: set[str] = set()
         self.total = state.ChannelState()
         self.start_time = times.timestamp()
@@ -33,6 +35,7 @@ class FullState:
             return {i.name: state.ChannelState() for i in tr}
 
         self.state[source.key] = track_state(tracks)
+        self.capture_observed[source.key] = {}
         self.source_names[source.key] = (
             aliases.display_name(source) if aliases else source.name
         )
@@ -71,8 +74,11 @@ class FullState:
         return times.timestamp() - self.start_time
 
     def update(self, state: Mapping[str, Mapping[str, state.ChannelState]]) -> None:
+        now = monotonic()
         for source_key, source_state in state.items():
             for channel_name, channel_state in source_state.items():
+                if channel_state.write_requested is not None:
+                    self.capture_observed[source_key][channel_name] = now
                 self.state[source_key][channel_name] += channel_state
                 self.total += channel_state
                 if '-' in channel_name:
@@ -87,6 +93,7 @@ class FullState:
                 channel_state.volume = []
 
     def rows(self) -> Iterator[dict[str, Any]]:
+        now = monotonic()
         yield {
             'time': self.elapsed_time,
             'recorded': self.total.recorded_time,
@@ -96,10 +103,15 @@ class FullState:
 
         for source_key, source_state in self.state.items():
             active = Active.active if source_key in self.online else Active.offline
-            yield {'device': self.source_names[source_key], 'on': active}
+            yield {
+                'device': self.source_names[source_key],
+                'source_key': source_key,
+                'on': active,
+            }
 
             for c, s in source_state.items():
                 volume = len(s.volume) and sum(s.volume) / len(s.volume)
+                captured_at = self.capture_observed[source_key].get(c)
                 yield {
                     'channel': self.track_names[(source_key, c)],
                     'channels': _track_channels(c),
@@ -109,6 +121,10 @@ class FullState:
                     'file_count': s.file_count,
                     'signal': volume,
                     'volume': volume,
+                    'capture_age_seconds': None
+                    if captured_at is None
+                    else now - captured_at,
+                    'write_requested': s.write_requested,
                 }
 
     def db_ranges(self) -> dict[str, float]:

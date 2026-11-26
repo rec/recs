@@ -109,6 +109,25 @@ def reload_profiles(control: 'RecordingControl') -> gui_protocol.ProfilesReloade
 
 def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
     record_path = control.record_path()
+    rows = list(control.rows())
+    for row in rows:
+        if (
+            isinstance(key := row.get('source_key'), str)
+            and (source := control.devices.sources.get(key)) is not None
+        ):
+            row['capture_running'] = bool(
+                source.is_alive
+                and source.running
+                and (
+                    key not in control.devices.hardware
+                    or key in control.devices.present
+                )
+            )
+            row['writing_enabled'] = (
+                control.cfg.general.writes_files
+                and control.devices.writing_enabled
+                and key not in control.devices.writing_suspended
+            )
     return gui_protocol.StatusSnapshot(
         type='status_snapshot_result',
         disk=disk_status(control).model_dump(exclude={'type'}),
@@ -122,9 +141,10 @@ def status_snapshot(control: 'RecordingControl') -> gui_protocol.StatusSnapshot:
             **recording_state(control).model_dump(exclude={'type', 'was_paused'}),
             'listening': control.listening,
         },
-        rows=control.rows(),
+        rows=rows,
         session_directory=str(record_path.parent),
         instance=control.instance,
+        missing_audio_inputs=control.devices.missing_audio_inputs,
     )
 
 

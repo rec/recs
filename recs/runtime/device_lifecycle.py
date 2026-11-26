@@ -115,6 +115,12 @@ class DeviceLifecycle:
         self.present_hardware: set[str] = set()
         self.no_devices_reported = False
         self.no_channels_reported = False
+        self.missing_audio_inputs = [
+            s
+            for s in cfg.selection.include
+            if not self.file_sources
+            and not cfg.aliases.to_tracks([s], allow_missing=True)
+        ]
         self.discovery_sequence = -1
         self.discovery_failure_reported = False
         self.poller: DevicePoller | None = None
@@ -262,6 +268,7 @@ class DeviceLifecycle:
                 and not expired
             ):
                 source.start()
+                self.state.capture_observed[name].clear()
                 self.source_frames_at_start[name] = self.source_frames[name]
                 self.source_start_times[name] = times.timestamp()
                 self.source_last_updates[name] = self.source_start_times[name]
@@ -394,6 +401,11 @@ class DeviceLifecycle:
             return True
         devices = get_input_devices(list(snapshot.values()), self.cfg.muted_device_name)
         aliases = Aliases(self.cfg.device.alias, devices)
+        self.missing_audio_inputs = [
+            s
+            for s in self.cfg.selection.include
+            if not aliases.to_tracks([s], allow_missing=True)
+        ]
         for source, tracks in input_device_tracks(self.cfg, devices):
             if source.key in self.source_processes:
                 continue

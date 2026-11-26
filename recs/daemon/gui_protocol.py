@@ -380,6 +380,7 @@ class StatusSnapshot(BaseModel):
     rows: list[dict[str, object]]
     session_directory: str
     instance: InstanceIdentity
+    missing_audio_inputs: list[str] = Field(default_factory=list)
 
 
 class TrackNames(BaseModel):

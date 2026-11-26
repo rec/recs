@@ -24,6 +24,7 @@ class ChannelState(BaseModel):
     timestamp: float = Field(default_factory=time.time)
     volume: list[float] = Field(default_factory=list)
     max_write_seconds: float = 0.0
+    write_requested: bool | None = None
 
     @property
     def amp(self) -> float:
@@ -45,6 +46,8 @@ class ChannelState(BaseModel):
         self.is_active = m.is_active
         self.timestamp = m.timestamp
         self.volume = m.volume
+        if m.write_requested is not None:
+            self.write_requested = m.write_requested
         self.max_write_seconds = max(self.max_write_seconds, m.max_write_seconds)
 
         self.max_amp = max(self.max_amp, m.max_amp)
