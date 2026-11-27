@@ -325,14 +325,15 @@ class SourceRecorder(Runnables):
         self.control.set_track_names(track_names or {})
         self.set_waveforms_enabled(waveforms_enabled)
 
-        if (
-            isinstance(self.source, InputDevice)
-            and self.cfg.audio.capture_block_frames is not None
+        if isinstance(self.source, InputDevice) and (
+            self.cfg.audio.capture_block_frames is not None
+            or self.cfg.audio.capture_latency is not None
         ):
             self.input_stream = self.source.input_stream(
                 sdtype=cast(SdType, self.cfg.audio.sdtype),
                 update_callback=self.buffer.put,
                 blocksize=self.cfg.audio.capture_block_frames,
+                latency=self.cfg.audio.capture_latency,
             )
         elif isinstance(self.source, FileSource):
             self.input_stream = self.source.input_stream(

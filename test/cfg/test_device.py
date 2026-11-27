@@ -41,10 +41,12 @@ def test_input_devices_use_stable_host_identity() -> None:
 
 
 @pytest.mark.parametrize('requested_frames', [None, 257])
+@pytest.mark.parametrize('latency', [None, 0.1])
 def test_input_device_preserves_driver_blocks_and_uses_adc_time(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     requested_frames: int | None,
+    latency: float | None,
 ) -> None:
     updates: list[Update] = []
     monkeypatch.setattr(times, 'timestamp', lambda: 200.0)
@@ -59,11 +61,13 @@ def test_input_device_preserves_driver_blocks_and_uses_adc_time(
             device: str,
             dtype: SdType,
             samplerate: int,
-            **options: int,
+            **options: int | float,
         ) -> None:
-            assert options == (
-                {} if requested_frames is None else {'blocksize': requested_frames}
-            )
+            assert options == {
+                k: v
+                for k, v in {'blocksize': requested_frames, 'latency': latency}.items()
+                if v is not None
+            }
             start = 0
             driver_sizes = iter([1, 383, 257, 959, 48_000])
             while start < len(samples):
@@ -87,7 +91,9 @@ def test_input_device_preserves_driver_blocks_and_uses_adc_time(
         {'name': 'Mic', 'max_input_channels': 1, 'default_samplerate': 48_000}
     )
 
-    source.input_stream(SdType.float32, updates.append, requested_frames)
+    source.input_stream(
+        SdType.float32, updates.append, requested_frames, latency=latency
+    )
 
     assert updates[0].timestamp == 199.25
     assert updates[0].status == 'overflow'

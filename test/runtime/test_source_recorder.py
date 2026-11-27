@@ -260,8 +260,11 @@ def test_source_recorder_records_input_that_finishes_during_startup(
         sdtype: object,
         update_callback: Callable[[Update], None],
         blocksize: int | None = None,
+        *,
+        latency: float | None = None,
     ) -> Runnable:
         assert blocksize == capture_block_frames
+        assert latency == 0.1
 
         class ImmediateInputStream(Runnable):
             def start(self) -> None:
@@ -280,6 +283,7 @@ def test_source_recorder_records_input_that_finishes_during_startup(
             formats=['wav'],
             output_directory=str(tmp_path),
             capture_block_frames=capture_block_frames,
+            capture_latency='100ms',
         ),
         OneMessageControlConnection(source_messages.SourceControl(), threading.Event()),
         tmp_path,

@@ -30,6 +30,8 @@ class InputDevice(Source):
         sdtype: SdType,
         update_callback: Callable[[Update], None],
         blocksize: int | None = None,
+        *,
+        latency: float | None = None,
     ) -> Runnable:
         from .profile_devices import FakeInputStream, inventory
 
@@ -66,6 +68,7 @@ class InputDevice(Source):
             dtype=sdtype,
             samplerate=self.samplerate,
             **({'blocksize': blocksize} if blocksize is not None else {}),
+            **({'latency': latency} if latency is not None else {}),
         )
         return Wrapper(stream)
 

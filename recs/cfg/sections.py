@@ -178,6 +178,15 @@ class Audio(BaseModel):
         tyro.conf.arg(help='Frames per capture callback; unset lets the driver choose'),
     ] = None
 
+    capture_latency: Annotated[
+        units.Seconds | None,
+        cli_metadata.TIME_SPEC,
+        Field(gt=0, allow_inf_nan=False),
+        tyro.conf.arg(
+            help='Requested hardware input latency; unset uses the driver default'
+        ),
+    ] = None
+
     formats: Annotated[
         tyro.conf.UseAppendAction[list[Annotated[Format, cli_metadata.FORMAT_SPEC]]],
         tyro.conf.arg(name='format', aliases=('-f',), help='Audio file formats'),

@@ -107,6 +107,8 @@ sizes and `processing_batch_seconds` do not determine detector boundaries.
 The processing batch bound defaults to 0.1 seconds and must be at least the
 silence-window duration. Both settings are startup-only and leave the hardware
 callback size under driver control unless `capture_block_frames` is set.
+Use `--capture-latency 100ms` to request more buffering from PortAudio for
+hardware capture inputs. The host driver chooses the actual buffer size.
 
 An incomplete window waits at most the processing batch duration, subject to
 thread scheduling. Gaps, backend status boundaries, configuration or layout

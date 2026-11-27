@@ -82,6 +82,8 @@ readiness inspects a project or configuration without recording; preflight check
  ---------------------------------------------------------------------------------------------
   --capture-block-frames {None}|INT
         Frames per capture callback; unset lets the driver choose (default: None)
+  --capture-latency TIME
+        Requested hardware input latency; unset uses the driver default (default: None)
   -f AUDIO FORMAT, --format AUDIO FORMAT
         Audio file formats (repeatable, appends to: flac)
   -m STR, --metadata STR

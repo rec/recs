@@ -20,6 +20,13 @@ def test_capture_block_frames_is_opt_in(mock_devices: None) -> None:
         Cfg(capture_block_frames=0)
 
 
+def test_capture_latency_is_opt_in_and_accepts_time_units(mock_devices: None) -> None:
+    assert Cfg().audio.capture_latency is None
+    assert Cfg(capture_latency='100ms').audio.capture_latency == 0.1
+    with pytest.raises(ValidationError):
+        Cfg(capture_latency=0)
+
+
 def test_silence_windows_and_processing_bounds_are_validated(
     mock_devices: None,
 ) -> None:
